@@ -172,6 +172,33 @@ func TestRealtimeCapture(t *testing.T) {
 	if err := adm.QueryRow(ctx, `SELECT count(*) FROM pgd_realtime.outbox WHERE record ->> 'body' = 'after'`).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("captured after disable: %d %v", n, err)
 	}
+
+	// ---- The dashboard's API ---------------------------------------------------
+	base := "/api/v1/projects/" + rp.pid.String() + "/realtime"
+	if code := rp.e.Do("PUT", base+"/tables/public/todos", map[string]any{"enabled": true}, nil); code != http.StatusNoContent {
+		t.Fatalf("turn on todos: %d", code)
+	}
+	if code := rp.e.Do("PUT", base+"/tables/public/nokey", map[string]any{"enabled": true}, nil); code != http.StatusBadRequest {
+		t.Fatalf("a table without a primary key: %d", code)
+	}
+	if code := rp.e.Do("PUT", base+"/tables/public/nope", map[string]any{"enabled": true}, nil); code != http.StatusNotFound {
+		t.Fatalf("no such table: %d", code)
+	}
+	if code := rp.e.Do("PUT", base+"/persisted-topics", map[string]any{"topics": []string{"room1", "room2"}}, nil); code != http.StatusNoContent {
+		t.Fatalf("history topics: %d", code)
+	}
+	var o gen.RealtimeOverview
+	if code := rp.e.Do("GET", base, nil, &o); code != http.StatusOK {
+		t.Fatalf("overview: %d", code)
+	}
+	tables := map[string]gen.RealtimeTable{}
+	for _, tb := range o.Tables {
+		tables[tb.Schema+"."+tb.Table] = tb
+	}
+	if !tables["public.todos"].Enabled || !tables["public.todos"].Rls || tables["public.nokey"].Enabled || tables["public.nokey"].HasPrimaryKey ||
+		fmt.Sprint(o.PersistedTopics) != "[room1 room2]" {
+		t.Fatalf("overview: %+v", o)
+	}
 }
 
 // rtClient is a realtime WebSocket client speaking the Phoenix protocol

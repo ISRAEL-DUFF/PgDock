@@ -791,6 +791,24 @@ func (q *Queries) ProjectUsageOwner(ctx context.Context, projectIds []uuid.UUID)
 	return items, nil
 }
 
+const projectUsageSince = `-- name: ProjectUsageSince :one
+SELECT coalesce(sum(quantity), 0)::numeric FROM usage_records WHERE project_id = $1 AND metric = $2 AND period_start >= $3
+`
+
+type ProjectUsageSinceParams struct {
+	ProjectID uuid.UUID
+	Metric    string
+	Since     time.Time
+}
+
+// tenant: system - a project the request already authorized: its use of a metric since a point (this month).
+func (q *Queries) ProjectUsageSince(ctx context.Context, arg ProjectUsageSinceParams) (pgtype.Numeric, error) {
+	row := q.db.QueryRow(ctx, projectUsageSince, arg.ProjectID, arg.Metric, arg.Since)
+	var column_1 pgtype.Numeric
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const pruneEdgeReports = `-- name: PruneEdgeReports :execrows
 DELETE FROM edge_reports WHERE received_at < $1
 `

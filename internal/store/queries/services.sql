@@ -213,3 +213,7 @@ ORDER BY p.org_id, p.id;
 UPDATE project_services SET realtime_max_connections = @max_connections, realtime_messages_blocked = @messages_blocked
 WHERE project_id = @project_id AND (realtime_max_connections IS DISTINCT FROM @max_connections
   OR realtime_messages_blocked <> @messages_blocked);
+
+-- name: ProjectUsageSince :one
+-- tenant: system - a project the request already authorized: its use of a metric since a point (this month).
+SELECT coalesce(sum(quantity), 0)::numeric FROM usage_records WHERE project_id = @project_id AND metric = @metric AND period_start >= @since;

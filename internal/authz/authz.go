@@ -77,6 +77,8 @@ var actionScope = map[Action]string{
 	AuthUsersManage:    ScopeWrite,
 	FilesView:          ScopeRead,
 	FilesManage:        ScopeWrite,
+	RealtimeView:       ScopeRead,
+	RealtimeManage:     ScopeWrite,
 	ProjectMembers:     ScopeAdmin,
 	ProjectPromote:     ScopeAdmin,
 	ProjectDelete:      ScopeAdmin,
@@ -188,6 +190,10 @@ const (
 	// FilesManage uploads, deletes and changes buckets.
 	FilesView   Action = "project.files"        // developer
 	FilesManage Action = "project.files_manage" // developer
+	// RealtimeView shows realtime's tables, limits and use (V4 §6);
+	// RealtimeManage turns it on for tables and sets history topics.
+	RealtimeView   Action = "project.realtime"        // developer
+	RealtimeManage Action = "project.realtime_manage" // developer
 	// ProjectExport downloads a project's data (a backup as a pg_dump
 	// archive, V2 §10.10): organisation owners only, and like any project
 	// action invisible to those who can't see the project.
@@ -216,6 +222,8 @@ var projectMin = map[Action]string{
 	AuthUsersManage:    ProjectDeveloper,
 	FilesView:          ProjectDeveloper,
 	FilesManage:        ProjectDeveloper,
+	RealtimeView:       ProjectDeveloper,
+	RealtimeManage:     ProjectDeveloper,
 	ProjectMembers:     ProjectAdmin,
 	ProjectPromote:     ProjectAdmin,
 	ProjectDelete:      ProjectAdmin,

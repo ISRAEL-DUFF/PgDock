@@ -3767,6 +3767,75 @@ paths:
           description: Done.
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/realtime:
+    get:
+      operationId: getProjectRealtime
+      summary: The project's realtime (V4 §6) - its tables and which have realtime on, history topics, limits and this month's use
+      tags: [realtime]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealtimeOverview"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/realtime/tables/{schema}/{table}:
+    put:
+      operationId: setRealtimeTable
+      summary: Turn realtime on or off for a table (it needs a primary key)
+      tags: [realtime]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+        - name: schema
+          in: path
+          required: true
+          schema: {type: string, maxLength: 63}
+        - name: table
+          in: path
+          required: true
+          schema: {type: string, maxLength: 63}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: {type: boolean}
+      responses:
+        "204":
+          description: Done
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/realtime/persisted-topics:
+    put:
+      operationId: setRealtimePersistedTopics
+      summary: Set the topics whose broadcasts are kept as history for 7 days
+      tags: [realtime]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [topics]
+              properties:
+                topics:
+                  type: array
+                  maxItems: 100
+                  items: {type: string, minLength: 1, maxLength: 255}
+      responses:
+        "204":
+          description: Done
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/files:
     get:
       operationId: getProjectFiles
@@ -10305,6 +10374,34 @@ components:
             type: string
         cache_seconds:
           type: integer
+    RealtimeTable:
+      type: object
+      required: [schema, table, enabled, rls, has_primary_key]
+      properties:
+        schema: {type: string}
+        table: {type: string}
+        enabled: {type: boolean}
+        rls: {type: boolean, description: "Row-level security is on (anon and users can subscribe only then, or when the table is public)"}
+        has_primary_key: {type: boolean, description: "Realtime needs one"}
+    RealtimeOverview:
+      type: object
+      required: [tables, persisted_topics, messages_blocked, messages_this_month, connection_minutes_this_month, changes_per_second, groups_per_change]
+      properties:
+        tables:
+          type: array
+          items: {$ref: "#/components/schemas/RealtimeTable"}
+        persisted_topics:
+          type: array
+          items: {type: string}
+        max_connections:
+          type: integer
+          nullable: true
+          description: Concurrent connections per edge process; null is unlimited
+        messages_blocked: {type: boolean, description: "The month's messages are used up"}
+        messages_this_month: {type: number}
+        connection_minutes_this_month: {type: number}
+        changes_per_second: {type: integer, description: "Database changes delivered per second before subscribers are told to resync"}
+        groups_per_change: {type: integer, description: "Distinct claims groups checked per change"}
     StorageOverview:
       type: object
       required: [bytes, objects, upload_max_bytes, egress_blocked, transforms_blocked, missing_objects, missing_sample, buckets]

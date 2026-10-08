@@ -7272,6 +7272,38 @@ type QuotaItem struct {
 	Used float32 `json:"used"`
 }
 
+// RealtimeOverview defines model for RealtimeOverview.
+type RealtimeOverview struct {
+	// ChangesPerSecond Database changes delivered per second before subscribers are told to resync
+	ChangesPerSecond           int     `json:"changes_per_second"`
+	ConnectionMinutesThisMonth float32 `json:"connection_minutes_this_month"`
+
+	// GroupsPerChange Distinct claims groups checked per change
+	GroupsPerChange int `json:"groups_per_change"`
+
+	// MaxConnections Concurrent connections per edge process; null is unlimited
+	MaxConnections *int `json:"max_connections,omitempty"`
+
+	// MessagesBlocked The month's messages are used up
+	MessagesBlocked   bool            `json:"messages_blocked"`
+	MessagesThisMonth float32         `json:"messages_this_month"`
+	PersistedTopics   []string        `json:"persisted_topics"`
+	Tables            []RealtimeTable `json:"tables"`
+}
+
+// RealtimeTable defines model for RealtimeTable.
+type RealtimeTable struct {
+	Enabled bool `json:"enabled"`
+
+	// HasPrimaryKey Realtime needs one
+	HasPrimaryKey bool `json:"has_primary_key"`
+
+	// Rls Row-level security is on (anon and users can subscribe only then, or when the table is public)
+	Rls    bool   `json:"rls"`
+	Schema string `json:"schema"`
+	Table  string `json:"table"`
+}
+
 // ReapedSession defines model for ReapedSession.
 type ReapedSession struct {
 	CreatedAt time.Time         `json:"created_at"`
@@ -9392,6 +9424,16 @@ type SetSavedQueryFavoriteJSONBody struct {
 	Favorite bool `json:"favorite"`
 }
 
+// SetRealtimePersistedTopicsJSONBody defines parameters for SetRealtimePersistedTopics.
+type SetRealtimePersistedTopicsJSONBody struct {
+	Topics []string `json:"topics"`
+}
+
+// SetRealtimeTableJSONBody defines parameters for SetRealtimeTable.
+type SetRealtimeTableJSONBody struct {
+	Enabled bool `json:"enabled"`
+}
+
 // ListAPIRequestLogsParams defines parameters for ListAPIRequestLogs.
 type ListAPIRequestLogsParams struct {
 	// Before A log id from the previous page.
@@ -9879,6 +9921,12 @@ type UpdateSavedQueryJSONRequestBody = SavedQueryPatch
 
 // SetSavedQueryFavoriteJSONRequestBody defines body for SetSavedQueryFavorite for application/json ContentType.
 type SetSavedQueryFavoriteJSONRequestBody SetSavedQueryFavoriteJSONBody
+
+// SetRealtimePersistedTopicsJSONRequestBody defines body for SetRealtimePersistedTopics for application/json ContentType.
+type SetRealtimePersistedTopicsJSONRequestBody SetRealtimePersistedTopicsJSONBody
+
+// SetRealtimeTableJSONRequestBody defines body for SetRealtimeTable for application/json ContentType.
+type SetRealtimeTableJSONRequestBody SetRealtimeTableJSONBody
 
 // ReclaimSpaceJSONRequestBody defines body for ReclaimSpace for application/json ContentType.
 type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
@@ -12983,6 +13031,39 @@ type ClientInterface interface {
 	//
 	// Corresponds with PUT /api/v1/projects/{id}/queries/{query_id}/favorite (the `SetSavedQueryFavorite` operationId).
 	SetSavedQueryFavorite(ctx context.Context, id ProjectID, queryId SavedQueryID, body SetSavedQueryFavoriteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectRealtime The project's realtime (V4 §6) - its tables and which have realtime on, history topics, limits and this month's use
+	//
+	// Corresponds with GET /api/v1/projects/{id}/realtime (the `GetProjectRealtime` operationId).
+	GetProjectRealtime(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetRealtimePersistedTopicsWithBody Set the topics whose broadcasts are kept as history for 7 days
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/realtime/persisted-topics (the `SetRealtimePersistedTopics` operationId).
+	SetRealtimePersistedTopicsWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetRealtimePersistedTopics Set the topics whose broadcasts are kept as history for 7 days
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/realtime/persisted-topics (the `SetRealtimePersistedTopics` operationId).
+	SetRealtimePersistedTopics(ctx context.Context, id ProjectID, body SetRealtimePersistedTopicsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetRealtimeTableWithBody Turn realtime on or off for a table (it needs a primary key)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/realtime/tables/{schema}/{table} (the `SetRealtimeTable` operationId).
+	SetRealtimeTableWithBody(ctx context.Context, id ProjectID, schema string, table string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetRealtimeTable Turn realtime on or off for a table (it needs a primary key)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/realtime/tables/{schema}/{table} (the `SetRealtimeTable` operationId).
+	SetRealtimeTable(ctx context.Context, id ProjectID, schema string, table string, body SetRealtimeTableJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListReapedSessions Statements and idle transactions the reaper ended (V2 §10.4)
 	//
@@ -21034,6 +21115,89 @@ func (c *Client) SetSavedQueryFavoriteWithBody(ctx context.Context, id ProjectID
 // Corresponds with PUT /api/v1/projects/{id}/queries/{query_id}/favorite (the `SetSavedQueryFavorite` operationId).
 func (c *Client) SetSavedQueryFavorite(ctx context.Context, id ProjectID, queryId SavedQueryID, body SetSavedQueryFavoriteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetSavedQueryFavoriteRequest(c.Server, id, queryId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetProjectRealtime The project's realtime (V4 §6) - its tables and which have realtime on, history topics, limits and this month's use
+//
+// Corresponds with GET /api/v1/projects/{id}/realtime (the `GetProjectRealtime` operationId).
+func (c *Client) GetProjectRealtime(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectRealtimeRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetRealtimePersistedTopicsWithBody Set the topics whose broadcasts are kept as history for 7 days
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /api/v1/projects/{id}/realtime/persisted-topics (the `SetRealtimePersistedTopics` operationId).
+func (c *Client) SetRealtimePersistedTopicsWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetRealtimePersistedTopicsRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetRealtimePersistedTopics Set the topics whose broadcasts are kept as history for 7 days
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /api/v1/projects/{id}/realtime/persisted-topics (the `SetRealtimePersistedTopics` operationId).
+func (c *Client) SetRealtimePersistedTopics(ctx context.Context, id ProjectID, body SetRealtimePersistedTopicsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetRealtimePersistedTopicsRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetRealtimeTableWithBody Turn realtime on or off for a table (it needs a primary key)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /api/v1/projects/{id}/realtime/tables/{schema}/{table} (the `SetRealtimeTable` operationId).
+func (c *Client) SetRealtimeTableWithBody(ctx context.Context, id ProjectID, schema string, table string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetRealtimeTableRequestWithBody(c.Server, id, schema, table, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetRealtimeTable Turn realtime on or off for a table (it needs a primary key)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /api/v1/projects/{id}/realtime/tables/{schema}/{table} (the `SetRealtimeTable` operationId).
+func (c *Client) SetRealtimeTable(ctx context.Context, id ProjectID, schema string, table string, body SetRealtimeTableJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetRealtimeTableRequest(c.Server, id, schema, table, body)
 	if err != nil {
 		return nil, err
 	}
@@ -35999,6 +36163,148 @@ func NewSetSavedQueryFavoriteRequestWithBody(server string, id ProjectID, queryI
 	return req, nil
 }
 
+// NewGetProjectRealtimeRequest constructs an http.Request for the GetProjectRealtime method
+func NewGetProjectRealtimeRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/realtime", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetRealtimePersistedTopicsRequest calls the generic SetRealtimePersistedTopics builder with application/json body
+func NewSetRealtimePersistedTopicsRequest(server string, id ProjectID, body SetRealtimePersistedTopicsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetRealtimePersistedTopicsRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSetRealtimePersistedTopicsRequestWithBody constructs an http.Request for the SetRealtimePersistedTopics method, with any body, and a specified content type
+func NewSetRealtimePersistedTopicsRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/realtime/persisted-topics", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSetRealtimeTableRequest calls the generic SetRealtimeTable builder with application/json body
+func NewSetRealtimeTableRequest(server string, id ProjectID, schema string, table string, body SetRealtimeTableJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetRealtimeTableRequestWithBody(server, id, schema, table, "application/json", bodyReader)
+}
+
+// NewSetRealtimeTableRequestWithBody constructs an http.Request for the SetRealtimeTable method, with any body, and a specified content type
+func NewSetRealtimeTableRequestWithBody(server string, id ProjectID, schema string, table string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "schema", schema, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "table", table, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/realtime/tables/%s/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListReapedSessionsRequest constructs an http.Request for the ListReapedSessions method
 func NewListReapedSessionsRequest(server string, id ProjectID) (*http.Request, error) {
 	var err error
@@ -42784,6 +43090,41 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PUT /api/v1/projects/{id}/queries/{query_id}/favorite (the `SetSavedQueryFavorite` operationId).
 	SetSavedQueryFavoriteWithResponse(ctx context.Context, id ProjectID, queryId SavedQueryID, body SetSavedQueryFavoriteJSONRequestBody, reqEditors ...RequestEditorFn) (*SetSavedQueryFavoriteResponse, error)
+
+	// GetProjectRealtimeWithResponse The project's realtime (V4 §6) - its tables and which have realtime on, history topics, limits and this month's use
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/realtime (the `GetProjectRealtime` operationId).
+	GetProjectRealtimeWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetProjectRealtimeResponse, error)
+
+	// SetRealtimePersistedTopicsWithBodyWithResponse Set the topics whose broadcasts are kept as history for 7 days
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/realtime/persisted-topics (the `SetRealtimePersistedTopics` operationId).
+	SetRealtimePersistedTopicsWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetRealtimePersistedTopicsResponse, error)
+
+	// SetRealtimePersistedTopicsWithResponse Set the topics whose broadcasts are kept as history for 7 days
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/realtime/persisted-topics (the `SetRealtimePersistedTopics` operationId).
+	SetRealtimePersistedTopicsWithResponse(ctx context.Context, id ProjectID, body SetRealtimePersistedTopicsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetRealtimePersistedTopicsResponse, error)
+
+	// SetRealtimeTableWithBodyWithResponse Turn realtime on or off for a table (it needs a primary key)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/realtime/tables/{schema}/{table} (the `SetRealtimeTable` operationId).
+	SetRealtimeTableWithBodyWithResponse(ctx context.Context, id ProjectID, schema string, table string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetRealtimeTableResponse, error)
+
+	// SetRealtimeTableWithResponse Turn realtime on or off for a table (it needs a primary key)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/realtime/tables/{schema}/{table} (the `SetRealtimeTable` operationId).
+	SetRealtimeTableWithResponse(ctx context.Context, id ProjectID, schema string, table string, body SetRealtimeTableJSONRequestBody, reqEditors ...RequestEditorFn) (*SetRealtimeTableResponse, error)
 
 	// ListReapedSessionsWithResponse Statements and idle transactions the reaper ended (V2 §10.4)
 	//
@@ -57894,6 +58235,136 @@ func (r SetSavedQueryFavoriteResponse) ContentType() string {
 	return ""
 }
 
+type GetProjectRealtimeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RealtimeOverview
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetProjectRealtimeResponse) GetJSON200() *RealtimeOverview {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetProjectRealtimeResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetProjectRealtimeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectRealtimeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectRealtimeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectRealtimeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetRealtimePersistedTopicsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SetRealtimePersistedTopicsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SetRealtimePersistedTopicsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetRealtimePersistedTopicsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetRealtimePersistedTopicsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetRealtimePersistedTopicsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetRealtimeTableResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SetRealtimeTableResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SetRealtimeTableResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetRealtimeTableResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetRealtimeTableResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetRealtimeTableResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListReapedSessionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -67381,6 +67852,71 @@ func (c *ClientWithResponses) SetSavedQueryFavoriteWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseSetSavedQueryFavoriteResponse(rsp)
+}
+
+// GetProjectRealtimeWithResponse The project's realtime (V4 §6) - its tables and which have realtime on, history topics, limits and this month's use
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/realtime (the `GetProjectRealtime` operationId).
+func (c *ClientWithResponses) GetProjectRealtimeWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetProjectRealtimeResponse, error) {
+	rsp, err := c.GetProjectRealtime(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectRealtimeResponse(rsp)
+}
+
+// SetRealtimePersistedTopicsWithBodyWithResponse Set the topics whose broadcasts are kept as history for 7 days
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/projects/{id}/realtime/persisted-topics (the `SetRealtimePersistedTopics` operationId).
+func (c *ClientWithResponses) SetRealtimePersistedTopicsWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetRealtimePersistedTopicsResponse, error) {
+	rsp, err := c.SetRealtimePersistedTopicsWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetRealtimePersistedTopicsResponse(rsp)
+}
+
+// SetRealtimePersistedTopicsWithResponse Set the topics whose broadcasts are kept as history for 7 days
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/projects/{id}/realtime/persisted-topics (the `SetRealtimePersistedTopics` operationId).
+func (c *ClientWithResponses) SetRealtimePersistedTopicsWithResponse(ctx context.Context, id ProjectID, body SetRealtimePersistedTopicsJSONRequestBody, reqEditors ...RequestEditorFn) (*SetRealtimePersistedTopicsResponse, error) {
+	rsp, err := c.SetRealtimePersistedTopics(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetRealtimePersistedTopicsResponse(rsp)
+}
+
+// SetRealtimeTableWithBodyWithResponse Turn realtime on or off for a table (it needs a primary key)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/projects/{id}/realtime/tables/{schema}/{table} (the `SetRealtimeTable` operationId).
+func (c *ClientWithResponses) SetRealtimeTableWithBodyWithResponse(ctx context.Context, id ProjectID, schema string, table string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetRealtimeTableResponse, error) {
+	rsp, err := c.SetRealtimeTableWithBody(ctx, id, schema, table, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetRealtimeTableResponse(rsp)
+}
+
+// SetRealtimeTableWithResponse Turn realtime on or off for a table (it needs a primary key)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/projects/{id}/realtime/tables/{schema}/{table} (the `SetRealtimeTable` operationId).
+func (c *ClientWithResponses) SetRealtimeTableWithResponse(ctx context.Context, id ProjectID, schema string, table string, body SetRealtimeTableJSONRequestBody, reqEditors ...RequestEditorFn) (*SetRealtimeTableResponse, error) {
+	rsp, err := c.SetRealtimeTable(ctx, id, schema, table, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetRealtimeTableResponse(rsp)
 }
 
 // ListReapedSessionsWithResponse Statements and idle transactions the reaper ended (V2 §10.4)
@@ -78761,6 +79297,97 @@ func ParseSetSavedQueryFavoriteResponse(rsp *http.Response) (*SetSavedQueryFavor
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectRealtimeResponse parses an HTTP response from a GetProjectRealtimeWithResponse call
+func ParseGetProjectRealtimeResponse(rsp *http.Response) (*GetProjectRealtimeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectRealtimeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RealtimeOverview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetRealtimePersistedTopicsResponse parses an HTTP response from a SetRealtimePersistedTopicsWithResponse call
+func ParseSetRealtimePersistedTopicsResponse(rsp *http.Response) (*SetRealtimePersistedTopicsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetRealtimePersistedTopicsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetRealtimeTableResponse parses an HTTP response from a SetRealtimeTableWithResponse call
+func ParseSetRealtimeTableResponse(rsp *http.Response) (*SetRealtimeTableResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetRealtimeTableResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error

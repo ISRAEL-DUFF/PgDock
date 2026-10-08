@@ -7268,6 +7268,38 @@ type QuotaItem struct {
 	Used float32 `json:"used"`
 }
 
+// RealtimeOverview defines model for RealtimeOverview.
+type RealtimeOverview struct {
+	// ChangesPerSecond Database changes delivered per second before subscribers are told to resync
+	ChangesPerSecond           int     `json:"changes_per_second"`
+	ConnectionMinutesThisMonth float32 `json:"connection_minutes_this_month"`
+
+	// GroupsPerChange Distinct claims groups checked per change
+	GroupsPerChange int `json:"groups_per_change"`
+
+	// MaxConnections Concurrent connections per edge process; null is unlimited
+	MaxConnections *int `json:"max_connections,omitempty"`
+
+	// MessagesBlocked The month's messages are used up
+	MessagesBlocked   bool            `json:"messages_blocked"`
+	MessagesThisMonth float32         `json:"messages_this_month"`
+	PersistedTopics   []string        `json:"persisted_topics"`
+	Tables            []RealtimeTable `json:"tables"`
+}
+
+// RealtimeTable defines model for RealtimeTable.
+type RealtimeTable struct {
+	Enabled bool `json:"enabled"`
+
+	// HasPrimaryKey Realtime needs one
+	HasPrimaryKey bool `json:"has_primary_key"`
+
+	// Rls Row-level security is on (anon and users can subscribe only then, or when the table is public)
+	Rls    bool   `json:"rls"`
+	Schema string `json:"schema"`
+	Table  string `json:"table"`
+}
+
 // ReapedSession defines model for ReapedSession.
 type ReapedSession struct {
 	CreatedAt time.Time         `json:"created_at"`
@@ -9388,6 +9420,16 @@ type SetSavedQueryFavoriteJSONBody struct {
 	Favorite bool `json:"favorite"`
 }
 
+// SetRealtimePersistedTopicsJSONBody defines parameters for SetRealtimePersistedTopics.
+type SetRealtimePersistedTopicsJSONBody struct {
+	Topics []string `json:"topics"`
+}
+
+// SetRealtimeTableJSONBody defines parameters for SetRealtimeTable.
+type SetRealtimeTableJSONBody struct {
+	Enabled bool `json:"enabled"`
+}
+
 // ListAPIRequestLogsParams defines parameters for ListAPIRequestLogs.
 type ListAPIRequestLogsParams struct {
 	// Before A log id from the previous page.
@@ -9875,6 +9917,12 @@ type UpdateSavedQueryJSONRequestBody = SavedQueryPatch
 
 // SetSavedQueryFavoriteJSONRequestBody defines body for SetSavedQueryFavorite for application/json ContentType.
 type SetSavedQueryFavoriteJSONRequestBody SetSavedQueryFavoriteJSONBody
+
+// SetRealtimePersistedTopicsJSONRequestBody defines body for SetRealtimePersistedTopics for application/json ContentType.
+type SetRealtimePersistedTopicsJSONRequestBody SetRealtimePersistedTopicsJSONBody
+
+// SetRealtimeTableJSONRequestBody defines body for SetRealtimeTable for application/json ContentType.
+type SetRealtimeTableJSONRequestBody SetRealtimeTableJSONBody
 
 // ReclaimSpaceJSONRequestBody defines body for ReclaimSpace for application/json ContentType.
 type ReclaimSpaceJSONRequestBody = ReclaimSpaceRequest
@@ -10877,6 +10925,15 @@ type ServerInterface interface {
 	// SetSavedQueryFavorite Add a query to your favourites, or take it out
 	// (PUT /api/v1/projects/{id}/queries/{query_id}/favorite)
 	SetSavedQueryFavorite(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID)
+	// GetProjectRealtime The project's realtime (V4 §6) - its tables and which have realtime on, history topics, limits and this month's use
+	// (GET /api/v1/projects/{id}/realtime)
+	GetProjectRealtime(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// SetRealtimePersistedTopics Set the topics whose broadcasts are kept as history for 7 days
+	// (PUT /api/v1/projects/{id}/realtime/persisted-topics)
+	SetRealtimePersistedTopics(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// SetRealtimeTable Turn realtime on or off for a table (it needs a primary key)
+	// (PUT /api/v1/projects/{id}/realtime/tables/{schema}/{table})
+	SetRealtimeTable(w http.ResponseWriter, r *http.Request, id ProjectID, schema string, table string)
 	// ListReapedSessions Statements and idle transactions the reaper ended (V2 §10.4)
 	// (GET /api/v1/projects/{id}/reaped)
 	ListReapedSessions(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -12908,6 +12965,24 @@ func (_ Unimplemented) UpdateSavedQuery(w http.ResponseWriter, r *http.Request, 
 // SetSavedQueryFavorite Add a query to your favourites, or take it out
 // (PUT /api/v1/projects/{id}/queries/{query_id}/favorite)
 func (_ Unimplemented) SetSavedQueryFavorite(w http.ResponseWriter, r *http.Request, id ProjectID, queryId SavedQueryID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetProjectRealtime The project's realtime (V4 §6) - its tables and which have realtime on, history topics, limits and this month's use
+// (GET /api/v1/projects/{id}/realtime)
+func (_ Unimplemented) GetProjectRealtime(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetRealtimePersistedTopics Set the topics whose broadcasts are kept as history for 7 days
+// (PUT /api/v1/projects/{id}/realtime/persisted-topics)
+func (_ Unimplemented) SetRealtimePersistedTopics(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetRealtimeTable Turn realtime on or off for a table (it needs a primary key)
+// (PUT /api/v1/projects/{id}/realtime/tables/{schema}/{table})
+func (_ Unimplemented) SetRealtimeTable(w http.ResponseWriter, r *http.Request, id ProjectID, schema string, table string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -21575,6 +21650,102 @@ func (siw *ServerInterfaceWrapper) SetSavedQueryFavorite(w http.ResponseWriter, 
 	handler.ServeHTTP(w, r)
 }
 
+// GetProjectRealtime operation middleware
+func (siw *ServerInterfaceWrapper) GetProjectRealtime(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProjectRealtime(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetRealtimePersistedTopics operation middleware
+func (siw *ServerInterfaceWrapper) SetRealtimePersistedTopics(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetRealtimePersistedTopics(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetRealtimeTable operation middleware
+func (siw *ServerInterfaceWrapper) SetRealtimeTable(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "schema" -------------
+	var schema string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "schema", chi.URLParam(r, "schema"), &schema, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "schema", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "table" -------------
+	var table string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "table", chi.URLParam(r, "table"), &table, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "table", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetRealtimeTable(w, r, id, schema, table)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListReapedSessions operation middleware
 func (siw *ServerInterfaceWrapper) ListReapedSessions(w http.ResponseWriter, r *http.Request) {
 
@@ -24465,6 +24636,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/edge/storage-event", wrapper.EdgeStorageEvent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/realtime", wrapper.GetProjectRealtime)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/projects/{id}/realtime/tables/{schema}/{table}", wrapper.SetRealtimeTable)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/projects/{id}/realtime/persisted-topics", wrapper.SetRealtimePersistedTopics)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/files", wrapper.GetProjectFiles)
