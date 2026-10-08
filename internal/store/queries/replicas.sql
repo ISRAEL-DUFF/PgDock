@@ -68,13 +68,14 @@ ORDER BY p.db_name, r.created_at, r.id;
 -- @last_hour it existed, with the fraction of the hour it did.
 SELECT r.project_id, p.org_id, o.plan_id, g.h::timestamptz AS period_start,
        COALESCE(i.cpu_limit, 0)::float8 AS cpus, COALESCE(i.mem_limit_mb, 0)::int AS mem_mb, COALESCE(i.volume_gb, 0)::int AS disk_gb,
-       (extract(epoch FROM LEAST(g.h + '1 hour'::interval, COALESCE(r.deleted_at, 'infinity'::timestamptz)) - GREATEST(g.h, r.created_at)) / 3600)::float8 AS fraction
+       (extract(epoch FROM LEAST(g.h + '1 hour'::interval, COALESCE(r.deleted_at, 'infinity'::timestamptz), COALESCE(p.deleted_at, 'infinity'::timestamptz)) - GREATEST(g.h, r.created_at)) / 3600)::float8 AS fraction
 FROM read_replicas r
 JOIN projects p ON p.id = r.project_id
 JOIN instances i ON i.id = p.instance_id
 JOIN organizations o ON o.id = p.org_id
 CROSS JOIN generate_series(@from_ts::timestamptz, @last_hour::timestamptz, '1 hour'::interval) AS g(h)
-WHERE r.created_at < g.h + '1 hour'::interval AND (r.deleted_at IS NULL OR r.deleted_at > g.h);
+WHERE r.created_at < g.h + '1 hour'::interval AND (r.deleted_at IS NULL OR r.deleted_at > g.h)
+  AND (p.deleted_at IS NULL OR p.deleted_at > g.h);
 
 -- name: GetInstanceMember :one
 -- tenant: system - HA members of an instance the caller already resolved.
@@ -88,3 +89,8 @@ WHERE id = @id AND project_id = @project_id AND deleted_at IS NULL AND status IN
 -- name: UnmarkReplicaDetaching :exec
 -- tenant: system - read replicas of a project the caller already resolved.
 UPDATE read_replicas SET status = 'down', updated_at = now() WHERE id = @id AND status = 'detaching' AND deleted_at IS NULL;
+
+-- name: DeleteInstanceReplicas :exec
+-- tenant: system - an instance being removed: its projects' replicas go with it.
+UPDATE read_replicas SET status = 'deleted', in_rotation = false, deleted_at = now(), updated_at = now()
+WHERE deleted_at IS NULL AND project_id IN (SELECT id FROM projects WHERE instance_id = @instance_id);

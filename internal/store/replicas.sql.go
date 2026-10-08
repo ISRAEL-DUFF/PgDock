@@ -24,6 +24,17 @@ func (q *Queries) CountProjectReplicas(ctx context.Context, projectID uuid.UUID)
 	return column_1, err
 }
 
+const deleteInstanceReplicas = `-- name: DeleteInstanceReplicas :exec
+UPDATE read_replicas SET status = 'deleted', in_rotation = false, deleted_at = now(), updated_at = now()
+WHERE deleted_at IS NULL AND project_id IN (SELECT id FROM projects WHERE instance_id = $1)
+`
+
+// tenant: system - an instance being removed: its projects' replicas go with it.
+func (q *Queries) DeleteInstanceReplicas(ctx context.Context, instanceID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteInstanceReplicas, instanceID)
+	return err
+}
+
 const deleteReadReplica = `-- name: DeleteReadReplica :exec
 UPDATE read_replicas SET status = 'deleted', in_rotation = false, deleted_at = now(), updated_at = now() WHERE id = $1
 `
@@ -97,13 +108,14 @@ func (q *Queries) GetReadReplica(ctx context.Context, id uuid.UUID) (ReadReplica
 const hourlyReplicas = `-- name: HourlyReplicas :many
 SELECT r.project_id, p.org_id, o.plan_id, g.h::timestamptz AS period_start,
        COALESCE(i.cpu_limit, 0)::float8 AS cpus, COALESCE(i.mem_limit_mb, 0)::int AS mem_mb, COALESCE(i.volume_gb, 0)::int AS disk_gb,
-       (extract(epoch FROM LEAST(g.h + '1 hour'::interval, COALESCE(r.deleted_at, 'infinity'::timestamptz)) - GREATEST(g.h, r.created_at)) / 3600)::float8 AS fraction
+       (extract(epoch FROM LEAST(g.h + '1 hour'::interval, COALESCE(r.deleted_at, 'infinity'::timestamptz), COALESCE(p.deleted_at, 'infinity'::timestamptz)) - GREATEST(g.h, r.created_at)) / 3600)::float8 AS fraction
 FROM read_replicas r
 JOIN projects p ON p.id = r.project_id
 JOIN instances i ON i.id = p.instance_id
 JOIN organizations o ON o.id = p.org_id
 CROSS JOIN generate_series($1::timestamptz, $2::timestamptz, '1 hour'::interval) AS g(h)
 WHERE r.created_at < g.h + '1 hour'::interval AND (r.deleted_at IS NULL OR r.deleted_at > g.h)
+  AND (p.deleted_at IS NULL OR p.deleted_at > g.h)
 `
 
 type HourlyReplicasParams struct {

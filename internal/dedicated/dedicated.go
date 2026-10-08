@@ -780,6 +780,9 @@ func (s *Service) removeInstance(ctx context.Context, inst store.Instance) (node
 			}
 		}
 	}
+	if err := store.New(s.db).DeleteInstanceReplicas(ctx, inst.ID); err != nil {
+		return "", archived, err
+	}
 	if err := agent.DestroyInstance(ctx, agentKey(inst)); err != nil {
 		return "", archived, err
 	}
