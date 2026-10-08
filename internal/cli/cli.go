@@ -253,6 +253,17 @@ func (a *App) commands() []command {
 			{name: "set", summary: `Change settings: set <p> '{"settings":{"phone_channels":["whatsapp"]}}' (an AuthConfigUpdate)`, run: (*App).authSet},
 			{name: "hooks", summary: "Recent auth webhook deliveries: hooks <p>", run: (*App).authHooks},
 		}},
+		{name: "storage", summary: "Your app's files (backend services); remote paths are ss:///bucket/path", sub: []command{
+			{name: "buckets", summary: "Buckets", sub: []command{
+				{name: "list", summary: "list <p>", run: (*App).storageBuckets},
+				{name: "create", summary: "create <p> <bucket> [--public] [--size-limit 10MB] [--types image/*]", run: (*App).storageBucketsCreate},
+				{name: "delete", summary: "delete <p> <bucket> [--force]", run: (*App).storageBucketsDelete},
+			}},
+			{name: "ls", summary: "List files: ls <p> ss:///bucket[/folder/]", run: (*App).storageLs},
+			{name: "cp", summary: "Upload (up to 50 MB) or download: cp <p> <file> ss:///bucket/path | cp <p> ss:///bucket/path <file|->", run: (*App).storageCp},
+			{name: "rm", summary: "Delete files: rm <p> ss:///bucket/path…", run: (*App).storageRm},
+			{name: "sign", summary: "A signed download URL: sign <p> ss:///bucket/path [--expires 1h]", run: (*App).storageSign},
+		}},
 		{name: "gen", summary: "Generate code", sub: []command{
 			{name: "types", summary: "Types for the SDKs: types --lang ts|dart|go --project <p> [-o file] [--package name]", run: (*App).genTypes},
 		}},

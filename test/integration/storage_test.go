@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -686,6 +687,44 @@ func TestStorageSweep(t *testing.T) {
 		t.Fatalf("the dashboard's signed URL at the edge: %s", r)
 	}
 
+	// ---- The CLI ---------------------------------------------------------------
+	bin := buildCLI(t)
+	token := e.CreateToken(map[string]any{"name": "files", "org_id": e.OrgID, "scopes": []string{"read", "write"}})
+	env := []string{"PGDOCK_SERVER=" + e.URL, "PGDOCK_TOKEN=" + token, "PGDOCK_CONFIG_DIR=" + t.TempDir()}
+	dir := t.TempDir()
+	local := filepath.Join(dir, "notes.txt")
+	if err := os.WriteFile(local, []byte("from the cli"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pref := sp.pid.String()
+	for _, args := range [][]string{
+		{"storage", "buckets", "create", pref, "cli", "--size-limit", "1MB", "--types", "text/*"},
+		{"storage", "cp", pref, local, "ss:///cli/a/"},
+		{"storage", "cp", pref, "ss:///cli/a/notes.txt", filepath.Join(dir, "back.txt")},
+	} {
+		if r := runCLI(t, bin, env, args...); r.code != 0 {
+			t.Fatalf("%v: exit %d\n%s\n%s", args, r.code, r.stdout, r.stderr)
+		}
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, "back.txt")); string(got) != "from the cli" {
+		t.Fatalf("downloaded %q", got)
+	}
+	if r := runCLI(t, bin, env, "storage", "ls", pref, "ss:///cli/a"); r.code != 0 || !strings.Contains(r.stdout, "notes.txt") || !strings.Contains(r.stdout, "text/plain") {
+		t.Fatalf("ls: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if r := runCLI(t, bin, env, "storage", "cp", pref, logoFile(t, dir, logo), "ss:///cli/logo.png"); r.code == 0 || !strings.Contains(r.stderr, "doesn't take image/png") {
+		t.Fatalf("a PNG in a text bucket: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if r := runCLI(t, bin, env, "storage", "buckets", "list", pref); r.code != 0 || !strings.Contains(r.stdout, "cli") || !strings.Contains(r.stdout, "docs") {
+		t.Fatalf("buckets list: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if r := runCLI(t, bin, env, "storage", "rm", pref, "ss:///cli/a/notes.txt"); r.code != 0 || !strings.Contains(r.stdout, "Deleted 1 file") {
+		t.Fatalf("rm: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if r := runCLI(t, bin, env, "storage", "buckets", "delete", pref, "cli"); r.code != 0 {
+		t.Fatalf("delete the bucket: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+
 	// ---- Metering --------------------------------------------------------------
 	if r := keyless.do("GET", "/storage/v1/public/docs/logo.png", nil, ""); r.Code != 200 {
 		t.Fatalf("public download: %s", r)
@@ -831,4 +870,13 @@ func TestStorageSweep(t *testing.T) {
 	if keys := objectKeys(t, sp); len(keys) != 0 {
 		t.Fatalf("a deleted project's files after the retention: %v", keys)
 	}
+}
+
+func logoFile(t *testing.T, dir string, b []byte) string {
+	t.Helper()
+	p := filepath.Join(dir, "logo.png")
+	if err := os.WriteFile(p, b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return p
 }
