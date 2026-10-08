@@ -79,6 +79,20 @@ bundle share one version (spec §11.5).
   reconciler; a CDN purge when a bucket goes private (Cloudflare). Project →
   Storage and `pgdock storage buckets|ls|cp|rm|sign`.
 - New migration 00040 (storage); project schema version 4.
+- Realtime (V4-M34): one WebSocket per client
+  (`/realtime/v1/websocket`, the protocol Supabase's realtime clients
+  speak) with database changes on tables with realtime on, each subscriber
+  getting only the rows its policies let it read (deletes only for rows it
+  was sent); rolled-back changes never delivered; filters; broadcast and
+  presence across edge processes; private channels decided by policies on
+  `pgd_realtime.channel_access`; broadcast history for chosen topics; an
+  HTTP broadcast for servers; heartbeats, resync signals, connection and
+  message limits, and metering (`realtime_messages`,
+  `realtime_connection_minutes`). Project → Realtime and
+  `pgdock realtime status|enable|disable|history`.
+- New migration 00041 (realtime limits); project schema version 5.
+- The Usage page lists file storage, downloads and image transforms (they
+  were recorded but not shown).
 - pgdock-server's metadata connection pool defaults to 16 connections
   (it was pgx's 4 on a small box) unless `PGDOCK_DATABASE_URL` sets
   `pool_max_conns`; the auth message and hook senders no longer hold a

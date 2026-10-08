@@ -264,6 +264,12 @@ func (a *App) commands() []command {
 			{name: "rm", summary: "Delete files: rm <p> ss:///bucket/path…", run: (*App).storageRm},
 			{name: "sign", summary: "A signed download URL: sign <p> ss:///bucket/path [--expires 1h]", run: (*App).storageSign},
 		}},
+		{name: "realtime", summary: "Your app's realtime (backend services): which tables' changes clients get", sub: []command{
+			{name: "status", summary: "Tables, limits and this month's use: status <p>", run: (*App).realtimeStatus},
+			{name: "enable", summary: "Deliver a table's changes: enable <p> <[schema.]table>", run: (*App).realtimeEnable},
+			{name: "disable", summary: "Stop: disable <p> <[schema.]table>", run: (*App).realtimeDisable},
+			{name: "history", summary: "Keep broadcasts on these topics 7 days: history <p> [topic…]", run: (*App).realtimeHistory},
+		}},
 		{name: "gen", summary: "Generate code", sub: []command{
 			{name: "types", summary: "Types for the SDKs: types --lang ts|dart|go --project <p> [-o file] [--package name]", run: (*App).genTypes},
 		}},

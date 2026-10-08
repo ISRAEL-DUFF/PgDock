@@ -326,6 +326,10 @@ func (s *Service) Quotas(ctx context.Context, orgID uuid.UUID) ([]Quota, store.O
 	if err != nil {
 		return nil, o, err
 	}
+	rtMessages, err := q.OrgUsageSince(ctx, store.OrgUsageSinceParams{OrgID: orgID, Metric: MetricRealtimeMessages, Since: month})
+	if err != nil {
+		return nil, o, err
+	}
 	s.consoleMu.Lock()
 	console := s.console[orgID]
 	s.consoleMu.Unlock()
@@ -340,6 +344,7 @@ func (s *Service) Quotas(ctx context.Context, orgID uuid.UUID) ([]Quota, store.O
 		store.LimitFileStorageMB:      fileBytes / (1 << 20),
 		store.LimitStorageEgressMBMo:  numericValue(egress) * 1000,
 		store.LimitImageTransformsMo:  numericValue(renders),
+		store.LimitRealtimeMessagesMo: numericValue(rtMessages),
 	}
 	var out []Quota
 	for _, k := range store.LimitKeys {

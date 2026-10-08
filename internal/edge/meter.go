@@ -49,6 +49,20 @@ func (m *meter) activeUser(project, user uuid.UUID) {
 	}
 }
 
+// realtime adds a project's realtime connection time and messages.
+func (m *meter) realtime(project uuid.UUID, seconds, messages int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	k := usageKey{project, time.Now().UTC().Truncate(time.Hour)}
+	u := m.usage[k]
+	if u == nil {
+		u = &edgeapi.Usage{ProjectID: project, Hour: k.hour}
+		m.usage[k] = u
+	}
+	u.RealtimeConnectionSeconds += seconds
+	u.RealtimeMessages += messages
+}
+
 // record counts a request; billed requests passed the key check (or are a
 // keyless file download). A file download's bytes are storage egress.
 func (m *meter) record(l edgeapi.Log, billed, files bool, transforms int64) {
@@ -155,4 +169,7 @@ func (e *Edge) flush(ctx context.Context) {
 }
 
 // Flush sends a report now (tests).
-func (e *Edge) Flush(ctx context.Context) { e.flush(ctx) }
+func (e *Edge) Flush(ctx context.Context) {
+	e.meterRealtime()
+	e.flush(ctx)
+}

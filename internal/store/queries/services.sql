@@ -83,6 +83,7 @@ SELECT * FROM project_jwt_keys WHERE project_id = @project_id AND status <> 'ret
 SELECT s.project_id, s.ref, s.enabled, s.cors_origins, s.settings, s.exposed_schemas, s.public_tables,
   s.config_version, s.changed_seq, (s.edge_verifier IS NOT NULL)::boolean AS edge_ready,
   s.storage_quota_bytes, s.upload_max_bytes, s.storage_egress_blocked, s.transforms_blocked,
+  s.realtime_max_connections, s.realtime_messages_blocked,
   p.db_name, p.region, p.data_residency, p.org_id, p.lifecycle, p.status, p.deleted_at, o.status AS org_status, o.plan_id
 FROM project_services s JOIN projects p ON p.id = s.project_id JOIN organizations o ON o.id = p.org_id
 WHERE s.changed_seq > @since
@@ -200,3 +201,19 @@ UPDATE storage_cleanups SET attempts = attempts + 1, last_error = NULL, not_befo
 -- name: FailStorageCleanup :exec
 -- tenant: system - the storage sweep: a clean-up to retry later.
 UPDATE storage_cleanups SET attempts = attempts + 1, last_error = @last_error, not_before = now() + interval '1 hour' WHERE id = @id;
+
+-- name: RealtimeProjects :many
+-- tenant: system - the realtime sweep: running projects with backend services' realtime.
+SELECT sqlc.embed(p), s.ref FROM project_services s JOIN projects p ON p.id = s.project_id
+WHERE s.enabled AND s.schema_version >= 5 AND p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle = 'active'
+ORDER BY p.org_id, p.id;
+
+-- name: SetRealtimeLimits :execrows
+-- tenant: system - the realtime sweep: what the edge enforces, changed only when it differs (a change moves the feed).
+UPDATE project_services SET realtime_max_connections = @max_connections, realtime_messages_blocked = @messages_blocked
+WHERE project_id = @project_id AND (realtime_max_connections IS DISTINCT FROM @max_connections
+  OR realtime_messages_blocked <> @messages_blocked);
+
+-- name: ProjectUsageSince :one
+-- tenant: system - a project the request already authorized: its use of a metric since a point (this month).
+SELECT coalesce(sum(quantity), 0)::numeric FROM usage_records WHERE project_id = @project_id AND metric = @metric AND period_start >= @since;

@@ -2788,6 +2788,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/realtime": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's realtime (V4 §6) - its tables and which have realtime on, history topics, limits and this month's use */
+        get: operations["getProjectRealtime"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/realtime/tables/{schema}/{table}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Turn realtime on or off for a table (it needs a primary key) */
+        put: operations["setRealtimeTable"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/realtime/persisted-topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set the topics whose broadcasts are kept as history for 7 days */
+        put: operations["setRealtimePersistedTopics"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/files": {
         parameters: {
             query?: never;
@@ -6749,6 +6800,29 @@ export interface components {
             file_size_limit?: number | null;
             allowed_mime_types?: string[];
             cache_seconds?: number;
+        };
+        RealtimeTable: {
+            schema: string;
+            table: string;
+            enabled: boolean;
+            /** @description Row-level security is on (anon and users can subscribe only then, or when the table is public) */
+            rls: boolean;
+            /** @description Realtime needs one */
+            has_primary_key: boolean;
+        };
+        RealtimeOverview: {
+            tables: components["schemas"]["RealtimeTable"][];
+            persisted_topics: string[];
+            /** @description Concurrent connections per edge process; null is unlimited */
+            max_connections?: number | null;
+            /** @description The month's messages are used up */
+            messages_blocked: boolean;
+            messages_this_month: number;
+            connection_minutes_this_month: number;
+            /** @description Database changes delivered per second before subscribers are told to resync */
+            changes_per_second: number;
+            /** @description Distinct claims groups checked per change */
+            groups_per_change: number;
         };
         StorageOverview: {
             /** Format: int64 */
@@ -14658,6 +14732,85 @@ export interface operations {
         };
         responses: {
             /** @description Done. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getProjectRealtime: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RealtimeOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setRealtimeTable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                schema: string;
+                table: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enabled: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setRealtimePersistedTopics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    topics: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Done */
             204: {
                 headers: {
                     [name: string]: unknown;

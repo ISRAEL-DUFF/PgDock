@@ -675,6 +675,118 @@ pgdock storage sign <p> ss:///avatars/logo.png --expires 24h
 pgdock storage rm <p> ss:///avatars/logo.png
 ```
 
+## Realtime
+
+Clients open one WebSocket, `wss://<ref>.<domain>/realtime/v1/websocket?apikey=<key>`,
+and join channels on it. The protocol is the Phoenix channels protocol
+Supabase's realtime clients speak (`vsn` 1.0.0 or 2.0.0), so they connect
+unchanged:
+
+```js
+const client = createClient("https://<ref>.<domain>", "<publishable key>")
+client.channel("todos")
+  .on("postgres_changes", { event: "*", schema: "public", table: "todos", filter: "list_id=eq.7" },
+      (change) => render(change))
+  .subscribe()
+```
+
+A channel can carry database changes, broadcast and presence at once.
+Signed-in clients send their access token in the join (supabase-js does);
+a channel may be told a new one with an `access_token` message before
+the old expires, and a channel whose token has expired is closed.
+
+### Database changes
+
+Turn realtime on for a table in Project → Realtime, with
+`pgdock realtime enable <p> public.todos`, or from SQL as the owner:
+
+```sql
+SELECT pgd_realtime.enable('public.todos');   -- and pgd_realtime.disable(…)
+```
+
+The table needs a primary key, and it must be in an exposed schema.
+Turning it on adds a trigger that records each committed insert, update
+and delete in `pgd_realtime.outbox` in the same transaction, so a
+rolled-back change is never delivered. pgdock-edge holds one `LISTEN`
+connection per project while it has subscribers (through the region's
+session-mode pooler; without one it polls every second), reads the outbox
+in transaction order, and delivers each change only to subscribers who may
+see the row:
+
+- **Row-level security decides.** For each change the edge reads the row
+  as each group of subscribers (the same role and claims; token times and
+  session ids aside) in one query per group, and sends a subscriber the
+  row as they see it. Anon and signed-in users can subscribe only to
+  tables with row-level security on (or listed as public tables); the
+  secret key sees everything.
+- **Deletes** carry the primary key only (`old_record`), and reach only
+  subscribers the edge sent the row to before: a client that loads rows
+  over the data API and then subscribes gets deletes for rows that change
+  after it subscribed, so refetch on reconnect.
+- **Updates** carry the new row in `record` and the primary key in
+  `old_record`.
+- **Filters**: `column=eq.value`, `neq`, `lt`, `lte`, `gt`, `gte` and
+  `in.(a,b)`, on the row as the subscriber sees it. Deletes aren't
+  filtered.
+- **Delivery is at most once** to connected clients, in transaction order.
+  Nothing is replayed after a disconnect: refetch what you show when you
+  reconnect. When the edge can't keep up it tells a channel to refetch
+  instead, with a `system` message whose `message` is `resync`: past 200
+  changes a second for a project, past 100 distinct groups of subscribers
+  on a table, or after its database connection was lost.
+
+### Broadcast and presence
+
+Broadcast sends a message to everyone on a channel (`self: true` to get
+your own back, `ack: true` to have the edge confirm it); presence keeps
+who is on a channel with each client's state (`track`, `untrack`,
+`presence_state`, `presence_diff`). Clients on different pgdock-edge
+processes reach each other through `NOTIFY` on the project's database, and
+a process that stops is dropped from presence within about 35 seconds.
+
+A server can broadcast over HTTP with the secret key:
+
+```sh
+curl -X POST https://<ref>.<domain>/realtime/v1/api/broadcast -H "apikey: $SECRET_KEY" \
+  -H "Content-Type: application/json" -d '{"messages":[{"topic":"room-1","event":"notice","payload":{"text":"hi"}}]}'
+```
+
+Broadcasts on topics listed in Project → Realtime → Broadcast history
+(`pgd_realtime.persisted_topics`) are kept 7 days and read with
+`GET /realtime/v1/history/<topic>?after=<id>&limit=` (add `private=true`
+for a private channel's history, which needs its read policy).
+
+### Private channels
+
+A channel joined with `private: true` is decided by your policies on
+`pgd_realtime.channel_access` (owned by the project's owner): SELECT
+policies decide who may join and receive, INSERT policies who may send
+broadcasts and track presence. A row's `topic` is the channel name (without
+`realtime:`) and `extension` is `broadcast` or `presence`:
+
+```sql
+CREATE POLICY members_read ON pgd_realtime.channel_access FOR SELECT TO <db>_user
+  USING (EXISTS (SELECT 1 FROM room_members m WHERE m.room = topic AND m.user_id = pgd_auth.uid()));
+CREATE POLICY members_send ON pgd_realtime.channel_access FOR INSERT TO <db>_user
+  WITH CHECK (EXISTS (SELECT 1 FROM room_members m WHERE m.room = topic AND m.user_id = pgd_auth.uid()));
+```
+
+The edge checks them in a transaction it rolls back when a client joins.
+A private channel and a public one of the same name don't hear each other.
+
+### Limits and use
+
+| | Personal | Pro | Team |
+| --- | --- | --- | --- |
+| Concurrent connections (per edge process) | 100 | 1,000 | 5,000 |
+| Messages a month | 1 million, then refused | metered | metered |
+
+Clients send a heartbeat every 25 seconds; a connection silent for 2
+minutes is closed, as is one too slow to take its messages (it reconnects
+and refetches). A connection joins at most 100 channels, sends at most 600
+broadcasts and presence updates a minute, and a message is at most 256 KB. Messages to and from clients (`realtime_messages`) and
+connection time (`realtime_connection_minutes`) are metered.
+
 ## Settings
 
 - **Allowed origins**: the pages that may call the API. Empty allows any
@@ -718,6 +830,7 @@ Run one pgdock-edge per region, on the region's nodes. It keeps no state.
 | `PGDOCK_EDGE_TLS_CERT`, `PGDOCK_EDGE_TLS_KEY` | A wildcard certificate for `*.<domain>`. |
 | `PGDOCK_EDGE_LISTEN` | Default `:8443`. |
 | `PGDOCK_EDGE_POOLER_ADDR` | Optional: the transaction pooler as the edge reaches it. |
+| `PGDOCK_EDGE_SESSION_ADDR` | Optional: the session-mode pooler as the edge reaches it (realtime's `LISTEN` connections). |
 | `PGDOCK_EDGE_TRUSTED_PROXIES` | Optional: CIDRs allowed to set `X-Forwarded-For`. |
 
 `deploy/edge/Dockerfile` builds the image, and `deploy/edge/edge.env.example`
@@ -754,8 +867,9 @@ provider.
 
 ## Not yet
 
-These come in the next milestones (V4 §14): realtime (M34) and read
-replicas (M35). Copying files into a branch, moving files with a project
+These come in the next milestones (V4 §14): read replicas (M35).
+Realtime over logical decoding for high-volume tables and subscriptions to
+every table at once are not built. Copying files into a branch, moving files with a project
 that changes region, and malware scanning of uploads are not built yet. Auth's leaked-password check and bounce handling
 for auth emails are not built yet. Rating the new usage on invoices and per-plan limits come
 with billing (M37).

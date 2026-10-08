@@ -1970,6 +1970,21 @@ test.describe("with the saved session", () => {
     page.once("dialog", (d) => void d.accept());
     await fileRow.getByTestId("delete-file").click();
     await expect(page.getByTestId("files-empty")).toBeVisible();
+
+    // M34: realtime on for the notes table (it has row-level security now).
+    await page.goto(`/projects/${id}/realtime`);
+    const notesRow = page.getByTestId("realtime-table").filter({ hasText: "public.notes" });
+    await expect(notesRow).toContainText("on");
+    const sw = notesRow.getByRole("switch", { name: "Realtime for public.notes" });
+    await expect(sw).not.toBeChecked();
+    await sw.click();
+    await expect(sw).toBeChecked();
+    await page.getByLabel("Topics").fill("lobby");
+    await page.getByRole("button", { name: "Save" }).click();
+    await page.reload();
+    await expect(page.getByLabel("Topics")).toHaveValue("lobby");
+    await expect(page.getByTestId("realtime-table").filter({ hasText: "public.notes" }).getByRole("switch")).toBeChecked();
+    await shot(page, "80-realtime");
   });
 
   test("the shell: keyboard shortcuts, and the menu on a narrow screen", async ({ page }) => {
