@@ -1,5 +1,6 @@
 import {
   KeyRound,
+  HardDrive,
   Activity,
   Bell,
   Building2,
@@ -144,6 +145,13 @@ export function projectRail(
             icon: KeyRound,
             to: `${base}/auth`,
             match: [`${base}/auth`],
+          },
+          {
+            key: "files",
+            label: "Storage",
+            icon: HardDrive,
+            to: `${base}/files`,
+            match: [`${base}/files`],
           },
         ]
       : []),
