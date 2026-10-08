@@ -296,7 +296,11 @@ func (e *Edge) route(c *call, req Request) {
 	case strings.HasPrefix(path, "/storage/v1/"):
 		e.storageRoute(c, req)
 	case strings.HasPrefix(path, "/realtime/v1"):
-		c.fail(http.StatusNotFound, "not_available", "this endpoint isn't available yet")
+		if mfaRequired(c.p.cfg.Auth, req) {
+			c.fail(http.StatusForbidden, "mfa_required", "this project requires a second factor: verify one to reach aal2")
+			return
+		}
+		e.realtime(c, req)
 	default:
 		c.fail(http.StatusNotFound, "no_such_endpoint", "no such endpoint")
 	}

@@ -48,6 +48,9 @@ type Config struct {
 	// PoolerAddr overrides the pooler address the feed gives (host:port),
 	// for an edge that reaches the pooler another way (the mesh).
 	PoolerAddr string
+	// SessionAddr overrides the session-mode pooler address the feed gives,
+	// for realtime's LISTEN connections.
+	SessionAddr string
 	// PoolerSSLMode is the sslmode to the pooler (default "require").
 	PoolerSSLMode string
 	// TrustedProxies may set X-Forwarded-For.
@@ -108,6 +111,11 @@ type Edge struct {
 	// transforms.
 	hashSlots   chan struct{}
 	renderSlots chan struct{}
+	// Realtime's per-project state (rthub.go).
+	rtMu     sync.Mutex
+	hubs     map[string]*rtHub
+	nodeOnce sync.Once
+	nodeID   string
 }
 
 // project is one project's configuration and its database pool.
@@ -187,9 +195,23 @@ var defaultHTTP = &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(*h
 // Run follows the configuration feed and sends reports until ctx ends.
 func (e *Edge) Run(ctx context.Context) {
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 	go func() { defer wg.Done(); e.follow(ctx) }()
 	go func() { defer wg.Done(); e.report(ctx) }()
+	go func() {
+		defer wg.Done()
+		t := time.NewTicker(rtMeterEvery)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				e.meterRealtime(rtMeterEvery)
+				return
+			case <-t.C:
+				e.meterRealtime(rtMeterEvery)
+			}
+		}
+	}()
 	wg.Wait()
 	e.closePools()
 	e.flush(context.Background())
