@@ -40,6 +40,9 @@ type call struct {
 	role   string
 	userID *uuid.UUID
 	billed bool
+	// hooks are auth webhook events to send once the auth transaction
+	// commits.
+	hooks []edgeapi.AuthHook
 }
 
 type recorder struct {
@@ -128,6 +131,9 @@ func (e *Edge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		e.wake(p.cfg.Ref)
 		c.w.Header().Set("Retry-After", "10")
 		c.fail(http.StatusServiceUnavailable, "project_resuming", "the project is paused and is resuming; retry shortly")
+		return
+	}
+	if e.keylessAuth(c) {
 		return
 	}
 	req, ok := e.authorize(c)
@@ -276,9 +282,14 @@ func (e *Edge) route(c *call, req Request) {
 	case path == "/data/v1/health" && (c.r.Method == http.MethodGet || c.r.Method == http.MethodHead):
 		e.health(c, req)
 	case strings.HasPrefix(path, "/data/v1/"):
+		if mfaRequired(c.p.cfg.Auth, req) {
+			c.fail(http.StatusForbidden, "mfa_required", "this project requires a second factor: verify one to reach aal2")
+			return
+		}
 		e.data(c, req)
-	case strings.HasPrefix(path, "/auth/v1/"),
-		strings.HasPrefix(path, "/storage/v1/"), strings.HasPrefix(path, "/realtime/v1"):
+	case strings.HasPrefix(path, "/auth/v1/"):
+		e.auth(c, req)
+	case strings.HasPrefix(path, "/storage/v1/"), strings.HasPrefix(path, "/realtime/v1"):
 		c.fail(http.StatusNotFound, "not_available", "this endpoint isn't available yet")
 	default:
 		c.fail(http.StatusNotFound, "no_such_endpoint", "no such endpoint")
@@ -315,6 +326,10 @@ func (e *Edge) dbError(c *call, err error) {
 		c.fail(http.StatusServiceUnavailable, "retry", err.Error())
 	case errors.As(err, &pe) && pe.Code == "57014":
 		c.fail(http.StatusGatewayTimeout, "statement_timeout", "the query took longer than the project's limit")
+	case errors.As(err, &pe) && unavailable(pe.Code):
+		e.cfg.Log.Warn("edge database", "project", c.p.cfg.Ref, "err", err)
+		c.w.Header().Set("Retry-After", "5")
+		c.fail(http.StatusServiceUnavailable, "database_unavailable", "the project's database can't be reached right now")
 	case errors.As(err, &pe):
 		c.json(http.StatusBadRequest, map[string]Error{"error": {Code: "database_error", Message: pe.Message,
 			Details: map[string]any{"pg_code": pe.Code}, RequestID: c.id}})
@@ -323,6 +338,14 @@ func (e *Edge) dbError(c *call, err error) {
 		c.w.Header().Set("Retry-After", "5")
 		c.fail(http.StatusServiceUnavailable, "database_unavailable", "the project's database can't be reached right now")
 	}
+}
+
+// unavailable: connection, authentication and resource errors (and an
+// administrator's shutdown) are the database not being reachable, not the
+// request's fault: retry later.
+func unavailable(code string) bool {
+	return strings.HasPrefix(code, "08") || strings.HasPrefix(code, "28") || strings.HasPrefix(code, "53") ||
+		strings.HasPrefix(code, "57P")
 }
 
 // finish meters and logs a request that reached a project.

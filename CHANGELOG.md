@@ -35,6 +35,41 @@ bundle share one version (spec §11.5).
   (`pgdock gen types`, or a download on the API page), a security advisor,
   a request explorer that runs as anon, a user or the service role, and a
   row-level security policy helper in the Table Editor.
+- Auth core (V4-M31): users in the project's own database (`pgd_auth`),
+  signing up and in by email and password, confirmation by link or code,
+  magic links and email codes, password recovery and email change; ES256
+  access tokens verified with the project's JWKS, refresh tokens that
+  rotate on every use and end the session when reused, sign-out of one
+  session, the others or all; lockout and per-address limits; an admin API
+  with the secret key. Project → Authentication lists, invites, bans,
+  signs out and deletes users, and sets the sign-in rules, email templates,
+  the project's own SMTP server and signing-key rotation; `pgdock auth`.
+  Monthly active users are recorded (`auth_mau`).
+- New migration 00037 (auth).
+- Auth: phone, OAuth, MFA, hooks (V4-M32): sign-in with SMS and WhatsApp
+  codes (Termii and PGDock's WhatsApp number by default, or the project's
+  own Termii, Africa's Talking, Twilio or WhatsApp Cloud API account), phone
+  and password sign-up, phone changes; SMS-pumping limits (allowed
+  countries, 5 codes an hour per number, a daily cap with alerts) and
+  per-message metering with spend; OAuth with Google, Apple, GitHub,
+  Facebook and Microsoft (PKCE), linking by verified email and identity
+  linking; anonymous users; TOTP and phone second factors with an MFA
+  policy; custom-claims and before-sign-up Postgres hooks (as the new
+  `<db>_auth_hook` role), after-sign-up/in and send-message webhooks;
+  Turnstile captcha. Project → Authentication gains Phone, Providers, MFA
+  and captcha, and Hooks; `pgdock auth config|set|hooks`. A Flutter sample
+  is in docs/examples/flutter-auth.
+- New migration 00038 (auth messages, hooks and alerts); project schema
+  version 3.
+- Security: backend services' request roles are now logins of their own
+  and pgdock-edge connects as them directly, so database code that runs
+  `RESET ROLE` (an RPC function, an auth hook, or SQL injection in dynamic
+  SQL) can no longer reach the edge's login, the auth tables or the service
+  role. New migration 00039.
+- pgdock-server's metadata connection pool defaults to 16 connections
+  (it was pgx's 4 on a small box) unless `PGDOCK_DATABASE_URL` sets
+  `pool_max_conns`; the auth message and hook senders no longer hold a
+  connection while they send.
 
 ### V3.1 (on feature/pgdock3)
 - Failure domains (V3.1-M1): each node can record what fails with it (a

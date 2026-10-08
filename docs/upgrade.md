@@ -217,6 +217,28 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   `*.<domain>` at each region's pgdock-edge, and run pgdock-edge there with
   the same secret ([Backend services](backend-services.md)). Rotating the
   master key also re-seals the projects' signing keys.
+- **Auth core** (migration 00037, project schema version 2): projects with
+  backend services get the `pgd_auth` tables within a minute of the upgrade
+  (the reconciler applies them; nothing to run). Auth emails go through the
+  platform SMTP at 30 an hour per project until a project sets its own; set
+  up the platform SMTP first if it isn't. pgdock-edge needs this release too:
+  upgrade pgdock-server first, then the edges.
+- **Auth: phone, OAuth, MFA, hooks** (migration 00038, project schema
+  version 3): the auth email queue is renamed and widened to SMS and
+  WhatsApp, and projects with backend services get a `<db>_auth_hook` role
+  and the OAuth and MFA tables within a minute (nothing to run). To offer
+  phone sign-in on the platform's accounts, set the Termii and WhatsApp
+  template variables ([Backend services](backend-services.md#platform-sms-and-whatsapp-operators));
+  without them only projects with their own provider can use it. Upgrade
+  pgdock-server first, then the edges.
+- **Request roles become logins** (migration 00039): each project's
+  `<db>_anon`, `<db>_user`, `<db>_service` and `<db>_auth_hook` get
+  passwords and pooler entries, and the edge login loses its memberships of
+  them, within a minute of the upgrade. Edges still on the previous release
+  switch roles from the edge login, which is no longer allowed: their data
+  API and hook requests fail until they are upgraded. Upgrade the edges in
+  the same window as pgdock-server (a new edge works with an older
+  pgdock-server, so upgrading the edges first avoids the gap).
 
 ## Rolling back
 

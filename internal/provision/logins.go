@@ -56,8 +56,8 @@ func (s *Service) ProjectLogins(ctx context.Context, p store.Project) ([]string,
 	for _, u := range users {
 		roles = append(roles, u.RoleName)
 	}
-	// Backend services' edge login (V4 §2.3), when there is one.
-	roles = append(roles, store.EdgeRole(p.DbName))
+	// Backend services' logins (V4 §2.3), when there are some.
+	roles = append(roles, store.ServiceRoles(p.DbName)...)
 	return roles, nil
 }
 

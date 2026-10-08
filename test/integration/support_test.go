@@ -71,7 +71,7 @@ func TestSupportTickets(t *testing.T) {
 	if code := e.Do("POST", org+"/support/tickets", gen.TicketOpen{Subject: "Slow queries", Body: "Our reports take a minute since Tuesday."}, &tk); code != http.StatusCreated {
 		t.Fatalf("open: %d", code)
 	}
-	if tk.RespondBy == nil || tk.Plan == nil || *tk.Plan != "pro" || tk.Channel != gen.Dashboard {
+	if tk.RespondBy == nil || tk.Plan == nil || *tk.Plan != "pro" || tk.Channel != gen.TicketChannelDashboard {
 		t.Fatalf("ticket: %+v", tk)
 	}
 	if n := e.SMTP.Count(testenv.OwnerEmail, "We received your request "+tk.Ref); n != 1 {
@@ -169,7 +169,7 @@ func TestSupportTickets(t *testing.T) {
 	}
 	var wa gen.Ticket
 	for _, it := range list.Items {
-		if it.Channel == gen.Whatsapp {
+		if it.Channel == gen.TicketChannelWhatsapp {
 			wa = it
 		}
 	}

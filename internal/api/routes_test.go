@@ -109,6 +109,8 @@ var expected = map[authz.Action][]string{
 	authz.ProjectSettings:    {rOwner, rAdmin, rProjAdmin},
 	authz.ServicesManage:     {rOwner, rAdmin, rProjAdmin},
 	authz.ServicesLogs:       {rOwner, rAdmin, rProjAdmin, rDev},
+	authz.AuthUsers:          {rOwner, rAdmin, rProjAdmin, rDev},
+	authz.AuthUsersManage:    {rOwner, rAdmin, rProjAdmin, rDev},
 	authz.ProjectMembers:     {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectPromote:     {rOwner, rAdmin, rProjAdmin},
 	authz.ProjectDelete:      {rOwner, rAdmin, rProjAdmin},
@@ -433,9 +435,18 @@ var specMatrix = map[authz.Action][]string{
 	authz.ServicesManage: {
 		"POST /api/v1/projects/{id}/services", "PATCH /api/v1/projects/{id}/services", "DELETE /api/v1/projects/{id}/services",
 		"POST /api/v1/projects/{id}/services/keys", "DELETE /api/v1/projects/{id}/services/keys/{key_id}",
+		// V4 §4 auth settings, templates, SMTP and signing keys
+		"PATCH /api/v1/projects/{id}/auth/config", "POST /api/v1/projects/{id}/auth/smtp/test",
+		"POST /api/v1/projects/{id}/auth/templates/preview", "POST /api/v1/projects/{id}/auth/signing-keys/rotate",
 	},
-	// V4 §8.3 API logs
-	authz.ServicesLogs: {"GET /api/v1/projects/{id}/services/logs"},
+	// V4 §8.3 API logs, and the auth settings and keys to read
+	authz.ServicesLogs: {"GET /api/v1/projects/{id}/services/logs", "GET /api/v1/projects/{id}/auth/config",
+		"GET /api/v1/projects/{id}/auth/signing-keys", "GET /api/v1/projects/{id}/auth/hooks"},
+	// V4 §4.9 the project's app users
+	authz.AuthUsers: {"GET /api/v1/projects/{id}/auth/users", "GET /api/v1/projects/{id}/auth/users/{userId}",
+		"GET /api/v1/projects/{id}/auth/audit"},
+	authz.AuthUsersManage: {"POST /api/v1/projects/{id}/auth/users", "PATCH /api/v1/projects/{id}/auth/users/{userId}",
+		"DELETE /api/v1/projects/{id}/auth/users/{userId}", "POST /api/v1/projects/{id}/auth/users/{userId}/signout"},
 	// "Get personal DB credentials"
 	authz.ProjectCredentials: {"GET /api/v1/projects/{id}/credentials", "POST /api/v1/projects/{id}/credentials"},
 	// "SQL console - read" (writes are re-checked in the handler)

@@ -14,7 +14,7 @@ import (
 )
 
 const activeJWTKey = `-- name: ActiveJWTKey :one
-SELECT id, project_id, kid, algorithm, public_jwk, private_enc, status, created_at, retired_at FROM project_jwt_keys WHERE project_id = $1 AND status = 'active'
+SELECT id, project_id, kid, algorithm, public_jwk, private_enc, status, created_at, retired_at, verify_until FROM project_jwt_keys WHERE project_id = $1 AND status = 'active'
 `
 
 // tenant: system - a project the caller resolved.
@@ -31,6 +31,7 @@ func (q *Queries) ActiveJWTKey(ctx context.Context, projectID uuid.UUID) (Projec
 		&i.Status,
 		&i.CreatedAt,
 		&i.RetiredAt,
+		&i.VerifyUntil,
 	)
 	return i, err
 }
@@ -38,7 +39,7 @@ func (q *Queries) ActiveJWTKey(ctx context.Context, projectID uuid.UUID) (Projec
 const createProjectServices = `-- name: CreateProjectServices :one
 INSERT INTO project_services (project_id, ref) VALUES ($1, $2)
 ON CONFLICT (project_id) DO NOTHING
-RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at
+RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers
 `
 
 type CreateProjectServicesParams struct {
@@ -65,6 +66,7 @@ func (q *Queries) CreateProjectServices(ctx context.Context, arg CreateProjectSe
 		&i.ChangedSeq,
 		&i.EnabledAt,
 		&i.CreatedAt,
+		&i.LoginVerifiers,
 	)
 	return i, err
 }
@@ -229,7 +231,7 @@ func (q *Queries) EdgeJWTKeys(ctx context.Context, projectIds []uuid.UUID) ([]Ed
 
 const getProjectServices = `-- name: GetProjectServices :one
 
-SELECT project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at FROM project_services WHERE project_id = $1
+SELECT project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers FROM project_services WHERE project_id = $1
 `
 
 // Backend services (V4 §2): project refs, API keys, signing keys, and what
@@ -253,6 +255,7 @@ func (q *Queries) GetProjectServices(ctx context.Context, projectID uuid.UUID) (
 		&i.ChangedSeq,
 		&i.EnabledAt,
 		&i.CreatedAt,
+		&i.LoginVerifiers,
 	)
 	return i, err
 }
@@ -322,7 +325,7 @@ func (q *Queries) InsertEdgeReport(ctx context.Context, arg InsertEdgeReportPara
 const insertJWTKey = `-- name: InsertJWTKey :one
 INSERT INTO project_jwt_keys (id, project_id, kid, public_jwk, private_enc, status)
 VALUES ($1, $2, $3, $4, $5, 'active')
-RETURNING id, project_id, kid, algorithm, public_jwk, private_enc, status, created_at, retired_at
+RETURNING id, project_id, kid, algorithm, public_jwk, private_enc, status, created_at, retired_at, verify_until
 `
 
 type InsertJWTKeyParams struct {
@@ -353,6 +356,7 @@ func (q *Queries) InsertJWTKey(ctx context.Context, arg InsertJWTKeyParams) (Pro
 		&i.Status,
 		&i.CreatedAt,
 		&i.RetiredAt,
+		&i.VerifyUntil,
 	)
 	return i, err
 }
@@ -410,18 +414,19 @@ func (q *Queries) ListAPIKeys(ctx context.Context, projectID uuid.UUID) ([]Proje
 }
 
 const poolerEdgeUsers = `-- name: PoolerEdgeUsers :many
-SELECT p.db_name, s.edge_verifier::text AS edge_verifier, p.region, p.forward_region, p.forward_until
+SELECT p.db_name, s.edge_verifier::text AS edge_verifier, s.login_verifiers, p.region, p.forward_region, p.forward_until
 FROM project_services s JOIN projects p ON p.id = s.project_id
 WHERE s.enabled AND s.edge_verifier IS NOT NULL AND p.deleted_at IS NULL
 ORDER BY p.db_name
 `
 
 type PoolerEdgeUsersRow struct {
-	DbName        string
-	EdgeVerifier  string
-	Region        string
-	ForwardRegion *string
-	ForwardUntil  *time.Time
+	DbName         string
+	EdgeVerifier   string
+	LoginVerifiers json.RawMessage
+	Region         string
+	ForwardRegion  *string
+	ForwardUntil   *time.Time
 }
 
 // tenant: system - the edge logins the poolers must accept.
@@ -437,6 +442,7 @@ func (q *Queries) PoolerEdgeUsers(ctx context.Context) ([]PoolerEdgeUsersRow, er
 		if err := rows.Scan(
 			&i.DbName,
 			&i.EdgeVerifier,
+			&i.LoginVerifiers,
 			&i.Region,
 			&i.ForwardRegion,
 			&i.ForwardUntil,
@@ -452,7 +458,7 @@ func (q *Queries) PoolerEdgeUsers(ctx context.Context) ([]PoolerEdgeUsersRow, er
 }
 
 const projectJWTKeys = `-- name: ProjectJWTKeys :many
-SELECT id, project_id, kid, algorithm, public_jwk, private_enc, status, created_at, retired_at FROM project_jwt_keys WHERE project_id = $1 AND status <> 'retired' ORDER BY created_at
+SELECT id, project_id, kid, algorithm, public_jwk, private_enc, status, created_at, retired_at, verify_until FROM project_jwt_keys WHERE project_id = $1 AND status <> 'retired' ORDER BY created_at
 `
 
 // tenant: system - a project the request already authorized.
@@ -475,6 +481,7 @@ func (q *Queries) ProjectJWTKeys(ctx context.Context, projectID uuid.UUID) ([]Pr
 			&i.Status,
 			&i.CreatedAt,
 			&i.RetiredAt,
+			&i.VerifyUntil,
 		); err != nil {
 			return nil, err
 		}
@@ -534,7 +541,7 @@ func (q *Queries) ProjectRequestLogs(ctx context.Context, arg ProjectRequestLogs
 }
 
 const projectServicesByRef = `-- name: ProjectServicesByRef :one
-SELECT s.project_id, s.ref, s.enabled, s.exposed_schemas, s.public_tables, s.cors_origins, s.settings, s.edge_verifier, s.schema_version, s.roles_instance, s.config_version, s.changed_seq, s.enabled_at, s.created_at, p.db_name FROM project_services s JOIN projects p ON p.id = s.project_id WHERE s.ref = $1
+SELECT s.project_id, s.ref, s.enabled, s.exposed_schemas, s.public_tables, s.cors_origins, s.settings, s.edge_verifier, s.schema_version, s.roles_instance, s.config_version, s.changed_seq, s.enabled_at, s.created_at, s.login_verifiers, p.db_name FROM project_services s JOIN projects p ON p.id = s.project_id WHERE s.ref = $1
 `
 
 type ProjectServicesByRefRow struct {
@@ -552,6 +559,7 @@ type ProjectServicesByRefRow struct {
 	ChangedSeq     int64
 	EnabledAt      *time.Time
 	CreatedAt      time.Time
+	LoginVerifiers json.RawMessage
 	DbName         string
 }
 
@@ -574,6 +582,7 @@ func (q *Queries) ProjectServicesByRef(ctx context.Context, ref string) (Project
 		&i.ChangedSeq,
 		&i.EnabledAt,
 		&i.CreatedAt,
+		&i.LoginVerifiers,
 		&i.DbName,
 	)
 	return i, err
@@ -755,7 +764,7 @@ const setServicesEnabled = `-- name: SetServicesEnabled :one
 UPDATE project_services SET enabled = $1,
   enabled_at = CASE WHEN $1::boolean THEN now() ELSE enabled_at END
 WHERE project_id = $2
-RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at
+RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers
 `
 
 type SetServicesEnabledParams struct {
@@ -782,26 +791,30 @@ func (q *Queries) SetServicesEnabled(ctx context.Context, arg SetServicesEnabled
 		&i.ChangedSeq,
 		&i.EnabledAt,
 		&i.CreatedAt,
+		&i.LoginVerifiers,
 	)
 	return i, err
 }
 
 const setServicesRoles = `-- name: SetServicesRoles :exec
-UPDATE project_services SET edge_verifier = $1, schema_version = $2, roles_instance = $3
-WHERE project_id = $4
+UPDATE project_services SET edge_verifier = $1, login_verifiers = $2, schema_version = $3,
+  roles_instance = $4
+WHERE project_id = $5
 `
 
 type SetServicesRolesParams struct {
-	EdgeVerifier  *string
-	SchemaVersion int32
-	RolesInstance *uuid.UUID
-	ProjectID     uuid.UUID
+	EdgeVerifier   *string
+	LoginVerifiers json.RawMessage
+	SchemaVersion  int32
+	RolesInstance  *uuid.UUID
+	ProjectID      uuid.UUID
 }
 
 // tenant: system - a project the caller resolved.
 func (q *Queries) SetServicesRoles(ctx context.Context, arg SetServicesRolesParams) error {
 	_, err := q.db.Exec(ctx, setServicesRoles,
 		arg.EdgeVerifier,
+		arg.LoginVerifiers,
 		arg.SchemaVersion,
 		arg.RolesInstance,
 		arg.ProjectID,
@@ -829,7 +842,7 @@ const updateServicesSettings = `-- name: UpdateServicesSettings :one
 UPDATE project_services SET cors_origins = $1, settings = $2,
   exposed_schemas = $3, public_tables = $4
 WHERE project_id = $5
-RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at
+RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers
 `
 
 type UpdateServicesSettingsParams struct {
@@ -865,6 +878,7 @@ func (q *Queries) UpdateServicesSettings(ctx context.Context, arg UpdateServices
 		&i.ChangedSeq,
 		&i.EnabledAt,
 		&i.CreatedAt,
+		&i.LoginVerifiers,
 	)
 	return i, err
 }

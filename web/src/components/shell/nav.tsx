@@ -1,4 +1,5 @@
 import {
+  KeyRound,
   Activity,
   Bell,
   Building2,
@@ -135,6 +136,17 @@ export function projectRail(
       sidebar: { title: "Database", links: database },
       divider: true,
     },
+    ...(dev
+      ? [
+          {
+            key: "auth",
+            label: "Authentication",
+            icon: KeyRound,
+            to: `${base}/auth`,
+            match: [`${base}/auth`],
+          },
+        ]
+      : []),
     {
       key: "reports",
       label: "Reports",

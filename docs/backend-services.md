@@ -279,6 +279,251 @@ service role and shows the answer, without handing out a key or token
 (`POST /api/v1/projects/{id}/services/explore`; developers and up). Writes
 made there are real.
 
+## Auth
+
+Users live in the project's own database, in `pgd_auth` (V4 §4.2), so they
+move with it: backups, restores, branches and promotions keep them, and
+data residency covers them. Only pgdock-edge reads the auth tables; your
+SQL sees the safe view `pgd_auth.user_profiles` (no password hashes,
+tokens or codes) and may reference `pgd_auth.users(id)` from its own
+tables:
+
+```sql
+CREATE TABLE todos (
+  id bigserial PRIMARY KEY,
+  owner_id uuid NOT NULL DEFAULT pgd_auth.uid() REFERENCES pgd_auth.users (id) ON DELETE CASCADE,
+  title text NOT NULL
+);
+ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
+CREATE POLICY own ON todos FOR ALL TO "<db>_user"
+  USING (owner_id = pgd_auth.uid()) WITH CHECK (owner_id = pgd_auth.uid());
+```
+
+### Signing up and in
+
+All at `https://<ref>.<domain>/auth/v1/`, with the publishable key:
+
+```sh
+curl -X POST .../auth/v1/signup -H "apikey: pgd_pub_…" \
+  -d '{"email":"ada@example.com","password":"…","data":{"name":"Ada"},"redirect_to":"https://app.example.com/welcome"}'
+# {"confirmation_sent":true}       (or a session, when confirmation is off)
+
+curl -X POST .../auth/v1/signin/password -H "apikey: pgd_pub_…" -d '{"email":"ada@example.com","password":"…"}'
+# {"access_token":"eyJ…","token_type":"bearer","expires_in":3600,"expires_at":…,"refresh_token":"…","user":{…}}
+```
+
+| Endpoint | |
+| --- | --- |
+| `POST signup` | Email and password (argon2id). With **Confirm email addresses** on (the default) the user gets a link and a 6-digit code and can't sign in with the password until they use one; the answer is the same whether or not the address was new. |
+| `POST signin/password` (or `POST token?grant_type=password`) | A session. Five wrong passwords in a row lock the user for a minute, doubling with each further failure (`429 user_locked`). |
+| `POST signin/otp` | A magic link and a code by email (`create_user: false` to only sign in existing users). Proving an unconfirmed address this way (or by a reset) clears any password set on it before, so nobody can claim an address ahead of its owner. |
+| `POST verify` | `{"type":"signup"\|"magiclink"\|"email"\|"recovery"\|"invite"\|"email_change","email":"…","token":"123456"}`, or `{"type":…,"token_hash":"…"}` with the link's token: a session. A code works once, for 10 minutes (invitations a day), and 5 wrong tries use it up. |
+| `GET verify?token=…&type=…&redirect_to=…` | The link in the email (no key needed): redirects to `redirect_to` with the session in the fragment (`#access_token=…&refresh_token=…`), or `#error=access_denied&error_code=otp_expired`. |
+| `POST resend` | Another confirmation email (`{"type":"signup","email":…}`). |
+| `POST recover` | A password-reset link and code; verifying it signs the user in to set a new password. |
+| `POST token?grant_type=refresh_token` | `{"refresh_token":"…"}`: new tokens; the refresh token is single use. |
+| `POST signout?scope=local\|others\|global` | With the access token: this session, the others, or every session. |
+| `GET user`, `PATCH user` | The signed-in user with their `identities` and `factors`; change the password, `data` (merged into the user's metadata), the email (confirmed by a link sent to the new address) or the `phone` (confirmed by a code to the new number). |
+| `GET settings` | Which methods are on and the password rules, for your sign-in form. |
+| `GET .well-known/jwks.json` | The public keys (no key needed). |
+
+Links go only to the **site URL** (and pages under it) or the exact
+**redirect URLs** you list (`*` and `**` wildcards when allowed);
+anything else is `400 redirect_not_allowed`.
+
+### Phone: SMS and WhatsApp codes
+
+Turn the channels on in Authentication → Phone. Numbers may be written the
+local way (`0803 123 4567`) or internationally (`+2348031234567`); they are
+stored in E.164.
+
+```sh
+curl -X POST .../auth/v1/signin/otp -H "apikey: pgd_pub_…" -d '{"phone":"08031234567","channel":"whatsapp"}'
+curl -X POST .../auth/v1/verify -H "apikey: pgd_pub_…" -d '{"type":"sms","phone":"+2348031234567","token":"123456"}'
+```
+
+| Endpoint | |
+| --- | --- |
+| `POST signin/otp` with `phone` and `channel` (`sms` default, or `whatsapp`) | A code to the number, creating the user when sign-ups are on (`create_user: false` to only sign in). |
+| `POST signup` with `phone` and `password` | A phone and password account; with **Confirm numbers at sign-up** on (the default) a code goes to the number first. |
+| `POST signin/password` with `phone` | Signs in with the number and password. |
+| `POST verify` | `{"type":"sms","phone":…,"token":…}` (also `"whatsapp"`), or `"phone_change"` for a new number. |
+| `PATCH user` with `phone` (and `channel`) | Sends a code to the new number. |
+| `POST resend` with `{"type":"sms","phone":…}` | Another code (only to an existing user). |
+
+**Who sends.** By default, PGDock's own accounts: Termii for SMS, through
+its DND route so numbers registered as do-not-disturb still get codes,
+and PGDock's WhatsApp Business number with an approved authentication
+template. Each message is metered (`messages_sms`, `messages_whatsapp`)
+and its cost shown under Authentication → Phone. Free projects bring their
+own provider unless the install allows otherwise. A project can use its
+own **Termii, Africa's Talking or Twilio** account for SMS and its own
+**WhatsApp Cloud API** number (or Twilio) for WhatsApp; PGDock doesn't bill
+those messages. A **send-message hook** (below) replaces sending entirely.
+
+**SMS pumping.** Paid codes invite fraud: someone requests codes to numbers
+they profit from. Four limits stop it:
+
+- **Countries**: numbers must be in the project's countries (Nigeria only
+  by default; `403 phone_country_not_allowed` otherwise).
+- **Per number**: one code a minute from the edge, and at most 5 an hour at
+  pgdock-server (`429 over_sms_send_rate_limit`).
+- **Daily cap**: 200 codes a day per project by default. At the cap, codes
+  stop (`429`, "daily limit") and the project's admins are emailed; they
+  are also emailed when a quarter of the cap goes out in one hour.
+- **Captcha** (below) on code requests.
+
+### OAuth: Google, Apple, GitHub, Facebook, Microsoft
+
+Each project uses its own OAuth app. In Authentication → Providers, turn a
+provider on with its client ID and secret (Apple: the Services ID, team
+ID, key ID and the `.p8` key) and register the **callback URL** shown
+there, `https://<ref>.<domain>/auth/v1/callback`, with the provider.
+
+With PKCE (what Supabase's clients do by default):
+
+1. The app sends the browser to
+   `GET /auth/v1/authorize?provider=google&redirect_to=<allowed URL>&code_challenge=…&code_challenge_method=s256`
+   (no key needed).
+2. After the provider, the browser returns to `redirect_to?code=…`.
+3. The app exchanges it: `POST /auth/v1/token?grant_type=pkce` with
+   `{"auth_code":…,"code_verifier":…}`. The code works once, for 5
+   minutes.
+
+Without a `code_challenge` the session comes back in the redirect's
+fragment instead. A provider's verified email joins the user who has that
+email (and clears a password someone set on it unconfirmed); an
+unverified one never does. Microsoft's email isn't treated as verified.
+
+### Anonymous users and identities
+
+With **Anonymous sign-in** on, `POST /auth/v1/signup` with an empty body
+returns a session for a new user with `is_anonymous: true` (the claim is
+in the token, and `pgd_auth.is_anonymous()` reads it in policies). The
+user becomes permanent when they add an email or phone (`PATCH user`, then
+verify) or link a provider.
+
+A signed-in user can link a provider with
+`GET /auth/v1/user/identities/authorize?provider=…&redirect_to=…` (with
+their token; the answer is `{"url":…}` to open) and unlink one with
+`DELETE /auth/v1/user/identities/{id}`; the last way to sign in can't be
+unlinked. Both can be turned off.
+
+### Multi-factor authentication
+
+Users enrol an authenticator app (TOTP) or, when allowed, a phone:
+
+| Endpoint (with the user's token) | |
+| --- | --- |
+| `POST factors` `{"factor_type":"totp","friendly_name":…}` | The secret and an `otpauth://` URI for a QR code. Phone: `{"factor_type":"phone","phone":…}`. |
+| `POST factors/{id}/challenge` | A challenge (a phone factor gets a code). |
+| `POST factors/{id}/verify` `{"challenge_id":…,"code":…}` | New tokens at `aal2`; the factor is verified. |
+| `DELETE factors/{id}` | Removes a factor (a verified one needs `aal2`). |
+
+`/mfa/enroll`, `/mfa/challenge` and `/mfa/verify` (with `factor_id` in the
+body) do the same. The **policy** (Authentication → MFA and captcha) is
+optional (users choose), required (the data API answers only `aal2`
+tokens: `403 mfa_required`), or required by claim for users whose
+`app_metadata.mfa_required` is true. Policies can check
+`pgd_auth.aal() = 'aal2'` themselves.
+
+### Hooks
+
+| Hook | | |
+| --- | --- | --- |
+| **Custom claims** | A Postgres function `schema.name(event jsonb) returns jsonb` | Called when a token is issued with `{"user_id","claims","authentication_method"}`; return `{"claims":{…}}`. Claims the edge sets (`sub`, `role`, `aud`, `exp`, `iat`, `session_id`, `aal`, `amr`, `is_anonymous`) can't be changed. |
+| **Before sign-up** | A Postgres function, or a webhook | Called with `{"user","method","ip"}`; `{"decision":"reject","message":…}` (or a webhook's 4xx) refuses with `403 signup_rejected`. A webhook that doesn't answer in 3 seconds lets the sign-up through. |
+| **After sign-up**, **after sign-in** | Webhooks | `{"type":"after_signup","data":{"user":…,"method":…}}`, queued and retried like database webhooks. |
+| **Send message** | A webhook | Receives every email and code (`{"type":"send_message","channel","kind","to","body","code","link"}`) instead of PGDock sending it. |
+
+Postgres hooks run in their own transaction, with a 2-second timeout, as
+the project's **hook role** `<db>_auth_hook` (a login of its own, like the
+request roles: code that runs `RESET ROLE` stays that role), which has no privileges
+beyond reading `pgd_auth.user_profiles` and the `pgd_auth` functions:
+grant it what the hook reads.
+
+```sql
+GRANT SELECT ON members TO "<db>_auth_hook";
+CREATE FUNCTION public.custom_claims(event jsonb) RETURNS jsonb LANGUAGE sql STABLE AS $$
+  SELECT jsonb_build_object('claims', (event -> 'claims') || coalesce(
+    (SELECT jsonb_build_object('org_id', org_id) FROM members WHERE user_id = (event ->> 'user_id')::uuid), '{}'::jsonb))
+$$;
+-- then, in a policy: USING (org_id = pgd_auth.claim('org_id'))
+```
+
+A failing custom-claims hook fails the sign-in (`500`), so test it before
+turning it on. Webhooks are signed with the project's **hook secret**
+(`PGDock-Signature`, the same scheme as database webhooks), go through the
+organisation's outbound rules, and are listed with their results under
+Authentication → Hooks.
+
+### Captcha
+
+With captcha on (a Cloudflare Turnstile site key and secret in
+Authentication → MFA and captcha), sign-up, password sign-in and code
+requests need a Turnstile token, sent as
+`"gotrue_meta_security":{"captcha_token":…}` (what Supabase's clients
+send) or `"captcha_token"` (`400 captcha_failed` otherwise).
+
+### Tokens and sessions
+
+- The access token is an ES256 JWT signed with the project's key, an hour
+  by default (5 minutes to 24 hours): `sub` (the user id), `role: "user"`,
+  `aud` (the project ref), `session_id`, `aal`, `amr`, `email`, `phone`,
+  `is_anonymous`, `app_metadata`, `user_metadata`, and whatever a
+  custom-claims hook adds. Send it as `Authorization: Bearer …`
+  with the publishable key: requests run as `<db>_user` and
+  `pgd_auth.uid()` is its `sub`.
+- **Your servers verify tokens with the JWKS endpoint**; there is no shared
+  secret. Rotating the key (Authentication → Signing keys, or
+  `pgdock auth rotate-key`) signs new tokens with a new key and keeps the
+  old one in the JWKS for a day, so nobody is signed out.
+- Refresh tokens rotate on every use. **Presenting a refresh token that was
+  already used ends its whole session** (`400 refresh_token_reused`): a
+  stolen token is good for one refresh at most, and only until the
+  rightful app refreshes. Apps should refresh once at a time.
+- Sessions can be limited in length and by inactivity, or to one per user.
+  A ban or a deletion takes effect at the next refresh; signing out
+  revokes refresh tokens at once, and the access token's lifetime bounds
+  the rest.
+
+### Emails
+
+Confirmation, magic-link (with the code), password-reset, invitation and
+email-change emails are sent by pgdock-server from the project's
+templates (Authentication → Emails: plain text with `{{.Code}}`,
+`{{.Link}}`, `{{.Email}}`, `{{.SiteURL}}`, with a preview).
+
+- **Platform email** works out of the box for development, at 30 emails an
+  hour per project (`429 over_email_send_rate_limit` past that).
+- **Your own SMTP server** (Authentication → Emails) sends from your
+  domain without that limit. Its password is encrypted; **Send test**
+  checks it before saving.
+- One address gets at most one code a minute; sends are counted in the
+  usage (`message_sends`) and shown with failures.
+
+A Flutter sample that signs in with a WhatsApp code and Google and reads
+org-scoped rows is in [examples/flutter-auth](examples/flutter-auth/).
+
+### Managing users
+
+- **Dashboard:** Project → Authentication lists users (search by email,
+  phone or id), shows a user's sessions and recent activity, and invites,
+  bans, unbans, confirms, signs out and deletes them. Developers and up.
+- **Admin API**, with the **secret key**: `GET|POST /auth/v1/admin/users`,
+  `GET|PATCH|DELETE /auth/v1/admin/users/{id}` (`ban_duration: "24h"` or
+  `"none"`), `POST /auth/v1/admin/users/{id}/signout`,
+  `POST /auth/v1/admin/invite`, `POST /auth/v1/admin/generate-link`
+  (a link and code without sending them, for your own emails).
+- **CLI:** `pgdock auth users list|show|invite|ban|unban|signout|delete`,
+  `pgdock auth config|set|hooks`.
+
+Deleting a user deletes their sessions and sign-in methods; rows of your
+tables that reference them follow your foreign keys.
+
+Monthly active users (anyone who signed in or refreshed a token in the
+month) are recorded as usage (`auth_mau`) and shown on the Users tab.
+
 ## Settings
 
 - **Allowed origins**: the pages that may call the API. Empty allows any
@@ -341,8 +586,24 @@ edge keeps serving from what it has and holds its reports, retrying them
 later. `GET /healthz` on any host that isn't a project answers once the
 first configuration has loaded.
 
+## Platform SMS and WhatsApp (operators)
+
+pgdock-server sends projects' codes when they don't bring their own
+provider. Set:
+
+| Variable | |
+| --- | --- |
+| `PGDOCK_TERMII_API_KEY` (or `_FILE`), `PGDOCK_TERMII_SENDER_ID` | Termii's API key and an approved sender ID. Codes go by Termii's `dnd` channel. `PGDOCK_TERMII_URL` is the account's API base if it isn't `https://api.ng.termii.com`. |
+| `PGDOCK_WHATSAPP_OTP_TEMPLATE`, `PGDOCK_WHATSAPP_OTP_LANGUAGE` | An approved **authentication** template (with a copy-code button) on the WhatsApp number support uses (`PGDOCK_WHATSAPP_PHONE_NUMBER_ID`, `PGDOCK_WHATSAPP_ACCESS_TOKEN`); the language defaults to `en`. |
+| `PGDOCK_SMS_PRICE_MINOR`, `PGDOCK_WHATSAPP_PRICE_MINOR`, `PGDOCK_MESSAGE_CURRENCY` | What a message costs the project, in minor units (default NGN 4.50 and NGN 15.00), shown as spend; usage is metered as `messages_sms` and `messages_whatsapp`. |
+| `PGDOCK_PHONE_AUTH_FREE` | `true` lets Free projects use the platform's providers (by default they bring their own). |
+
+Without them, phone sign-in works only for projects with their own
+provider.
+
 ## Not yet
 
-These come in the next milestones (V4 §14): auth (M31–M32), storage (M33), realtime (M34) and
-read replicas (M35). Rating the new usage on invoices and per-plan limits come
+These come in the next milestones (V4 §14): storage (M33), realtime (M34)
+and read replicas (M35). Auth's leaked-password check and bounce handling
+for auth emails are not built yet. Rating the new usage on invoices and per-plan limits come
 with billing (M37).

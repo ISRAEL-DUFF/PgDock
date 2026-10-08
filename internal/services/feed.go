@@ -57,6 +57,8 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 	q := store.New(s.db)
 	keys := map[uuid.UUID][]edgeapi.Key{}
 	jwks := map[uuid.UUID][]json.RawMessage{}
+	signing := map[uuid.UUID]*edgeapi.SigningKey{}
+	auth := map[uuid.UUID]edgeapi.AuthConfig{}
 	if len(live) > 0 {
 		ks, err := q.EdgeAPIKeys(ctx, live)
 		if err != nil {
@@ -71,6 +73,38 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 		}
 		for _, j := range js {
 			jwks[j.ProjectID] = append(jwks[j.ProjectID], j.PublicJwk)
+		}
+		ss, err := q.EdgeSigningKeys(ctx, live)
+		if err != nil {
+			return out, err
+		}
+		for _, k := range ss {
+			der, err := s.keyring.Decrypt(k.PrivateEnc, jwtAAD(k.ID))
+			if err != nil {
+				return out, fmt.Errorf("signing key %s: %w", k.Kid, err)
+			}
+			signing[k.ProjectID] = &edgeapi.SigningKey{Kid: k.Kid, Private: der}
+		}
+		as, err := q.EdgeAuthConfigs(ctx, live)
+		if err != nil {
+			return out, err
+		}
+		for _, a := range as {
+			var st AuthSettings
+			if err := json.Unmarshal(a.Config, &st); err != nil {
+				return out, fmt.Errorf("auth settings: %w", err)
+			}
+			var prov sealedProviders
+			if len(a.ProvidersEnc) > 0 {
+				raw, err := s.keyring.Decrypt(a.ProvidersEnc, smtpAAD(a.ProjectID))
+				if err != nil {
+					return out, fmt.Errorf("auth providers: %w", err)
+				}
+				if err := json.Unmarshal(raw, &prov); err != nil {
+					return out, fmt.Errorf("auth providers: %w", err)
+				}
+			}
+			auth[a.ProjectID] = edgeAuth(st, prov, s.cfg.CaptchaVerifyURL)
 		}
 	}
 	for _, r := range rows {
@@ -100,8 +134,19 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 		p.Database, p.EdgeUser, p.Password = r.DbName, edge, s.edgePassword(edge)
 		p.PoolerHost, p.PoolerPort = host, port
 		p.AnonRole, p.UserRole, p.ServiceRole = store.AnonRole(r.DbName), store.UserRole(r.DbName), store.ServiceRole(r.DbName)
+		p.HookRole = store.AuthHookRole(r.DbName)
+		p.Logins = map[string]string{}
+		for _, role := range store.RequestRoles(r.DbName) {
+			p.Logins[role] = s.edgePassword(role)
+		}
 		p.Keys, p.JWKs, p.CORSOrigins = keys[r.ProjectID], jwks[r.ProjectID], r.CorsOrigins
 		p.ExposedSchemas, p.PublicTables = r.ExposedSchemas, r.PublicTables
+		p.SigningKey = signing[r.ProjectID]
+		if a, ok := auth[r.ProjectID]; ok {
+			p.Auth = a
+		} else {
+			p.Auth = AuthSettings{}.Resolve()
+		}
 		p.Settings = edgeapi.Settings{StatementTimeoutMs: or(st.StatementTimeoutMs, DefaultStatementTimeoutMs),
 			RatePerIP: or(st.RatePerIP, DefaultRatePerIP), RatePerKey: or(st.RatePerKey, DefaultRatePerKey),
 			AllowSecretInBrowser: st.AllowSecretInBrowser, MaxQueryCost: float64(or(st.MaxQueryCost, DefaultMaxQueryCost))}
@@ -148,10 +193,17 @@ func (s *Service) Report(ctx context.Context, r edgeapi.Report) error {
 		for _, u := range r.Usage {
 			ids[u.ProjectID] = true
 		}
+		wanted := map[uuid.UUID]bool{}
+		for id := range ids {
+			wanted[id] = true
+		}
+		for _, a := range r.ActiveUsers {
+			wanted[a.ProjectID] = true
+		}
 		owners := map[uuid.UUID]store.ProjectUsageOwnerRow{}
-		if len(ids) > 0 {
-			list := make([]uuid.UUID, 0, len(ids))
-			for id := range ids {
+		if len(wanted) > 0 {
+			list := make([]uuid.UUID, 0, len(wanted))
+			for id := range wanted {
 				list = append(list, id)
 			}
 			rows, err := q.ProjectUsageOwner(ctx, list)
@@ -196,6 +248,9 @@ func (s *Service) Report(ctx context.Context, r edgeapi.Report) error {
 			if _, err := q.InsertRequestLogs(ctx, logs); err != nil {
 				return err
 			}
+		}
+		if err := recordActive(ctx, q, r.ActiveUsers, owners); err != nil {
+			return err
 		}
 		if len(r.KeysUsed) > 0 {
 			at := r.At

@@ -686,6 +686,8 @@ Insert, upsert, update/delete with required filters and `max_affected`, batch tr
 
 `pgd_auth` schema; email/password, magic link, email OTP; ES256 keys, JWKS, rotation; access and refresh tokens with rotation and reuse detection; sessions; rate limits and lockout; platform email with templates; custom SMTP; admin user API; auth dashboard (users, detail, ban, delete). **Done when:** sign-up, sign-in, refresh, sign-out-everywhere, and reuse detection pass their tests, and RLS policies using `pgd_auth.uid()` enforce per-user data.
 
+*(As built: pgdock-edge signs tokens with the active key it receives in the feed and sends auth emails through pgdock-server, which keeps SMTP credentials; rotation is a synchronous call, not an operation; a reused refresh token ends the whole session with no grace window. See `docs/decisions.md`, V4-M31.)*
+
 ### M32 — Auth: phone, OAuth, MFA, hooks (Weeks 11–13)
 
 Message provider interface; platform SMS and WhatsApp OTP with caps, country allow-list, and metering; BYO providers; OAuth (Google, Apple, GitHub, Facebook, Microsoft) with PKCE; anonymous users and identity linking; MFA (TOTP, phone); custom-claims and before-sign-up Postgres hooks; webhook hooks; captcha. **Done when:** a Flutter sample app signs in with WhatsApp OTP and Google, a custom-claims hook adds `org_id` used by RLS, and an SMS-pumping simulation is stopped by caps.
@@ -753,9 +755,9 @@ Edge functions (sandboxed runtime, deploy from CLI, secrets, logs); custom domai
 
 ## 17. Open Questions
 
-1. **SMS and WhatsApp providers.** Which providers should PGDock hold accounts with for Nigerian delivery (and as fallback)? This sets OTP cost and reliability.
+1. **SMS and WhatsApp providers.** Which providers should PGDock hold accounts with for Nigerian delivery (and as fallback)? This sets OTP cost and reliability. *Answered (M32): Termii for SMS (DND route) and Meta's WhatsApp Cloud API with an authentication template; projects may bring Termii, Africa's Talking or Twilio, or their own WhatsApp number.*
 2. **Dart/Flutter at launch.** Is Flutter common enough among your target customers to justify a launch SDK, or start with TypeScript and Go only?
 3. **Realtime in V4 or V5.** Realtime is the most expensive service to operate correctly. Keep it in V4 (as specced), or move it to V5 and ship V4 about 3 weeks sooner?
 4. **Hostname.** Is `<ref>.api.pgdock.ng` the domain you want customers' apps to call, or will the product name change before V4 ships?
-5. **Free plan and SMS.** Should Free projects get a small allowance of platform OTP messages (better onboarding, fraud risk), or BYO provider only (as specced)?
+5. **Free plan and SMS.** Should Free projects get a small allowance of platform OTP messages (better onboarding, fraud risk), or BYO provider only (as specced)? *M32 keeps BYO only by default; an operator can allow Free projects with `PGDOCK_PHONE_AUTH_FREE`.*
 6. **API caching.** Is edge caching of anonymous `GET` responses worth including in V4, or should it wait until customers ask?

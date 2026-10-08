@@ -54,6 +54,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/legal"
 	"github.com/israel-duff/pgdock/internal/logging"
 	"github.com/israel-duff/pgdock/internal/mail"
+	"github.com/israel-duff/pgdock/internal/messaging"
 	"github.com/israel-duff/pgdock/internal/metrics"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/orgs"
@@ -386,6 +387,8 @@ func run() error {
 			backups.Dedicated.ServiceRoles = servicesSvc.EnsureRolesOn
 		}
 		bg.Add(1)
+		servicesSvc.Mail = mailSvc
+		servicesSvc.Phone = platformPhone(cfg)
 		go func() { defer bg.Done(); servicesSvc.Run(bgCtx, 15*time.Second) }()
 	}
 
@@ -433,6 +436,9 @@ func run() error {
 	var outboundSvc *outbound.Service
 	if projects != nil && tenancySvc != nil {
 		outboundSvc = outbound.New(pool, outbound.Config{Blocked: cfg.Insight.OutboundBlock}, log)
+		if servicesSvc != nil {
+			servicesSvc.Outbound = outboundSvc
+		}
 		webhookSvc = webhooks.New(pool, keyring, projects, outboundSvc, tenancySvc, mailSvc, webhooks.Config{PublicURL: cfg.Insight.PublicURL}, log)
 		// SQL jobs run through the console's login (it holds no privileges
 		// of its own), whether or not the console itself is turned off.
@@ -442,6 +448,13 @@ func run() error {
 		bg.Add(2)
 		go func() { defer bg.Done(); webhookSvc.Run(bgCtx) }()
 		go func() { defer bg.Done(); jobSvc.Run(bgCtx) }()
+	}
+
+	// Auth messages and hooks (V4 §4.5–§4.7), once their outbound client
+	// (if any) is set.
+	if servicesSvc != nil {
+		bg.Add(1)
+		go func() { defer bg.Done(); servicesSvc.RunAuthEmail(bgCtx) }()
 	}
 
 	var consoleSvc *console.Service
@@ -848,6 +861,10 @@ func setupBackups(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, ke
 	return bs, ns, nil
 }
 
+// defaultMaxConns is the metadata pool size unless PGDOCK_DATABASE_URL sets
+// pool_max_conns.
+const defaultMaxConns = 16
+
 func connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	pcfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
@@ -855,6 +872,12 @@ func connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	}
 	if pcfg.ConnConfig.RuntimeParams["application_name"] == "" {
 		pcfg.ConnConfig.RuntimeParams["application_name"] = "pgdock-server"
+	}
+	// pgx's default (4 on a small box) is too few: the webhook and job
+	// schedulers each keep a connection for their lock, and a burst of
+	// requests and workers then queue behind each other.
+	if !strings.Contains(url, "pool_max_conns") {
+		pcfg.MaxConns = max(pcfg.MaxConns, defaultMaxConns)
 	}
 	pool, err := pgxpool.NewWithConfig(ctx, pcfg)
 	if err != nil {
@@ -953,4 +976,20 @@ func cloudProvider(c config.Cloud) cloud.Provider {
 		return &cloud.HetznerProvider{API: c.HetznerAPI, Token: c.HetznerToken}
 	}
 	return cloud.ManualProvider{}
+}
+
+// platformPhone is the platform's SMS (Termii) and WhatsApp (support's
+// number, an authentication template) for project auth codes (V4 §6.2).
+func platformPhone(cfg config.Config) services.PlatformPhone {
+	a := cfg.AuthPhone
+	p := services.PlatformPhone{SMSCostMinor: a.SMSPriceMinor, WhatsAppCostMinor: a.WhatsAppPriceMinor, Currency: a.Currency,
+		DisallowFreePlans: !a.FreeAllowed}
+	if a.SMSOn() {
+		p.SMS = messaging.Termii{BaseURL: a.TermiiURL, APIKey: a.TermiiAPIKey, SenderID: a.TermiiSenderID}
+	}
+	if a.WhatsAppTemplate != "" && cfg.Support.WhatsAppOn() {
+		p.WhatsApp = messaging.WhatsAppCloud{BaseURL: cfg.Support.WhatsAppGraphURL, PhoneNumberID: cfg.Support.WhatsAppPhoneNumberID,
+			AccessToken: cfg.Support.WhatsAppAccessToken, Template: a.WhatsAppTemplate, Language: a.WhatsAppLanguage}
+	}
+	return p
 }

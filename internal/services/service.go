@@ -24,6 +24,8 @@ import (
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/jwtes"
+	"github.com/israel-duff/pgdock/internal/mail"
+	"github.com/israel-duff/pgdock/internal/outbound"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
 )
@@ -41,8 +43,13 @@ var (
 	ErrInvalid  = errors.New("invalid")
 )
 
-// edgeConnLimit caps the edge login's sessions per project database.
-const edgeConnLimit = 20
+// edgeConnLimit caps the edge login's sessions per project database (auth),
+// requestConnLimit each request role's, hookConnLimit the hook role's.
+const (
+	edgeConnLimit    = 20
+	requestConnLimit = 20
+	hookConnLimit    = 10
+)
 
 // Config is the service's configuration.
 type Config struct {
@@ -53,6 +60,9 @@ type Config struct {
 	RegionDomain func(region string) string
 	// EdgeSecret signs pgdock-edge's requests. Empty disables the feed.
 	EdgeSecret string
+	// CaptchaVerifyURL is Turnstile's siteverify endpoint (tests point it
+	// at a fake); empty is Cloudflare's.
+	CaptchaVerifyURL string
 }
 
 // Service is the control plane's side of backend services.
@@ -64,11 +74,19 @@ type Service struct {
 	log      *slog.Logger
 	// Waker resumes a paused project (the free tier, V3 §4.2).
 	Waker func(ctx context.Context, projectID uuid.UUID) error
+	// Mail is the platform's email, for projects without their own SMTP.
+	Mail *mail.Service
+	// Phone is the platform's SMS and WhatsApp, for projects without their
+	// own provider (V4 §6.2).
+	Phone PlatformPhone
+	// Outbound makes hook calls (V4 §6.5).
+	Outbound  *outbound.Service
+	emailKick chan struct{}
 }
 
 // New returns the service.
 func New(db *pgxpool.Pool, projects *provision.Service, cfg Config, log *slog.Logger) *Service {
-	return &Service{db: db, keyring: projects.Keyring(), projects: projects, cfg: cfg, log: log}
+	return &Service{db: db, keyring: projects.Keyring(), projects: projects, cfg: cfg, log: log, emailKick: make(chan struct{}, 1)}
 }
 
 // Kinds are the operations it runs.
@@ -494,21 +512,23 @@ func (s *Service) runDisable(ctx context.Context, op store.Operation, log *jobs.
 			return err
 		}
 		defer conn.Close(context.Background())
-		edge := store.EdgeRole(p.DbName)
-		var exists bool
-		if err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)`, edge).Scan(&exists); err != nil {
-			return err
-		}
-		if exists {
-			if _, err := conn.Exec(ctx, "ALTER ROLE "+provision.Ident(edge)+" NOLOGIN"); err != nil {
+		for _, role := range store.ServiceRoles(p.DbName) {
+			var exists bool
+			if err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)`, role).Scan(&exists); err != nil {
 				return err
 			}
-			if _, err := conn.Exec(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = $1`, edge); err != nil {
+			if !exists {
+				continue
+			}
+			if _, err := conn.Exec(ctx, "ALTER ROLE "+provision.Ident(role)+" NOLOGIN"); err != nil {
+				return err
+			}
+			if _, err := conn.Exec(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = $1`, role); err != nil {
 				return err
 			}
 		}
 	}
-	return log.Info(ctx, "disabled", "keys revoked and the edge login switched off; the pgd_* schemas are kept")
+	return log.Info(ctx, "disabled", "keys revoked and the edge's logins switched off; the pgd_* schemas are kept")
 }
 
 // edgePassword is the edge login's password, derived from the master key,
@@ -556,6 +576,23 @@ func (s *Service) ensureRolesOn(ctx context.Context, p store.Project, instance u
 	} else if verifier, err = crypto.SCRAMVerifier(s.edgePassword(edge)); err != nil {
 		return err
 	}
+	// The request roles' own logins (V4-M32): their stored verifiers, or new
+	// ones from their derived passwords.
+	logins := map[string]string{}
+	if len(svc.LoginVerifiers) > 0 {
+		if err := json.Unmarshal(svc.LoginVerifiers, &logins); err != nil {
+			return fmt.Errorf("login verifiers: %w", err)
+		}
+	}
+	for _, r := range store.RequestRoles(p.DbName) {
+		if logins[r] == "" {
+			v, err := crypto.SCRAMVerifier(s.edgePassword(r))
+			if err != nil {
+				return err
+			}
+			logins[r] = v
+		}
+	}
 	conn, err := s.projects.AdminConn(ctx, instance, "postgres")
 	if err != nil {
 		return err
@@ -579,35 +616,56 @@ func (s *Service) ensureRolesOn(ctx context.Context, p store.Project, instance u
 		return err
 	}
 	const none = "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION"
+	login := func(role string, limit int) string {
+		return fmt.Sprintf("LOGIN NOINHERIT %s CONNECTION LIMIT %d PASSWORD '%s'", none, limit, logins[role])
+	}
 	for _, r := range []struct{ role, attrs string }{
-		{store.AnonRole(p.DbName), "NOLOGIN NOINHERIT NOBYPASSRLS " + none},
-		{store.UserRole(p.DbName), "NOLOGIN NOINHERIT NOBYPASSRLS " + none},
+		{store.AnonRole(p.DbName), "NOBYPASSRLS " + login(store.AnonRole(p.DbName), requestConnLimit)},
+		{store.UserRole(p.DbName), "NOBYPASSRLS " + login(store.UserRole(p.DbName), requestConnLimit)},
 		// Bypasses row-level security, still not a superuser.
-		{store.ServiceRole(p.DbName), "NOLOGIN NOINHERIT BYPASSRLS " + none},
+		{store.ServiceRole(p.DbName), "BYPASSRLS " + login(store.ServiceRole(p.DbName), requestConnLimit)},
+		{store.AuthHookRole(p.DbName), "NOBYPASSRLS " + login(store.AuthHookRole(p.DbName), hookConnLimit)},
+		// The edge's own login: the auth tables, and nothing it runs is the
+		// tenant's.
 		{edge, fmt.Sprintf("LOGIN NOINHERIT NOBYPASSRLS %s CONNECTION LIMIT %d PASSWORD '%s'", none, edgeConnLimit, verifier)},
 	} {
 		if err := create(r.role, r.attrs); err != nil {
 			return fmt.Errorf("%s: %w", r.role, err)
 		}
 	}
-	stmts := []string{
-		// The edge holds nothing itself: it can only become one of the three.
-		"GRANT " + id(store.AnonRole(p.DbName)) + ", " + id(store.UserRole(p.DbName)) + ", " + id(store.ServiceRole(p.DbName)) +
-			" TO " + id(edge) + " WITH INHERIT FALSE, SET TRUE",
-		"GRANT CONNECT ON DATABASE " + id(p.DbName) + " TO " + id(edge),
+	// Before M32 the edge login could SET ROLE to the request roles; tenant
+	// SQL reset to it could then read pgd_auth or become the service role.
+	var member bool
+	if err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member
+		WHERE r.rolname = $1)`, edge).Scan(&member); err != nil {
+		return err
 	}
-	if p.Tier == provision.TierShared {
-		stmts = append(stmts, "ALTER ROLE "+id(edge)+" SET temp_file_limit = '"+provision.TempFileLimit+"'")
+	var stmts []string
+	if member {
+		for _, r := range store.RequestRoles(p.DbName) {
+			stmts = append(stmts, "REVOKE "+id(r)+" FROM "+id(edge))
+		}
+	}
+	for _, r := range append(store.RequestRoles(p.DbName), edge) {
+		stmts = append(stmts, "GRANT CONNECT ON DATABASE "+id(p.DbName)+" TO "+id(r))
+		if p.Tier == provision.TierShared {
+			stmts = append(stmts, "ALTER ROLE "+id(r)+" SET temp_file_limit = '"+provision.TempFileLimit+"'")
+		}
 	}
 	for _, st := range stmts {
 		if _, err := conn.Exec(ctx, st); err != nil {
+			var pe *pgconn.PgError
+			if strings.HasPrefix(st, "REVOKE") && errors.As(err, &pe) {
+				continue // not a member on this instance
+			}
 			return fmt.Errorf("%s: %w", st, err)
 		}
 	}
 	if !record {
 		return nil
 	}
-	return q.SetServicesRoles(ctx, store.SetServicesRolesParams{ProjectID: p.ID, EdgeVerifier: &verifier,
+	lv, _ := json.Marshal(logins)
+	return q.SetServicesRoles(ctx, store.SetServicesRolesParams{ProjectID: p.ID, EdgeVerifier: &verifier, LoginVerifiers: lv,
 		SchemaVersion: svc.SchemaVersion, RolesInstance: &p.InstanceID})
 }
 
@@ -658,7 +716,7 @@ func (s *Service) applySchema(ctx context.Context, p store.Project, all bool) er
 			return err
 		}
 	}
-	return q.SetServicesRoles(ctx, store.SetServicesRolesParams{ProjectID: p.ID, EdgeVerifier: svc.EdgeVerifier,
+	return q.SetServicesRoles(ctx, store.SetServicesRolesParams{ProjectID: p.ID, EdgeVerifier: svc.EdgeVerifier, LoginVerifiers: svc.LoginVerifiers,
 		SchemaVersion: int32(SchemaVersion), RolesInstance: svc.RolesInstance})
 }
 
@@ -677,7 +735,8 @@ func (s *Service) Reconcile(ctx context.Context) error {
 			continue
 		}
 		moved := svc.RolesInstance == nil || *svc.RolesInstance != p.InstanceID
-		if moved {
+		// A newer schema version may use a role this release added.
+		if moved || svc.SchemaVersion < int32(SchemaVersion) {
 			if err := s.ensureRoles(ctx, p); err != nil {
 				errs = append(errs, fmt.Errorf("%s roles: %w", p.DbName, err))
 				continue
@@ -706,6 +765,12 @@ func (s *Service) Run(ctx context.Context, every time.Duration) {
 		}
 		if _, err := q.PruneEdgeReports(ctx, time.Now().Add(-7*24*time.Hour)); err != nil && ctx.Err() == nil {
 			s.log.Warn("pruning edge reports", "err", err)
+		}
+		if _, err := q.RetireJWTKeys(ctx); err != nil && ctx.Err() == nil {
+			s.log.Warn("retiring signing keys", "err", err)
+		}
+		if _, err := q.PruneAuthEmails(ctx, time.Now().Add(-7*24*time.Hour)); err != nil && ctx.Err() == nil {
+			s.log.Warn("pruning auth emails", "err", err)
 		}
 		select {
 		case <-ctx.Done():

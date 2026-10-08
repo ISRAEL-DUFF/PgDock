@@ -1892,6 +1892,61 @@ test.describe("with the saved session", () => {
     await explorer.getByLabel("Path").fill("/data/v1/notes");
     await explorer.getByRole("button", { name: "Send" }).click();
     await expect(explorer.getByTestId("explorer-result")).toContainText("200");
+
+    // M31: the app's users on Project → Authentication.
+    await page.goto(`/projects/${id}/auth`);
+    await expect(page.getByTestId("auth-users-empty")).toBeVisible();
+    await page.getByRole("button", { name: "Add user" }).click();
+    const add = page.getByTestId("add-auth-user");
+    await add.getByLabel("Email").fill("ada@example.com");
+    await add.getByRole("checkbox").first().click(); // a password instead of an invitation
+    await add.getByLabel("Password").fill("ada-password-1");
+    await add.getByRole("button", { name: "Create user" }).click();
+    const userRow = page.getByTestId("auth-user-row").filter({ hasText: "ada@example.com" });
+    await expect(userRow).toContainText("confirmed");
+    await userRow.click();
+    const panel = page.getByTestId("auth-user-panel");
+    await panel.getByRole("button", { name: "Ban for 24 hours" }).click();
+    await expect(panel).toContainText("Banned until");
+    await shot(page, "74-auth-user");
+    await page.keyboard.press("Escape");
+    await expect(userRow).toContainText("banned");
+    await page.getByRole("tab", { name: "Signing keys" }).click();
+    await expect(page.getByTestId("signing-key-row")).toHaveCount(1);
+    await page.getByRole("tab", { name: "Emails" }).click();
+    await expect(page.getByTestId("auth-email-sending")).toContainText("Platform email");
+    await shot(page, "75-auth-emails");
+
+    // M32: WhatsApp codes, Google, MFA and hooks.
+    await page.getByRole("tab", { name: "Phone" }).click();
+    const phone = page.getByTestId("auth-phone");
+    await phone.getByRole("switch", { name: "Codes by WhatsApp" }).click();
+    await phone.getByLabel("Daily cap").fill("50");
+    await phone.getByRole("button", { name: "Save" }).click();
+    await expect(phone).toContainText("Saved");
+    await expect(page.getByTestId("auth-phone-today")).toContainText("0 / 50");
+    await shot(page, "76-auth-phone");
+    await page.getByRole("tab", { name: "Providers" }).click();
+    const google = page.getByTestId("auth-oauth-google");
+    await google.getByRole("switch", { name: "Sign in with Google" }).click();
+    await google.getByLabel("Google client ID").fill("e2e-client.apps.googleusercontent.com");
+    await google.getByLabel("Google client secret").fill("e2e-secret");
+    await page.getByTestId("auth-providers").getByRole("button", { name: "Save" }).click();
+    await expect(google).toContainText("On");
+    await expect(google).toContainText("Stored; leave empty to keep it.");
+    await shot(page, "77-auth-providers");
+    await page.getByRole("tab", { name: "MFA and captcha" }).click();
+    await page.getByLabel("MFA policy").selectOption("required");
+    await page.getByTestId("auth-security").getByRole("button", { name: "Save" }).click();
+    await expect(page.getByTestId("auth-security")).toContainText("Saved");
+    await page.getByRole("tab", { name: "Hooks" }).click();
+    const hooks = page.getByTestId("auth-hooks");
+    await expect(hooks).toContainText("_auth_hook");
+    await hooks.getByLabel("Custom claims function").fill("public.not_a_real_hook");
+    await hooks.getByRole("button", { name: "Save" }).click();
+    await expect(hooks).toContainText("Saved");
+    await expect(page.getByTestId("auth-hook-deliveries")).toContainText("No webhook deliveries yet.");
+    await shot(page, "78-auth-hooks");
   });
 
   test("the shell: keyboard shortcuts, and the menu on a narrow screen", async ({ page }) => {

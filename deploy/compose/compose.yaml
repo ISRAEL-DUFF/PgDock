@@ -106,6 +106,17 @@ services:
       PGDOCK_WHATSAPP_ACCESS_TOKEN: ${PGDOCK_WHATSAPP_ACCESS_TOKEN:-}
       PGDOCK_WHATSAPP_APP_SECRET: ${PGDOCK_WHATSAPP_APP_SECRET:-}
       PGDOCK_WHATSAPP_VERIFY_TOKEN: ${PGDOCK_WHATSAPP_VERIFY_TOKEN:-}
+      # Project auth codes (V4 §4.6, docs/backend-services.md): Termii for
+      # SMS, and the WhatsApp number above with an authentication template.
+      PGDOCK_TERMII_API_KEY: ${PGDOCK_TERMII_API_KEY:-}
+      PGDOCK_TERMII_SENDER_ID: ${PGDOCK_TERMII_SENDER_ID:-}
+      PGDOCK_TERMII_URL: ${PGDOCK_TERMII_URL:-}
+      PGDOCK_WHATSAPP_OTP_TEMPLATE: ${PGDOCK_WHATSAPP_OTP_TEMPLATE:-}
+      PGDOCK_WHATSAPP_OTP_LANGUAGE: ${PGDOCK_WHATSAPP_OTP_LANGUAGE:-}
+      PGDOCK_SMS_PRICE_MINOR: ${PGDOCK_SMS_PRICE_MINOR:-}
+      PGDOCK_WHATSAPP_PRICE_MINOR: ${PGDOCK_WHATSAPP_PRICE_MINOR:-}
+      PGDOCK_MESSAGE_CURRENCY: ${PGDOCK_MESSAGE_CURRENCY:-}
+      PGDOCK_PHONE_AUTH_FREE: ${PGDOCK_PHONE_AUTH_FREE:-}
       # Capacity automation (V3 §5, docs/capacity.md): the provider new
       # servers come from, and what their cloud-init runs.
       PGDOCK_REGION: ${PGDOCK_REGION:-eu-central}

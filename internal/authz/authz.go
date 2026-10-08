@@ -73,6 +73,8 @@ var actionScope = map[Action]string{
 	ProjectSettings:    ScopeAdmin,
 	ServicesManage:     ScopeAdmin,
 	ServicesLogs:       ScopeRead,
+	AuthUsers:          ScopeRead,
+	AuthUsersManage:    ScopeWrite,
 	ProjectMembers:     ScopeAdmin,
 	ProjectPromote:     ScopeAdmin,
 	ProjectDelete:      ScopeAdmin,
@@ -175,6 +177,11 @@ const (
 	// request logs.
 	ServicesManage Action = "project.services"      // admin
 	ServicesLogs   Action = "project.services_logs" // developer
+	// AuthUsers reads the project's app users (V4 §4.9); AuthUsersManage
+	// invites, bans, deletes and signs them out. Their auth settings are
+	// ServicesManage.
+	AuthUsers       Action = "project.auth_users"        // developer
+	AuthUsersManage Action = "project.auth_users_manage" // developer
 	// ProjectExport downloads a project's data (a backup as a pg_dump
 	// archive, V2 §10.10): organisation owners only, and like any project
 	// action invisible to those who can't see the project.
@@ -199,6 +206,8 @@ var projectMin = map[Action]string{
 	ProjectSettings:    ProjectAdmin,
 	ServicesManage:     ProjectAdmin,
 	ServicesLogs:       ProjectDeveloper,
+	AuthUsers:          ProjectDeveloper,
+	AuthUsersManage:    ProjectDeveloper,
 	ProjectMembers:     ProjectAdmin,
 	ProjectPromote:     ProjectAdmin,
 	ProjectDelete:      ProjectAdmin,

@@ -2737,6 +2737,214 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/edge/auth-message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal) */
+        post: operations["edgeAuthMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/edge/auth-hook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal) */
+        post: operations["edgeAuthHook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/hooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's recent auth webhook deliveries (V4 §4.7) */
+        get: operations["listAuthHookDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's auth settings, email templates and SMTP server (V4 §4) */
+        get: operations["getAuthConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change auth settings, templates or the project's SMTP server */
+        patch: operations["updateAuthConfig"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/smtp/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a test email through the project's SMTP server (or the settings given) */
+        post: operations["testAuthSMTP"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/templates/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Render an email template with sample values */
+        post: operations["previewAuthTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/signing-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The keys access tokens are signed and verified with */
+        get: operations["listSigningKeys"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/signing-keys/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign with a new key; the old one verifies until its tokens expire */
+        post: operations["rotateSigningKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's app users (search by email, phone or id) */
+        get: operations["listAuthUsers"];
+        put?: never;
+        /** Invite a user, or add one with a password */
+        post: operations["createAuthUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/users/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user with their identities, sessions and audit log */
+        get: operations["getAuthUser"];
+        put?: never;
+        post?: never;
+        /** Delete a user (their sessions end; rows referencing them follow the foreign keys) */
+        delete: operations["deleteAuthUser"];
+        options?: never;
+        head?: never;
+        /** Ban, unban or confirm a user, or change their metadata */
+        patch: operations["updateAuthUser"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/users/{userId}/signout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End all of a user's sessions */
+        post: operations["signOutAuthUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's latest auth events */
+        get: operations["listAuthAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/transfer": {
         parameters: {
             query?: never;
@@ -6206,6 +6414,319 @@ export interface components {
             allow_secret_in_browser?: boolean;
             /** @description Data API reads whose estimated cost (EXPLAIN) is higher are refused (0 for the default, 1000000). */
             max_query_cost?: number;
+        };
+        AuthSettings: {
+            /** @description Where links go when a request names no redirect (and the base of allowed redirects). */
+            site_url?: string;
+            redirect_urls?: string[];
+            allow_wildcard_redirects?: boolean;
+            signup_enabled?: boolean;
+            /** @description New addresses must be confirmed before signing in. */
+            email_confirm?: boolean;
+            magic_link_enabled?: boolean;
+            password_min_length?: number;
+            password_require_mixed?: boolean;
+            /** @description Seconds, 300 to 86400. */
+            access_token_ttl?: number;
+            session_max_seconds?: number;
+            session_inactivity_seconds?: number;
+            single_session?: boolean;
+            /** @description How phone codes may go; empty turns phone sign-in off. */
+            phone_channels?: ("sms" | "whatsapp")[];
+            /** @description A phone sign-up must confirm its number by code before signing in with a password. */
+            phone_confirm?: boolean;
+            /** @description ISO country codes numbers may be in (default NG); "*" allows any. */
+            phone_countries?: string[];
+            /** @description SMS and WhatsApp codes a day (default 200). */
+            phone_daily_cap?: number;
+            /** @description The SMS text, with {{.Code}}. */
+            sms_template?: string;
+            anonymous_enabled?: boolean;
+            /**
+             * @description required needs aal2 for the data API from every user; claim from users whose app_metadata.mfa_required is true.
+             * @enum {string}
+             */
+            mfa_policy?: "off" | "optional" | "required" | "claim";
+            /** @description Phone codes as a second factor. */
+            mfa_phone?: boolean;
+            /** @description Signed-in users may link and unlink identities. */
+            manual_linking?: boolean;
+            oauth?: {
+                [key: string]: components["schemas"]["AuthOAuthSetting"];
+            };
+            /** @description A Postgres function "schema.name" (event jsonb) returns jsonb, run as the hook role when a token is issued. */
+            custom_claims_hook?: string;
+            /** @description A Postgres function "schema.name" (event jsonb) returns jsonb that may return {"decision":"reject"}. */
+            before_signup_hook?: string;
+            /** @description A webhook asked before a sign-up (instead of a Postgres hook). */
+            before_signup_url?: string;
+            after_signup_url?: string;
+            after_signin_url?: string;
+            /** @description A webhook that sends the project's emails and codes instead of PGDock. */
+            send_message_url?: string;
+            captcha_enabled?: boolean;
+            captcha_site_key?: string;
+        };
+        AuthOAuthSetting: {
+            enabled: boolean;
+            client_id: string;
+            scopes?: string[];
+            /** @description Apple only. */
+            team_id?: string;
+            /** @description Apple only. */
+            key_id?: string;
+        };
+        AuthOAuthSecret: {
+            client_secret?: string;
+            /** @description Apple's .p8 key (PEM). */
+            private_key?: string;
+        };
+        /** @description The project's own SMS or WhatsApp provider. Secrets are write only; empty keeps the stored ones. */
+        AuthPhoneProvider: {
+            /** @enum {string} */
+            provider: "termii" | "africastalking" | "twilio" | "whatsapp_cloud";
+            api_key?: string;
+            sender_id?: string;
+            base_url?: string;
+            username?: string;
+            account_sid?: string;
+            auth_token?: string;
+            from?: string;
+            messaging_service_sid?: string;
+            phone_number_id?: string;
+            access_token?: string;
+            template?: string;
+            language?: string;
+        };
+        AuthEmailTemplate: {
+            subject: string;
+            body: string;
+        };
+        AuthSMTP: {
+            host: string;
+            port?: number;
+            username?: string;
+            /** @description Write only; empty keeps the stored one. */
+            password?: string;
+            from: string;
+            /** @enum {string} */
+            tls?: "starttls" | "tls" | "none";
+        };
+        AuthConfig: {
+            settings: components["schemas"]["AuthSettings"];
+            templates: {
+                [key: string]: components["schemas"]["AuthEmailTemplate"];
+            };
+            default_templates: {
+                [key: string]: components["schemas"]["AuthEmailTemplate"];
+            };
+            smtp?: components["schemas"]["AuthSMTP"] | null;
+            email: {
+                own_smtp: boolean;
+                platform_per_hour: number;
+                platform_left: number;
+                sent_24h: number;
+                failed_24h: number;
+            };
+            /** Format: int64 */
+            monthly_active_users: number;
+            /** @description The project's auth API, https://<ref>.<domain>/auth/v1. */
+            auth_url: string;
+            /** @description The redirect URI to register with OAuth providers. */
+            oauth_callback_url?: string;
+            sms?: components["schemas"]["AuthPhoneProvider"] | null;
+            whatsapp?: components["schemas"]["AuthPhoneProvider"] | null;
+            oauth_secret_set?: {
+                [key: string]: boolean;
+            };
+            captcha_secret_set?: boolean;
+            /** @description Signs webhook hooks (PGDock-Signature); set once a hook URL is. */
+            hook_secret?: string;
+            /** @description The role Postgres hooks run as; grant it what they read. */
+            hook_role?: string;
+            phone?: {
+                /** @description This install sends SMS for projects without their own provider. */
+                platform_sms: boolean;
+                platform_whatsapp: boolean;
+                /** Format: int64 */
+                sent_24h: number;
+                daily_cap: number;
+                month: {
+                    channel: string;
+                    /** Format: int64 */
+                    messages: number;
+                    /** Format: int64 */
+                    cost_minor: number;
+                }[];
+                currency?: string;
+            };
+        };
+        AuthConfigUpdate: {
+            settings?: components["schemas"]["AuthSettings"];
+            /** @description Overrides by kind; an empty subject and body goes back to the default. */
+            templates?: {
+                [key: string]: components["schemas"]["AuthEmailTemplate"];
+            };
+            smtp?: components["schemas"]["AuthSMTP"];
+            clear_smtp?: boolean;
+            sms?: components["schemas"]["AuthPhoneProvider"];
+            whatsapp?: components["schemas"]["AuthPhoneProvider"];
+            clear_sms?: boolean;
+            clear_whatsapp?: boolean;
+            oauth_secrets?: {
+                [key: string]: components["schemas"]["AuthOAuthSecret"];
+            };
+            /** @description The Turnstile secret key; "" removes it. */
+            captcha_secret?: string | null;
+            rotate_hook_secret?: boolean;
+        };
+        AuthHookDelivery: {
+            /** Format: uuid */
+            id: string;
+            event: string;
+            attempts: number;
+            last_status?: number | null;
+            last_error?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            delivered_at?: string | null;
+            /** Format: date-time */
+            failed_at?: string | null;
+        };
+        AuthHookDeliveryList: {
+            items: components["schemas"]["AuthHookDelivery"][];
+        };
+        AuthSMTPTest: {
+            to: string;
+            smtp?: components["schemas"]["AuthSMTP"];
+        };
+        AuthTemplatePreview: {
+            /** @enum {string} */
+            kind: "confirmation" | "magic_link" | "recovery" | "invite" | "email_change";
+            subject: string;
+            body: string;
+        };
+        SigningKey: {
+            /** Format: uuid */
+            id: string;
+            kid: string;
+            /** @enum {string} */
+            status: "active" | "verifying" | "retired";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            verify_until?: string | null;
+            public_jwk: {
+                [key: string]: unknown;
+            };
+        };
+        SigningKeyList: {
+            items: components["schemas"]["SigningKey"][];
+        };
+        AuthUser: {
+            /** Format: uuid */
+            id: string;
+            email?: string | null;
+            phone?: string | null;
+            /** Format: date-time */
+            email_confirmed_at?: string | null;
+            /** Format: date-time */
+            phone_confirmed_at?: string | null;
+            /** Format: date-time */
+            invited_at?: string | null;
+            is_anonymous: boolean;
+            app_metadata: {
+                [key: string]: unknown;
+            };
+            user_metadata: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            banned_until?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            last_sign_in_at?: string | null;
+        };
+        AuthUserList: {
+            items: components["schemas"]["AuthUser"][];
+            total: number;
+            stats: {
+                users: number;
+                confirmed: number;
+                banned: number;
+                sessions: number;
+            };
+        };
+        AuthUserCreate: {
+            email: string;
+            password?: string;
+            email_confirm?: boolean;
+            /** @description Send an invitation link instead of setting a password. */
+            invite?: boolean;
+        };
+        AuthUserUpdate: {
+            /** @description "none" lifts a ban; otherwise a duration such as "24h" ("876000h" for good). */
+            ban_duration?: string;
+            email_confirm?: boolean;
+            user_metadata?: {
+                [key: string]: unknown;
+            };
+            app_metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        AuthSession: {
+            /** Format: uuid */
+            id: string;
+            aal: string;
+            user_agent?: string | null;
+            ip?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            refreshed_at: string;
+            /** Format: date-time */
+            not_after?: string | null;
+        };
+        AuthIdentity: {
+            /** Format: uuid */
+            id: string;
+            provider: string;
+            provider_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_sign_in_at?: string | null;
+        };
+        AuthAuditEntry: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            /** Format: uuid */
+            user_id?: string | null;
+            action: string;
+            ip?: string | null;
+            details: {
+                [key: string]: unknown;
+            };
+        };
+        AuthAuditList: {
+            items: components["schemas"]["AuthAuditEntry"][];
+        };
+        AuthUserDetail: {
+            user: components["schemas"]["AuthUser"];
+            identities: components["schemas"]["AuthIdentity"][];
+            sessions: components["schemas"]["AuthSession"][];
+            audit: components["schemas"]["AuthAuditEntry"][];
+        };
+        AuthSignOutResult: {
+            /** Format: int64 */
+            sessions_ended: number;
         };
         BackendServicesUpdate: {
             cors_origins?: string[];
@@ -13852,6 +14373,406 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    edgeAuthMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    edgeAuthHook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description The decision (before_signup) or queued. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAuthHookDeliveries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthHookDeliveryList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAuthConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthConfig"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateAuthConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthConfigUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthConfig"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testAuthSMTP: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthSMTPTest"];
+            };
+        };
+        responses: {
+            /** @description Sent. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewAuthTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthTemplatePreview"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthEmailTemplate"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSigningKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SigningKeyList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rotateSigningKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SigningKeyList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAuthUsers: {
+        parameters: {
+            query?: {
+                q?: string;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthUserList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createAuthUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthUserCreate"];
+            };
+        };
+        responses: {
+            /** @description Added. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthUser"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAuthUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthUserDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteAuthUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateAuthUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthUserUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthUser"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    signOutAuthUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSignOutResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAuthAudit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthAuditList"];
+                };
             };
             default: components["responses"]["Error"];
         };

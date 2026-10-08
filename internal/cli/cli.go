@@ -238,6 +238,21 @@ func (a *App) commands() []command {
 			{name: "enable", summary: "Turn on (prints the first keys once): enable <p>", run: (*App).servicesEnable},
 			{name: "disable", summary: "Turn off (keys revoked): disable <p>", run: (*App).servicesDisable},
 		}},
+		{name: "auth", summary: "Your app's users and signing keys (backend services)", sub: []command{
+			{name: "users", summary: "App users", sub: []command{
+				{name: "list", summary: "list <p> [--search …] [--page n]", run: (*App).authUsersList},
+				{name: "show", summary: "A user's sessions and activity: show <p> <user id>", run: (*App).authUsersShow},
+				{name: "invite", summary: "Email an invitation: invite <p> <email>", run: (*App).authUsersInvite},
+				{name: "ban", summary: "ban <p> <user id> [--for 24h]", run: (*App).authUsersBan},
+				{name: "unban", summary: "unban <p> <user id>", run: (*App).authUsersUnban},
+				{name: "signout", summary: "End all sessions: signout <p> <user id>", run: (*App).authUsersSignOut},
+				{name: "delete", summary: "delete <p> <user id>", run: (*App).authUsersDelete},
+			}},
+			{name: "rotate-key", summary: "Sign tokens with a new key: rotate-key <p>", run: (*App).authRotateKey},
+			{name: "config", summary: "Sign-in settings, providers, phone spend and caps: config <p>", run: (*App).authConfig},
+			{name: "set", summary: `Change settings: set <p> '{"settings":{"phone_channels":["whatsapp"]}}' (an AuthConfigUpdate)`, run: (*App).authSet},
+			{name: "hooks", summary: "Recent auth webhook deliveries: hooks <p>", run: (*App).authHooks},
+		}},
 		{name: "gen", summary: "Generate code", sub: []command{
 			{name: "types", summary: "Types for the SDKs: types --lang ts|dart|go --project <p> [-o file] [--package name]", run: (*App).genTypes},
 		}},
