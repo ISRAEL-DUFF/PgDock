@@ -37,6 +37,9 @@ const (
 	// rtSendQueue is the messages queued to a slow client before it is
 	// disconnected (it refetches on reconnect).
 	rtSendQueue = 256
+	// rtSendsPerMinute bounds a connection's broadcasts and presence
+	// updates (each is fanned out, and relayed through the database).
+	rtSendsPerMinute = 600
 	// rtTopicPrefix starts every channel topic.
 	rtTopicPrefix = "realtime:"
 )
@@ -58,6 +61,7 @@ type rtConn struct {
 
 	lastSeen atomic.Int64 // unix nanoseconds
 	started  time.Time
+	id       string
 }
 
 // rtChannel is a channel a connection joined.
@@ -143,7 +147,7 @@ func (e *Edge) realtime(c *call, req Request) {
 		base.Claims = req.Claims
 	}
 	conn := &rtConn{e: e, hub: hub, ws: ws, v2: c.r.URL.Query().Get("vsn") == "2.0.0", ip: c.ip, base: base,
-		out: make(chan []byte, rtSendQueue), done: make(chan struct{}), channels: map[string]*rtChannel{}, started: time.Now()}
+		out: make(chan []byte, rtSendQueue), done: make(chan struct{}), channels: map[string]*rtChannel{}, started: time.Now(), id: randRef()}
 	conn.lastSeen.Store(time.Now().UnixNano())
 	conn.run(c.r.Context())
 }
@@ -300,10 +304,16 @@ func (rc *rtConn) handle(ctx context.Context, m rtMsg) {
 			return
 		}
 		rc.reply(m, "ok", nil)
-	case evBroadcast:
-		rc.hub.broadcastFrom(ctx, ch, m)
-	case evPresence:
-		rc.hub.presenceFrom(ctx, ch, m)
+	case evBroadcast, evPresence:
+		if !rc.e.limits.allow("rt:"+rc.id, rtSendsPerMinute) {
+			rc.replyError(m, fmt.Sprintf("rate_limited: at most %d broadcasts and presence updates a minute per connection", rtSendsPerMinute))
+			return
+		}
+		if m.Event == evBroadcast {
+			rc.hub.broadcastFrom(ctx, ch, m)
+		} else {
+			rc.hub.presenceFrom(ctx, ch, m)
+		}
 	default:
 		rc.replyError(m, "unknown event "+m.Event)
 	}
