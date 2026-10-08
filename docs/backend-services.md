@@ -524,6 +524,157 @@ tables that reference them follow your foreign keys.
 Monthly active users (anyone who signed in or refreshed a token in the
 month) are recorded as usage (`auth_mau`) and shown on the Users tab.
 
+## Storage
+
+Files live in **buckets**. A file's metadata is a row in the project's own
+database (`pgd_storage.objects`: bucket, path, size, MIME type, checksum,
+owner, your metadata), and its bytes are in the region's object store (the
+same store as the region's backups; for data-residency projects, the
+in-country one). Who may read, upload, overwrite and delete files is decided
+by **row-level security on `pgd_storage.objects`**, the same policies as
+your tables. The project's owner role owns the table, so you write the
+policies:
+
+```sql
+-- Each user reads and writes only under avatars/<their id>/.
+CREATE POLICY own_avatar ON pgd_storage.objects FOR ALL TO <db>_user
+  USING (bucket = 'avatars' AND pgd_storage.folder(path, 1) = pgd_auth.uid()::text)
+  WITH CHECK (bucket = 'avatars' AND pgd_storage.folder(path, 1) = pgd_auth.uid()::text);
+```
+
+Helpers: `pgd_storage.foldername(path)` (the folders, as an array),
+`pgd_storage.folder(path, n)` (the nth), `pgd_storage.filename(path)` and
+`pgd_storage.extension(path)`. The edge checks each request by running the
+matching statement on `pgd_storage.objects` as the caller (an insert for
+an upload, an update for an overwrite, a select for a read, a delete for a
+delete) before it touches the bytes. With row-level security off on
+`pgd_storage.objects`, the publishable key gets `403 rls_required`; the
+secret key bypasses policies.
+
+### Buckets
+
+Buckets are made with the secret key (`POST /storage/v1/bucket`), in
+Project → Storage, or with `pgdock storage buckets create`. A bucket has a
+name (lowercase, digits, `.`, `_`, `-`; it is in file URLs), whether it is
+**public**, a **file size limit**, **allowed MIME types** (`image/*`,
+`application/pdf`; empty allows any), and how long browsers may cache its
+files. A public bucket's files can be downloaded by anyone with the URL;
+uploads to it still need a policy. Making a bucket private purges the CDN's
+cache of its files when a CDN is configured (below). A bucket with files
+can't be deleted until it is emptied (`POST /storage/v1/bucket/<id>/empty`,
+or the dashboard's delete, which asks).
+
+### Endpoints
+
+Supabase's storage clients work against these paths; the spellings they
+use (`/object/public/…`, `/object/sign/…`, `/render/image/…`) are accepted
+too.
+
+| Request | |
+| --- | --- |
+| `POST /storage/v1/object/<bucket>/<path>` | Upload up to 50 MB (`x-upsert: true` to overwrite; `PUT` always overwrites) |
+| `GET /storage/v1/object/<bucket>/<path>` | Download, as the caller's policies allow; `Range` works |
+| `GET /storage/v1/object/info/<bucket>/<path>` | The file's metadata |
+| `GET /storage/v1/public/<bucket>/<path>` | A public bucket's file, no key |
+| `POST /storage/v1/object/sign/<bucket>/<path>` | A signed download URL (`expires_in` seconds, 1 hour by default, 7 days at most; `transform` for an image size) |
+| `POST /storage/v1/object/sign/<bucket>` | Signed URLs for several `paths` |
+| `POST /storage/v1/object/upload/sign/<bucket>/<path>` | A signed upload URL (2 hours) for a client without a session |
+| `POST /storage/v1/upload/<bucket>/<path>` | Start a large upload (`size`, `mime_type`) |
+| `GET`, `DELETE /storage/v1/upload/<id>`; `POST …/<id>/complete` | Its status and the parts still to send; abort; finish |
+| `GET /storage/v1/list/<bucket>?prefix=&cursor=&limit=` | Files and folders under a prefix (`POST /storage/v1/object/list/<bucket>` takes the same as JSON) |
+| `POST /storage/v1/object/move`, `/copy` | `{"bucket", "from", "to"}`, and `to_bucket` for another bucket |
+| `DELETE /storage/v1/object/<bucket>/<path>`; `DELETE /storage/v1/object/<bucket>` | Delete one, or `{"paths": […]}` |
+| `GET /storage/v1/render/<bucket>/<path>?width=&height=&resize=&format=&quality=` | An image transform |
+
+Paths are UTF-8 with no empty, `.` or `..` segments and no control
+characters, at most 1,024 bytes. A file's type is sniffed from its first
+bytes: a declared type that contradicts them (HTML posing as a PNG) is
+refused with `400 mime_mismatch`, and a type the bucket doesn't allow with
+`415 mime_not_allowed`. Over the bucket's limit or the plan's largest
+upload is `413 too_large`; over the organisation's file storage quota is
+`413 quota_exceeded`.
+
+### Large uploads
+
+Files over 50 MB, up to the plan's largest upload (5 GB on Pro and Team),
+go straight to the object store. Starting one checks the policies and the
+quota as an upload would, and answers with presigned URLs for its parts
+(16 MiB or more each, at most 10,000):
+
+```json
+{"id": "…", "size": 2147483648, "part_size": 16777216, "parts": [{"number": 1, "size": 16777216, "url": "https://…"}, …],
+ "expires_at": "…"}
+```
+
+`PUT` each part's bytes to its URL; a failed part can be sent again.
+`GET /storage/v1/upload/<id>` lists the parts not yet received (with fresh
+URLs), so an app can resume after a restart. `POST …/complete` checks the
+parts and sizes and writes the file's row as the user who started the
+upload. An upload not completed in 24 hours is abandoned and its parts
+removed.
+
+### Signed URLs, caching and the CDN
+
+A signed URL carries a token over the project, bucket, path, expiry (and
+transform), signed with a key derived for the project, so the edge serves
+it without a policy query: the policies were checked when it was made.
+Files are served with `ETag` and `Cache-Control` (`public` for public
+buckets, `private` otherwise, for the bucket's cache time), and
+`Content-Disposition: attachment` with `?download` (or `?download=<name>`). Put a CDN in front of
+the edge's hostname to cache public files; with Cloudflare, set
+`PGDOCK_CDN_CLOUDFLARE_ZONE_ID` and `PGDOCK_CDN_CLOUDFLARE_TOKEN` (a token
+with Cache Purge) on pgdock-server so a bucket made private is purged.
+
+### Image transforms
+
+`/render/…` resizes (`width`, `height` up to 2,500 px; `resize` is
+`cover`, `contain` or `fill`), converts (`format`: `webp`, `avif`, `jpeg`,
+`png`, or `origin`) and sets `quality` (20–100) for PNG, JPEG, GIF, WebP
+and AVIF sources up to 25 MB and 25 megapixels. Each result is kept in the
+object store next to the file's version, so the second request for the
+same transform is served from that cache (`X-Cache: HIT`) without
+rendering; replacing or deleting the file removes them. Transforms are
+counted per month against the plan (500 on Personal), as are file
+downloads' bytes (5 GB on Personal); once either allowance is used up,
+renders answer `429 transform_limit` or downloads `429
+storage_egress_limit` until the month turns.
+
+### Behind the scenes
+
+- **Versions.** Each upload writes a new object under a new version, and
+  the row points at it; the old version's bytes are removed a minute
+  later, so a download in flight finishes. A trigger on
+  `pgd_storage.objects` queues the bytes to remove and keeps the project's
+  totals.
+- **The sweep** (every 5 minutes, pgdock-server) removes queued bytes and
+  abandoned uploads, records storage used (`storage_gb_hours`) and the
+  month's downloads and transforms, and sends the edges each project's
+  remaining quota.
+- **The reconciler** (nightly) removes bytes with no row after 7 days and
+  counts rows whose bytes are missing; Project → Storage shows them.
+- **Deleting a project** removes its files once its final backup's
+  retention ends (30 days).
+- **Branches and restores** copy the database, so file rows come along but
+  not the bytes: a branch's files show as missing until uploaded again.
+  Moving a project to another region doesn't move its files yet.
+
+### The dashboard and the CLI
+
+Project → Storage lists buckets with their size, browses folders, uploads
+(up to 50 MB from the browser), downloads, makes signed URLs, deletes files
+and changes bucket settings, as the platform (policies don't apply).
+Project admins and developers can use it; read-only members can't, since
+files may hold your users' data. The CLI does the same:
+
+```sh
+pgdock storage buckets create <p> avatars --types 'image/*' --size-limit 5MB
+pgdock storage cp <p> ./logo.png ss:///avatars/logo.png
+pgdock storage ls <p> ss:///avatars/
+pgdock storage cp <p> ss:///avatars/logo.png ./logo.png
+pgdock storage sign <p> ss:///avatars/logo.png --expires 24h
+pgdock storage rm <p> ss:///avatars/logo.png
+```
+
 ## Settings
 
 - **Allowed origins**: the pages that may call the API. Empty allows any
@@ -603,7 +754,8 @@ provider.
 
 ## Not yet
 
-These come in the next milestones (V4 §14): storage (M33), realtime (M34)
-and read replicas (M35). Auth's leaked-password check and bounce handling
+These come in the next milestones (V4 §14): realtime (M34) and read
+replicas (M35). Copying files into a branch, moving files with a project
+that changes region, and malware scanning of uploads are not built yet. Auth's leaked-password check and bounce handling
 for auth emails are not built yet. Rating the new usage on invoices and per-plan limits come
 with billing (M37).

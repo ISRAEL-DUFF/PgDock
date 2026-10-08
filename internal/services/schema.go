@@ -219,6 +219,110 @@ var schemaVersions = []schemaVersion{
 		`GRANT USAGE ON SCHEMA public TO {{hook}}`,
 		`GRANT SELECT ON pgd_auth.user_profiles TO {{hook}}`,
 	}},
+	{4, []string{
+		// Storage (V4 §5.1): buckets and objects' metadata live here, the
+		// bytes in the region's object store under a key made from the
+		// object's version, so moves only change rows and an overwrite never
+		// touches the bytes a reader is streaming.
+		`CREATE TABLE IF NOT EXISTS pgd_storage.buckets (
+		  id                 text PRIMARY KEY CHECK (id ~ '^[a-z0-9][a-z0-9_.-]{0,62}$'),
+		  public             boolean NOT NULL DEFAULT false,
+		  file_size_limit    bigint CHECK (file_size_limit > 0),
+		  allowed_mime_types text[],
+		  cache_seconds      int NOT NULL DEFAULT 3600 CHECK (cache_seconds BETWEEN 0 AND 31536000),
+		  created_at         timestamptz NOT NULL DEFAULT now(),
+		  updated_at         timestamptz NOT NULL DEFAULT now()
+		)`,
+		`CREATE TABLE IF NOT EXISTS pgd_storage.objects (
+		  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+		  bucket        text NOT NULL REFERENCES pgd_storage.buckets (id),
+		  path          text NOT NULL CHECK (length(path) BETWEEN 1 AND 1024),
+		  version       uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+		  size          bigint NOT NULL CHECK (size >= 0),
+		  mime_type     text NOT NULL,
+		  etag          text NOT NULL,
+		  checksum      text,
+		  owner         uuid,
+		  user_metadata jsonb NOT NULL DEFAULT '{}',
+		  created_at    timestamptz NOT NULL DEFAULT now(),
+		  updated_at    timestamptz NOT NULL DEFAULT now(),
+		  UNIQUE (bucket, path)
+		)`,
+		`CREATE INDEX IF NOT EXISTS objects_prefix ON pgd_storage.objects (bucket, path text_pattern_ops)`,
+		// Large uploads in progress (V4 §5.3).
+		`CREATE TABLE IF NOT EXISTS pgd_storage.uploads (
+		  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+		  bucket        text NOT NULL REFERENCES pgd_storage.buckets (id) ON DELETE CASCADE,
+		  path          text NOT NULL,
+		  version       uuid NOT NULL UNIQUE,
+		  upload_id     text NOT NULL,
+		  size          bigint NOT NULL,
+		  part_size     bigint NOT NULL,
+		  mime_type     text NOT NULL,
+		  upsert        boolean NOT NULL DEFAULT false,
+		  owner         uuid,
+		  role          text NOT NULL,
+		  claims        jsonb NOT NULL DEFAULT '{}',
+		  user_metadata jsonb NOT NULL DEFAULT '{}',
+		  created_at    timestamptz NOT NULL DEFAULT now(),
+		  expires_at    timestamptz NOT NULL
+		)`,
+		// Bytes no row points at any more: removed after the change commits
+		// (pgdock-edge right away, pgdock-server's sweep for the rest).
+		`CREATE TABLE IF NOT EXISTS pgd_storage.garbage (
+		  version uuid PRIMARY KEY,
+		  at      timestamptz NOT NULL DEFAULT now()
+		)`,
+		// What the objects take, kept by a trigger and checked against the
+		// project's quota on upload (the control plane re-counts hourly).
+		`CREATE TABLE IF NOT EXISTS pgd_storage.usage (
+		  id      boolean PRIMARY KEY DEFAULT true CHECK (id),
+		  bytes   bigint NOT NULL DEFAULT 0,
+		  objects bigint NOT NULL DEFAULT 0
+		)`,
+		`INSERT INTO pgd_storage.usage (id) VALUES (true) ON CONFLICT DO NOTHING`,
+		`CREATE OR REPLACE FUNCTION pgd_storage.track() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+		  SET search_path = pg_catalog, pgd_storage AS $$
+		BEGIN
+		  IF TG_OP IN ('UPDATE', 'DELETE') AND (TG_OP = 'DELETE' OR OLD.version IS DISTINCT FROM NEW.version) THEN
+		    INSERT INTO pgd_storage.garbage (version) VALUES (OLD.version) ON CONFLICT DO NOTHING;
+		  END IF;
+		  UPDATE pgd_storage.usage SET
+		    bytes = bytes + CASE TG_OP WHEN 'INSERT' THEN NEW.size WHEN 'DELETE' THEN -OLD.size ELSE NEW.size - OLD.size END,
+		    objects = objects + CASE TG_OP WHEN 'INSERT' THEN 1 WHEN 'DELETE' THEN -1 ELSE 0 END;
+		  RETURN NULL;
+		END $$`,
+		`CREATE OR REPLACE TRIGGER objects_track AFTER INSERT OR UPDATE OF version, size OR DELETE ON pgd_storage.objects
+		  FOR EACH ROW EXECUTE FUNCTION pgd_storage.track()`,
+		// Helpers for policies (V4 §5.1): folder(path, 1) is the first folder.
+		`CREATE OR REPLACE FUNCTION pgd_storage.foldername(path text) RETURNS text[] LANGUAGE sql IMMUTABLE STRICT AS
+		$$ SELECT (string_to_array(path, '/'))[1:array_length(string_to_array(path, '/'), 1) - 1] $$`,
+		`CREATE OR REPLACE FUNCTION pgd_storage.folder(path text, n int) RETURNS text LANGUAGE sql IMMUTABLE STRICT AS
+		$$ SELECT (pgd_storage.foldername(path))[n] $$`,
+		`CREATE OR REPLACE FUNCTION pgd_storage.filename(path text) RETURNS text LANGUAGE sql IMMUTABLE STRICT AS
+		$$ SELECT (string_to_array(path, '/'))[array_length(string_to_array(path, '/'), 1)] $$`,
+		`CREATE OR REPLACE FUNCTION pgd_storage.extension(path text) RETURNS text LANGUAGE sql IMMUTABLE STRICT AS
+		$$ SELECT CASE WHEN pgd_storage.filename(path) LIKE '%.%' THEN lower(regexp_replace(pgd_storage.filename(path), '^.*\.', '')) ELSE '' END $$`,
+		`REVOKE ALL ON ALL TABLES IN SCHEMA pgd_storage FROM PUBLIC`,
+		`REVOKE ALL ON FUNCTION pgd_storage.track() FROM PUBLIC`,
+		`GRANT USAGE ON SCHEMA pgd_storage TO {{owner}}, {{anon}}, {{user}}, {{service}}, {{edge}}, {{hook}}`,
+		`GRANT EXECUTE ON FUNCTION pgd_storage.foldername(text), pgd_storage.folder(text, int), pgd_storage.filename(text),
+		  pgd_storage.extension(text) TO {{owner}}, {{anon}}, {{user}}, {{service}}, {{edge}}, {{hook}}`,
+		// Row-level security on objects decides who may read, upload,
+		// overwrite and delete; the edge's own login (signed URLs, public
+		// buckets, clean-up) passes.
+		`GRANT SELECT, INSERT, UPDATE, DELETE ON pgd_storage.objects TO {{anon}}, {{user}}, {{service}}, {{edge}}`,
+		`ALTER TABLE pgd_storage.objects ENABLE ROW LEVEL SECURITY`,
+		`DROP POLICY IF EXISTS pgdock_edge ON pgd_storage.objects`,
+		`CREATE POLICY pgdock_edge ON pgd_storage.objects FOR ALL TO {{edge}} USING (true) WITH CHECK (true)`,
+		`GRANT SELECT, INSERT, UPDATE, DELETE ON pgd_storage.buckets, pgd_storage.uploads, pgd_storage.garbage,
+		  pgd_storage.usage TO {{edge}}`,
+		`GRANT SELECT ON pgd_storage.buckets, pgd_storage.usage TO {{owner}}, {{service}}`,
+		`GRANT REFERENCES (id) ON pgd_storage.buckets TO {{owner}}`,
+		// The owner writes the policies, which needs the table to be theirs
+		// (the pgd_* schemas stay the platform's).
+		`ALTER TABLE pgd_storage.objects OWNER TO {{owner}}`,
+	}},
 }
 
 // exposureStmts let the request roles use what the owner makes in an

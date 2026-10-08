@@ -239,6 +239,17 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   API and hook requests fail until they are upgraded. Upgrade the edges in
   the same window as pgdock-server (a new edge works with an older
   pgdock-server, so upgrading the edges first avoids the gap).
+- **Storage** (migration 00040, project schema version 4): projects with
+  backend services get the `pgd_storage` schema within a minute (nothing to
+  run). Files are kept in each region's backup storage target, so the
+  region needs one (the in-country one for data-residency projects), and
+  pgdock-edge needs network access to it, as do browsers and apps for large
+  uploads (presigned URLs point at the store). Plans gain the limits
+  `file_storage_mb`, `storage_egress_mb_per_month`,
+  `image_transforms_per_month` and `upload_max_mb`. To purge a Cloudflare
+  CDN when a bucket goes private, set `PGDOCK_CDN_CLOUDFLARE_ZONE_ID` and
+  `PGDOCK_CDN_CLOUDFLARE_TOKEN` on pgdock-server. Upgrade pgdock-server
+  first, then the edges.
 
 ## Rolling back
 

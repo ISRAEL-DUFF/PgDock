@@ -40,6 +40,10 @@ type call struct {
 	role   string
 	userID *uuid.UUID
 	billed bool
+	// storage marks a file download: its bytes are storage egress, and
+	// transforms counts image renders.
+	storage    bool
+	transforms int64
 	// hooks are auth webhook events to send once the auth transaction
 	// commits.
 	hooks []edgeapi.AuthHook
@@ -133,7 +137,7 @@ func (e *Edge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		c.fail(http.StatusServiceUnavailable, "project_resuming", "the project is paused and is resuming; retry shortly")
 		return
 	}
-	if e.keylessAuth(c) {
+	if e.keylessAuth(c) || e.keylessStorage(c) {
 		return
 	}
 	req, ok := e.authorize(c)
@@ -209,10 +213,10 @@ func (e *Edge) cors(c *call) bool {
 		return false
 	}
 	h.Set("Access-Control-Allow-Origin", origin)
-	h.Set("Access-Control-Expose-Headers", "X-Request-Id, Retry-After")
+	h.Set("Access-Control-Expose-Headers", "X-Request-Id, Retry-After, ETag, Content-Range, Content-Length, Content-Disposition, X-Cache")
 	if c.r.Method == http.MethodOptions && c.r.Header.Get("Access-Control-Request-Method") != "" {
 		h.Set("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
-		h.Set("Access-Control-Allow-Headers", "apikey, authorization, content-type, x-request-id, read-replica, prefer")
+		h.Set("Access-Control-Allow-Headers", "apikey, authorization, content-type, x-request-id, read-replica, prefer, x-upsert, x-metadata, range, if-none-match, cache-control")
 		h.Set("Access-Control-Max-Age", "600")
 		c.w.WriteHeader(http.StatusNoContent)
 		return false
@@ -289,7 +293,9 @@ func (e *Edge) route(c *call, req Request) {
 		e.data(c, req)
 	case strings.HasPrefix(path, "/auth/v1/"):
 		e.auth(c, req)
-	case strings.HasPrefix(path, "/storage/v1/"), strings.HasPrefix(path, "/realtime/v1"):
+	case strings.HasPrefix(path, "/storage/v1/"):
+		e.storageRoute(c, req)
+	case strings.HasPrefix(path, "/realtime/v1"):
 		c.fail(http.StatusNotFound, "not_available", "this endpoint isn't available yet")
 	default:
 		c.fail(http.StatusNotFound, "no_such_endpoint", "no such endpoint")
@@ -357,7 +363,7 @@ func (e *Edge) finish(c *call) {
 	l := edgeapi.Log{ProjectID: c.p.cfg.ProjectID, At: c.start.UTC(), RequestID: c.id, Method: c.r.Method,
 		Path: c.r.URL.Path, Status: status, LatencyMs: int(time.Since(c.start).Milliseconds()), Role: c.role,
 		UserID: c.userID, KeyID: c.keyID, IP: c.ip, BytesOut: c.w.bytes}
-	e.meter.record(l, c.billed)
+	e.meter.record(l, c.billed, c.storage, c.transforms)
 }
 
 // wake asks pgdock-server to resume a paused project, at most every 30

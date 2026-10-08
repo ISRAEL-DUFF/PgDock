@@ -16,6 +16,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/israel-duff/pgdock/internal/edgeapi"
+	"github.com/israel-duff/pgdock/internal/files"
+	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/tenancy"
 )
@@ -107,6 +109,7 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 			auth[a.ProjectID] = edgeAuth(st, prov, s.cfg.CaptchaVerifyURL)
 		}
 	}
+	targets := map[[2]any]*storage.Target{}
 	for _, r := range rows {
 		out.Next = r.ChangedSeq
 		p := edgeapi.Project{Ref: r.Ref, ProjectID: r.ProjectID, OrgID: r.OrgID, Region: r.Region, State: state(r),
@@ -150,9 +153,52 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 		p.Settings = edgeapi.Settings{StatementTimeoutMs: or(st.StatementTimeoutMs, DefaultStatementTimeoutMs),
 			RatePerIP: or(st.RatePerIP, DefaultRatePerIP), RatePerKey: or(st.RatePerKey, DefaultRatePerKey),
 			AllowSecretInBrowser: st.AllowSecretInBrowser, MaxQueryCost: float64(or(st.MaxQueryCost, DefaultMaxQueryCost))}
+		p.Storage = s.storageConfig(ctx, r, targets)
 		out.Projects = append(out.Projects, p)
 	}
 	return out, nil
+}
+
+// DefaultUploadMax is the largest object without a plan limit (V4 §5.3).
+const DefaultUploadMax = 5 << 30
+
+// storageConfig is a project's storage for the edge, nil when its region has
+// no object store; targets caches the resolution per region within a page.
+func (s *Service) storageConfig(ctx context.Context, r store.EdgeConfigChangesRow, targets map[[2]any]*storage.Target) *edgeapi.StorageConfig {
+	if s.Files == nil {
+		return nil
+	}
+	k := [2]any{r.Region, r.DataResidency}
+	t, ok := targets[k]
+	if !ok {
+		tg, err := s.Files(ctx, r.Region, r.DataResidency)
+		if err != nil {
+			s.log.Warn("backend services file storage", "region", r.Region, "err", err)
+		} else {
+			t = &tg
+		}
+		targets[k] = t
+	}
+	if t == nil {
+		return nil
+	}
+	c := &edgeapi.StorageConfig{Target: *t, Prefix: FilesPrefix(r.Ref), SigningSecret: s.storageSecret(r.Ref),
+		UploadMaxBytes: DefaultUploadMax, EgressBlocked: r.StorageEgressBlocked, TransformsBlocked: r.TransformsBlocked}
+	if r.StorageQuotaBytes != nil {
+		c.QuotaBytes = max(*r.StorageQuotaBytes, 1)
+	}
+	if r.UploadMaxBytes != nil {
+		c.UploadMaxBytes = *r.UploadMaxBytes
+	}
+	return c
+}
+
+// FilesPrefix is where a project's files are in its region's object store.
+func FilesPrefix(ref string) string { return files.Prefix(ref) }
+
+// storageSecret signs a project's file URLs.
+func (s *Service) storageSecret(ref string) []byte {
+	return s.keyring.Derive("pgdock storage urls "+ref, 32)
 }
 
 func or(v, d int) int {
@@ -229,6 +275,18 @@ func (s *Service) Report(ctx context.Context, r edgeapi.Report) error {
 			if u.EgressBytes > 0 {
 				if err := q.AddUsage(ctx, store.AddUsageParams{OrgID: o.OrgID, ProjectID: o.ID, Metric: tenancy.MetricAPIEgress,
 					PeriodStart: hour, Quantity: gbNumeric(u.EgressBytes), PlanID: o.PlanID}); err != nil {
+					return err
+				}
+			}
+			if u.StorageEgressBytes > 0 {
+				if err := q.AddUsage(ctx, store.AddUsageParams{OrgID: o.OrgID, ProjectID: o.ID, Metric: tenancy.MetricStorageEgress,
+					PeriodStart: hour, Quantity: gbNumeric(u.StorageEgressBytes), PlanID: o.PlanID}); err != nil {
+					return err
+				}
+			}
+			if u.Transforms > 0 {
+				if err := q.AddUsage(ctx, store.AddUsageParams{OrgID: o.OrgID, ProjectID: o.ID, Metric: tenancy.MetricImageTransforms,
+					PeriodStart: hour, Quantity: intNumeric(u.Transforms), PlanID: o.PlanID}); err != nil {
 					return err
 				}
 			}

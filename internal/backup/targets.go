@@ -304,3 +304,11 @@ func shortHash(parts ...string) string {
 	}
 	return hex.EncodeToString(h.Sum(nil)[:4])
 }
+
+// FilesTarget is where backend services keep the files of a project in
+// region (V4 §5.1): the region's storage target, or the platform default
+// outside a data-residency region.
+func (s *Service) FilesTarget(ctx context.Context, region string, residency bool) (storage.Target, error) {
+	_, t, err := s.regionTarget(ctx, store.Project{Region: region, DataResidency: residency})
+	return t, err
+}

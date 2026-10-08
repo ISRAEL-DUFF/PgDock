@@ -386,8 +386,16 @@ async function send<T>(
   return (text === "" ? undefined : JSON.parse(text)) as T;
 }
 
-/** POSTs a file as the raw body (billing documents). */
-export async function uploadFile(path: string, file: Blob): Promise<unknown> {
+/**
+ * Sends a file as the raw body: POSTed as octet-stream by default (billing
+ * documents), or PUT with the file's own type (storage objects).
+ */
+export async function uploadFile(
+  path: string,
+  file: Blob,
+  method: "POST" | "PUT" = "POST",
+  contentType = "application/octet-stream",
+): Promise<unknown> {
   let token = cookieToken() || csrfToken;
   if (!token) {
     const s = await request<{ csrf_token: string }>("GET", "/api/v1/session");
@@ -395,10 +403,10 @@ export async function uploadFile(path: string, file: Blob): Promise<unknown> {
     token = cookieToken() || csrfToken;
   }
   const res = await fetch(path, {
-    method: "POST",
+    method,
     headers: {
       Accept: "application/json",
-      "Content-Type": "application/octet-stream",
+      "Content-Type": contentType,
       "X-CSRF-Token": token,
     },
     credentials: "same-origin",
@@ -1190,6 +1198,54 @@ export const api = {
     ),
   authAudit: (id: string) =>
     getJSON<S["AuthAuditList"]>(`/api/v1/projects/${id}/auth/audit`),
+  files: (id: string) =>
+    getJSON<S["StorageOverview"]>(`/api/v1/projects/${id}/files`),
+  createBucket: (id: string, b: S["StorageBucketInput"]) =>
+    request<S["StorageBucket"]>(
+      "POST",
+      `/api/v1/projects/${id}/files/buckets`,
+      b,
+    ),
+  updateBucket: (id: string, bucket: string, b: S["StorageBucketUpdate"]) =>
+    request<S["StorageBucket"]>(
+      "PATCH",
+      `/api/v1/projects/${id}/files/buckets/${encodeURIComponent(bucket)}`,
+      b,
+    ),
+  deleteBucket: (id: string, bucket: string, empty?: boolean) =>
+    request<void>(
+      "DELETE",
+      `/api/v1/projects/${id}/files/buckets/${encodeURIComponent(bucket)}${qs({ empty: empty ? "true" : undefined })}`,
+    ),
+  bucketObjects: (
+    id: string,
+    bucket: string,
+    p: { prefix?: string; cursor?: string; limit?: number },
+  ) =>
+    getJSON<S["StorageObjectList"]>(
+      `/api/v1/projects/${id}/files/buckets/${encodeURIComponent(bucket)}/objects${qs(p)}`,
+    ),
+  deleteObjects: (id: string, bucket: string, paths: string[]) =>
+    request<{ deleted: number }>(
+      "DELETE",
+      `/api/v1/projects/${id}/files/buckets/${encodeURIComponent(bucket)}/objects`,
+      { paths },
+    ),
+  objectURL: (id: string, bucket: string, path: string) =>
+    `/api/v1/projects/${id}/files/buckets/${encodeURIComponent(bucket)}/object${qs({ path })}`,
+  uploadObject: (id: string, bucket: string, path: string, file: File) =>
+    uploadFile(
+      `/api/v1/projects/${id}/files/buckets/${encodeURIComponent(bucket)}/object${qs({ path })}`,
+      file,
+      "PUT",
+      file.type || "application/octet-stream",
+    ) as Promise<S["StorageObject"]>,
+  signObject: (id: string, bucket: string, path: string, expiresIn: number) =>
+    request<{ signed_url: string; expires_at: string }>(
+      "POST",
+      `/api/v1/projects/${id}/files/buckets/${encodeURIComponent(bucket)}/sign`,
+      { path, expires_in: expiresIn },
+    ),
   maintenanceAnnouncements: () =>
     getJSON<S["MaintenanceAnnouncementList"]>(
       "/api/v1/admin/maintenance/announcements",

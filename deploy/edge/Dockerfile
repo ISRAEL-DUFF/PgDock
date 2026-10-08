@@ -20,6 +20,7 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 RUN CGO_ENABLED=0 go build -trimpath \
       -ldflags "-s -w -X github.com/israel-duff/pgdock/internal/version.Version=${VERSION} -X github.com/israel-duff/pgdock/internal/version.Commit=${COMMIT}" \
+      -tags nodynamic \
       -o /out/pgdock-edge ./cmd/edge
 
 FROM ${RUNTIME_IMAGE}

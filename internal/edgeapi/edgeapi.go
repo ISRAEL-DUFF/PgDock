@@ -24,6 +24,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/israel-duff/pgdock/internal/signature"
+	"github.com/israel-duff/pgdock/internal/storage"
 )
 
 // Paths on pgdock-server.
@@ -36,6 +37,9 @@ const (
 	// PathAuthHook delivers an auth event to the project's webhooks, or
 	// asks its before-sign-up webhook (V4 §4.7).
 	PathAuthHook = "/api/v1/edge/auth-hook"
+	// PathStorageEvent tells pgdock-server about a storage change it acts
+	// on (V4 §5.4).
+	PathStorageEvent = "/api/v1/edge/storage-event"
 )
 
 // Key kinds.
@@ -123,6 +127,27 @@ type Project struct {
 	SigningKey *SigningKey `json:"signing_key,omitempty"`
 	// Auth is the project's auth settings, defaults filled in.
 	Auth AuthConfig `json:"auth"`
+	// Storage is where the project's files are and what it may store
+	// (V4 §5); nil when its region has no object store.
+	Storage *StorageConfig `json:"storage,omitempty"`
+}
+
+// StorageConfig is a project's file storage as the edge applies it.
+type StorageConfig struct {
+	// Target is the region's object store; objects live under Prefix
+	// ("files/<ref>/").
+	Target storage.Target `json:"target"`
+	Prefix string         `json:"prefix"`
+	// SigningSecret signs the project's download and upload URLs.
+	SigningSecret []byte `json:"signing_secret"`
+	// QuotaBytes is what the project's objects may add up to (0:
+	// unlimited); UploadMaxBytes the largest object.
+	QuotaBytes     int64 `json:"quota_bytes,omitempty"`
+	UploadMaxBytes int64 `json:"upload_max_bytes"`
+	// EgressBlocked stops downloads (the month's egress cap is reached);
+	// TransformsBlocked stops new image renders (cached ones still serve).
+	EgressBlocked     bool `json:"egress_blocked,omitempty"`
+	TransformsBlocked bool `json:"transforms_blocked,omitempty"`
 }
 
 // SigningKey is a project's active signing key: its kid and PKCS#8 private
@@ -267,6 +292,10 @@ type Usage struct {
 	Hour        time.Time `json:"hour"`
 	Requests    int64     `json:"requests"`
 	EgressBytes int64     `json:"egress_bytes"`
+	// StorageEgressBytes are file downloads (not in EgressBytes) and
+	// Transforms the image renders made (not served from cache).
+	StorageEgressBytes int64 `json:"storage_egress_bytes,omitempty"`
+	Transforms         int64 `json:"transforms,omitempty"`
 }
 
 // Log is one request.
@@ -417,6 +446,25 @@ func (c *Client) SendAuthHook(ctx context.Context, h AuthHook) (HookDecision, er
 		return d, c.do(ctx, http.MethodPost, PathAuthHook, h, nil)
 	}
 	return d, c.do(ctx, http.MethodPost, PathAuthHook, h, &d)
+}
+
+// Storage events.
+const (
+	// EventBucketPrivate: a public bucket went private; its files leave
+	// the CDN's cache.
+	EventBucketPrivate = "bucket_private"
+)
+
+// StorageEvent is a storage change for pgdock-server.
+type StorageEvent struct {
+	Ref    string `json:"ref"`
+	Event  string `json:"event"`
+	Bucket string `json:"bucket"`
+}
+
+// StorageEvent sends a storage change.
+func (c *Client) StorageEvent(ctx context.Context, ev StorageEvent) error {
+	return c.do(ctx, http.MethodPost, PathStorageEvent, ev, nil)
 }
 
 // Wake asks for a project to be resumed.

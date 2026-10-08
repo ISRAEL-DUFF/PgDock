@@ -382,10 +382,11 @@ var csrfExempt = map[string]bool{
 	"POST /api/v1/support/inbound/email":        true,
 	"POST /api/v1/support/whatsapp":             true,
 	// pgdock-edge, signed with the edge secret (V4 §2.1).
-	"POST /api/v1/edge/report":       true,
-	"POST /api/v1/edge/wake":         true,
-	"POST /api/v1/edge/auth-message": true,
-	"POST /api/v1/edge/auth-hook":    true,
+	"POST /api/v1/edge/report":        true,
+	"POST /api/v1/edge/wake":          true,
+	"POST /api/v1/edge/auth-message":  true,
+	"POST /api/v1/edge/auth-hook":     true,
+	"POST /api/v1/edge/storage-event": true,
 }
 
 // reauthRequired lists destructive routes needing a recent step-up auth

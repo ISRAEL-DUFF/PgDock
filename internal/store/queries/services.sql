@@ -82,7 +82,8 @@ SELECT * FROM project_jwt_keys WHERE project_id = @project_id AND status <> 'ret
 -- tenant: system - pgdock-edge's configuration feed: every project with backend services changed since a point.
 SELECT s.project_id, s.ref, s.enabled, s.cors_origins, s.settings, s.exposed_schemas, s.public_tables,
   s.config_version, s.changed_seq, (s.edge_verifier IS NOT NULL)::boolean AS edge_ready,
-  p.db_name, p.region, p.org_id, p.lifecycle, p.status, p.deleted_at, o.status AS org_status, o.plan_id
+  s.storage_quota_bytes, s.upload_max_bytes, s.storage_egress_blocked, s.transforms_blocked,
+  p.db_name, p.region, p.data_residency, p.org_id, p.lifecycle, p.status, p.deleted_at, o.status AS org_status, o.plan_id
 FROM project_services s JOIN projects p ON p.id = s.project_id JOIN organizations o ON o.id = p.org_id
 WHERE s.changed_seq > @since
 ORDER BY s.changed_seq
@@ -140,3 +141,62 @@ ORDER BY id DESC LIMIT @lim;
 -- tenant: system - pgdock-edge's usage: each project's organisation and plan.
 SELECT p.id, p.org_id, o.plan_id FROM projects p JOIN organizations o ON o.id = p.org_id
 WHERE p.id = ANY(@project_ids::uuid[]);
+
+-- name: StorageProjects :many
+-- tenant: system - the storage sweep: running projects with backend services' storage.
+SELECT sqlc.embed(p), s.ref, s.storage_quota_bytes, s.upload_max_bytes, s.storage_egress_blocked, s.transforms_blocked
+FROM project_services s JOIN projects p ON p.id = s.project_id
+WHERE s.enabled AND s.schema_version >= 4 AND p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle = 'active'
+ORDER BY p.org_id, p.id;
+
+-- name: UpsertProjectStorage :exec
+-- tenant: system - the storage sweep's measurement.
+INSERT INTO project_storage (project_id, bytes, objects, measured_at) VALUES (@project_id, @bytes, @objects, now())
+ON CONFLICT (project_id) DO UPDATE SET bytes = EXCLUDED.bytes, objects = EXCLUDED.objects, measured_at = now();
+
+-- name: OrgFileBytes :many
+-- tenant: system - the storage sweep: each live project's measured files in an organisation.
+SELECT ps.project_id, ps.bytes FROM project_storage ps JOIN projects p ON p.id = ps.project_id
+WHERE p.org_id = @org_id AND p.deleted_at IS NULL;
+
+-- name: SetStorageLimits :execrows
+-- tenant: system - the storage sweep: what the edge enforces, changed only when it differs (a change moves the feed).
+UPDATE project_services SET storage_quota_bytes = @quota_bytes, upload_max_bytes = @upload_max_bytes,
+  storage_egress_blocked = @egress_blocked, transforms_blocked = @transforms_blocked
+WHERE project_id = @project_id AND (storage_quota_bytes IS DISTINCT FROM @quota_bytes OR upload_max_bytes IS DISTINCT FROM @upload_max_bytes
+  OR storage_egress_blocked <> @egress_blocked OR transforms_blocked <> @transforms_blocked);
+
+-- name: OrgUsageSince :one
+-- tenant: system - the storage sweep: an organisation's use of a metric since a point (this month).
+SELECT coalesce(sum(quantity), 0)::numeric FROM usage_records WHERE org_id = @org_id AND metric = @metric AND period_start >= @since;
+
+-- name: GetProjectStorage :one
+-- tenant: system - a project the request already authorized: its measured files.
+SELECT * FROM project_storage WHERE project_id = @project_id;
+
+-- name: SetStorageReconciled :exec
+-- tenant: system - the nightly storage reconciler's findings.
+INSERT INTO project_storage (project_id, missing_objects, missing_sample, orphans_removed, reconciled_at)
+VALUES (@project_id, @missing_objects, @missing_sample, @orphans_removed, now())
+ON CONFLICT (project_id) DO UPDATE SET missing_objects = EXCLUDED.missing_objects, missing_sample = EXCLUDED.missing_sample,
+  orphans_removed = project_storage.orphans_removed + EXCLUDED.orphans_removed, reconciled_at = now();
+
+-- name: ScheduleStorageCleanups :execrows
+-- tenant: system - the storage sweep: deleted projects' files go after the final backups' retention (V2 §10.10).
+INSERT INTO storage_cleanups (project_id, region, prefix, residency, not_before)
+SELECT p.id, p.region, 'files/' || s.ref || '/', p.data_residency, coalesce(p.deleted_at, now()) + make_interval(days => @keep_days::int)
+FROM project_services s JOIN projects p ON p.id = s.project_id
+WHERE s.schema_version >= 4 AND p.status = 'deleted'
+  AND NOT EXISTS (SELECT 1 FROM storage_cleanups c WHERE c.project_id = p.id);
+
+-- name: DueStorageCleanups :many
+-- tenant: system - the storage sweep: deleted projects' files due to go.
+SELECT * FROM storage_cleanups WHERE not_before <= now() AND attempts < 50 ORDER BY not_before LIMIT 20;
+
+-- name: FinishStorageCleanup :exec
+-- tenant: system - the storage sweep: a deleted project's files are gone (the row stays as the record it was done).
+UPDATE storage_cleanups SET attempts = attempts + 1, last_error = NULL, not_before = 'infinity' WHERE id = @id;
+
+-- name: FailStorageCleanup :exec
+-- tenant: system - the storage sweep: a clean-up to retry later.
+UPDATE storage_cleanups SET attempts = attempts + 1, last_error = @last_error, not_before = now() + interval '1 hour' WHERE id = @id;

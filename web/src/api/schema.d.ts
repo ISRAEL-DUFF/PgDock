@@ -2771,6 +2771,128 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/edge/storage-event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal) */
+        post: operations["edgeStorageEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's file storage (V4 §5) - usage, limits, the reconciler's findings and buckets */
+        get: operations["getProjectFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/files/buckets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a bucket */
+        post: operations["createStorageBucket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/files/buckets/{bucket}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a bucket (empty, or with empty=true its files first) */
+        delete: operations["deleteStorageBucket"];
+        options?: never;
+        head?: never;
+        /** Change a bucket's settings (making it private purges its files from the CDN) */
+        patch: operations["updateStorageBucket"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/files/buckets/{bucket}/objects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A folder of a bucket - its files and subfolders */
+        get: operations["listStorageObjects"];
+        put?: never;
+        post?: never;
+        /** Delete files, or folders with everything under them */
+        delete: operations["deleteStorageObjects"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/files/buckets/{bucket}/object": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a file */
+        get: operations["downloadStorageObject"];
+        /** Upload a file (up to 50 MB; replaces one at the same path). Send its type as Content-Type. */
+        put: operations["uploadStorageObject"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/files/buckets/{bucket}/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A signed download URL for a file */
+        post: operations["signStorageObject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/auth/hooks": {
         parameters: {
             query?: never;
@@ -6594,6 +6716,92 @@ export interface components {
             /** Format: date-time */
             failed_at?: string | null;
         };
+        StorageBucket: {
+            id: string;
+            public: boolean;
+            /** Format: int64 */
+            file_size_limit?: number | null;
+            allowed_mime_types: string[];
+            cache_seconds: number;
+            /** Format: int64 */
+            objects: number;
+            /** Format: int64 */
+            bytes: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        StorageBucketInput: {
+            id: string;
+            public?: boolean;
+            /** Format: int64 */
+            file_size_limit?: number;
+            allowed_mime_types?: string[];
+            cache_seconds?: number;
+        };
+        StorageBucketUpdate: {
+            public?: boolean;
+            /**
+             * Format: int64
+             * @description Bytes; null removes the bucket's limit
+             */
+            file_size_limit?: number | null;
+            allowed_mime_types?: string[];
+            cache_seconds?: number;
+        };
+        StorageOverview: {
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            objects: number;
+            /**
+             * Format: int64
+             * @description What the project's files may add up to (its organisation's quota less its other projects'); null is unlimited
+             */
+            quota_bytes?: number | null;
+            /** Format: int64 */
+            upload_max_bytes: number;
+            /** @description The month's file download allowance is used up */
+            egress_blocked: boolean;
+            /** @description The month's image transforms are used up */
+            transforms_blocked: boolean;
+            /** Format: date-time */
+            measured_at?: string | null;
+            /** @description Files whose data the nightly reconciler couldn't find */
+            missing_objects: number;
+            missing_sample: string[];
+            /** Format: date-time */
+            reconciled_at?: string | null;
+            buckets: components["schemas"]["StorageBucket"][];
+        };
+        StorageObject: {
+            /** Format: uuid */
+            id: string;
+            bucket: string;
+            path: string;
+            /** Format: int64 */
+            size: number;
+            mime_type: string;
+            etag: string;
+            checksum?: string | null;
+            /** Format: uuid */
+            owner?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        StorageEntry: {
+            name: string;
+            path: string;
+            folder: boolean;
+            object?: components["schemas"]["StorageObject"];
+        };
+        StorageObjectList: {
+            items: components["schemas"]["StorageEntry"][];
+            next_cursor?: string;
+        };
         AuthHookDeliveryList: {
             items: components["schemas"]["AuthHookDelivery"][];
         };
@@ -9831,6 +10039,9 @@ export interface components {
         NodeID: string;
         ProjectID: string;
         OperationID: string;
+        BucketID: string;
+        /** @description The file's path in the bucket */
+        ObjectPath: string;
     };
     requestBodies: never;
     headers: never;
@@ -14425,6 +14636,288 @@ export interface operations {
                 content: {
                     "application/json": {
                         [key: string]: unknown;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    edgeStorageEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Done. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getProjectFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createStorageBucket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageBucketInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageBucket"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteStorageBucket: {
+        parameters: {
+            query?: {
+                empty?: boolean;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                bucket: components["parameters"]["BucketID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateStorageBucket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                bucket: components["parameters"]["BucketID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageBucketUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageBucket"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listStorageObjects: {
+        parameters: {
+            query?: {
+                prefix?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                bucket: components["parameters"]["BucketID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageObjectList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteStorageObjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                bucket: components["parameters"]["BucketID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    paths: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        deleted: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadStorageObject: {
+        parameters: {
+            query: {
+                /** @description The file's path in the bucket */
+                path: components["parameters"]["ObjectPath"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                bucket: components["parameters"]["BucketID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    uploadStorageObject: {
+        parameters: {
+            query: {
+                /** @description The file's path in the bucket */
+                path: components["parameters"]["ObjectPath"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                bucket: components["parameters"]["BucketID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageObject"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    signStorageObject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                bucket: components["parameters"]["BucketID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    path: string;
+                    /** @description Seconds (1 hour by default, at most 7 days) */
+                    expires_in?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        signed_url: string;
+                        /** Format: date-time */
+                        expires_at: string;
                     };
                 };
             };

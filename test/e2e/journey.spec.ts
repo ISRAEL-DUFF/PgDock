@@ -1947,6 +1947,29 @@ test.describe("with the saved session", () => {
     await expect(hooks).toContainText("Saved");
     await expect(page.getByTestId("auth-hook-deliveries")).toContainText("No webhook deliveries yet.");
     await shot(page, "78-auth-hooks");
+
+    // M33: a bucket, a file uploaded into a folder, and the list.
+    await page.goto(`/projects/${id}/files`);
+    await page.getByTestId("new-bucket").click();
+    const bd = page.getByTestId("bucket-dialog");
+    await bd.getByLabel("Name").fill("docs");
+    await bd.getByLabel("Allowed file types").fill("text/*");
+    await bd.getByRole("button", { name: "Create bucket" }).click();
+    await expect(bd).toBeHidden();
+    await expect(page.getByTestId("bucket-row").filter({ hasText: "docs" })).toBeVisible();
+    await expect(page.getByTestId("files-empty")).toBeVisible();
+    await page.getByTestId("upload-input").setInputFiles({ name: "hello.txt", mimeType: "text/plain", buffer: Buffer.from("hello, files") });
+    const fileRow = page.getByTestId("file-row").filter({ hasText: "hello.txt" });
+    await expect(fileRow).toContainText("text/plain");
+    await expect(fileRow).toContainText("12 B");
+    await expect(page.getByTestId("files-stat-bytes")).toContainText("12 B", { timeout: 10_000 });
+    // This install has no API domain, so there is no URL to sign.
+    await expect(fileRow.getByRole("button", { name: "Signed URL" })).toHaveCount(0);
+    await expect(fileRow.getByRole("link", { name: "Download" })).toHaveAttribute("href", /\/files\/buckets\/docs\/object\?path=hello\.txt$/);
+    await shot(page, "79-storage");
+    page.once("dialog", (d) => void d.accept());
+    await fileRow.getByTestId("delete-file").click();
+    await expect(page.getByTestId("files-empty")).toBeVisible();
   });
 
   test("the shell: keyboard shortcuts, and the menu on a narrow screen", async ({ page }) => {

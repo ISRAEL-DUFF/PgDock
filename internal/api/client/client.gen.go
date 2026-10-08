@@ -7966,6 +7966,89 @@ type SqlStatementResult struct {
 	Truncated bool `json:"truncated"`
 }
 
+// StorageBucket defines model for StorageBucket.
+type StorageBucket struct {
+	AllowedMimeTypes []string  `json:"allowed_mime_types"`
+	Bytes            int64     `json:"bytes"`
+	CacheSeconds     int       `json:"cache_seconds"`
+	CreatedAt        time.Time `json:"created_at"`
+	FileSizeLimit    *int64    `json:"file_size_limit,omitempty"`
+	Id               string    `json:"id"`
+	Objects          int64     `json:"objects"`
+	Public           bool      `json:"public"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+// StorageBucketInput defines model for StorageBucketInput.
+type StorageBucketInput struct {
+	AllowedMimeTypes *[]string `json:"allowed_mime_types,omitempty"`
+	CacheSeconds     *int      `json:"cache_seconds,omitempty"`
+	FileSizeLimit    *int64    `json:"file_size_limit,omitempty"`
+	Id               string    `json:"id"`
+	Public           *bool     `json:"public,omitempty"`
+}
+
+// StorageBucketUpdate defines model for StorageBucketUpdate.
+type StorageBucketUpdate struct {
+	AllowedMimeTypes *[]string `json:"allowed_mime_types,omitempty"`
+	CacheSeconds     *int      `json:"cache_seconds,omitempty"`
+
+	// FileSizeLimit Bytes; null removes the bucket's limit
+	FileSizeLimit *int64 `json:"file_size_limit,omitempty"`
+	Public        *bool  `json:"public,omitempty"`
+}
+
+// StorageEntry defines model for StorageEntry.
+type StorageEntry struct {
+	Folder bool           `json:"folder"`
+	Name   string         `json:"name"`
+	Object *StorageObject `json:"object,omitempty"`
+	Path   string         `json:"path"`
+}
+
+// StorageObject defines model for StorageObject.
+type StorageObject struct {
+	Bucket    string              `json:"bucket"`
+	Checksum  *string             `json:"checksum,omitempty"`
+	CreatedAt time.Time           `json:"created_at"`
+	Etag      string              `json:"etag"`
+	Id        openapi_types.UUID  `json:"id"`
+	MimeType  string              `json:"mime_type"`
+	Owner     *openapi_types.UUID `json:"owner,omitempty"`
+	Path      string              `json:"path"`
+	Size      int64               `json:"size"`
+	UpdatedAt time.Time           `json:"updated_at"`
+}
+
+// StorageObjectList defines model for StorageObjectList.
+type StorageObjectList struct {
+	Items      []StorageEntry `json:"items"`
+	NextCursor *string        `json:"next_cursor,omitempty"`
+}
+
+// StorageOverview defines model for StorageOverview.
+type StorageOverview struct {
+	Buckets []StorageBucket `json:"buckets"`
+	Bytes   int64           `json:"bytes"`
+
+	// EgressBlocked The month's file download allowance is used up
+	EgressBlocked bool       `json:"egress_blocked"`
+	MeasuredAt    *time.Time `json:"measured_at,omitempty"`
+
+	// MissingObjects Files whose data the nightly reconciler couldn't find
+	MissingObjects int      `json:"missing_objects"`
+	MissingSample  []string `json:"missing_sample"`
+	Objects        int64    `json:"objects"`
+
+	// QuotaBytes What the project's files may add up to (its organisation's quota less its other projects'); null is unlimited
+	QuotaBytes   *int64     `json:"quota_bytes,omitempty"`
+	ReconciledAt *time.Time `json:"reconciled_at,omitempty"`
+
+	// TransformsBlocked The month's image transforms are used up
+	TransformsBlocked bool  `json:"transforms_blocked"`
+	UploadMaxBytes    int64 `json:"upload_max_bytes"`
+}
+
 // StorageRequest defines model for StorageRequest.
 type StorageRequest struct {
 	AccessKey string `json:"access_key"`
@@ -8762,6 +8845,9 @@ type AuditTarget = string
 // BackupID defines model for BackupID.
 type BackupID = openapi_types.UUID
 
+// BucketID defines model for BucketID.
+type BucketID = string
+
 // IncidentID defines model for IncidentID.
 type IncidentID = openapi_types.UUID
 
@@ -8791,6 +8877,9 @@ type MetricRange string
 
 // NodeID defines model for NodeID.
 type NodeID = openapi_types.UUID
+
+// ObjectPath defines model for ObjectPath.
+type ObjectPath = string
 
 // OperationID defines model for OperationID.
 type OperationID = openapi_types.UUID
@@ -9070,6 +9159,9 @@ type EdgeConfigParams struct {
 // EdgeReportJSONBody defines parameters for EdgeReport.
 type EdgeReportJSONBody map[string]interface{}
 
+// EdgeStorageEventJSONBody defines parameters for EdgeStorageEvent.
+type EdgeStorageEventJSONBody map[string]interface{}
+
 // EdgeWakeJSONBody defines parameters for EdgeWake.
 type EdgeWakeJSONBody map[string]interface{}
 
@@ -9212,6 +9304,42 @@ type ListAuthUsersParams struct {
 	Q       *string `form:"q,omitempty" json:"q,omitempty"`
 	Page    *int    `form:"page,omitempty" json:"page,omitempty"`
 	PerPage *int    `form:"per_page,omitempty" json:"per_page,omitempty"`
+}
+
+// DeleteStorageBucketParams defines parameters for DeleteStorageBucket.
+type DeleteStorageBucketParams struct {
+	Empty *bool `form:"empty,omitempty" json:"empty,omitempty"`
+}
+
+// DownloadStorageObjectParams defines parameters for DownloadStorageObject.
+type DownloadStorageObjectParams struct {
+	// Path The file's path in the bucket
+	Path ObjectPath `form:"path" json:"path"`
+}
+
+// UploadStorageObjectParams defines parameters for UploadStorageObject.
+type UploadStorageObjectParams struct {
+	// Path The file's path in the bucket
+	Path ObjectPath `form:"path" json:"path"`
+}
+
+// DeleteStorageObjectsJSONBody defines parameters for DeleteStorageObjects.
+type DeleteStorageObjectsJSONBody struct {
+	Paths []string `json:"paths"`
+}
+
+// ListStorageObjectsParams defines parameters for ListStorageObjects.
+type ListStorageObjectsParams struct {
+	Prefix *string `form:"prefix,omitempty" json:"prefix,omitempty"`
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// SignStorageObjectJSONBody defines parameters for SignStorageObject.
+type SignStorageObjectJSONBody struct {
+	// ExpiresIn Seconds (1 hour by default, at most 7 days)
+	ExpiresIn *int   `json:"expires_in,omitempty"`
+	Path      string `json:"path"`
 }
 
 // ListInsightQueriesParams defines parameters for ListInsightQueries.
@@ -9566,6 +9694,9 @@ type EdgeAuthMessageJSONRequestBody EdgeAuthMessageJSONBody
 // EdgeReportJSONRequestBody defines body for EdgeReport for application/json ContentType.
 type EdgeReportJSONRequestBody EdgeReportJSONBody
 
+// EdgeStorageEventJSONRequestBody defines body for EdgeStorageEvent for application/json ContentType.
+type EdgeStorageEventJSONRequestBody EdgeStorageEventJSONBody
+
 // EdgeWakeJSONRequestBody defines body for EdgeWake for application/json ContentType.
 type EdgeWakeJSONRequestBody EdgeWakeJSONBody
 
@@ -9697,6 +9828,18 @@ type DemotePreflightJSONRequestBody = DemoteRequest
 
 // EnableProjectExtensionJSONRequestBody defines body for EnableProjectExtension for application/json ContentType.
 type EnableProjectExtensionJSONRequestBody = EnableExtensionRequest
+
+// CreateStorageBucketJSONRequestBody defines body for CreateStorageBucket for application/json ContentType.
+type CreateStorageBucketJSONRequestBody = StorageBucketInput
+
+// UpdateStorageBucketJSONRequestBody defines body for UpdateStorageBucket for application/json ContentType.
+type UpdateStorageBucketJSONRequestBody = StorageBucketUpdate
+
+// DeleteStorageObjectsJSONRequestBody defines body for DeleteStorageObjects for application/json ContentType.
+type DeleteStorageObjectsJSONRequestBody DeleteStorageObjectsJSONBody
+
+// SignStorageObjectJSONRequestBody defines body for SignStorageObject for application/json ContentType.
+type SignStorageObjectJSONRequestBody SignStorageObjectJSONBody
 
 // UpdateProjectHAJSONRequestBody defines body for UpdateProjectHA for application/json ContentType.
 type UpdateProjectHAJSONRequestBody = HAUpdateRequest
@@ -11221,6 +11364,20 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
 	EdgeReport(ctx context.Context, body EdgeReportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// EdgeStorageEventWithBody pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
+	EdgeStorageEventWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EdgeStorageEvent pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
+	EdgeStorageEvent(ctx context.Context, body EdgeStorageEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// EdgeWakeWithBody pgdock-edge asks for a paused project to resume (signed; internal)
 	//
 	// Takes any type of body and a specified content type.
@@ -12391,6 +12548,89 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/extensions (the `EnableProjectExtension` operationId).
 	EnableProjectExtension(ctx context.Context, id ProjectID, body EnableProjectExtensionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetProjectFiles The project's file storage (V4 §5) - usage, limits, the reconciler's findings and buckets
+	//
+	// Corresponds with GET /api/v1/projects/{id}/files (the `GetProjectFiles` operationId).
+	GetProjectFiles(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateStorageBucketWithBody Create a bucket
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/files/buckets (the `CreateStorageBucket` operationId).
+	CreateStorageBucketWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateStorageBucket Create a bucket
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/files/buckets (the `CreateStorageBucket` operationId).
+	CreateStorageBucket(ctx context.Context, id ProjectID, body CreateStorageBucketJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteStorageBucket Delete a bucket (empty, or with empty=true its files first)
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/files/buckets/{bucket} (the `DeleteStorageBucket` operationId).
+	DeleteStorageBucket(ctx context.Context, id ProjectID, bucket BucketID, params *DeleteStorageBucketParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateStorageBucketWithBody Change a bucket's settings (making it private purges its files from the CDN)
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/files/buckets/{bucket} (the `UpdateStorageBucket` operationId).
+	UpdateStorageBucketWithBody(ctx context.Context, id ProjectID, bucket BucketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateStorageBucket Change a bucket's settings (making it private purges its files from the CDN)
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/files/buckets/{bucket} (the `UpdateStorageBucket` operationId).
+	UpdateStorageBucket(ctx context.Context, id ProjectID, bucket BucketID, body UpdateStorageBucketJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadStorageObject Download a file
+	//
+	// Corresponds with GET /api/v1/projects/{id}/files/buckets/{bucket}/object (the `DownloadStorageObject` operationId).
+	DownloadStorageObject(ctx context.Context, id ProjectID, bucket BucketID, params *DownloadStorageObjectParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UploadStorageObjectWithBody Upload a file (up to 50 MB; replaces one at the same path). Send its type as Content-Type.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/files/buckets/{bucket}/object (the `UploadStorageObject` operationId).
+	UploadStorageObjectWithBody(ctx context.Context, id ProjectID, bucket BucketID, params *UploadStorageObjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteStorageObjectsWithBody Delete files, or folders with everything under them
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/files/buckets/{bucket}/objects (the `DeleteStorageObjects` operationId).
+	DeleteStorageObjectsWithBody(ctx context.Context, id ProjectID, bucket BucketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteStorageObjects Delete files, or folders with everything under them
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/files/buckets/{bucket}/objects (the `DeleteStorageObjects` operationId).
+	DeleteStorageObjects(ctx context.Context, id ProjectID, bucket BucketID, body DeleteStorageObjectsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListStorageObjects A folder of a bucket - its files and subfolders
+	//
+	// Corresponds with GET /api/v1/projects/{id}/files/buckets/{bucket}/objects (the `ListStorageObjects` operationId).
+	ListStorageObjects(ctx context.Context, id ProjectID, bucket BucketID, params *ListStorageObjectsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SignStorageObjectWithBody A signed download URL for a file
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/files/buckets/{bucket}/sign (the `SignStorageObject` operationId).
+	SignStorageObjectWithBody(ctx context.Context, id ProjectID, bucket BucketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SignStorageObject A signed download URL for a file
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/files/buckets/{bucket}/sign (the `SignStorageObject` operationId).
+	SignStorageObject(ctx context.Context, id ProjectID, bucket BucketID, body SignStorageObjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DisableProjectHA Turn HA off (the standby is removed)
 	//
@@ -16844,6 +17084,40 @@ func (c *Client) EdgeReport(ctx context.Context, body EdgeReportJSONRequestBody,
 	return c.Client.Do(req)
 }
 
+// EdgeStorageEventWithBody pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
+func (c *Client) EdgeStorageEventWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEdgeStorageEventRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EdgeStorageEvent pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
+func (c *Client) EdgeStorageEvent(ctx context.Context, body EdgeStorageEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEdgeStorageEventRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // EdgeWakeWithBody pgdock-edge asks for a paused project to resume (signed; internal)
 //
 // Takes any type of body and a specified content type.
@@ -19715,6 +19989,219 @@ func (c *Client) EnableProjectExtensionWithBody(ctx context.Context, id ProjectI
 // Corresponds with POST /api/v1/projects/{id}/extensions (the `EnableProjectExtension` operationId).
 func (c *Client) EnableProjectExtension(ctx context.Context, id ProjectID, body EnableProjectExtensionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewEnableProjectExtensionRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetProjectFiles The project's file storage (V4 §5) - usage, limits, the reconciler's findings and buckets
+//
+// Corresponds with GET /api/v1/projects/{id}/files (the `GetProjectFiles` operationId).
+func (c *Client) GetProjectFiles(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProjectFilesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateStorageBucketWithBody Create a bucket
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/files/buckets (the `CreateStorageBucket` operationId).
+func (c *Client) CreateStorageBucketWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateStorageBucketRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateStorageBucket Create a bucket
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/files/buckets (the `CreateStorageBucket` operationId).
+func (c *Client) CreateStorageBucket(ctx context.Context, id ProjectID, body CreateStorageBucketJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateStorageBucketRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteStorageBucket Delete a bucket (empty, or with empty=true its files first)
+//
+// Corresponds with DELETE /api/v1/projects/{id}/files/buckets/{bucket} (the `DeleteStorageBucket` operationId).
+func (c *Client) DeleteStorageBucket(ctx context.Context, id ProjectID, bucket BucketID, params *DeleteStorageBucketParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteStorageBucketRequest(c.Server, id, bucket, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateStorageBucketWithBody Change a bucket's settings (making it private purges its files from the CDN)
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/files/buckets/{bucket} (the `UpdateStorageBucket` operationId).
+func (c *Client) UpdateStorageBucketWithBody(ctx context.Context, id ProjectID, bucket BucketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateStorageBucketRequestWithBody(c.Server, id, bucket, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateStorageBucket Change a bucket's settings (making it private purges its files from the CDN)
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/files/buckets/{bucket} (the `UpdateStorageBucket` operationId).
+func (c *Client) UpdateStorageBucket(ctx context.Context, id ProjectID, bucket BucketID, body UpdateStorageBucketJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateStorageBucketRequest(c.Server, id, bucket, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DownloadStorageObject Download a file
+//
+// Corresponds with GET /api/v1/projects/{id}/files/buckets/{bucket}/object (the `DownloadStorageObject` operationId).
+func (c *Client) DownloadStorageObject(ctx context.Context, id ProjectID, bucket BucketID, params *DownloadStorageObjectParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadStorageObjectRequest(c.Server, id, bucket, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UploadStorageObjectWithBody Upload a file (up to 50 MB; replaces one at the same path). Send its type as Content-Type.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /api/v1/projects/{id}/files/buckets/{bucket}/object (the `UploadStorageObject` operationId).
+func (c *Client) UploadStorageObjectWithBody(ctx context.Context, id ProjectID, bucket BucketID, params *UploadStorageObjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadStorageObjectRequestWithBody(c.Server, id, bucket, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteStorageObjectsWithBody Delete files, or folders with everything under them
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with DELETE /api/v1/projects/{id}/files/buckets/{bucket}/objects (the `DeleteStorageObjects` operationId).
+func (c *Client) DeleteStorageObjectsWithBody(ctx context.Context, id ProjectID, bucket BucketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteStorageObjectsRequestWithBody(c.Server, id, bucket, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteStorageObjects Delete files, or folders with everything under them
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with DELETE /api/v1/projects/{id}/files/buckets/{bucket}/objects (the `DeleteStorageObjects` operationId).
+func (c *Client) DeleteStorageObjects(ctx context.Context, id ProjectID, bucket BucketID, body DeleteStorageObjectsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteStorageObjectsRequest(c.Server, id, bucket, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListStorageObjects A folder of a bucket - its files and subfolders
+//
+// Corresponds with GET /api/v1/projects/{id}/files/buckets/{bucket}/objects (the `ListStorageObjects` operationId).
+func (c *Client) ListStorageObjects(ctx context.Context, id ProjectID, bucket BucketID, params *ListStorageObjectsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListStorageObjectsRequest(c.Server, id, bucket, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SignStorageObjectWithBody A signed download URL for a file
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/files/buckets/{bucket}/sign (the `SignStorageObject` operationId).
+func (c *Client) SignStorageObjectWithBody(ctx context.Context, id ProjectID, bucket BucketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSignStorageObjectRequestWithBody(c.Server, id, bucket, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SignStorageObject A signed download URL for a file
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/files/buckets/{bucket}/sign (the `SignStorageObject` operationId).
+func (c *Client) SignStorageObject(ctx context.Context, id ProjectID, bucket BucketID, body SignStorageObjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSignStorageObjectRequest(c.Server, id, bucket, body)
 	if err != nil {
 		return nil, err
 	}
@@ -27928,6 +28415,46 @@ func NewEdgeReportRequestWithBody(server string, contentType string, body io.Rea
 	return req, nil
 }
 
+// NewEdgeStorageEventRequest calls the generic EdgeStorageEvent builder with application/json body
+func NewEdgeStorageEventRequest(server string, body EdgeStorageEventJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewEdgeStorageEventRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewEdgeStorageEventRequestWithBody constructs an http.Request for the EdgeStorageEvent method, with any body, and a specified content type
+func NewEdgeStorageEventRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/edge/storage-event")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewEdgeWakeRequest calls the generic EdgeWake builder with application/json body
 func NewEdgeWakeRequest(server string, body EdgeWakeJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -33306,6 +33833,539 @@ func NewEnableProjectExtensionRequestWithBody(server string, id ProjectID, conte
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/projects/%s/extensions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetProjectFilesRequest constructs an http.Request for the GetProjectFiles method
+func NewGetProjectFilesRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/files", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateStorageBucketRequest calls the generic CreateStorageBucket builder with application/json body
+func NewCreateStorageBucketRequest(server string, id ProjectID, body CreateStorageBucketJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateStorageBucketRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewCreateStorageBucketRequestWithBody constructs an http.Request for the CreateStorageBucket method, with any body, and a specified content type
+func NewCreateStorageBucketRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/files/buckets", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteStorageBucketRequest constructs an http.Request for the DeleteStorageBucket method
+func NewDeleteStorageBucketRequest(server string, id ProjectID, bucket BucketID, params *DeleteStorageBucketParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "bucket", bucket, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/files/buckets/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Empty != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "empty", *params.Empty, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateStorageBucketRequest calls the generic UpdateStorageBucket builder with application/json body
+func NewUpdateStorageBucketRequest(server string, id ProjectID, bucket BucketID, body UpdateStorageBucketJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateStorageBucketRequestWithBody(server, id, bucket, "application/json", bodyReader)
+}
+
+// NewUpdateStorageBucketRequestWithBody constructs an http.Request for the UpdateStorageBucket method, with any body, and a specified content type
+func NewUpdateStorageBucketRequestWithBody(server string, id ProjectID, bucket BucketID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "bucket", bucket, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/files/buckets/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDownloadStorageObjectRequest constructs an http.Request for the DownloadStorageObject method
+func NewDownloadStorageObjectRequest(server string, id ProjectID, bucket BucketID, params *DownloadStorageObjectParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "bucket", bucket, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/files/buckets/%s/object", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "path", params.Path, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUploadStorageObjectRequestWithBody constructs an http.Request for the UploadStorageObject method, with any body, and a specified content type
+func NewUploadStorageObjectRequestWithBody(server string, id ProjectID, bucket BucketID, params *UploadStorageObjectParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "bucket", bucket, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/files/buckets/%s/object", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "path", params.Path, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteStorageObjectsRequest calls the generic DeleteStorageObjects builder with application/json body
+func NewDeleteStorageObjectsRequest(server string, id ProjectID, bucket BucketID, body DeleteStorageObjectsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDeleteStorageObjectsRequestWithBody(server, id, bucket, "application/json", bodyReader)
+}
+
+// NewDeleteStorageObjectsRequestWithBody constructs an http.Request for the DeleteStorageObjects method, with any body, and a specified content type
+func NewDeleteStorageObjectsRequestWithBody(server string, id ProjectID, bucket BucketID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "bucket", bucket, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/files/buckets/%s/objects", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListStorageObjectsRequest constructs an http.Request for the ListStorageObjects method
+func NewListStorageObjectsRequest(server string, id ProjectID, bucket BucketID, params *ListStorageObjectsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "bucket", bucket, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/files/buckets/%s/objects", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Prefix != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "prefix", *params.Prefix, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSignStorageObjectRequest calls the generic SignStorageObject builder with application/json body
+func NewSignStorageObjectRequest(server string, id ProjectID, bucket BucketID, body SignStorageObjectJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSignStorageObjectRequestWithBody(server, id, bucket, "application/json", bodyReader)
+}
+
+// NewSignStorageObjectRequestWithBody constructs an http.Request for the SignStorageObject method, with any body, and a specified content type
+func NewSignStorageObjectRequestWithBody(server string, id ProjectID, bucket BucketID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "bucket", bucket, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/files/buckets/%s/sign", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -39889,6 +40949,20 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
 	EdgeReportWithResponse(ctx context.Context, body EdgeReportJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeReportResponse, error)
 
+	// EdgeStorageEventWithBodyWithResponse pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
+	EdgeStorageEventWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeStorageEventResponse, error)
+
+	// EdgeStorageEventWithResponse pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
+	EdgeStorageEventWithResponse(ctx context.Context, body EdgeStorageEventJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeStorageEventResponse, error)
+
 	// EdgeWakeWithBodyWithResponse pgdock-edge asks for a paused project to resume (signed; internal)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -41223,6 +42297,97 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/projects/{id}/extensions (the `EnableProjectExtension` operationId).
 	EnableProjectExtensionWithResponse(ctx context.Context, id ProjectID, body EnableProjectExtensionJSONRequestBody, reqEditors ...RequestEditorFn) (*EnableProjectExtensionResponse, error)
+
+	// GetProjectFilesWithResponse The project's file storage (V4 §5) - usage, limits, the reconciler's findings and buckets
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/files (the `GetProjectFiles` operationId).
+	GetProjectFilesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetProjectFilesResponse, error)
+
+	// CreateStorageBucketWithBodyWithResponse Create a bucket
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/files/buckets (the `CreateStorageBucket` operationId).
+	CreateStorageBucketWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateStorageBucketResponse, error)
+
+	// CreateStorageBucketWithResponse Create a bucket
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/files/buckets (the `CreateStorageBucket` operationId).
+	CreateStorageBucketWithResponse(ctx context.Context, id ProjectID, body CreateStorageBucketJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateStorageBucketResponse, error)
+
+	// DeleteStorageBucketWithResponse Delete a bucket (empty, or with empty=true its files first)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/files/buckets/{bucket} (the `DeleteStorageBucket` operationId).
+	DeleteStorageBucketWithResponse(ctx context.Context, id ProjectID, bucket BucketID, params *DeleteStorageBucketParams, reqEditors ...RequestEditorFn) (*DeleteStorageBucketResponse, error)
+
+	// UpdateStorageBucketWithBodyWithResponse Change a bucket's settings (making it private purges its files from the CDN)
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/files/buckets/{bucket} (the `UpdateStorageBucket` operationId).
+	UpdateStorageBucketWithBodyWithResponse(ctx context.Context, id ProjectID, bucket BucketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateStorageBucketResponse, error)
+
+	// UpdateStorageBucketWithResponse Change a bucket's settings (making it private purges its files from the CDN)
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/files/buckets/{bucket} (the `UpdateStorageBucket` operationId).
+	UpdateStorageBucketWithResponse(ctx context.Context, id ProjectID, bucket BucketID, body UpdateStorageBucketJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateStorageBucketResponse, error)
+
+	// DownloadStorageObjectWithResponse Download a file
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/files/buckets/{bucket}/object (the `DownloadStorageObject` operationId).
+	DownloadStorageObjectWithResponse(ctx context.Context, id ProjectID, bucket BucketID, params *DownloadStorageObjectParams, reqEditors ...RequestEditorFn) (*DownloadStorageObjectResponse, error)
+
+	// UploadStorageObjectWithBodyWithResponse Upload a file (up to 50 MB; replaces one at the same path). Send its type as Content-Type.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /api/v1/projects/{id}/files/buckets/{bucket}/object (the `UploadStorageObject` operationId).
+	UploadStorageObjectWithBodyWithResponse(ctx context.Context, id ProjectID, bucket BucketID, params *UploadStorageObjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadStorageObjectResponse, error)
+
+	// DeleteStorageObjectsWithBodyWithResponse Delete files, or folders with everything under them
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/files/buckets/{bucket}/objects (the `DeleteStorageObjects` operationId).
+	DeleteStorageObjectsWithBodyWithResponse(ctx context.Context, id ProjectID, bucket BucketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteStorageObjectsResponse, error)
+
+	// DeleteStorageObjectsWithResponse Delete files, or folders with everything under them
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/projects/{id}/files/buckets/{bucket}/objects (the `DeleteStorageObjects` operationId).
+	DeleteStorageObjectsWithResponse(ctx context.Context, id ProjectID, bucket BucketID, body DeleteStorageObjectsJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteStorageObjectsResponse, error)
+
+	// ListStorageObjectsWithResponse A folder of a bucket - its files and subfolders
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/files/buckets/{bucket}/objects (the `ListStorageObjects` operationId).
+	ListStorageObjectsWithResponse(ctx context.Context, id ProjectID, bucket BucketID, params *ListStorageObjectsParams, reqEditors ...RequestEditorFn) (*ListStorageObjectsResponse, error)
+
+	// SignStorageObjectWithBodyWithResponse A signed download URL for a file
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/files/buckets/{bucket}/sign (the `SignStorageObject` operationId).
+	SignStorageObjectWithBodyWithResponse(ctx context.Context, id ProjectID, bucket BucketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SignStorageObjectResponse, error)
+
+	// SignStorageObjectWithResponse A signed download URL for a file
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/files/buckets/{bucket}/sign (the `SignStorageObject` operationId).
+	SignStorageObjectWithResponse(ctx context.Context, id ProjectID, bucket BucketID, body SignStorageObjectJSONRequestBody, reqEditors ...RequestEditorFn) (*SignStorageObjectResponse, error)
 
 	// DisableProjectHAWithResponse Turn HA off (the standby is removed)
 	//
@@ -48665,6 +49830,47 @@ func (r EdgeReportResponse) ContentType() string {
 	return ""
 }
 
+type EdgeStorageEventResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r EdgeStorageEventResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EdgeStorageEventResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EdgeStorageEventResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EdgeStorageEventResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EdgeStorageEventResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type EdgeWakeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -54595,6 +55801,434 @@ func (r EnableProjectExtensionResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r EnableProjectExtensionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetProjectFilesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StorageOverview
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetProjectFilesResponse) GetJSON200() *StorageOverview {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetProjectFilesResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetProjectFilesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetProjectFilesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetProjectFilesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetProjectFilesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateStorageBucketResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *StorageBucket
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateStorageBucketResponse) GetJSON201() *StorageBucket {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CreateStorageBucketResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateStorageBucketResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateStorageBucketResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateStorageBucketResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateStorageBucketResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteStorageBucketResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DeleteStorageBucketResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteStorageBucketResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteStorageBucketResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteStorageBucketResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteStorageBucketResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateStorageBucketResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StorageBucket
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateStorageBucketResponse) GetJSON200() *StorageBucket {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdateStorageBucketResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateStorageBucketResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateStorageBucketResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateStorageBucketResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateStorageBucketResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DownloadStorageObjectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DownloadStorageObjectResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DownloadStorageObjectResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadStorageObjectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadStorageObjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DownloadStorageObjectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UploadStorageObjectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StorageObject
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UploadStorageObjectResponse) GetJSON200() *StorageObject {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UploadStorageObjectResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UploadStorageObjectResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UploadStorageObjectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UploadStorageObjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UploadStorageObjectResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteStorageObjectsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Deleted int64 `json:"deleted"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DeleteStorageObjectsResponse) GetJSON200() *struct {
+	Deleted int64 `json:"deleted"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DeleteStorageObjectsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteStorageObjectsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteStorageObjectsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteStorageObjectsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteStorageObjectsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListStorageObjectsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *StorageObjectList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListStorageObjectsResponse) GetJSON200() *StorageObjectList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListStorageObjectsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListStorageObjectsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListStorageObjectsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListStorageObjectsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListStorageObjectsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SignStorageObjectResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		ExpiresAt time.Time `json:"expires_at"`
+		SignedUrl string    `json:"signed_url"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SignStorageObjectResponse) GetJSON200() *struct {
+	ExpiresAt time.Time `json:"expires_at"`
+	SignedUrl string    `json:"signed_url"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SignStorageObjectResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SignStorageObjectResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SignStorageObjectResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SignStorageObjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SignStorageObjectResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -62509,6 +64143,32 @@ func (c *ClientWithResponses) EdgeReportWithResponse(ctx context.Context, body E
 	return ParseEdgeReportResponse(rsp)
 }
 
+// EdgeStorageEventWithBodyWithResponse pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
+func (c *ClientWithResponses) EdgeStorageEventWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeStorageEventResponse, error) {
+	rsp, err := c.EdgeStorageEventWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEdgeStorageEventResponse(rsp)
+}
+
+// EdgeStorageEventWithResponse pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
+func (c *ClientWithResponses) EdgeStorageEventWithResponse(ctx context.Context, body EdgeStorageEventJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeStorageEventResponse, error) {
+	rsp, err := c.EdgeStorageEvent(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEdgeStorageEventResponse(rsp)
+}
+
 // EdgeWakeWithBodyWithResponse pgdock-edge asks for a paused project to resume (signed; internal)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -64868,6 +66528,175 @@ func (c *ClientWithResponses) EnableProjectExtensionWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseEnableProjectExtensionResponse(rsp)
+}
+
+// GetProjectFilesWithResponse The project's file storage (V4 §5) - usage, limits, the reconciler's findings and buckets
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/files (the `GetProjectFiles` operationId).
+func (c *ClientWithResponses) GetProjectFilesWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetProjectFilesResponse, error) {
+	rsp, err := c.GetProjectFiles(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetProjectFilesResponse(rsp)
+}
+
+// CreateStorageBucketWithBodyWithResponse Create a bucket
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/files/buckets (the `CreateStorageBucket` operationId).
+func (c *ClientWithResponses) CreateStorageBucketWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateStorageBucketResponse, error) {
+	rsp, err := c.CreateStorageBucketWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateStorageBucketResponse(rsp)
+}
+
+// CreateStorageBucketWithResponse Create a bucket
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/files/buckets (the `CreateStorageBucket` operationId).
+func (c *ClientWithResponses) CreateStorageBucketWithResponse(ctx context.Context, id ProjectID, body CreateStorageBucketJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateStorageBucketResponse, error) {
+	rsp, err := c.CreateStorageBucket(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateStorageBucketResponse(rsp)
+}
+
+// DeleteStorageBucketWithResponse Delete a bucket (empty, or with empty=true its files first)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/projects/{id}/files/buckets/{bucket} (the `DeleteStorageBucket` operationId).
+func (c *ClientWithResponses) DeleteStorageBucketWithResponse(ctx context.Context, id ProjectID, bucket BucketID, params *DeleteStorageBucketParams, reqEditors ...RequestEditorFn) (*DeleteStorageBucketResponse, error) {
+	rsp, err := c.DeleteStorageBucket(ctx, id, bucket, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteStorageBucketResponse(rsp)
+}
+
+// UpdateStorageBucketWithBodyWithResponse Change a bucket's settings (making it private purges its files from the CDN)
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/files/buckets/{bucket} (the `UpdateStorageBucket` operationId).
+func (c *ClientWithResponses) UpdateStorageBucketWithBodyWithResponse(ctx context.Context, id ProjectID, bucket BucketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateStorageBucketResponse, error) {
+	rsp, err := c.UpdateStorageBucketWithBody(ctx, id, bucket, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateStorageBucketResponse(rsp)
+}
+
+// UpdateStorageBucketWithResponse Change a bucket's settings (making it private purges its files from the CDN)
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/files/buckets/{bucket} (the `UpdateStorageBucket` operationId).
+func (c *ClientWithResponses) UpdateStorageBucketWithResponse(ctx context.Context, id ProjectID, bucket BucketID, body UpdateStorageBucketJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateStorageBucketResponse, error) {
+	rsp, err := c.UpdateStorageBucket(ctx, id, bucket, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateStorageBucketResponse(rsp)
+}
+
+// DownloadStorageObjectWithResponse Download a file
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/files/buckets/{bucket}/object (the `DownloadStorageObject` operationId).
+func (c *ClientWithResponses) DownloadStorageObjectWithResponse(ctx context.Context, id ProjectID, bucket BucketID, params *DownloadStorageObjectParams, reqEditors ...RequestEditorFn) (*DownloadStorageObjectResponse, error) {
+	rsp, err := c.DownloadStorageObject(ctx, id, bucket, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadStorageObjectResponse(rsp)
+}
+
+// UploadStorageObjectWithBodyWithResponse Upload a file (up to 50 MB; replaces one at the same path). Send its type as Content-Type.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /api/v1/projects/{id}/files/buckets/{bucket}/object (the `UploadStorageObject` operationId).
+func (c *ClientWithResponses) UploadStorageObjectWithBodyWithResponse(ctx context.Context, id ProjectID, bucket BucketID, params *UploadStorageObjectParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadStorageObjectResponse, error) {
+	rsp, err := c.UploadStorageObjectWithBody(ctx, id, bucket, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUploadStorageObjectResponse(rsp)
+}
+
+// DeleteStorageObjectsWithBodyWithResponse Delete files, or folders with everything under them
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/projects/{id}/files/buckets/{bucket}/objects (the `DeleteStorageObjects` operationId).
+func (c *ClientWithResponses) DeleteStorageObjectsWithBodyWithResponse(ctx context.Context, id ProjectID, bucket BucketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteStorageObjectsResponse, error) {
+	rsp, err := c.DeleteStorageObjectsWithBody(ctx, id, bucket, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteStorageObjectsResponse(rsp)
+}
+
+// DeleteStorageObjectsWithResponse Delete files, or folders with everything under them
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/projects/{id}/files/buckets/{bucket}/objects (the `DeleteStorageObjects` operationId).
+func (c *ClientWithResponses) DeleteStorageObjectsWithResponse(ctx context.Context, id ProjectID, bucket BucketID, body DeleteStorageObjectsJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteStorageObjectsResponse, error) {
+	rsp, err := c.DeleteStorageObjects(ctx, id, bucket, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteStorageObjectsResponse(rsp)
+}
+
+// ListStorageObjectsWithResponse A folder of a bucket - its files and subfolders
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/files/buckets/{bucket}/objects (the `ListStorageObjects` operationId).
+func (c *ClientWithResponses) ListStorageObjectsWithResponse(ctx context.Context, id ProjectID, bucket BucketID, params *ListStorageObjectsParams, reqEditors ...RequestEditorFn) (*ListStorageObjectsResponse, error) {
+	rsp, err := c.ListStorageObjects(ctx, id, bucket, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListStorageObjectsResponse(rsp)
+}
+
+// SignStorageObjectWithBodyWithResponse A signed download URL for a file
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/files/buckets/{bucket}/sign (the `SignStorageObject` operationId).
+func (c *ClientWithResponses) SignStorageObjectWithBodyWithResponse(ctx context.Context, id ProjectID, bucket BucketID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SignStorageObjectResponse, error) {
+	rsp, err := c.SignStorageObjectWithBody(ctx, id, bucket, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSignStorageObjectResponse(rsp)
+}
+
+// SignStorageObjectWithResponse A signed download URL for a file
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/files/buckets/{bucket}/sign (the `SignStorageObject` operationId).
+func (c *ClientWithResponses) SignStorageObjectWithResponse(ctx context.Context, id ProjectID, bucket BucketID, body SignStorageObjectJSONRequestBody, reqEditors ...RequestEditorFn) (*SignStorageObjectResponse, error) {
+	rsp, err := c.SignStorageObject(ctx, id, bucket, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSignStorageObjectResponse(rsp)
 }
 
 // DisableProjectHAWithResponse Turn HA off (the standby is removed)
@@ -71385,6 +73214,35 @@ func ParseEdgeReportResponse(rsp *http.Response) (*EdgeReportResponse, error) {
 	return response, nil
 }
 
+// ParseEdgeStorageEventResponse parses an HTTP response from a EdgeStorageEventWithResponse call
+func ParseEdgeStorageEventResponse(rsp *http.Response) (*EdgeStorageEventResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EdgeStorageEventResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseEdgeWakeResponse parses an HTTP response from a EdgeWakeWithResponse call
 func ParseEdgeWakeResponse(rsp *http.Response) (*EdgeWakeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -75462,6 +77320,297 @@ func ParseEnableProjectExtensionResponse(rsp *http.Response) (*EnableProjectExte
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ExtensionList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetProjectFilesResponse parses an HTTP response from a GetProjectFilesWithResponse call
+func ParseGetProjectFilesResponse(rsp *http.Response) (*GetProjectFilesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetProjectFilesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StorageOverview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateStorageBucketResponse parses an HTTP response from a CreateStorageBucketWithResponse call
+func ParseCreateStorageBucketResponse(rsp *http.Response) (*CreateStorageBucketResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateStorageBucketResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest StorageBucket
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteStorageBucketResponse parses an HTTP response from a DeleteStorageBucketWithResponse call
+func ParseDeleteStorageBucketResponse(rsp *http.Response) (*DeleteStorageBucketResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteStorageBucketResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateStorageBucketResponse parses an HTTP response from a UpdateStorageBucketWithResponse call
+func ParseUpdateStorageBucketResponse(rsp *http.Response) (*UpdateStorageBucketResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateStorageBucketResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StorageBucket
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadStorageObjectResponse parses an HTTP response from a DownloadStorageObjectWithResponse call
+func ParseDownloadStorageObjectResponse(rsp *http.Response) (*DownloadStorageObjectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadStorageObjectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUploadStorageObjectResponse parses an HTTP response from a UploadStorageObjectWithResponse call
+func ParseUploadStorageObjectResponse(rsp *http.Response) (*UploadStorageObjectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UploadStorageObjectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StorageObject
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteStorageObjectsResponse parses an HTTP response from a DeleteStorageObjectsWithResponse call
+func ParseDeleteStorageObjectsResponse(rsp *http.Response) (*DeleteStorageObjectsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteStorageObjectsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Deleted int64 `json:"deleted"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListStorageObjectsResponse parses an HTTP response from a ListStorageObjectsWithResponse call
+func ParseListStorageObjectsResponse(rsp *http.Response) (*ListStorageObjectsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListStorageObjectsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StorageObjectList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSignStorageObjectResponse parses an HTTP response from a SignStorageObjectWithResponse call
+func ParseSignStorageObjectResponse(rsp *http.Response) (*SignStorageObjectResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SignStorageObjectResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			ExpiresAt time.Time `json:"expires_at"`
+			SignedUrl string    `json:"signed_url"`
+		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

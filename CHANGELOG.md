@@ -66,6 +66,19 @@ bundle share one version (spec §11.5).
   `RESET ROLE` (an RPC function, an auth hook, or SQL injection in dynamic
   SQL) can no longer reach the edge's login, the auth tables or the service
   role. New migration 00039.
+- Storage (V4-M33): buckets (public or private, size limits, allowed
+  types) and files in the region's object store, with access decided by
+  row-level security on `pgd_storage.objects` and helpers such as
+  `pgd_storage.folder(path, 1)`; uploads up to 50 MB through the edge and
+  up to the plan's limit (5 GB on Pro and Team) by presigned multipart
+  URLs, resumable for 24 hours; downloads with ranges, public URLs and
+  signed URLs; listing, move, copy and delete; MIME sniffing; image
+  resizing and conversion to WebP, AVIF, JPEG and PNG, cached in the store;
+  file storage, download and transform quotas and metering
+  (`storage_gb_hours`, `storage_egress_gb`, `image_transforms`); a nightly
+  reconciler; a CDN purge when a bucket goes private (Cloudflare). Project →
+  Storage and `pgdock storage buckets|ls|cp|rm|sign`.
+- New migration 00040 (storage); project schema version 4.
 - pgdock-server's metadata connection pool defaults to 16 connections
   (it was pgx's 4 on a small box) unless `PGDOCK_DATABASE_URL` sets
   `pool_max_conns`; the auth message and hook senders no longer hold a
