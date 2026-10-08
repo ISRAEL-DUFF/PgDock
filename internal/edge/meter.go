@@ -49,8 +49,9 @@ func (m *meter) activeUser(project, user uuid.UUID) {
 	}
 }
 
-// record counts a request; billed requests passed the key check.
-func (m *meter) record(l edgeapi.Log, billed bool) {
+// record counts a request; billed requests passed the key check (or are a
+// keyless file download). A file download's bytes are storage egress.
+func (m *meter) record(l edgeapi.Log, billed, files bool, transforms int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	k := usageKey{l.ProjectID, l.At.Truncate(time.Hour)}
@@ -61,7 +62,12 @@ func (m *meter) record(l edgeapi.Log, billed bool) {
 	}
 	if billed {
 		u.Requests++
-		u.EgressBytes += l.BytesOut
+		if files {
+			u.StorageEgressBytes += l.BytesOut
+		} else {
+			u.EgressBytes += l.BytesOut
+		}
+		u.Transforms += transforms
 	}
 	if len(m.logs) < maxLogs {
 		m.logs = append(m.logs, l)

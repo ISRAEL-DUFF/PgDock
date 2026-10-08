@@ -389,6 +389,9 @@ func run() error {
 		bg.Add(1)
 		servicesSvc.Mail = mailSvc
 		servicesSvc.Phone = platformPhone(cfg)
+		if backups != nil {
+			servicesSvc.Files = backups.FilesTarget
+		}
 		go func() { defer bg.Done(); servicesSvc.Run(bgCtx, 15*time.Second) }()
 	}
 

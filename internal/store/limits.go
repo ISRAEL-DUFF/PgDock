@@ -20,6 +20,11 @@ const (
 	LimitHTTPJobRunsPerHour = "http_job_runs_per_hour"
 	LimitConsoleQueries     = "console_queries"
 	LimitOperationsInFlight = "operations_in_flight"
+	// Backend services' storage (V4 §10.1).
+	LimitFileStorageMB     = "file_storage_mb"
+	LimitStorageEgressMBMo = "storage_egress_mb_per_month"
+	LimitImageTransformsMo = "image_transforms_per_month"
+	LimitUploadMaxMB       = "upload_max_mb"
 )
 
 // LimitKeys are the known limits, in display order.
@@ -27,6 +32,7 @@ var LimitKeys = []string{
 	LimitProjects, LimitBranches, LimitSharedStorageMB, LimitProjectStorageMB, LimitProjectConnections,
 	LimitBackupStorageMB, LimitWebhookPerMin, LimitScheduledJobs, LimitJobMinIntervalS,
 	LimitHTTPJobRunsPerHour, LimitConsoleQueries, LimitOperationsInFlight,
+	LimitFileStorageMB, LimitStorageEgressMBMo, LimitImageTransformsMo, LimitUploadMaxMB,
 }
 
 // Limits are an organisation's effective quotas: its plan's limits with its

@@ -49,12 +49,16 @@ export const LIMIT_LABELS: Record<string, { label: string; unit?: "MB" }> = {
   http_job_runs_per_hour: { label: "HTTP job runs per hour" },
   console_queries: { label: "Concurrent console queries" },
   operations_in_flight: { label: "Operations in flight" },
+  file_storage_mb: { label: "File storage", unit: "MB" },
+  storage_egress_mb_per_month: { label: "File downloads per month", unit: "MB" },
+  image_transforms_per_month: { label: "Image transforms per month" },
+  upload_max_mb: { label: "Largest upload", unit: "MB" },
 };
 
 /** The share of a limit used, 0–1 (null when unlimited or not a usage). */
 export function quotaRatio(q: QuotaItem): number | null {
   if (q.max == null || q.max <= 0) return null;
-  if (q.limit === "project_connections" || q.limit === "job_min_interval_s") return null;
+  if (q.limit === "project_connections" || q.limit === "job_min_interval_s" || q.limit === "upload_max_mb") return null;
   return Math.min(1, q.used / q.max);
 }
 

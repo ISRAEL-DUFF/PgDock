@@ -39,7 +39,7 @@ func (q *Queries) ActiveJWTKey(ctx context.Context, projectID uuid.UUID) (Projec
 const createProjectServices = `-- name: CreateProjectServices :one
 INSERT INTO project_services (project_id, ref) VALUES ($1, $2)
 ON CONFLICT (project_id) DO NOTHING
-RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers
+RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers, storage_quota_bytes, upload_max_bytes, storage_egress_blocked, transforms_blocked
 `
 
 type CreateProjectServicesParams struct {
@@ -67,6 +67,10 @@ func (q *Queries) CreateProjectServices(ctx context.Context, arg CreateProjectSe
 		&i.EnabledAt,
 		&i.CreatedAt,
 		&i.LoginVerifiers,
+		&i.StorageQuotaBytes,
+		&i.UploadMaxBytes,
+		&i.StorageEgressBlocked,
+		&i.TransformsBlocked,
 	)
 	return i, err
 }
@@ -112,7 +116,8 @@ func (q *Queries) EdgeAPIKeys(ctx context.Context, projectIds []uuid.UUID) ([]Ed
 const edgeConfigChanges = `-- name: EdgeConfigChanges :many
 SELECT s.project_id, s.ref, s.enabled, s.cors_origins, s.settings, s.exposed_schemas, s.public_tables,
   s.config_version, s.changed_seq, (s.edge_verifier IS NOT NULL)::boolean AS edge_ready,
-  p.db_name, p.region, p.org_id, p.lifecycle, p.status, p.deleted_at, o.status AS org_status, o.plan_id
+  s.storage_quota_bytes, s.upload_max_bytes, s.storage_egress_blocked, s.transforms_blocked,
+  p.db_name, p.region, p.data_residency, p.org_id, p.lifecycle, p.status, p.deleted_at, o.status AS org_status, o.plan_id
 FROM project_services s JOIN projects p ON p.id = s.project_id JOIN organizations o ON o.id = p.org_id
 WHERE s.changed_seq > $1
 ORDER BY s.changed_seq
@@ -125,24 +130,29 @@ type EdgeConfigChangesParams struct {
 }
 
 type EdgeConfigChangesRow struct {
-	ProjectID      uuid.UUID
-	Ref            string
-	Enabled        bool
-	CorsOrigins    []string
-	Settings       json.RawMessage
-	ExposedSchemas []string
-	PublicTables   []string
-	ConfigVersion  int64
-	ChangedSeq     int64
-	EdgeReady      bool
-	DbName         string
-	Region         string
-	OrgID          uuid.UUID
-	Lifecycle      string
-	Status         string
-	DeletedAt      *time.Time
-	OrgStatus      string
-	PlanID         uuid.UUID
+	ProjectID            uuid.UUID
+	Ref                  string
+	Enabled              bool
+	CorsOrigins          []string
+	Settings             json.RawMessage
+	ExposedSchemas       []string
+	PublicTables         []string
+	ConfigVersion        int64
+	ChangedSeq           int64
+	EdgeReady            bool
+	StorageQuotaBytes    *int64
+	UploadMaxBytes       *int64
+	StorageEgressBlocked bool
+	TransformsBlocked    bool
+	DbName               string
+	Region               string
+	DataResidency        bool
+	OrgID                uuid.UUID
+	Lifecycle            string
+	Status               string
+	DeletedAt            *time.Time
+	OrgStatus            string
+	PlanID               uuid.UUID
 }
 
 // tenant: system - pgdock-edge's configuration feed: every project with backend services changed since a point.
@@ -166,8 +176,13 @@ func (q *Queries) EdgeConfigChanges(ctx context.Context, arg EdgeConfigChangesPa
 			&i.ConfigVersion,
 			&i.ChangedSeq,
 			&i.EdgeReady,
+			&i.StorageQuotaBytes,
+			&i.UploadMaxBytes,
+			&i.StorageEgressBlocked,
+			&i.TransformsBlocked,
 			&i.DbName,
 			&i.Region,
+			&i.DataResidency,
 			&i.OrgID,
 			&i.Lifecycle,
 			&i.Status,
@@ -231,7 +246,7 @@ func (q *Queries) EdgeJWTKeys(ctx context.Context, projectIds []uuid.UUID) ([]Ed
 
 const getProjectServices = `-- name: GetProjectServices :one
 
-SELECT project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers FROM project_services WHERE project_id = $1
+SELECT project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers, storage_quota_bytes, upload_max_bytes, storage_egress_blocked, transforms_blocked FROM project_services WHERE project_id = $1
 `
 
 // Backend services (V4 §2): project refs, API keys, signing keys, and what
@@ -256,6 +271,10 @@ func (q *Queries) GetProjectServices(ctx context.Context, projectID uuid.UUID) (
 		&i.EnabledAt,
 		&i.CreatedAt,
 		&i.LoginVerifiers,
+		&i.StorageQuotaBytes,
+		&i.UploadMaxBytes,
+		&i.StorageEgressBlocked,
+		&i.TransformsBlocked,
 	)
 	return i, err
 }
@@ -541,26 +560,30 @@ func (q *Queries) ProjectRequestLogs(ctx context.Context, arg ProjectRequestLogs
 }
 
 const projectServicesByRef = `-- name: ProjectServicesByRef :one
-SELECT s.project_id, s.ref, s.enabled, s.exposed_schemas, s.public_tables, s.cors_origins, s.settings, s.edge_verifier, s.schema_version, s.roles_instance, s.config_version, s.changed_seq, s.enabled_at, s.created_at, s.login_verifiers, p.db_name FROM project_services s JOIN projects p ON p.id = s.project_id WHERE s.ref = $1
+SELECT s.project_id, s.ref, s.enabled, s.exposed_schemas, s.public_tables, s.cors_origins, s.settings, s.edge_verifier, s.schema_version, s.roles_instance, s.config_version, s.changed_seq, s.enabled_at, s.created_at, s.login_verifiers, s.storage_quota_bytes, s.upload_max_bytes, s.storage_egress_blocked, s.transforms_blocked, p.db_name FROM project_services s JOIN projects p ON p.id = s.project_id WHERE s.ref = $1
 `
 
 type ProjectServicesByRefRow struct {
-	ProjectID      uuid.UUID
-	Ref            string
-	Enabled        bool
-	ExposedSchemas []string
-	PublicTables   []string
-	CorsOrigins    []string
-	Settings       json.RawMessage
-	EdgeVerifier   *string
-	SchemaVersion  int32
-	RolesInstance  *uuid.UUID
-	ConfigVersion  int64
-	ChangedSeq     int64
-	EnabledAt      *time.Time
-	CreatedAt      time.Time
-	LoginVerifiers json.RawMessage
-	DbName         string
+	ProjectID            uuid.UUID
+	Ref                  string
+	Enabled              bool
+	ExposedSchemas       []string
+	PublicTables         []string
+	CorsOrigins          []string
+	Settings             json.RawMessage
+	EdgeVerifier         *string
+	SchemaVersion        int32
+	RolesInstance        *uuid.UUID
+	ConfigVersion        int64
+	ChangedSeq           int64
+	EnabledAt            *time.Time
+	CreatedAt            time.Time
+	LoginVerifiers       json.RawMessage
+	StorageQuotaBytes    *int64
+	UploadMaxBytes       *int64
+	StorageEgressBlocked bool
+	TransformsBlocked    bool
+	DbName               string
 }
 
 // tenant: system - pgdock-edge names a project by its reference.
@@ -583,6 +606,10 @@ func (q *Queries) ProjectServicesByRef(ctx context.Context, ref string) (Project
 		&i.EnabledAt,
 		&i.CreatedAt,
 		&i.LoginVerifiers,
+		&i.StorageQuotaBytes,
+		&i.UploadMaxBytes,
+		&i.StorageEgressBlocked,
+		&i.TransformsBlocked,
 		&i.DbName,
 	)
 	return i, err
@@ -764,7 +791,7 @@ const setServicesEnabled = `-- name: SetServicesEnabled :one
 UPDATE project_services SET enabled = $1,
   enabled_at = CASE WHEN $1::boolean THEN now() ELSE enabled_at END
 WHERE project_id = $2
-RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers
+RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers, storage_quota_bytes, upload_max_bytes, storage_egress_blocked, transforms_blocked
 `
 
 type SetServicesEnabledParams struct {
@@ -792,6 +819,10 @@ func (q *Queries) SetServicesEnabled(ctx context.Context, arg SetServicesEnabled
 		&i.EnabledAt,
 		&i.CreatedAt,
 		&i.LoginVerifiers,
+		&i.StorageQuotaBytes,
+		&i.UploadMaxBytes,
+		&i.StorageEgressBlocked,
+		&i.TransformsBlocked,
 	)
 	return i, err
 }
@@ -842,7 +873,7 @@ const updateServicesSettings = `-- name: UpdateServicesSettings :one
 UPDATE project_services SET cors_origins = $1, settings = $2,
   exposed_schemas = $3, public_tables = $4
 WHERE project_id = $5
-RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers
+RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers, storage_quota_bytes, upload_max_bytes, storage_egress_blocked, transforms_blocked
 `
 
 type UpdateServicesSettingsParams struct {
@@ -879,6 +910,10 @@ func (q *Queries) UpdateServicesSettings(ctx context.Context, arg UpdateServices
 		&i.EnabledAt,
 		&i.CreatedAt,
 		&i.LoginVerifiers,
+		&i.StorageQuotaBytes,
+		&i.UploadMaxBytes,
+		&i.StorageEgressBlocked,
+		&i.TransformsBlocked,
 	)
 	return i, err
 }

@@ -82,7 +82,8 @@ SELECT * FROM project_jwt_keys WHERE project_id = @project_id AND status <> 'ret
 -- tenant: system - pgdock-edge's configuration feed: every project with backend services changed since a point.
 SELECT s.project_id, s.ref, s.enabled, s.cors_origins, s.settings, s.exposed_schemas, s.public_tables,
   s.config_version, s.changed_seq, (s.edge_verifier IS NOT NULL)::boolean AS edge_ready,
-  p.db_name, p.region, p.org_id, p.lifecycle, p.status, p.deleted_at, o.status AS org_status, o.plan_id
+  s.storage_quota_bytes, s.upload_max_bytes, s.storage_egress_blocked, s.transforms_blocked,
+  p.db_name, p.region, p.data_residency, p.org_id, p.lifecycle, p.status, p.deleted_at, o.status AS org_status, o.plan_id
 FROM project_services s JOIN projects p ON p.id = s.project_id JOIN organizations o ON o.id = p.org_id
 WHERE s.changed_seq > @since
 ORDER BY s.changed_seq

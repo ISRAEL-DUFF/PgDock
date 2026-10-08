@@ -140,14 +140,7 @@ func (e *Env) ConfigureBackups() string {
 		u.Host = e.S3Link.Addr
 		tgt.Endpoint = u.String()
 	}
-	var res gen.StorageTestResult
-	region, prefix, pathStyle := tgt.Region, "pgdock", true
-	if code := e.Do("PUT", "/api/v1/settings/storage", gen.StorageRequest{
-		Endpoint: tgt.Endpoint, Region: &region, Bucket: tgt.Bucket, Prefix: &prefix,
-		AccessKey: tgt.AccessKey, SecretKey: &tgt.SecretKey, PathStyle: &pathStyle,
-	}, &res); code != http.StatusOK || !res.Saved {
-		e.t.Fatalf("save storage: status %d, %+v", code, res)
-	}
+	e.SaveStorage(tgt)
 	var key gen.BackupKeyExport
 	if code := e.Do("POST", "/api/v1/settings/backup-key", nil, &key); code != http.StatusCreated || !strings.HasPrefix(key.Key, "pgdock-backup-key-v1:") {
 		e.t.Fatalf("generate backup key: status %d", code)
@@ -157,6 +150,20 @@ func (e *Env) ConfigureBackups() string {
 		e.t.Fatalf("confirm backup key: status %d", code)
 	}
 	return key.Key
+}
+
+// SaveStorage makes tgt the platform's default storage target (under the
+// "pgdock" prefix): backups, and backend services' files.
+func (e *Env) SaveStorage(tgt storage.Target) {
+	e.t.Helper()
+	var res gen.StorageTestResult
+	region, prefix, pathStyle := tgt.Region, "pgdock", true
+	if code := e.Do("PUT", "/api/v1/settings/storage", gen.StorageRequest{
+		Endpoint: tgt.Endpoint, Region: &region, Bucket: tgt.Bucket, Prefix: &prefix,
+		AccessKey: tgt.AccessKey, SecretKey: &tgt.SecretKey, PathStyle: &pathStyle,
+	}, &res); code != http.StatusOK || !res.Saved {
+		e.t.Fatalf("save storage: status %d, %+v", code, res)
+	}
 }
 
 // removeInstances deletes instance containers and volumes a test left

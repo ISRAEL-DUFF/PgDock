@@ -64,7 +64,10 @@ type Config struct {
 	HTTPClient *http.Client
 	// OAuthEndpoints overrides providers' endpoints (tests' fake providers).
 	OAuthEndpoints map[string]OAuthEndpoints
-	Log            *slog.Logger
+	// GarbageGrace is how long replaced and deleted objects' bytes stay, for
+	// downloads in flight (default a minute).
+	GarbageGrace time.Duration
+	Log          *slog.Logger
 }
 
 func (c *Config) defaults() {
@@ -79,6 +82,9 @@ func (c *Config) defaults() {
 	}
 	if c.PoolerSSLMode == "" {
 		c.PoolerSSLMode = "require"
+	}
+	if c.GarbageGrace == 0 {
+		c.GarbageGrace = time.Minute
 	}
 	if c.Log == nil {
 		c.Log = slog.Default()
@@ -98,8 +104,10 @@ type Edge struct {
 	meter  *meter
 	limits *limiter
 	waking sync.Map // ref -> time.Time of the last wake asked
-	// hashSlots bound concurrent password hashes.
-	hashSlots chan struct{}
+	// hashSlots bound concurrent password hashes, renderSlots image
+	// transforms.
+	hashSlots   chan struct{}
+	renderSlots chan struct{}
 }
 
 // project is one project's configuration and its database pool.
@@ -111,6 +119,8 @@ type project struct {
 	// connects doesn't change; catalog always is.
 	db      *dbconn
 	catalog *catalogState
+	// files is the object store client, kept while the store is the same.
+	files *files
 }
 
 // exposed are the schemas the data API serves.
@@ -153,12 +163,13 @@ func (d *dbconn) close() {
 func New(cfg Config) *Edge {
 	cfg.defaults()
 	return &Edge{
-		cfg:       cfg,
-		client:    &edgeapi.Client{URL: cfg.ControlURL, Secret: cfg.Secret},
-		byRef:     map[string]*project{},
-		meter:     newMeter(),
-		limits:    newLimiter(),
-		hashSlots: make(chan struct{}, max(2, runtime.GOMAXPROCS(0))),
+		cfg:         cfg,
+		client:      &edgeapi.Client{URL: cfg.ControlURL, Secret: cfg.Secret},
+		byRef:       map[string]*project{},
+		meter:       newMeter(),
+		limits:      newLimiter(),
+		hashSlots:   make(chan struct{}, max(2, runtime.GOMAXPROCS(0))),
+		renderSlots: make(chan struct{}, max(1, runtime.GOMAXPROCS(0)/2)),
 	}
 }
 
@@ -292,8 +303,14 @@ func (e *Edge) apply(ps []edgeapi.Project) {
 				np.jwks[j.Kid] = pub
 			}
 		}
+		if pc.Storage != nil {
+			np.files = &files{}
+		}
 		if old != nil {
 			np.catalog = old.catalog
+			if old.files != nil && sameStore(old.cfg.Storage, pc.Storage) {
+				np.files = old.files
+			}
 			if sameConn(old.cfg, pc) {
 				np.db = old.db
 			} else {

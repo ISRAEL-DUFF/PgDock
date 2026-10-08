@@ -27,6 +27,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/mail"
 	"github.com/israel-duff/pgdock/internal/outbound"
 	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
 )
 
@@ -80,7 +81,10 @@ type Service struct {
 	// own provider (V4 §6.2).
 	Phone PlatformPhone
 	// Outbound makes hook calls (V4 §6.5).
-	Outbound  *outbound.Service
+	Outbound *outbound.Service
+	// Files resolves the object store for files of projects in a region
+	// (V4 §5.1); nil turns storage off.
+	Files     func(ctx context.Context, region string, residency bool) (storage.Target, error)
 	emailKick chan struct{}
 }
 

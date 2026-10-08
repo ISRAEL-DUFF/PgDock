@@ -968,21 +968,36 @@ type ProjectMember struct {
 }
 
 type ProjectService struct {
+	ProjectID            uuid.UUID
+	Ref                  string
+	Enabled              bool
+	ExposedSchemas       []string
+	PublicTables         []string
+	CorsOrigins          []string
+	Settings             json.RawMessage
+	EdgeVerifier         *string
+	SchemaVersion        int32
+	RolesInstance        *uuid.UUID
+	ConfigVersion        int64
+	ChangedSeq           int64
+	EnabledAt            *time.Time
+	CreatedAt            time.Time
+	LoginVerifiers       json.RawMessage
+	StorageQuotaBytes    *int64
+	UploadMaxBytes       *int64
+	StorageEgressBlocked bool
+	TransformsBlocked    bool
+}
+
+type ProjectStorage struct {
 	ProjectID      uuid.UUID
-	Ref            string
-	Enabled        bool
-	ExposedSchemas []string
-	PublicTables   []string
-	CorsOrigins    []string
-	Settings       json.RawMessage
-	EdgeVerifier   *string
-	SchemaVersion  int32
-	RolesInstance  *uuid.UUID
-	ConfigVersion  int64
-	ChangedSeq     int64
-	EnabledAt      *time.Time
-	CreatedAt      time.Time
-	LoginVerifiers json.RawMessage
+	Bytes          int64
+	Objects        int64
+	MeasuredAt     *time.Time
+	MissingObjects int32
+	MissingSample  []string
+	OrphansRemoved int64
+	ReconciledAt   *time.Time
 }
 
 type QuerySnapshot struct {
@@ -1157,6 +1172,18 @@ type SlowQuery struct {
 	Source     string
 	RoleName   string
 	SeenAt     time.Time
+}
+
+type StorageCleanup struct {
+	ID        uuid.UUID
+	ProjectID uuid.UUID
+	Region    string
+	Prefix    string
+	Residency bool
+	NotBefore time.Time
+	Attempts  int32
+	LastError *string
+	CreatedAt time.Time
 }
 
 type StorageTarget struct {

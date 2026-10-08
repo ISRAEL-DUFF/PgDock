@@ -387,6 +387,7 @@ func Start(t testing.TB, opts Options) *Env {
 	t.Cleanup(turnstile.Close)
 	servicesSvc := services.New(db, svc, services.Config{Domain: EdgeDomain, EdgeSecret: EdgeSecret, CaptchaVerifyURL: turnstile.URL}, log)
 	servicesSvc.Mail = mailSvc
+	servicesSvc.Files = backups.FilesTarget
 	phone := NewFakePhone()
 	t.Cleanup(phone.Close)
 	servicesSvc.Phone = services.PlatformPhone{
