@@ -198,6 +198,9 @@ func connectRT(t *testing.T, ed *testenv.Edge, ref, key string) *rtClient {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	ws, res, err := websocket.Dial(ctx, u, &websocket.DialOptions{Host: ref + "." + testenv.EdgeDomain})
+	if res != nil && res.Body != nil {
+		_ = res.Body.Close()
+	}
 	if err != nil {
 		code := 0
 		if res != nil {
@@ -334,7 +337,9 @@ func TestRealtime(t *testing.T) {
 	if st, resp := bob.join("realtime:todos", todos, rp.bob); st != "ok" {
 		t.Fatalf("bob joins: %s %s", st, resp)
 	}
-	alice.next(5*time.Second, "subscribed", func(m rtMessage) bool { return m.Event == "system" && strings.Contains(string(m.Payload), "Subscribed") })
+	alice.next(5*time.Second, "subscribed", func(m rtMessage) bool {
+		return m.Event == "system" && strings.Contains(string(m.Payload), "Subscribed")
+	})
 
 	// ---- Each sees only their own rows -------------------------------------------
 	if _, err := app.Exec(ctx, `INSERT INTO todos (owner, body) VALUES ($1, 'alice 1'), ($2, 'bob 1')`, rp.aliceID, rp.bobID); err != nil {
