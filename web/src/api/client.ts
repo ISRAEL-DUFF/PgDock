@@ -1198,6 +1198,23 @@ export const api = {
     ),
   authAudit: (id: string) =>
     getJSON<S["AuthAuditList"]>(`/api/v1/projects/${id}/auth/audit`),
+  realtime: (id: string) =>
+    getJSON<S["RealtimeOverview"]>(`/api/v1/projects/${id}/realtime`),
+  setRealtimeTable: (
+    id: string,
+    schema: string,
+    table: string,
+    enabled: boolean,
+  ) =>
+    request<void>(
+      "PUT",
+      `/api/v1/projects/${id}/realtime/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}`,
+      { enabled },
+    ),
+  setRealtimeTopics: (id: string, topics: string[]) =>
+    request<void>("PUT", `/api/v1/projects/${id}/realtime/persisted-topics`, {
+      topics,
+    }),
   files: (id: string) =>
     getJSON<S["StorageOverview"]>(`/api/v1/projects/${id}/files`),
   createBucket: (id: string, b: S["StorageBucketInput"]) =>

@@ -3,14 +3,21 @@ import type { QuotaItem, UsageRecord } from "../api/client";
 /** Shared-tier storage, recorded hourly as GB-hours (V2 §10.9). */
 export const STORAGE_METRIC = "shared_storage_gb_hours";
 
-export type HourlyPoint = { ts: string; total: number; byProject: Record<string, number> };
+export type HourlyPoint = {
+  ts: string;
+  total: number;
+  byProject: Record<string, number>;
+};
 
 /**
  * One point per hour of a metric's hourly records, summed across projects
  * and sorted by time. An hour's GB-hours of storage is also its average
  * size in GB, which is what the chart shows.
  */
-export function hourly(records: UsageRecord[], metric = STORAGE_METRIC): HourlyPoint[] {
+export function hourly(
+  records: UsageRecord[],
+  metric = STORAGE_METRIC,
+): HourlyPoint[] {
   const by = new Map<string, HourlyPoint>();
   for (const r of records) {
     if (r.metric !== metric || r.granularity !== "hour") continue;
@@ -21,7 +28,8 @@ export function hourly(records: UsageRecord[], metric = STORAGE_METRIC): HourlyP
       by.set(ts, p);
     }
     p.total += r.quantity;
-    const name = r.project_name ?? (r.project_id ? "Deleted project" : "Organisation");
+    const name =
+      r.project_name ?? (r.project_id ? "Deleted project" : "Organisation");
     p.byProject[name] = (p.byProject[name] ?? 0) + r.quantity;
   }
   return [...by.values()].sort((a, b) => a.ts.localeCompare(b.ts));
@@ -50,7 +58,10 @@ export const LIMIT_LABELS: Record<string, { label: string; unit?: "MB" }> = {
   console_queries: { label: "Concurrent console queries" },
   operations_in_flight: { label: "Operations in flight" },
   file_storage_mb: { label: "File storage", unit: "MB" },
-  storage_egress_mb_per_month: { label: "File downloads per month", unit: "MB" },
+  storage_egress_mb_per_month: {
+    label: "File downloads per month",
+    unit: "MB",
+  },
   image_transforms_per_month: { label: "Image transforms per month" },
   upload_max_mb: { label: "Largest upload", unit: "MB" },
   realtime_connections: { label: "Realtime connections" },
@@ -60,7 +71,13 @@ export const LIMIT_LABELS: Record<string, { label: string; unit?: "MB" }> = {
 /** The share of a limit used, 0–1 (null when unlimited or not a usage). */
 export function quotaRatio(q: QuotaItem): number | null {
   if (q.max == null || q.max <= 0) return null;
-  if (q.limit === "project_connections" || q.limit === "job_min_interval_s" || q.limit === "upload_max_mb" || q.limit === "realtime_connections") return null;
+  if (
+    q.limit === "project_connections" ||
+    q.limit === "job_min_interval_s" ||
+    q.limit === "upload_max_mb" ||
+    q.limit === "realtime_connections"
+  )
+    return null;
   return Math.min(1, q.used / q.max);
 }
 

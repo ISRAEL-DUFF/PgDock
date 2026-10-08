@@ -1,6 +1,7 @@
 import {
   KeyRound,
   HardDrive,
+  Radio,
   Activity,
   Bell,
   Building2,
@@ -152,6 +153,13 @@ export function projectRail(
             icon: HardDrive,
             to: `${base}/files`,
             match: [`${base}/files`],
+          },
+          {
+            key: "realtime",
+            label: "Realtime",
+            icon: Radio,
+            to: `${base}/realtime`,
+            match: [`${base}/realtime`],
           },
         ]
       : []),
