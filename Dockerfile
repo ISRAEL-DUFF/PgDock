@@ -31,6 +31,7 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 RUN CGO_ENABLED=0 go build -trimpath \
       -ldflags "-s -w -X github.com/israel-duff/pgdock/internal/version.Version=${VERSION} -X github.com/israel-duff/pgdock/internal/version.Commit=${COMMIT} -X github.com/israel-duff/pgdock/internal/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      -tags nodynamic \
       -o /out/usr/local/bin/pgdock-server ./cmd/server \
  && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/usr/local/bin/pgdock-agent ./cmd/agent \
  && /out/usr/local/bin/pgdock-server -require-ui \

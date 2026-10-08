@@ -14,6 +14,11 @@ LDFLAGS := -s -w \
 
 BIN := bin
 
+# The image codecs (gen2brain/webp, gen2brain/avif) otherwise try loading the
+# system's libwebp and libavif through purego, which makes pgdock-server and
+# pgdock-edge dynamically linked even with CGO_ENABLED=0.
+export GOFLAGS += -tags=nodynamic
+
 COMPOSE := docker compose -f deploy/dev/compose.yaml
 # Matches deploy/dev/compose.yaml defaults.
 DEV_DATABASE_URL ?= postgres://pgdock:pgdock@127.0.0.1:$${PGDOCK_DEV_METADATA_PORT:-5440}/pgdock?sslmode=disable
@@ -96,9 +101,13 @@ build-go:
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock-status ./cmd/status
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN)/pgdock-edge ./cmd/edge
 
-## release-check: fail if the server binary embeds only the placeholder UI.
+## release-check: fail if the server binary embeds only the placeholder UI, or
+## pgdock-server or pgdock-edge isn't a static binary.
 release-check:
 	$(BIN)/pgdock-server -require-ui
+	@for b in pgdock-server pgdock-edge; do \
+		if go version -m $(BIN)/$$b | grep -q purego; then echo "$$b links purego: build with -tags nodynamic"; exit 1; fi; \
+	done
 
 ## release: linux/amd64 and linux/arm64 server, agent and status binaries (UI
 ## embedded), the pgdock CLI for linux, darwin and windows on amd64 and
