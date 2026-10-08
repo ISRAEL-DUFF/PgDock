@@ -982,6 +982,7 @@ type ProjectService struct {
 	ChangedSeq     int64
 	EnabledAt      *time.Time
 	CreatedAt      time.Time
+	LoginVerifiers json.RawMessage
 }
 
 type QuerySnapshot struct {

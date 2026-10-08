@@ -30,14 +30,14 @@ const (
 var errHookFailed = errors.New("auth hook failed")
 
 // runPGHook calls fn ("schema.name") with event in its own transaction
-// as the hook role, within pgHookTimeout; it returns the function's
-// object.
+// on the hook role's own login, within pgHookTimeout; it returns the
+// function's object.
 func (e *Edge) runPGHook(ctx context.Context, p *project, fn string, event map[string]any) (map[string]any, error) {
 	schema, name, ok := strings.Cut(fn, ".")
 	if !ok || p.cfg.HookRole == "" {
 		return nil, fmt.Errorf("%w: no hook role or function", errHookFailed)
 	}
-	pool, err := e.dbPool(ctx, p)
+	pool, setRole, err := e.rolePool(ctx, p, p.cfg.HookRole)
 	if err != nil {
 		return nil, err
 	}
@@ -49,8 +49,10 @@ func (e *Edge) runPGHook(ctx context.Context, p *project, fn string, event map[s
 	defer cancel()
 	var out *string
 	err = pgx.BeginFunc(hctx, pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(hctx, "SET LOCAL ROLE "+pgx.Identifier{p.cfg.HookRole}.Sanitize()); err != nil {
-			return err
+		if setRole {
+			if _, err := tx.Exec(hctx, "SET LOCAL ROLE "+pgx.Identifier{p.cfg.HookRole}.Sanitize()); err != nil {
+				return err
+			}
 		}
 		if _, err := tx.Exec(hctx, `SELECT set_config('statement_timeout', $1, true), set_config('pgd.claims', '{"role":"auth_hook"}', true)`,
 			fmt.Sprint(pgHookTimeout.Milliseconds())); err != nil {

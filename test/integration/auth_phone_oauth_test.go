@@ -611,4 +611,50 @@ func TestAuthPhoneOAuthMFA(t *testing.T) {
 	if code := e.Do("GET", base+"/auth/hooks", nil, &hooks); code != 200 || len(hooks.Items) == 0 || hooks.Items[len(hooks.Items)-1].DeliveredAt == nil {
 		t.Fatalf("hook deliveries: %d %+v", code, hooks.Items)
 	}
+
+	// ---- Tenant SQL can't step out of its role --------------------------------------
+	// A function that resets the role lands on the same login: it can't read
+	// the auth tables or become the service role (which bypasses RLS).
+	svcRole := store.ServiceRole(p.DbName)
+	for _, stmt := range []string{
+		`CREATE FUNCTION public.whoami() RETURNS text LANGUAGE plpgsql VOLATILE AS $$
+		   BEGIN RESET ROLE; RETURN session_user || '/' || current_user; END $$`,
+		`CREATE FUNCTION public.escape_auth() RETURNS text LANGUAGE plpgsql VOLATILE AS $$
+		   BEGIN RESET ROLE; RETURN (SELECT encrypted_password FROM pgd_auth.users WHERE encrypted_password IS NOT NULL LIMIT 1); END $$`,
+		fmt.Sprintf(`CREATE FUNCTION public.escape_service() RETURNS bigint LANGUAGE plpgsql VOLATILE AS $$
+		   BEGIN RESET ROLE; SET ROLE %q; RETURN (SELECT count(*) FROM docs); END $$`, svcRole),
+	} {
+		if _, err := app.Exec(ctx, stmt); err != nil {
+			t.Fatalf("%s: %v", stmt, err)
+		}
+	}
+	waitFor(t, 30*time.Second, "the new functions reach the edge", func() bool {
+		return api.call("POST", "/data/v1/rpc/whoami", `{}`, "").Code == 200
+	})
+	r = api.call("POST", "/data/v1/rpc/whoami", `{}`, "")
+	anonRole := store.AnonRole(p.DbName)
+	if !strings.Contains(r.Body, anonRole+"/"+anonRole) {
+		t.Fatalf("RESET ROLE as anon: %d %s", r.Code, r.Body)
+	}
+	if r := api.call("POST", "/data/v1/rpc/whoami", `{}`, ngoziAAL2.AccessToken); !strings.Contains(r.Body, store.UserRole(p.DbName)+"/") {
+		t.Fatalf("RESET ROLE as a user: %d %s", r.Code, r.Body)
+	}
+	for _, fn := range []string{"escape_auth", "escape_service"} {
+		for _, tok := range []string{"", ngoziAAL2.AccessToken} {
+			if r := api.call("POST", "/data/v1/rpc/"+fn, `{}`, tok); r.Code == 200 || !strings.Contains(r.Body, "permission denied") {
+				t.Fatalf("%s: %d %s", fn, r.Code, r.Body)
+			}
+		}
+	}
+	// The edge login holds no request role.
+	var memberships int
+	admin, err := e.Service.AdminConn(ctx, p.InstanceID, "postgres")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer admin.Close(ctx)
+	if err := admin.QueryRow(ctx, `SELECT count(*) FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member WHERE r.rolname = $1`,
+		store.EdgeRole(p.DbName)).Scan(&memberships); err != nil || memberships != 0 {
+		t.Fatalf("the edge login's memberships: %d %v", memberships, err)
+	}
 }

@@ -104,9 +104,13 @@ type Project struct {
 	UserRole    string `json:"user_role,omitempty"`
 	ServiceRole string `json:"service_role,omitempty"`
 	// HookRole runs the project's Postgres auth hooks.
-	HookRole    string   `json:"hook_role,omitempty"`
-	Keys        []Key    `json:"keys,omitempty"`
-	CORSOrigins []string `json:"cors_origins,omitempty"`
+	HookRole string `json:"hook_role,omitempty"`
+	// Logins are the request roles' and the hook role's passwords: the
+	// edge connects as each directly, never switching to one from its own
+	// login (which alone reads pgd_auth).
+	Logins      map[string]string `json:"logins,omitempty"`
+	Keys        []Key             `json:"keys,omitempty"`
+	CORSOrigins []string          `json:"cors_origins,omitempty"`
 	// ExposedSchemas are the schemas the data API serves; PublicTables
 	// ("schema.table") may be read by anon and user without row-level
 	// security (V4 §3.6).

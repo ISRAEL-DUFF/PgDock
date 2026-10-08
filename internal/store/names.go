@@ -24,8 +24,11 @@ func ClientDBName(p Project) string {
 // may connect and run SELECT 1, nothing else (V3 §2.7).
 func ProbeRole(db string) string { return db + "_sla" }
 
-// Backend services' roles in the project whose database is db (V4 §2.3):
-// the login pgdock-edge uses, which can only SET ROLE to the other three.
+// Backend services' roles in the project whose database is db (V4 §2.3).
+// Each is a login of its own: pgdock-edge connects as anon, user or
+// service for a request and as the auth hook role for a hook, and as the
+// edge login only for auth, so tenant SQL never runs where pgd_auth is
+// readable and can't switch to another role.
 func EdgeRole(db string) string    { return db + "_edge" }
 func AnonRole(db string) string    { return db + "_anon" }
 func UserRole(db string) string    { return db + "_user" }
@@ -35,7 +38,12 @@ func ServiceRole(db string) string { return db + "_service" }
 // only what the owner grants it.
 func AuthHookRole(db string) string { return db + "_auth_hook" }
 
-// ServiceRoles are all five, the login first.
+// RequestRoles are the logins tenant SQL runs as.
+func RequestRoles(db string) []string {
+	return []string{AnonRole(db), UserRole(db), ServiceRole(db), AuthHookRole(db)}
+}
+
+// ServiceRoles are all five, the edge login first.
 func ServiceRoles(db string) []string {
 	return []string{EdgeRole(db), AnonRole(db), UserRole(db), ServiceRole(db), AuthHookRole(db)}
 }

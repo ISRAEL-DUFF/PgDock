@@ -132,8 +132,10 @@ func (p *project) publicTable(t *Table) bool {
 }
 
 type dbconn struct {
-	mu     sync.Mutex
-	pool   *pgxpool.Pool
+	mu sync.Mutex
+	// pools by login: "" is the edge login (auth), the others the request
+	// roles' and the hook role's own logins.
+	pools  map[string]*pgxpool.Pool
 	closed bool
 }
 
@@ -141,9 +143,9 @@ func (d *dbconn) close() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.closed = true
-	if d.pool != nil {
-		d.pool.Close()
-		d.pool = nil
+	for k, p := range d.pools {
+		p.Close()
+		delete(d.pools, k)
 	}
 }
 
@@ -303,8 +305,16 @@ func (e *Edge) apply(ps []edgeapi.Project) {
 }
 
 func sameConn(a, b edgeapi.Project) bool {
-	return a.Database == b.Database && a.EdgeUser == b.EdgeUser && a.Password == b.Password &&
-		a.PoolerHost == b.PoolerHost && a.PoolerPort == b.PoolerPort
+	if a.Database != b.Database || a.EdgeUser != b.EdgeUser || a.Password != b.Password ||
+		a.PoolerHost != b.PoolerHost || a.PoolerPort != b.PoolerPort || len(a.Logins) != len(b.Logins) {
+		return false
+	}
+	for k, v := range a.Logins {
+		if b.Logins[k] != v {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *project) close() { p.db.close() }
@@ -327,14 +337,31 @@ func (e *Edge) lookup(ref string) *project {
 // dbPool is the project's pool, connecting as its edge login through the
 // pooler in transaction mode.
 func (e *Edge) dbPool(ctx context.Context, p *project) (*pgxpool.Pool, error) {
+	return e.loginPool(ctx, p, "")
+}
+
+// loginPool is the project's pool for login: "" is the edge login; a
+// request role connects as itself when the feed gave its password.
+func (e *Edge) loginPool(ctx context.Context, p *project, login string) (*pgxpool.Pool, error) {
 	d := p.db
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.closed {
 		return nil, errConfigChanged
 	}
-	if d.pool != nil {
-		return d.pool, nil
+	if pool := d.pools[login]; pool != nil {
+		return pool, nil
+	}
+	user, password, maxConns := p.cfg.EdgeUser, p.cfg.Password, int32(4)
+	if login != "" {
+		pw, ok := p.cfg.Logins[login]
+		if !ok {
+			return nil, errNoLogin
+		}
+		user, password = login, pw
+		if login == p.cfg.ServiceRole || login == p.cfg.HookRole {
+			maxConns = 2
+		}
 	}
 	host, port := p.cfg.PoolerHost, p.cfg.PoolerPort
 	if e.cfg.PoolerAddr != "" {
@@ -348,7 +375,7 @@ func (e *Edge) dbPool(ctx context.Context, p *project) (*pgxpool.Pool, error) {
 	if host == "" || port == 0 {
 		return nil, errors.New("no pooler address for the project's region")
 	}
-	u := url.URL{Scheme: "postgres", User: url.UserPassword(p.cfg.EdgeUser, p.cfg.Password),
+	u := url.URL{Scheme: "postgres", User: url.UserPassword(user, password),
 		Host: net.JoinHostPort(host, strconv.Itoa(port)), Path: "/" + p.cfg.Database,
 		RawQuery: url.Values{"sslmode": {e.cfg.PoolerSSLMode}, "application_name": {"pgdock-edge"}}.Encode()}
 	cfg, err := pgxpool.ParseConfig(u.String())
@@ -358,14 +385,32 @@ func (e *Edge) dbPool(ctx context.Context, p *project) (*pgxpool.Pool, error) {
 	// Transaction pooling: no server-side prepared statements kept across
 	// transactions.
 	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
-	cfg.MaxConns, cfg.MinConns = 4, 0
+	cfg.MaxConns, cfg.MinConns = maxConns, 0
 	cfg.MaxConnIdleTime, cfg.MaxConnLifetime = time.Minute, 30*time.Minute
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	d.pool = pool
+	if d.pools == nil {
+		d.pools = map[string]*pgxpool.Pool{}
+	}
+	d.pools[login] = pool
 	return pool, nil
+}
+
+// errNoLogin is a feed from a pgdock-server older than M32, without the
+// request roles' logins: the edge login switches to the role instead.
+var errNoLogin = errors.New("no login for the role")
+
+// rolePool is the pool a role's SQL runs in, and whether the transaction
+// must SET ROLE to it (only with an older server's feed).
+func (e *Edge) rolePool(ctx context.Context, p *project, role string) (*pgxpool.Pool, bool, error) {
+	pool, err := e.loginPool(ctx, p, role)
+	if errors.Is(err, errNoLogin) {
+		pool, err = e.dbPool(ctx, p)
+		return pool, true, err
+	}
+	return pool, false, err
 }
 
 // errConfigChanged: the project's connection settings changed while a
@@ -397,11 +442,12 @@ func (p *project) dbRole(role string) (string, error) {
 // locally (V4 §1.4 "One request, one transaction"), so it works through the
 // pooler in transaction mode: nothing outlives the transaction.
 func (e *Edge) WithRequest(ctx context.Context, p *project, req Request, fn func(pgx.Tx) error) error {
-	pool, err := e.dbPool(ctx, p)
+	role, err := p.dbRole(req.Role)
 	if err != nil {
 		return err
 	}
-	role, err := p.dbRole(req.Role)
+	// The role's own login: tenant SQL that resets the role stays this role.
+	pool, setRole, err := e.rolePool(ctx, p, role)
 	if err != nil {
 		return err
 	}
@@ -414,8 +460,10 @@ func (e *Edge) WithRequest(ctx context.Context, p *project, req Request, fn func
 		timeout = 8 * time.Second
 	}
 	return pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, "SET LOCAL ROLE "+pgx.Identifier{role}.Sanitize()); err != nil {
-			return err
+		if setRole {
+			if _, err := tx.Exec(ctx, "SET LOCAL ROLE "+pgx.Identifier{role}.Sanitize()); err != nil {
+				return err
+			}
 		}
 		if _, err := tx.Exec(ctx, `SELECT set_config('pgd.claims', $1, true), set_config('statement_timeout', $2, true)`,
 			string(claims), strconv.FormatInt(timeout.Milliseconds(), 10)); err != nil {

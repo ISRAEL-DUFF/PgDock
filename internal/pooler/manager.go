@@ -2,6 +2,7 @@ package pooler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -364,8 +365,20 @@ func (m *Manager) Sync(ctx context.Context) error {
 		return fmt.Errorf("pooler sync: load edge logins: %w", err)
 	}
 	for _, u := range edges {
+		logins := map[string]string{}
+		if len(u.LoginVerifiers) > 0 {
+			if err := json.Unmarshal(u.LoginVerifiers, &logins); err != nil {
+				return fmt.Errorf("pooler sync: %s's login verifiers: %w", u.DbName, err)
+			}
+		}
 		add(served(u.Region, u.ForwardRegion, u.ForwardUntil), func(cfg *Config) {
 			cfg.Users = append(cfg.Users, User{Name: store.EdgeRole(u.DbName), Secret: u.EdgeVerifier})
+			// The request roles' logins (V4-M32).
+			for _, role := range store.RequestRoles(u.DbName) {
+				if v := logins[role]; v != "" {
+					cfg.Users = append(cfg.Users, User{Name: role, Secret: v})
+				}
+			}
 		})
 	}
 

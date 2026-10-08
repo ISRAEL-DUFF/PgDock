@@ -20,7 +20,8 @@ RETURNING *;
 
 -- name: SetServicesRoles :exec
 -- tenant: system - a project the caller resolved.
-UPDATE project_services SET edge_verifier = @edge_verifier, schema_version = @schema_version, roles_instance = @roles_instance
+UPDATE project_services SET edge_verifier = @edge_verifier, login_verifiers = @login_verifiers, schema_version = @schema_version,
+  roles_instance = @roles_instance
 WHERE project_id = @project_id;
 
 -- name: UpdateServicesSettings :one
@@ -107,7 +108,7 @@ SELECT s.*, p.db_name FROM project_services s JOIN projects p ON p.id = s.projec
 
 -- name: PoolerEdgeUsers :many
 -- tenant: system - the edge logins the poolers must accept.
-SELECT p.db_name, s.edge_verifier::text AS edge_verifier, p.region, p.forward_region, p.forward_until
+SELECT p.db_name, s.edge_verifier::text AS edge_verifier, s.login_verifiers, p.region, p.forward_region, p.forward_until
 FROM project_services s JOIN projects p ON p.id = s.project_id
 WHERE s.enabled AND s.edge_verifier IS NOT NULL AND p.deleted_at IS NULL
 ORDER BY p.db_name;

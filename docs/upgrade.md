@@ -231,6 +231,14 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   template variables ([Backend services](backend-services.md#platform-sms-and-whatsapp-operators));
   without them only projects with their own provider can use it. Upgrade
   pgdock-server first, then the edges.
+- **Request roles become logins** (migration 00039): each project's
+  `<db>_anon`, `<db>_user`, `<db>_service` and `<db>_auth_hook` get
+  passwords and pooler entries, and the edge login loses its memberships of
+  them, within a minute of the upgrade. Edges still on the previous release
+  switch roles from the edge login, which is no longer allowed: their data
+  API and hook requests fail until they are upgraded. Upgrade the edges in
+  the same window as pgdock-server (a new edge works with an older
+  pgdock-server, so upgrading the edges first avoids the gap).
 
 ## Rolling back
 

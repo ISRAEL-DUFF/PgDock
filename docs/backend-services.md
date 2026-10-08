@@ -437,7 +437,8 @@ tokens: `403 mfa_required`), or required by claim for users whose
 | **Send message** | A webhook | Receives every email and code (`{"type":"send_message","channel","kind","to","body","code","link"}`) instead of PGDock sending it. |
 
 Postgres hooks run in their own transaction, with a 2-second timeout, as
-the project's **hook role** `<db>_auth_hook`, which has no privileges
+the project's **hook role** `<db>_auth_hook` (a login of its own, like the
+request roles: code that runs `RESET ROLE` stays that role), which has no privileges
 beyond reading `pgd_auth.user_profiles` and the `pgd_auth` functions:
 grant it what the hook reads.
 

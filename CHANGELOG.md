@@ -61,6 +61,11 @@ bundle share one version (spec §11.5).
   is in docs/examples/flutter-auth.
 - New migration 00038 (auth messages, hooks and alerts); project schema
   version 3.
+- Security: backend services' request roles are now logins of their own
+  and pgdock-edge connects as them directly, so database code that runs
+  `RESET ROLE` (an RPC function, an auth hook, or SQL injection in dynamic
+  SQL) can no longer reach the edge's login, the auth tables or the service
+  role. New migration 00039.
 
 ### V3.1 (on feature/pgdock3)
 - Failure domains (V3.1-M1): each node can record what fails with it (a
