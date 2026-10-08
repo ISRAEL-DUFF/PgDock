@@ -411,8 +411,7 @@ func Start(t testing.TB, opts Options) *Env {
 		PollInterval: 100 * time.Millisecond, RetryBase: 50 * time.Millisecond, RetryMax: 200 * time.Millisecond,
 	}, kinds)
 	var wg sync.WaitGroup
-	wg.Add(4)
-	go func() { defer wg.Done(); servicesSvc.RunAuthEmail(ctx) }()
+	wg.Add(3)
 	go func() { defer wg.Done(); _ = wakerSrv.Serve(ctx, wakerLn) }()
 	go func() { defer wg.Done(); notifier.Run(ctx) }()
 	go func() { defer wg.Done(); runner.Run(ctx) }()
@@ -448,6 +447,9 @@ func Start(t testing.TB, opts Options) *Env {
 	autoNow := func() time.Time { return time.Now().Add(time.Duration(e.automationOffset.Load())) }
 	outboundSvc := outbound.New(db, outbound.Config{Now: autoNow}, log)
 	servicesSvc.Outbound = outboundSvc
+	// The auth message and hook sender starts once its outbound client is set.
+	wg.Add(1)
+	go func() { defer wg.Done(); servicesSvc.RunAuthEmail(ctx) }()
 	webhookSvc := webhooks.New(db, keyring, svc, outboundSvc, tenancySvc, mailSvc, webhooks.Config{Poll: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
 	jobSvc := schedjobs.New(db, keyring, svc, consoleSvc, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{Tick: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
 	svc.RefreshWebhooks = webhookSvc.Reinstall

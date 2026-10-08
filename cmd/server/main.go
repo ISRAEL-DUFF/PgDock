@@ -390,8 +390,6 @@ func run() error {
 		servicesSvc.Mail = mailSvc
 		servicesSvc.Phone = platformPhone(cfg)
 		go func() { defer bg.Done(); servicesSvc.Run(bgCtx, 15*time.Second) }()
-		bg.Add(1)
-		go func() { defer bg.Done(); servicesSvc.RunAuthEmail(bgCtx) }()
 	}
 
 	// Support (V3 §7.1): tickets from the dashboard, email and WhatsApp.
@@ -450,6 +448,13 @@ func run() error {
 		bg.Add(2)
 		go func() { defer bg.Done(); webhookSvc.Run(bgCtx) }()
 		go func() { defer bg.Done(); jobSvc.Run(bgCtx) }()
+	}
+
+	// Auth messages and hooks (V4 §4.5–§4.7), once their outbound client
+	// (if any) is set.
+	if servicesSvc != nil {
+		bg.Add(1)
+		go func() { defer bg.Done(); servicesSvc.RunAuthEmail(bgCtx) }()
 	}
 
 	var consoleSvc *console.Service
