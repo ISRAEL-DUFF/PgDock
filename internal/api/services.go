@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -273,17 +275,83 @@ func (s *Server) ListAPIRequestLogs(w http.ResponseWriter, r *http.Request, id g
 		writeError(w, http.StatusBadRequest, "bad_request", "limit must be 1 to 500")
 		return
 	}
-	rows, err := store.New(s.db).ProjectRequestLogs(r.Context(), store.ProjectRequestLogsParams{ProjectID: id, Before: params.Before, Lim: int32(lim)})
-	if err != nil {
-		s.internalError(w, "API request logs", err)
+	smin, smax := 0, 999
+	if params.Status != nil {
+		st := *params.Status
+		if n, err := strconv.Atoi(st); err == nil {
+			smin, smax = n, n
+		} else if len(st) == 3 && st[1:] == "xx" && st[0] >= '1' && st[0] <= '5' {
+			smin = int(st[0]-'0') * 100
+			smax = smin + 99
+		} else {
+			writeError(w, http.StatusBadRequest, "bad_request", "status is a code (404) or a class (5xx)")
+			return
+		}
+	}
+	prefix := ""
+	if params.Path != nil {
+		prefix = strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(*params.Path)
+	}
+	q := store.New(s.db)
+	toAPI := func(rows []store.ApiRequestLog) []gen.ApiRequestLog {
+		out := []gen.ApiRequestLog{}
+		for _, l := range rows {
+			out = append(out, gen.ApiRequestLog{Id: l.ID, At: l.At, RequestId: l.RequestID, Method: l.Method, Path: l.Path,
+				Status: int(l.Status), LatencyMs: int(l.LatencyMs), Role: l.Role, UserId: l.UserID, KeyId: l.KeyID, Ip: l.Ip, BytesOut: l.BytesOut})
+		}
+		return out
+	}
+	if params.After == nil {
+		rows, err := q.ProjectRequestLogs(r.Context(), store.ProjectRequestLogsParams{ProjectID: id, Before: params.Before, Lim: int32(lim),
+			StatusMin: int32(smin), StatusMax: int32(smax), PathPrefix: prefix})
+		if err != nil {
+			s.internalError(w, "API request logs", err)
+			return
+		}
+		writeJSON(w, http.StatusOK, gen.ApiRequestLogList{Items: toAPI(rows)})
 		return
 	}
-	out := gen.ApiRequestLogList{Items: []gen.ApiRequestLog{}}
-	for _, l := range rows {
-		out.Items = append(out.Items, gen.ApiRequestLog{Id: l.ID, At: l.At, RequestId: l.RequestID, Method: l.Method, Path: l.Path,
-			Status: int(l.Status), LatencyMs: int(l.LatencyMs), Role: l.Role, UserId: l.UserID, KeyId: l.KeyID, Ip: l.Ip, BytesOut: l.BytesOut})
+	// Following: after 0 starts from now.
+	after := *params.After
+	if after <= 0 {
+		latest, err := q.LatestRequestLogID(r.Context(), id)
+		if err != nil {
+			s.internalError(w, "API request logs", err)
+			return
+		}
+		writeJSON(w, http.StatusOK, gen.ApiRequestLogList{Items: []gen.ApiRequestLog{}, Next: &latest})
+		return
 	}
-	writeJSON(w, http.StatusOK, out)
+	wait := 0
+	if params.Wait != nil {
+		wait = min(max(*params.Wait, 0), 25)
+	}
+	deadline := time.Now().Add(time.Duration(wait) * time.Second)
+	for {
+		rows, err := q.ProjectRequestLogsAfter(r.Context(), store.ProjectRequestLogsAfterParams{ProjectID: id, After: after, Lim: int32(lim),
+			StatusMin: int32(smin), StatusMax: int32(smax), PathPrefix: prefix})
+		if err != nil {
+			s.internalError(w, "API request logs", err)
+			return
+		}
+		next := after
+		if len(rows) > 0 {
+			next = rows[len(rows)-1].ID
+		}
+		if len(rows) > 0 || !time.Now().Before(deadline) {
+			// A filtered follow moves the cursor past logs it skipped too.
+			if latest, err := q.LatestRequestLogID(r.Context(), id); err == nil && len(rows) == 0 && latest > next {
+				next = latest
+			}
+			writeJSON(w, http.StatusOK, gen.ApiRequestLogList{Items: toAPI(rows), Next: &next})
+			return
+		}
+		select {
+		case <-r.Context().Done():
+			return
+		case <-time.After(time.Second):
+		}
+	}
 }
 
 // ---- pgdock-edge's feed ------------------------------------------------------
@@ -488,4 +556,89 @@ func intPtr32(v *int32) *int {
 	}
 	n := int(*v)
 	return &n
+}
+
+// GetServicesCatalog implements GET /api/v1/projects/{id}/services/catalog:
+// the API docs' source (V4.1 §9.2) and `pgdock policies list`.
+func (s *Server) GetServicesCatalog(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+	if !s.requireServices(w) {
+		return
+	}
+	p, err := store.New(s.db).GetProject(r.Context(), id)
+	if err != nil {
+		s.provisionError(w, "catalog", err)
+		return
+	}
+	d, err := s.services.Describe(r.Context(), p)
+	if err != nil {
+		s.servicesError(w, "catalog", err)
+		return
+	}
+	out := gen.ServicesCatalog{Schemas: d.Schemas, Tables: []gen.CatalogTable{}, Functions: []gen.CatalogFunction{}}
+	if d.Ref != "" {
+		ref, u := d.Ref, s.services.URL(d.Ref, p.Region)
+		out.Ref, out.ApiUrl = &ref, &u
+	}
+	for _, t := range d.Tables {
+		ct := gen.CatalogTable{Schema: t.Schema, Name: t.Name, Kind: gen.CatalogTableKind(t.Kind), Rls: t.RLS, Public: t.Public,
+			PrimaryKey: t.PrimaryKey, Columns: []gen.CatalogColumn{}, ForeignKeys: []gen.CatalogForeignKey{}, ReferencedBy: []gen.CatalogForeignKey{},
+			Policies: []gen.CatalogPolicy{}, Access: map[string]gen.CatalogAccess{}}
+		for _, c := range t.Columns {
+			cc := gen.CatalogColumn{Name: c.Name, Type: c.Type, Nullable: c.Nullable, Identity: c.Identity, Generated: c.Generated}
+			if c.Default != "" {
+				def := c.Default
+				cc.Default = &def
+			}
+			if len(c.Enum) > 0 {
+				e := c.Enum
+				cc.Enum = &e
+			}
+			ct.Columns = append(ct.Columns, cc)
+		}
+		fk := func(f services.ForeignKeyDoc) gen.CatalogForeignKey {
+			return gen.CatalogForeignKey{Name: f.Name, Columns: f.Columns, Table: f.Table, RefColumns: f.RefCols, Embed: f.Embed, Multiple: f.Multiple}
+		}
+		for _, f := range t.ForeignKeys {
+			ct.ForeignKeys = append(ct.ForeignKeys, fk(f))
+		}
+		for _, f := range t.ReferencedBy {
+			ct.ReferencedBy = append(ct.ReferencedBy, fk(f))
+		}
+		for _, pol := range t.Policies {
+			cp := gen.CatalogPolicy{Name: pol.Name, Command: pol.Command, Permissive: pol.Permissive, Roles: pol.Roles}
+			if pol.Using != "" {
+				u := pol.Using
+				cp.Using = &u
+			}
+			if pol.Check != "" {
+				c := pol.Check
+				cp.Check = &c
+			}
+			ct.Policies = append(ct.Policies, cp)
+		}
+		for role, a := range t.Access {
+			ct.Access[role] = gen.CatalogAccess{Select: a.Select, Insert: a.Insert, Update: a.Update, Delete: a.Delete}
+		}
+		out.Tables = append(out.Tables, ct)
+	}
+	for _, f := range d.Functions {
+		cf := gen.CatalogFunction{Schema: f.Schema, Name: f.Name, Returns: f.Returns, ReturnsSet: f.ReturnsSet, Volatility: f.Volatility,
+			SecurityDefiner: f.Definer}
+		for _, a := range f.Args {
+			cf.Args = append(cf.Args, struct {
+				Name     string `json:"name"`
+				Optional bool   `json:"optional"`
+				Type     string `json:"type"`
+			}{Name: a.Name, Optional: a.Optional, Type: a.Type})
+		}
+		if cf.Args == nil {
+			cf.Args = []struct {
+				Name     string `json:"name"`
+				Optional bool   `json:"optional"`
+				Type     string `json:"type"`
+			}{}
+		}
+		out.Functions = append(out.Functions, cf)
+	}
+	writeJSON(w, http.StatusOK, out)
 }

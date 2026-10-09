@@ -140,7 +140,19 @@ DELETE FROM api_request_logs WHERE at < @before;
 -- tenant: system - a project the request already authorized.
 SELECT * FROM api_request_logs
 WHERE project_id = @project_id AND (sqlc.narg(before)::bigint IS NULL OR id < sqlc.narg(before))
+  AND status BETWEEN @status_min::int AND @status_max::int AND path LIKE @path_prefix::text || '%'
 ORDER BY id DESC LIMIT @lim;
+
+-- name: ProjectRequestLogsAfter :many
+-- tenant: system - a project the request already authorized: logs newer than a cursor, oldest first (`pgdock logs api --follow`).
+SELECT * FROM api_request_logs
+WHERE project_id = @project_id AND id > @after::bigint
+  AND status BETWEEN @status_min::int AND @status_max::int AND path LIKE @path_prefix::text || '%'
+ORDER BY id LIMIT @lim;
+
+-- name: LatestRequestLogID :one
+-- tenant: system - a project the request already authorized: where a follow starts.
+SELECT coalesce(max(id), 0)::bigint FROM api_request_logs WHERE project_id = @project_id;
 
 -- name: ProjectUsageOwner :many
 -- tenant: system - pgdock-edge's usage: each project's organisation and plan.
@@ -246,3 +258,15 @@ SELECT user_id FROM auth_mau WHERE project_id = @project_id AND month = @month;
 -- name: InsertPlanLimitNotice :execrows
 -- tenant: system - the plan-limits sweep: one notice per organisation, limit, month and level.
 INSERT INTO plan_limit_notices (org_id, limit_key, month, level) VALUES (@org_id, @limit_key, @month, @level) ON CONFLICT DO NOTHING;
+
+-- name: CopyServicesSettings :exec
+-- tenant: system - a branch takes its parent's API settings (V4.1 §9.5).
+UPDATE project_services b SET exposed_schemas = p.exposed_schemas, public_tables = p.public_tables,
+  cors_origins = p.cors_origins, settings = p.settings
+FROM project_services p WHERE b.project_id = @branch AND p.project_id = @parent;
+
+-- name: CopyAuthConfig :exec
+-- tenant: system - a branch takes its parent's auth settings and templates, never its secrets (providers_enc).
+INSERT INTO project_auth_config (project_id, config, templates)
+SELECT @branch, a.config, a.templates FROM project_auth_config a WHERE a.project_id = @parent
+ON CONFLICT (project_id) DO UPDATE SET config = excluded.config, templates = excluded.templates, updated_at = now();

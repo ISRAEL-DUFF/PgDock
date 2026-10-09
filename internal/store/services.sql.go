@@ -37,6 +37,40 @@ func (q *Queries) ActiveJWTKey(ctx context.Context, projectID uuid.UUID) (Projec
 	return i, err
 }
 
+const copyAuthConfig = `-- name: CopyAuthConfig :exec
+INSERT INTO project_auth_config (project_id, config, templates)
+SELECT $1, a.config, a.templates FROM project_auth_config a WHERE a.project_id = $2
+ON CONFLICT (project_id) DO UPDATE SET config = excluded.config, templates = excluded.templates, updated_at = now()
+`
+
+type CopyAuthConfigParams struct {
+	Branch uuid.UUID
+	Parent uuid.UUID
+}
+
+// tenant: system - a branch takes its parent's auth settings and templates, never its secrets (providers_enc).
+func (q *Queries) CopyAuthConfig(ctx context.Context, arg CopyAuthConfigParams) error {
+	_, err := q.db.Exec(ctx, copyAuthConfig, arg.Branch, arg.Parent)
+	return err
+}
+
+const copyServicesSettings = `-- name: CopyServicesSettings :exec
+UPDATE project_services b SET exposed_schemas = p.exposed_schemas, public_tables = p.public_tables,
+  cors_origins = p.cors_origins, settings = p.settings
+FROM project_services p WHERE b.project_id = $1 AND p.project_id = $2
+`
+
+type CopyServicesSettingsParams struct {
+	Branch uuid.UUID
+	Parent uuid.UUID
+}
+
+// tenant: system - a branch takes its parent's API settings (V4.1 §9.5).
+func (q *Queries) CopyServicesSettings(ctx context.Context, arg CopyServicesSettingsParams) error {
+	_, err := q.db.Exec(ctx, copyServicesSettings, arg.Branch, arg.Parent)
+	return err
+}
+
 const createProjectServices = `-- name: CreateProjectServices :one
 INSERT INTO project_services (project_id, ref) VALUES ($1, $2)
 ON CONFLICT (project_id) DO NOTHING
@@ -543,6 +577,18 @@ type InsertRequestLogsParams struct {
 	BytesOut  int64
 }
 
+const latestRequestLogID = `-- name: LatestRequestLogID :one
+SELECT coalesce(max(id), 0)::bigint FROM api_request_logs WHERE project_id = $1
+`
+
+// tenant: system - a project the request already authorized: where a follow starts.
+func (q *Queries) LatestRequestLogID(ctx context.Context, projectID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, latestRequestLogID, projectID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const listAPIKeys = `-- name: ListAPIKeys :many
 SELECT id, project_id, kind, name, key_hash, prefix, display, last_used_at, revoked_at, created_by, created_at FROM project_api_keys WHERE project_id = $1 ORDER BY revoked_at IS NOT NULL, created_at
 `
@@ -790,18 +836,87 @@ func (q *Queries) ProjectMonthUsers(ctx context.Context, arg ProjectMonthUsersPa
 const projectRequestLogs = `-- name: ProjectRequestLogs :many
 SELECT id, project_id, at, request_id, method, path, status, latency_ms, role, user_id, key_id, ip, bytes_out FROM api_request_logs
 WHERE project_id = $1 AND ($2::bigint IS NULL OR id < $2)
-ORDER BY id DESC LIMIT $3
+  AND status BETWEEN $3::int AND $4::int AND path LIKE $5::text || '%'
+ORDER BY id DESC LIMIT $6
 `
 
 type ProjectRequestLogsParams struct {
-	ProjectID uuid.UUID
-	Before    *int64
-	Lim       int32
+	ProjectID  uuid.UUID
+	Before     *int64
+	StatusMin  int32
+	StatusMax  int32
+	PathPrefix string
+	Lim        int32
 }
 
 // tenant: system - a project the request already authorized.
 func (q *Queries) ProjectRequestLogs(ctx context.Context, arg ProjectRequestLogsParams) ([]ApiRequestLog, error) {
-	rows, err := q.db.Query(ctx, projectRequestLogs, arg.ProjectID, arg.Before, arg.Lim)
+	rows, err := q.db.Query(ctx, projectRequestLogs,
+		arg.ProjectID,
+		arg.Before,
+		arg.StatusMin,
+		arg.StatusMax,
+		arg.PathPrefix,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ApiRequestLog
+	for rows.Next() {
+		var i ApiRequestLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.At,
+			&i.RequestID,
+			&i.Method,
+			&i.Path,
+			&i.Status,
+			&i.LatencyMs,
+			&i.Role,
+			&i.UserID,
+			&i.KeyID,
+			&i.Ip,
+			&i.BytesOut,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const projectRequestLogsAfter = `-- name: ProjectRequestLogsAfter :many
+SELECT id, project_id, at, request_id, method, path, status, latency_ms, role, user_id, key_id, ip, bytes_out FROM api_request_logs
+WHERE project_id = $1 AND id > $2::bigint
+  AND status BETWEEN $3::int AND $4::int AND path LIKE $5::text || '%'
+ORDER BY id LIMIT $6
+`
+
+type ProjectRequestLogsAfterParams struct {
+	ProjectID  uuid.UUID
+	After      int64
+	StatusMin  int32
+	StatusMax  int32
+	PathPrefix string
+	Lim        int32
+}
+
+// tenant: system - a project the request already authorized: logs newer than a cursor, oldest first (`pgdock logs api --follow`).
+func (q *Queries) ProjectRequestLogsAfter(ctx context.Context, arg ProjectRequestLogsAfterParams) ([]ApiRequestLog, error) {
+	rows, err := q.db.Query(ctx, projectRequestLogsAfter,
+		arg.ProjectID,
+		arg.After,
+		arg.StatusMin,
+		arg.StatusMax,
+		arg.PathPrefix,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -675,6 +675,30 @@ func (e CapacityProposalTier) Valid() bool {
 	}
 }
 
+// Defines values for CatalogTableKind.
+const (
+	CatalogTableKindForeignTable     CatalogTableKind = "foreign_table"
+	CatalogTableKindMaterializedView CatalogTableKind = "materialized_view"
+	CatalogTableKindTable            CatalogTableKind = "table"
+	CatalogTableKindView             CatalogTableKind = "view"
+)
+
+// Valid indicates whether the value is a known member of the CatalogTableKind enum.
+func (e CatalogTableKind) Valid() bool {
+	switch e {
+	case CatalogTableKindForeignTable:
+		return true
+	case CatalogTableKindMaterializedView:
+		return true
+	case CatalogTableKindTable:
+		return true
+	case CatalogTableKindView:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ColumnRefOnDelete.
 const (
 	ColumnRefOnDeleteCASCADE    ColumnRefOnDelete = "CASCADE"
@@ -4276,6 +4300,9 @@ type ApiRequestLog struct {
 // ApiRequestLogList defines model for ApiRequestLogList.
 type ApiRequestLogList struct {
 	Items []ApiRequestLog `json:"items"`
+
+	// Next With after, the cursor to follow from next.
+	Next *int64 `json:"next,omitempty"`
 }
 
 // AttributeRequest defines model for AttributeRequest.
@@ -4998,6 +5025,14 @@ type BloatList struct {
 	Items []TableBloat `json:"items"`
 }
 
+// BranchApi A branch's own backend services API (V4.1 §9.5), when its parent has them: a new ref and keys, shown once. The parent's keys and tokens don't work on it.
+type BranchApi struct {
+	PublishableKey string  `json:"publishable_key"`
+	Ref            string  `json:"ref"`
+	SecretKey      string  `json:"secret_key"`
+	Url            *string `json:"url,omitempty"`
+}
+
 // BranchInfo defines model for BranchInfo.
 type BranchInfo struct {
 	// Backups Whether it takes nightly backups.
@@ -5014,7 +5049,9 @@ type BranchInfoSource string
 
 // BranchRequest defines model for BranchRequest.
 type BranchRequest struct {
-	Name string `json:"name"`
+	// CopyFiles With backend services: copy the parent's stored files into the branch, in the background (counted against the organisation's file storage). Without it, the copied file records have no bytes.
+	CopyFiles *bool  `json:"copy_files,omitempty"`
+	Name      string `json:"name"`
 
 	// SchemaOnly Defaults to whether the parent contains sensitive data.
 	SchemaOnly *bool                `json:"schema_only,omitempty"`
@@ -5110,6 +5147,85 @@ type CapacitySettings struct {
 	RebalanceSpread       float32      `json:"rebalance_spread"`
 	Shared                TierSettings `json:"shared"`
 }
+
+// CatalogAccess defines model for CatalogAccess.
+type CatalogAccess struct {
+	Delete bool `json:"delete"`
+	Insert bool `json:"insert"`
+	Select bool `json:"select"`
+	Update bool `json:"update"`
+}
+
+// CatalogColumn defines model for CatalogColumn.
+type CatalogColumn struct {
+	Default   *string   `json:"default,omitempty"`
+	Enum      *[]string `json:"enum,omitempty"`
+	Generated bool      `json:"generated"`
+	Identity  bool      `json:"identity"`
+	Name      string    `json:"name"`
+	Nullable  bool      `json:"nullable"`
+	Type      string    `json:"type"`
+}
+
+// CatalogForeignKey defines model for CatalogForeignKey.
+type CatalogForeignKey struct {
+	Columns []string `json:"columns"`
+
+	// Embed The name to embed the other side with in a select.
+	Embed      string   `json:"embed"`
+	Multiple   bool     `json:"multiple"`
+	Name       string   `json:"name"`
+	RefColumns []string `json:"ref_columns"`
+	Table      string   `json:"table"`
+}
+
+// CatalogFunction defines model for CatalogFunction.
+type CatalogFunction struct {
+	Args []struct {
+		Name     string `json:"name"`
+		Optional bool   `json:"optional"`
+		Type     string `json:"type"`
+	} `json:"args"`
+	Name            string `json:"name"`
+	Returns         string `json:"returns"`
+	ReturnsSet      bool   `json:"returns_set"`
+	Schema          string `json:"schema"`
+	SecurityDefiner bool   `json:"security_definer"`
+	Volatility      string `json:"volatility"`
+}
+
+// CatalogPolicy defines model for CatalogPolicy.
+type CatalogPolicy struct {
+	Check      *string `json:"check,omitempty"`
+	Command    string  `json:"command"`
+	Name       string  `json:"name"`
+	Permissive bool    `json:"permissive"`
+
+	// Roles anon, user, service, everyone, or a database role.
+	Roles []string `json:"roles"`
+	Using *string  `json:"using,omitempty"`
+}
+
+// CatalogTable defines model for CatalogTable.
+type CatalogTable struct {
+	// Access The request roles' privileges (anon, user); row-level security then decides which rows.
+	Access      map[string]CatalogAccess `json:"access"`
+	Columns     []CatalogColumn          `json:"columns"`
+	ForeignKeys []CatalogForeignKey      `json:"foreign_keys"`
+	Kind        CatalogTableKind         `json:"kind"`
+	Name        string                   `json:"name"`
+	Policies    []CatalogPolicy          `json:"policies"`
+	PrimaryKey  []string                 `json:"primary_key"`
+
+	// Public Marked public; anyone with the publishable key reads every row.
+	Public       bool                `json:"public"`
+	ReferencedBy []CatalogForeignKey `json:"referenced_by"`
+	Rls          bool                `json:"rls"`
+	Schema       string              `json:"schema"`
+}
+
+// CatalogTableKind defines model for CatalogTable.Kind.
+type CatalogTableKind string
 
 // CategoryCost defines model for CategoryCost.
 type CategoryCost struct {
@@ -7609,6 +7725,8 @@ type ProjectBackupStorage struct {
 
 // ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
 type ProjectCredentials struct {
+	// Api A branch's own backend services API (V4.1 §9.5), when its parent has them: a new ref and keys, shown once. The parent's keys and tokens don't work on it.
+	Api        *BranchApi     `json:"api,omitempty"`
 	Connection ConnectionInfo `json:"connection"`
 	Operation  Operation      `json:"operation"`
 	Password   string         `json:"password"`
@@ -8448,6 +8566,17 @@ type ServiceSpend struct {
 
 // ServiceSpendService defines model for ServiceSpend.Service.
 type ServiceSpendService string
+
+// ServicesCatalog defines model for ServicesCatalog.
+type ServicesCatalog struct {
+	ApiUrl    *string           `json:"api_url,omitempty"`
+	Functions []CatalogFunction `json:"functions"`
+
+	// Ref The project's API ref (its URL's host), when services are on.
+	Ref     *string        `json:"ref,omitempty"`
+	Schemas []string       `json:"schemas"`
+	Tables  []CatalogTable `json:"tables"`
+}
 
 // SessionInfo defines model for SessionInfo.
 type SessionInfo struct {
@@ -10144,7 +10273,19 @@ type SetRealtimeTableJSONBody struct {
 type ListAPIRequestLogsParams struct {
 	// Before A log id from the previous page.
 	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
-	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// After Follow from this log id.
+	After *int64 `form:"after,omitempty" json:"after,omitempty"`
+
+	// Wait With after, seconds to wait for a new log (at most 25).
+	Wait *int `form:"wait,omitempty" json:"wait,omitempty"`
+
+	// Status A status (404) or class (5xx, 4xx).
+	Status *string `form:"status,omitempty" json:"status,omitempty"`
+
+	// Path Only requests whose path starts with this.
+	Path  *string `form:"path,omitempty" json:"path,omitempty"`
+	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // GetServiceTypesParams defines parameters for GetServiceTypes.
@@ -14197,6 +14338,11 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/projects/{id}/services/advisor (the `GetSecurityAdvisor` operationId).
 	GetSecurityAdvisor(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetServicesCatalog What the data API exposes, with row-level security, policies and access per table (the API docs)
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/catalog (the `GetServicesCatalog` operationId).
+	GetServicesCatalog(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ExploreDataAPIWithBody Run a data API request as anon, a user or service (the request explorer)
 	//
 	// Takes any type of body and a specified content type.
@@ -14230,7 +14376,9 @@ type ClientInterface interface {
 	// Corresponds with DELETE /api/v1/projects/{id}/services/keys/{key_id} (the `RevokeAPIKey` operationId).
 	RevokeAPIKey(ctx context.Context, id ProjectID, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListAPIRequestLogs The API's request logs (7 days), newest first
+	// ListAPIRequestLogs The API's request logs (7 days), newest first; with after, newer ones oldest first
+	//
+	// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
 	//
 	// Corresponds with GET /api/v1/projects/{id}/services/logs (the `ListAPIRequestLogs` operationId).
 	ListAPIRequestLogs(ctx context.Context, id ProjectID, params *ListAPIRequestLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -23025,6 +23173,21 @@ func (c *Client) GetSecurityAdvisor(ctx context.Context, id ProjectID, reqEditor
 	return c.Client.Do(req)
 }
 
+// GetServicesCatalog What the data API exposes, with row-level security, policies and access per table (the API docs)
+//
+// Corresponds with GET /api/v1/projects/{id}/services/catalog (the `GetServicesCatalog` operationId).
+func (c *Client) GetServicesCatalog(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetServicesCatalogRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ExploreDataAPIWithBody Run a data API request as anon, a user or service (the request explorer)
 //
 // Takes any type of body and a specified content type.
@@ -23108,7 +23271,9 @@ func (c *Client) RevokeAPIKey(ctx context.Context, id ProjectID, keyId openapi_t
 	return c.Client.Do(req)
 }
 
-// ListAPIRequestLogs The API's request logs (7 days), newest first
+// ListAPIRequestLogs The API's request logs (7 days), newest first; with after, newer ones oldest first
+//
+// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
 //
 // Corresponds with GET /api/v1/projects/{id}/services/logs (the `ListAPIRequestLogs` operationId).
 func (c *Client) ListAPIRequestLogs(ctx context.Context, id ProjectID, params *ListAPIRequestLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -38975,6 +39140,40 @@ func NewGetSecurityAdvisorRequest(server string, id ProjectID) (*http.Request, e
 	return req, nil
 }
 
+// NewGetServicesCatalogRequest constructs an http.Request for the GetServicesCatalog method
+func NewGetServicesCatalogRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services/catalog", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewExploreDataAPIRequest calls the generic ExploreDataAPI builder with application/json body
 func NewExploreDataAPIRequest(server string, id ProjectID, body ExploreDataAPIJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -39148,6 +39347,54 @@ func NewListAPIRequestLogsRequest(server string, id ProjectID, params *ListAPIRe
 		if params.Before != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "before", *params.Before, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.After != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "after", *params.After, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Wait != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "wait", *params.Wait, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Path != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "path", *params.Path, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -45634,6 +45881,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/projects/{id}/services/advisor (the `GetSecurityAdvisor` operationId).
 	GetSecurityAdvisorWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetSecurityAdvisorResponse, error)
 
+	// GetServicesCatalogWithResponse What the data API exposes, with row-level security, policies and access per table (the API docs)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/catalog (the `GetServicesCatalog` operationId).
+	GetServicesCatalogWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetServicesCatalogResponse, error)
+
 	// ExploreDataAPIWithBodyWithResponse Run a data API request as anon, a user or service (the request explorer)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -45669,7 +45923,9 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /api/v1/projects/{id}/services/keys/{key_id} (the `RevokeAPIKey` operationId).
 	RevokeAPIKeyWithResponse(ctx context.Context, id ProjectID, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RevokeAPIKeyResponse, error)
 
-	// ListAPIRequestLogsWithResponse The API's request logs (7 days), newest first
+	// ListAPIRequestLogsWithResponse The API's request logs (7 days), newest first; with after, newer ones oldest first
+	//
+	// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -62179,6 +62435,54 @@ func (r GetSecurityAdvisorResponse) ContentType() string {
 	return ""
 }
 
+type GetServicesCatalogResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ServicesCatalog
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetServicesCatalogResponse) GetJSON200() *ServicesCatalog {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetServicesCatalogResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetServicesCatalogResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetServicesCatalogResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetServicesCatalogResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetServicesCatalogResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ExploreDataAPIResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -71722,6 +72026,19 @@ func (c *ClientWithResponses) GetSecurityAdvisorWithResponse(ctx context.Context
 	return ParseGetSecurityAdvisorResponse(rsp)
 }
 
+// GetServicesCatalogWithResponse What the data API exposes, with row-level security, policies and access per table (the API docs)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/services/catalog (the `GetServicesCatalog` operationId).
+func (c *ClientWithResponses) GetServicesCatalogWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetServicesCatalogResponse, error) {
+	rsp, err := c.GetServicesCatalog(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetServicesCatalogResponse(rsp)
+}
+
 // ExploreDataAPIWithBodyWithResponse Run a data API request as anon, a user or service (the request explorer)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -71787,7 +72104,9 @@ func (c *ClientWithResponses) RevokeAPIKeyWithResponse(ctx context.Context, id P
 	return ParseRevokeAPIKeyResponse(rsp)
 }
 
-// ListAPIRequestLogsWithResponse The API's request logs (7 days), newest first
+// ListAPIRequestLogsWithResponse The API's request logs (7 days), newest first; with after, newer ones oldest first
+//
+// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -83894,6 +84213,39 @@ func ParseGetSecurityAdvisorResponse(rsp *http.Response) (*GetSecurityAdvisorRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AdvisorFindings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetServicesCatalogResponse parses an HTTP response from a GetServicesCatalogWithResponse call
+func ParseGetServicesCatalogResponse(rsp *http.Response) (*GetServicesCatalogResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetServicesCatalogResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServicesCatalog
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

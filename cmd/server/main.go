@@ -372,6 +372,9 @@ func run() error {
 	var servicesSvc *services.Service
 	if projects != nil {
 		servicesSvc = services.New(pool, projects, services.Config{Domain: cfg.Edge.Domain, EdgeSecret: cfg.Edge.Secret}, log)
+		if branchSvc != nil {
+			branchSvc.API = servicesSvc // branches get an API of their own (V4.1 §9.5)
+		}
 		if freeSvc != nil {
 			servicesSvc.Waker = func(ctx context.Context, projectID uuid.UUID) error {
 				_, err := freeSvc.Resume(ctx, projectID, nil)

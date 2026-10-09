@@ -671,6 +671,30 @@ func (e CapacityProposalTier) Valid() bool {
 	}
 }
 
+// Defines values for CatalogTableKind.
+const (
+	CatalogTableKindForeignTable     CatalogTableKind = "foreign_table"
+	CatalogTableKindMaterializedView CatalogTableKind = "materialized_view"
+	CatalogTableKindTable            CatalogTableKind = "table"
+	CatalogTableKindView             CatalogTableKind = "view"
+)
+
+// Valid indicates whether the value is a known member of the CatalogTableKind enum.
+func (e CatalogTableKind) Valid() bool {
+	switch e {
+	case CatalogTableKindForeignTable:
+		return true
+	case CatalogTableKindMaterializedView:
+		return true
+	case CatalogTableKindTable:
+		return true
+	case CatalogTableKindView:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ColumnRefOnDelete.
 const (
 	ColumnRefOnDeleteCASCADE    ColumnRefOnDelete = "CASCADE"
@@ -4272,6 +4296,9 @@ type ApiRequestLog struct {
 // ApiRequestLogList defines model for ApiRequestLogList.
 type ApiRequestLogList struct {
 	Items []ApiRequestLog `json:"items"`
+
+	// Next With after, the cursor to follow from next.
+	Next *int64 `json:"next,omitempty"`
 }
 
 // AttributeRequest defines model for AttributeRequest.
@@ -4994,6 +5021,14 @@ type BloatList struct {
 	Items []TableBloat `json:"items"`
 }
 
+// BranchApi A branch's own backend services API (V4.1 §9.5), when its parent has them: a new ref and keys, shown once. The parent's keys and tokens don't work on it.
+type BranchApi struct {
+	PublishableKey string  `json:"publishable_key"`
+	Ref            string  `json:"ref"`
+	SecretKey      string  `json:"secret_key"`
+	Url            *string `json:"url,omitempty"`
+}
+
 // BranchInfo defines model for BranchInfo.
 type BranchInfo struct {
 	// Backups Whether it takes nightly backups.
@@ -5010,7 +5045,9 @@ type BranchInfoSource string
 
 // BranchRequest defines model for BranchRequest.
 type BranchRequest struct {
-	Name string `json:"name"`
+	// CopyFiles With backend services: copy the parent's stored files into the branch, in the background (counted against the organisation's file storage). Without it, the copied file records have no bytes.
+	CopyFiles *bool  `json:"copy_files,omitempty"`
+	Name      string `json:"name"`
 
 	// SchemaOnly Defaults to whether the parent contains sensitive data.
 	SchemaOnly *bool                `json:"schema_only,omitempty"`
@@ -5106,6 +5143,85 @@ type CapacitySettings struct {
 	RebalanceSpread       float32      `json:"rebalance_spread"`
 	Shared                TierSettings `json:"shared"`
 }
+
+// CatalogAccess defines model for CatalogAccess.
+type CatalogAccess struct {
+	Delete bool `json:"delete"`
+	Insert bool `json:"insert"`
+	Select bool `json:"select"`
+	Update bool `json:"update"`
+}
+
+// CatalogColumn defines model for CatalogColumn.
+type CatalogColumn struct {
+	Default   *string   `json:"default,omitempty"`
+	Enum      *[]string `json:"enum,omitempty"`
+	Generated bool      `json:"generated"`
+	Identity  bool      `json:"identity"`
+	Name      string    `json:"name"`
+	Nullable  bool      `json:"nullable"`
+	Type      string    `json:"type"`
+}
+
+// CatalogForeignKey defines model for CatalogForeignKey.
+type CatalogForeignKey struct {
+	Columns []string `json:"columns"`
+
+	// Embed The name to embed the other side with in a select.
+	Embed      string   `json:"embed"`
+	Multiple   bool     `json:"multiple"`
+	Name       string   `json:"name"`
+	RefColumns []string `json:"ref_columns"`
+	Table      string   `json:"table"`
+}
+
+// CatalogFunction defines model for CatalogFunction.
+type CatalogFunction struct {
+	Args []struct {
+		Name     string `json:"name"`
+		Optional bool   `json:"optional"`
+		Type     string `json:"type"`
+	} `json:"args"`
+	Name            string `json:"name"`
+	Returns         string `json:"returns"`
+	ReturnsSet      bool   `json:"returns_set"`
+	Schema          string `json:"schema"`
+	SecurityDefiner bool   `json:"security_definer"`
+	Volatility      string `json:"volatility"`
+}
+
+// CatalogPolicy defines model for CatalogPolicy.
+type CatalogPolicy struct {
+	Check      *string `json:"check,omitempty"`
+	Command    string  `json:"command"`
+	Name       string  `json:"name"`
+	Permissive bool    `json:"permissive"`
+
+	// Roles anon, user, service, everyone, or a database role.
+	Roles []string `json:"roles"`
+	Using *string  `json:"using,omitempty"`
+}
+
+// CatalogTable defines model for CatalogTable.
+type CatalogTable struct {
+	// Access The request roles' privileges (anon, user); row-level security then decides which rows.
+	Access      map[string]CatalogAccess `json:"access"`
+	Columns     []CatalogColumn          `json:"columns"`
+	ForeignKeys []CatalogForeignKey      `json:"foreign_keys"`
+	Kind        CatalogTableKind         `json:"kind"`
+	Name        string                   `json:"name"`
+	Policies    []CatalogPolicy          `json:"policies"`
+	PrimaryKey  []string                 `json:"primary_key"`
+
+	// Public Marked public; anyone with the publishable key reads every row.
+	Public       bool                `json:"public"`
+	ReferencedBy []CatalogForeignKey `json:"referenced_by"`
+	Rls          bool                `json:"rls"`
+	Schema       string              `json:"schema"`
+}
+
+// CatalogTableKind defines model for CatalogTable.Kind.
+type CatalogTableKind string
 
 // CategoryCost defines model for CategoryCost.
 type CategoryCost struct {
@@ -7605,6 +7721,8 @@ type ProjectBackupStorage struct {
 
 // ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
 type ProjectCredentials struct {
+	// Api A branch's own backend services API (V4.1 §9.5), when its parent has them: a new ref and keys, shown once. The parent's keys and tokens don't work on it.
+	Api        *BranchApi     `json:"api,omitempty"`
 	Connection ConnectionInfo `json:"connection"`
 	Operation  Operation      `json:"operation"`
 	Password   string         `json:"password"`
@@ -8444,6 +8562,17 @@ type ServiceSpend struct {
 
 // ServiceSpendService defines model for ServiceSpend.Service.
 type ServiceSpendService string
+
+// ServicesCatalog defines model for ServicesCatalog.
+type ServicesCatalog struct {
+	ApiUrl    *string           `json:"api_url,omitempty"`
+	Functions []CatalogFunction `json:"functions"`
+
+	// Ref The project's API ref (its URL's host), when services are on.
+	Ref     *string        `json:"ref,omitempty"`
+	Schemas []string       `json:"schemas"`
+	Tables  []CatalogTable `json:"tables"`
+}
 
 // SessionInfo defines model for SessionInfo.
 type SessionInfo struct {
@@ -10140,7 +10269,19 @@ type SetRealtimeTableJSONBody struct {
 type ListAPIRequestLogsParams struct {
 	// Before A log id from the previous page.
 	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
-	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// After Follow from this log id.
+	After *int64 `form:"after,omitempty" json:"after,omitempty"`
+
+	// Wait With after, seconds to wait for a new log (at most 25).
+	Wait *int `form:"wait,omitempty" json:"wait,omitempty"`
+
+	// Status A status (404) or class (5xx, 4xx).
+	Status *string `form:"status,omitempty" json:"status,omitempty"`
+
+	// Path Only requests whose path starts with this.
+	Path  *string `form:"path,omitempty" json:"path,omitempty"`
+	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // GetServiceTypesParams defines parameters for GetServiceTypes.
@@ -11754,6 +11895,9 @@ type ServerInterface interface {
 	// GetSecurityAdvisor What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…)
 	// (GET /api/v1/projects/{id}/services/advisor)
 	GetSecurityAdvisor(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetServicesCatalog What the data API exposes, with row-level security, policies and access per table (the API docs)
+	// (GET /api/v1/projects/{id}/services/catalog)
+	GetServicesCatalog(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ExploreDataAPI Run a data API request as anon, a user or service (the request explorer)
 	// (POST /api/v1/projects/{id}/services/explore)
 	ExploreDataAPI(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -11763,7 +11907,7 @@ type ServerInterface interface {
 	// RevokeAPIKey Revoke an API key; the edge refuses it within seconds
 	// (DELETE /api/v1/projects/{id}/services/keys/{key_id})
 	RevokeAPIKey(w http.ResponseWriter, r *http.Request, id ProjectID, keyId openapi_types.UUID)
-	// ListAPIRequestLogs The API's request logs (7 days), newest first
+	// ListAPIRequestLogs The API's request logs (7 days), newest first; with after, newer ones oldest first
 	// (GET /api/v1/projects/{id}/services/logs)
 	ListAPIRequestLogs(w http.ResponseWriter, r *http.Request, id ProjectID, params ListAPIRequestLogsParams)
 	// GetServiceTypes Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
@@ -13947,6 +14091,12 @@ func (_ Unimplemented) GetSecurityAdvisor(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetServicesCatalog What the data API exposes, with row-level security, policies and access per table (the API docs)
+// (GET /api/v1/projects/{id}/services/catalog)
+func (_ Unimplemented) GetServicesCatalog(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ExploreDataAPI Run a data API request as anon, a user or service (the request explorer)
 // (POST /api/v1/projects/{id}/services/explore)
 func (_ Unimplemented) ExploreDataAPI(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -13965,7 +14115,7 @@ func (_ Unimplemented) RevokeAPIKey(w http.ResponseWriter, r *http.Request, id P
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// ListAPIRequestLogs The API's request logs (7 days), newest first
+// ListAPIRequestLogs The API's request logs (7 days), newest first; with after, newer ones oldest first
 // (GET /api/v1/projects/{id}/services/logs)
 func (_ Unimplemented) ListAPIRequestLogs(w http.ResponseWriter, r *http.Request, id ProjectID, params ListAPIRequestLogsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -23426,6 +23576,32 @@ func (siw *ServerInterfaceWrapper) GetSecurityAdvisor(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// GetServicesCatalog operation middleware
+func (siw *ServerInterfaceWrapper) GetServicesCatalog(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetServicesCatalog(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ExploreDataAPI operation middleware
 func (siw *ServerInterfaceWrapper) ExploreDataAPI(w http.ResponseWriter, r *http.Request) {
 
@@ -23540,6 +23716,58 @@ func (siw *ServerInterfaceWrapper) ListAPIRequestLogs(w http.ResponseWriter, r *
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "after" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "after", r.URL.Query(), &params.After, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "after"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "after", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "wait" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "wait", r.URL.Query(), &params.Wait, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "wait"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "wait", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "path", r.URL.Query(), &params.Path, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
 		}
 		return
 	}
@@ -25920,6 +26148,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/services/logs", wrapper.ListAPIRequestLogs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/services/catalog", wrapper.GetServicesCatalog)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/services/types", wrapper.GetServiceTypes)

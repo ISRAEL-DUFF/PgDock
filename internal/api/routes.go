@@ -196,6 +196,7 @@ var routeRules = map[string]rule{
 	"DELETE /api/v1/projects/{id}/services/keys/{key_id}": {scope: scopeProject, action: authz.ServicesManage},
 	"GET /api/v1/projects/{id}/services/logs":             {scope: scopeProject, action: authz.ServicesLogs},
 	"GET /api/v1/projects/{id}/services/types":            {scope: scopeProject, action: authz.ConsoleRead},
+	"GET /api/v1/projects/{id}/services/catalog":          {scope: scopeProject, action: authz.ConsoleRead},
 	"GET /api/v1/projects/{id}/services/advisor":          {scope: scopeProject, action: authz.ConsoleRead},
 	"POST /api/v1/projects/{id}/services/explore":         {scope: scopeProject, action: authz.ConsoleWrite},
 	// Auth (V4 §4.9).

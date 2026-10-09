@@ -23,6 +23,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/mail"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/pgdock/internal/services"
 	"github.com/israel-duff/pgdock/internal/store"
 )
 
@@ -62,8 +63,17 @@ type Config struct {
 	PublicURL string
 }
 
+// API gives branches of projects with backend services their own API
+// (the services service, V4.1 §9.5).
+type API interface {
+	PrepareBranch(ctx context.Context, parentID, branchID uuid.UUID, by *uuid.UUID) (*services.BranchAPI, error)
+	EnableBranch(ctx context.Context, branch store.Project, parentID uuid.UUID, copyFiles bool, log *jobs.StepLogger) error
+}
+
 // Service manages branches.
 type Service struct {
+	// API, when set, gives branches backend services like their parent's.
+	API      API
 	db       *pgxpool.Pool
 	projects *provision.Service
 	backups  *backup.Service
@@ -104,6 +114,9 @@ type CreateParams struct {
 	MayCopySensitive bool
 	CreatedBy        *uuid.UUID
 	CreatorRole      string
+	// CopyFiles copies the parent's stored files into the branch (backend
+	// services) in the background.
+	CopyFiles bool
 }
 
 // fillParams are a create or reset operation's "branch" params.
@@ -111,6 +124,7 @@ type fillParams struct {
 	Parent     uuid.UUID `json:"parent"`
 	Source     string    `json:"source"`
 	SchemaOnly bool      `json:"schema_only"`
+	CopyFiles  bool      `json:"copy_files,omitempty"`
 }
 
 // Resolved is what a create request turns into, for quota checks first.
@@ -175,20 +189,28 @@ func (s *Service) Resolve(ctx context.Context, p CreateParams) (Resolved, error)
 }
 
 // Create queues a branch of r.Parent (always on the shared tier) and
-// returns its one-time credentials.
-func (s *Service) Create(ctx context.Context, p CreateParams, r Resolved) (provision.Created, error) {
+// returns its one-time credentials, and its API's keys when the parent has
+// backend services.
+func (s *Service) Create(ctx context.Context, p CreateParams, r Resolved) (provision.Created, *services.BranchAPI, error) {
 	// The parent's Postgres version, so the branch behaves like it.
 	parentInst, err := store.New(s.db).GetInstance(ctx, r.Parent.InstanceID)
 	if err != nil {
-		return provision.Created{}, err
+		return provision.Created{}, nil, err
 	}
-	return s.projects.Create(ctx, provision.CreateParams{
+	c, err := s.projects.Create(ctx, provision.CreateParams{
 		PgVersion: int(parentInst.PgVersion),
 		OrgID:     r.Parent.OrgID, CreatorRole: p.CreatorRole, Name: p.Name, CreatedBy: p.CreatedBy,
 		Kind: KindCreate, Tier: provision.TierShared, Sensitive: r.Parent.SensitiveData,
-		Params: map[string]any{"branch": fillParams{Parent: r.Parent.ID, Source: r.Source, SchemaOnly: r.SchemaOnly}},
+		Params: map[string]any{"branch": fillParams{Parent: r.Parent.ID, Source: r.Source, SchemaOnly: r.SchemaOnly, CopyFiles: p.CopyFiles}},
 		Branch: &provision.BranchSpec{ParentID: r.Parent.ID, Source: r.Source, SchemaOnly: r.SchemaOnly, ExpiresAt: r.ExpiresAt},
 	})
+	if err != nil || s.API == nil {
+		return c, nil, err
+	}
+	// The create operation is queued: it turns the API on once the copy is
+	// in, so the keys made here work as soon as it finishes.
+	api, err := s.API.PrepareBranch(ctx, r.Parent.ID, c.Project.ID, p.CreatedBy)
+	return c, api, err
 }
 
 func opFill(op store.Operation) (fillParams, error) {
@@ -229,6 +251,11 @@ func (s *Service) runCreate(ctx context.Context, op store.Operation, log *jobs.S
 	}
 	if err := s.projects.Publish(ctx, p, password, log); err != nil {
 		return err
+	}
+	if s.API != nil {
+		if err := s.API.EnableBranch(ctx, p, params.Parent, params.CopyFiles, log); err != nil {
+			return fmt.Errorf("backend services: %w", err)
+		}
 	}
 	return log.Info(ctx, "done", "branch %s ready", p.Name)
 }
@@ -419,6 +446,13 @@ func (s *Service) runReset(ctx context.Context, op store.Operation, log *jobs.St
 	// come back here (V2 §3.5).
 	if err := s.projects.SyncMemberRoles(ctx, p, log); err != nil {
 		return err
+	}
+	// The branch's API, if it has one, keeps its ref and keys; the copy's
+	// sessions go and its roles and schemas are checked again.
+	if s.API != nil {
+		if err := s.API.EnableBranch(ctx, p, params.Parent, false, log); err != nil {
+			return fmt.Errorf("backend services: %w", err)
+		}
 	}
 	if err := s.reopen(ctx, p, provision.StatusActive); err != nil {
 		return err

@@ -225,6 +225,11 @@ func (s *Server) RotateProjectPassword(w http.ResponseWriter, r *http.Request, i
 }
 
 func (s *Server) writeCredentials(w http.ResponseWriter, p store.Project, op store.Operation, password string) {
+	s.writeCredentialsWith(w, p, op, password, nil)
+}
+
+// writeCredentialsWith is writeCredentials with a branch's API keys.
+func (s *Server) writeCredentialsWith(w http.ResponseWriter, p store.Project, op store.Operation, password string, api *gen.BranchApi) {
 	gp, err := s.toAPIProject(p)
 	if err != nil {
 		s.internalError(w, "project credentials", err)
@@ -242,6 +247,7 @@ func (s *Server) writeCredentials(w http.ResponseWriter, p store.Project, op sto
 		Operation:  o,
 		Password:   password,
 		Connection: toAPIConnection(conn, password),
+		Api:        api,
 	})
 }
 

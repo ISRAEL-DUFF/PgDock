@@ -287,6 +287,13 @@ func (a *App) commands() []command {
 			{name: "disable", summary: "Stop: disable <p> <[schema.]table>", run: (*App).realtimeDisable},
 			{name: "history", summary: "Keep broadcasts on these topics 7 days: history <p> [topic…]", run: (*App).realtimeHistory},
 		}},
+		{name: "policies", summary: "Row-level security of the data API's tables (backend services)", sub: []command{
+			{name: "list", summary: "Policies per table, with their roles: list <p> [--table t]", run: (*App).policiesList},
+			{name: "lint", summary: "The security advisor's findings; exits 1 on any marked danger (for CI): lint <p>", run: (*App).policiesLint},
+		}},
+		{name: "logs", summary: "Logs", sub: []command{
+			{name: "api", summary: "The API's request log: api <p> [--follow] [--status 5xx] [--path /data/v1/…]", run: (*App).logsAPI},
+		}},
 		{name: "gen", summary: "Generate code", sub: []command{
 			{name: "types", summary: "Types for the SDKs: types --lang ts|dart|go --project <p> [-o file] [--package name]", run: (*App).genTypes},
 		}},

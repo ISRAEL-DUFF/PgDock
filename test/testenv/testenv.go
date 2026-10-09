@@ -394,6 +394,7 @@ func Start(t testing.TB, opts Options) *Env {
 	turnstile := NewFakeTurnstile()
 	t.Cleanup(turnstile.Close)
 	servicesSvc := services.New(db, svc, services.Config{Domain: EdgeDomain, EdgeSecret: EdgeSecret, CaptchaVerifyURL: turnstile.URL}, log)
+	branchSvc.API = servicesSvc
 	servicesSvc.Mail = mailSvc
 	servicesSvc.Files = backups.FilesTarget
 	servicesSvc.StorageGrace = time.Millisecond

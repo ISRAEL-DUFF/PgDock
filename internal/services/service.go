@@ -106,6 +106,8 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 	kinds := map[string]jobs.Kind{
 		KindEnable:  {Handler: s.runEnable, MaxAttempts: 3, Timeout: 10 * time.Minute},
 		KindDisable: {Handler: s.runDisable, MaxAttempts: 3, Timeout: 10 * time.Minute},
+		// A branch's files (V4.1 §9.5): retried, skipping what is copied.
+		KindCopyBranchFiles: {Handler: s.runCopyBranchFiles, MaxAttempts: 3, Timeout: 6 * time.Hour},
 	}
 	for k, v := range s.supabaseKinds() {
 		kinds[k] = v
@@ -488,6 +490,13 @@ func (s *Service) runEnable(ctx context.Context, op store.Operation, log *jobs.S
 	if p.DeletedAt != nil {
 		return jobs.Permanent(fmt.Errorf("the project was deleted"))
 	}
+	return s.enableOn(ctx, p, log)
+}
+
+// enableOn makes p's roles, pgd_* schemas and signing key and turns its
+// API on.
+func (s *Service) enableOn(ctx context.Context, p store.Project, log *jobs.StepLogger) error {
+	q := store.New(s.db)
 	if err := s.ensureRoles(ctx, p); err != nil {
 		return fmt.Errorf("roles: %w", err)
 	}

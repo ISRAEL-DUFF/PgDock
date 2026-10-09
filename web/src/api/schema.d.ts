@@ -2754,8 +2754,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The API's request logs (7 days), newest first */
+        /**
+         * The API's request logs (7 days), newest first; with after, newer ones oldest first
+         * @description With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
+         */
         get: operations["listAPIRequestLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What the data API exposes, with row-level security, policies and access per table (the API docs) */
+        get: operations["getServicesCatalog"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6205,6 +6225,14 @@ export interface components {
             operation: components["schemas"]["Operation"];
             password: string;
             connection: components["schemas"]["ConnectionInfo"];
+            api?: components["schemas"]["BranchApi"];
+        };
+        /** @description A branch's own backend services API (V4.1 §9.5), when its parent has them: a new ref and keys, shown once. The parent's keys and tokens don't work on it. */
+        BranchApi: {
+            ref: string;
+            url?: string | null;
+            publishable_key: string;
+            secret_key: string;
         };
         SessionState: {
             authenticated: boolean;
@@ -6329,6 +6357,8 @@ export interface components {
             schema_only?: boolean;
             /** @description Hours until the branch deletes itself (1 to 720; 0 keeps it). Default 168. */
             ttl_hours?: number;
+            /** @description With backend services: copy the parent's stored files into the branch, in the background (counted against the organisation's file storage). Without it, the copied file records have no bytes. */
+            copy_files?: boolean;
         };
         BranchResetRequest: {
             /**
@@ -7557,6 +7587,83 @@ export interface components {
         };
         ApiRequestLogList: {
             items: components["schemas"]["ApiRequestLog"][];
+            /**
+             * Format: int64
+             * @description With after, the cursor to follow from next.
+             */
+            next?: number;
+        };
+        ServicesCatalog: {
+            /** @description The project's API ref (its URL's host), when services are on. */
+            ref?: string;
+            api_url?: string | null;
+            schemas: string[];
+            tables: components["schemas"]["CatalogTable"][];
+            functions: components["schemas"]["CatalogFunction"][];
+        };
+        CatalogTable: {
+            schema: string;
+            name: string;
+            /** @enum {string} */
+            kind: "table" | "view" | "materialized_view" | "foreign_table";
+            rls: boolean;
+            /** @description Marked public; anyone with the publishable key reads every row. */
+            public: boolean;
+            columns: components["schemas"]["CatalogColumn"][];
+            primary_key: string[];
+            foreign_keys: components["schemas"]["CatalogForeignKey"][];
+            referenced_by: components["schemas"]["CatalogForeignKey"][];
+            policies: components["schemas"]["CatalogPolicy"][];
+            /** @description The request roles' privileges (anon, user); row-level security then decides which rows. */
+            access: {
+                [key: string]: components["schemas"]["CatalogAccess"];
+            };
+        };
+        CatalogColumn: {
+            name: string;
+            type: string;
+            nullable: boolean;
+            default?: string;
+            identity: boolean;
+            generated: boolean;
+            enum?: string[];
+        };
+        CatalogForeignKey: {
+            name: string;
+            columns: string[];
+            table: string;
+            ref_columns: string[];
+            /** @description The name to embed the other side with in a select. */
+            embed: string;
+            multiple: boolean;
+        };
+        CatalogPolicy: {
+            name: string;
+            command: string;
+            permissive: boolean;
+            /** @description anon, user, service, everyone, or a database role. */
+            roles: string[];
+            using?: string;
+            check?: string;
+        };
+        CatalogAccess: {
+            select: boolean;
+            insert: boolean;
+            update: boolean;
+            delete: boolean;
+        };
+        CatalogFunction: {
+            schema: string;
+            name: string;
+            args: {
+                name: string;
+                type: string;
+                optional: boolean;
+            }[];
+            returns: string;
+            returns_set: boolean;
+            volatility: string;
+            security_definer: boolean;
         };
         OutageMinute: {
             /** Format: date-time */
@@ -15252,6 +15359,14 @@ export interface operations {
             query?: {
                 /** @description A log id from the previous page. */
                 before?: number;
+                /** @description Follow from this log id. */
+                after?: number;
+                /** @description With after, seconds to wait for a new log (at most 25). */
+                wait?: number;
+                /** @description A status (404) or class (5xx, 4xx). */
+                status?: string;
+                /** @description Only requests whose path starts with this. */
+                path?: string;
                 limit?: number;
             };
             header?: never;
@@ -15269,6 +15384,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiRequestLogList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getServicesCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The catalog. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicesCatalog"];
                 };
             };
             default: components["responses"]["Error"];
