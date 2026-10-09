@@ -5,6 +5,27 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Integrations (Taskiem's asks)
+- Webhooks have a `description` and string `metadata` for the tool that
+  made them; every change event carries `project_id` and, for tables with
+  one, `primary_key`; `rotate-secret` takes `overlap_seconds` (up to a
+  day) during which deliveries are signed with both secrets (two `v1=`
+  values: verifiers must accept any match). New migration 00050.
+- `Idempotency-Key` on the data API's writes, batches and function calls:
+  a repeat within 24 hours gets the first answer
+  (`Idempotent-Replayed: true`), a different request with the same key
+  `422 idempotency_key_reused`. New project schema version 6, applied by
+  the reconciler on upgrade.
+- Management API calls that need a paused or archived Free project's
+  database answer `503 project_resuming` / `project_restoring` with
+  `Retry-After` and wake it (they answered `409 conflict`). Every `429`
+  carries `Retry-After`.
+- The OpenAPI file declares its security schemes (`bearerAuth`,
+  `sessionCookie`).
+- Docs: the error code catalogue with retryable codes (docs/errors.md),
+  the deprecation policy, the webhook management contract, building an
+  integration (docs/integrations), and signed sample deliveries.
+
 ### V4.1 (on feature/pgdock4)
 - The DPA template lists the SMS and WhatsApp providers used for apps'
   sign-in codes (Termii, Africa's Talking, Meta) and Cloudflare's CDN as

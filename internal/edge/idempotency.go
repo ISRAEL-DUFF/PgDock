@@ -21,6 +21,9 @@ import (
 
 const maxIdempotencyKey = 255
 
+// idemParam is the header in the project's OpenAPI document.
+var idemParam = map[string]any{"$ref": "#/components/parameters/IdempotencyKey"}
+
 // idempotency is a write's key and the hash of what it asked.
 type idempotency struct {
 	key, hash string

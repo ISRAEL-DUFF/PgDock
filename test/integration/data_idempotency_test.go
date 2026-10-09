@@ -210,6 +210,11 @@ func TestDataAPIIdempotencyKey(t *testing.T) {
 	if r := send(sec, "POST", "/data/v1/orders", `{"status":"other"}`, k1); r.code != http.StatusCreated || r.replayed || count() != before+1 {
 		t.Fatalf("an expired key: %+v", r)
 	}
+	// The project's OpenAPI document says so.
+	if code, _, doc := ed.Do(ref, "GET", "/data/v1/openapi.json", nil, "apikey", sec); code != http.StatusOK ||
+		!strings.Contains(doc, `"Idempotency-Key"`) || !strings.Contains(doc, `"#/components/parameters/IdempotencyKey"`) {
+		t.Fatalf("the OpenAPI document doesn't describe Idempotency-Key: %d", code)
+	}
 	// The request roles can't read the stored answers.
 	if _, err := app.Exec(ctx, `SELECT * FROM pgd_auth.idempotency`); err == nil {
 		t.Fatal("the project's owner can read the stored answers")

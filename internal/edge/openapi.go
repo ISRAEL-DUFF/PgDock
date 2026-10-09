@@ -107,13 +107,13 @@ func openAPIDoc(p *project, cat *Catalog) map[string]any {
 			written := map[string]any{"description": "The rows written", "content": map[string]any{"application/json": map[string]any{
 				"schema": map[string]any{"type": "object", "properties": map[string]any{"affected": map[string]any{"type": "integer"},
 					"data": map[string]any{"type": "array", "items": ref}}}}}}
-			filtered := []any{
+			filtered := []any{idemParam,
 				map[string]any{"name": "where", "in": "query", "required": true, "schema": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}},
 				map[string]any{"name": "max_affected", "in": "query", "schema": map[string]any{"type": "integer", "default": defaultMaxAffected}},
 				map[string]any{"name": "return", "in": "query", "schema": map[string]any{"type": "string", "enum": []string{"representation", "minimal"}}},
 			}
 			ops["post"] = map[string]any{"summary": "Insert into " + name + " (upsert with on_conflict)", "requestBody": body,
-				"parameters": []any{map[string]any{"name": "on_conflict", "in": "query", "schema": map[string]any{"type": "string"}},
+				"parameters": []any{idemParam, map[string]any{"name": "on_conflict", "in": "query", "schema": map[string]any{"type": "string"}},
 					map[string]any{"name": "resolution", "in": "query", "schema": map[string]any{"type": "string", "enum": []string{"merge", "ignore"}}},
 					map[string]any{"name": "return", "in": "query", "schema": map[string]any{"type": "string", "enum": []string{"representation", "minimal"}}}},
 				"responses": map[string]any{"201": written}}
@@ -148,7 +148,7 @@ func openAPIDoc(p *project, cat *Catalog) map[string]any {
 				props[a.Name] = jsonType(&Column{TypName: a.TypName, Category: a.Category, Type: a.Type})
 			}
 		}
-		op := map[string]any{"summary": "Call " + name, "requestBody": map[string]any{"content": map[string]any{"application/json": map[string]any{
+		op := map[string]any{"summary": "Call " + name, "parameters": []any{idemParam}, "requestBody": map[string]any{"content": map[string]any{"application/json": map[string]any{
 			"schema": map[string]any{"type": "object", "properties": props}}}},
 			"responses": map[string]any{"200": map[string]any{"description": "The result as data"}}}
 		item := map[string]any{"post": op}
@@ -164,6 +164,11 @@ func openAPIDoc(p *project, cat *Catalog) map[string]any {
 		"paths":   paths,
 		"components": map[string]any{
 			"schemas": schemas,
+			"parameters": map[string]any{"IdempotencyKey": map[string]any{
+				"name": "Idempotency-Key", "in": "header", "schema": map[string]any{"type": "string", "maxLength": maxIdempotencyKey},
+				"description": "A repeat within 24 hours gets the first answer (with Idempotent-Replayed: true) instead of writing again; " +
+					"the same key with a different request is refused with 422 idempotency_key_reused. Needs the secret key or a signed-in user.",
+			}},
 			"securitySchemes": map[string]any{
 				"apikey": map[string]any{"type": "apiKey", "in": "header", "name": "apikey"},
 				"user":   map[string]any{"type": "http", "scheme": "bearer", "bearerFormat": "JWT"},
