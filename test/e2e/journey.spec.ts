@@ -1191,6 +1191,8 @@ test.describe("with the saved session", () => {
     await page.getByTestId("spend-controls").getByRole("button", { name: "Save" }).click();
     await expect(page.getByTestId("spend-controls")).toContainText("Saved.");
     await expect(page.getByTestId("forecast")).toContainText("Budget ₦50,000.00");
+    // The month so far, by service (V4 §12): at least the plan's fee.
+    await expect(page.locator('[data-testid="service-spend"][data-service="plan"]')).toContainText("Plan");
     await page.getByLabel("Legal name").fill("Metered Team Ltd");
     await page.getByTestId("business-details").getByRole("button", { name: "Save" }).click();
     await expect(page.getByTestId("business-details")).toContainText("Saved.");

@@ -117,6 +117,10 @@ func TestSpendCapBackendServices(t *testing.T) {
 	if limitedAt == 0 {
 		t.Fatal("60 requests at once never hit the capped limit")
 	}
+	// Keyless downloads share the tightened per-IP limit.
+	if r := keyless.do("GET", "/storage/v1/public/img/logo.png", nil, ""); r.Code != http.StatusTooManyRequests || r.Error.Code != "spend_cap_rate_limited" {
+		t.Fatalf("a public download past the capped limit: %s", r)
+	}
 	// Sign-in keeps its own limits.
 	for i := range 3 {
 		if r := anonAuth.post("/auth/v1/signin/password", `{"email":"capped@app.test","password":"capped-password-1"}`); r.Code != 200 {

@@ -11,11 +11,20 @@ import (
 // Storage routes (V4 §5.2). Paths follow the spec, with the Supabase
 // clients' spellings accepted where they differ.
 
-// storageRateOK applies the project's per-IP limit to a keyless request.
+// storageRateOK applies the project's per-IP limit to a keyless request,
+// tightened like keyed requests' under a spend cap (V4 §12).
 func (e *Edge) storageRateOK(c *call) bool {
-	if !e.limits.allow("ip:"+c.p.cfg.Ref+":"+c.ip, c.p.cfg.Settings.RatePerIP) {
+	rate, bucket := c.p.cfg.Settings.RatePerIP, ""
+	if c.p.cfg.SpendCapped {
+		rate, bucket = spendCapRate(rate), "capped:"
+	}
+	if !e.limits.allow(bucket+"ip:"+c.p.cfg.Ref+":"+c.ip, rate) {
 		c.w.Header().Set("Retry-After", "1")
-		c.fail(http.StatusTooManyRequests, "rate_limited", "too many requests; slow down")
+		if c.p.cfg.SpendCapped {
+			c.fail(http.StatusTooManyRequests, "spend_cap_rate_limited", "the organisation has reached its spend cap, so this project's request rate is reduced; slow down or raise the cap")
+		} else {
+			c.fail(http.StatusTooManyRequests, "rate_limited", "too many requests; slow down")
+		}
 		return false
 	}
 	return true

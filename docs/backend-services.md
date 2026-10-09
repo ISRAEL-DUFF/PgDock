@@ -878,11 +878,22 @@ provider. Set:
 Without them, phone sign-in works only for projects with their own
 provider.
 
-## Not yet
+## Status and limits
 
-These come in the next milestones (V4 §14): read replicas (M35).
-Realtime over logical decoding for high-volume tables and subscriptions to
-every table at once are not built. Copying files into a branch, moving files with a project
-that changes region, and malware scanning of uploads are not built yet. Auth's leaked-password check and bounce handling
-for auth emails are not built yet. Rating the new usage on invoices and per-plan limits come
-with billing (M37).
+Backend services are ready for general availability (V4-M37): the data
+API, auth, storage and realtime are billed as the plan's
+[prices](billing.md) say, spend caps slow them rather than stop them, and
+they have had a security review of the edge with fuzz tests of its
+isolation ([security review](security-review.md#v4-review-of-the-edge-m37)),
+load tests ([load test](load-test.md#v4-backend-services-load-test)) and
+failure injection (an edge killed mid-upload, an SMS provider outage, a
+realtime process lost). What to do when something breaks is in the
+[runbook](backend-runbook.md). An operator announces GA once the
+external penetration test of the edge ([scope](pentest-scope.md)) has no
+open critical or high finding.
+
+Not built: realtime over logical decoding for high-volume tables, and
+subscriptions to every table at once; copying files into a branch,
+moving files with a project that changes region, and malware scanning of
+uploads; auth's leaked-password check and bounce handling for auth
+emails.
