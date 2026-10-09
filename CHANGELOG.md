@@ -5,6 +5,14 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### V4.1 (on feature/pgdock4)
+- The DPA template lists the SMS and WhatsApp providers used for apps'
+  sign-in codes (Termii, Africa's Talking, Meta) and Cloudflare's CDN as
+  sub-processors. Existing installs: see docs/legal.md before publishing
+  it as a new version.
+- Docs: the Lagos launch checklist uses the region's own etcd cluster
+  (V3.1); the status page's limits are up to date.
+
 ### V4 (on feature/pgdock4)
 - Backend services' edge foundation (V4-M28): a project can turn on backend
   services (Project → Settings → API, `pgdock services enable`) and gets an

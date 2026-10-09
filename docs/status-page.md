@@ -130,7 +130,9 @@ posted.
 
 ## Limits
 
-The page probes from one vantage point. The SLA's two-vantage-point
-measurement, availability minutes per HA project, arrives with HA dedicated
-instances (M19). Paying organisations are subscribed automatically once
-billing exists (M20).
+The page probes from one vantage point; pgdock-server is the second one
+for the SLA's measurement of HA projects (each minute counts as
+unavailable only when both fail; see [HA](ha.md)). Subscribers sign up on
+the page themselves: paying organisations aren't subscribed automatically
+yet (planned for V4.1-M6). Components aren't split by region unless you
+configure one component per region in the TOML.

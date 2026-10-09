@@ -69,10 +69,14 @@ Fixes M27 made on the way, all covered by the tests above:
 8. **DNS**: `db.ng.<your domain>` points at the floating IP, and the
    region's TLS certificate names it:
    `openssl s_client -connect db.ng.<domain>:6543 -starttls postgres`.
-9. The **etcd cluster** for HA: if Lagos HA projects use the platform's
-   etcd cluster, the latency from Lagos to its members is under 50 ms;
-   otherwise defer HA in Lagos (V3 §2.2 and §6.1 leave per-region etcd
-   for later).
+9. The **etcd cluster** for HA: set up the Lagos region's own cluster
+   (Platform → Nodes → etcd cluster, region `ng-lagos`) on three Lagos
+   nodes in **three different failure domains** (racks or power feeds,
+   recorded on each node; V3.1 §2). HA projects created in Lagos then use
+   it, and HA projects already in Lagos on the home region's cluster move
+   with **Move to the region's etcd** on their HA card (V3.1 §3.3; a pause
+   of a few seconds each). With only two failure domains in the facility,
+   don't offer HA in Lagos yet ([HA](ha.md), [failure domains](failure-domains.md)).
 10. Open the **waker port** (`PGDOCK_WAKER_ADDR`) from the Lagos pooler
     hosts to pgdock-server, and check `waker_down` isn't firing.
 
