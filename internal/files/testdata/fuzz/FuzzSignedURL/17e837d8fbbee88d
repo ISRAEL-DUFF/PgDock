@@ -1,0 +1,11 @@
+go test fuzz v1
+string("0")
+string("\x81")
+string("0")
+string("0")
+int64(3600)
+string("0")
+string("")
+string("")
+int(5)
+byte('A')

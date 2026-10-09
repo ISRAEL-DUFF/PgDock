@@ -129,8 +129,10 @@ type Env struct {
 	wakerAddr string
 	wakerCtx  context.Context
 	// Phone fakes Termii and WhatsApp for the platform's auth codes (Free
-	// projects may use them here, unlike by default).
-	Phone *FakePhone
+	// projects may use them here, unlike by default); PhoneFallback fakes
+	// Africa's Talking, the SMS fallback.
+	Phone         *FakePhone
+	PhoneFallback *FakePhone
 	// Support runs tickets (V3 §7.1); WhatsApp fakes the Cloud API, whose
 	// webhook reaches the API. SupportInboundSecret authenticates inbound email.
 	Support  *support.Service
@@ -389,10 +391,14 @@ func Start(t testing.TB, opts Options) *Env {
 	servicesSvc.Mail = mailSvc
 	servicesSvc.Files = backups.FilesTarget
 	servicesSvc.StorageGrace = time.Millisecond
-	phone := NewFakePhone()
+	phone, phoneFallback := NewFakePhone(), NewFakePhone()
 	t.Cleanup(phone.Close)
+	t.Cleanup(phoneFallback.Close)
 	servicesSvc.Phone = services.PlatformPhone{
-		SMS:          messaging.Termii{BaseURL: phone.URL, APIKey: "termii-test", SenderID: "PGDock"},
+		// Termii, and Africa's Talking when it fails, as in production.
+		SMS: &messaging.Failover{Providers: []messaging.Provider{
+			messaging.Termii{BaseURL: phone.URL, APIKey: "termii-test", SenderID: "PGDock"},
+			messaging.AfricasTalking{BaseURL: phoneFallback.URL, Username: "pgdock", APIKey: "at-test"}}},
 		WhatsApp:     messaging.WhatsAppCloud{BaseURL: phone.URL, PhoneNumberID: "1001", AccessToken: "wa-test", Template: "pgdock_code"},
 		SMSCostMinor: 450, WhatsAppCostMinor: 1500, Currency: "NGN",
 	}
@@ -513,7 +519,7 @@ func Start(t testing.TB, opts Options) *Env {
 
 	*e = Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Services: servicesSvc, Tokens: tokenSvc, Branches: branchSvc,
-		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Phone: phone, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, wakerLn: wakerLn, wakerAddr: wakerLn.Addr().String(), wakerCtx: ctx, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, Insights: insightSvc,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Phone: phone, PhoneFallback: phoneFallback, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, wakerLn: wakerLn, wakerAddr: wakerLn.Addr().String(), wakerCtx: ctx, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, Insights: insightSvc,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,

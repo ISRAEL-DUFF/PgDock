@@ -720,6 +720,8 @@ Replica creation on another node or region; pooler read-only route with health a
 
 Rating of all new metrics, billing page breakdown, spend-cap throttling; security review and external penetration test of the edge; load tests; failure injection (edge crash mid-upload, SMS provider outage, realtime node loss); runbooks. **General availability of backend services.**
 
+*(As built: messages are billed per channel at recorded provider cost times one plus the price book's margin; spend caps reach the edge through the feed and quarter the data and storage rate limits, pause new renders and refuse new realtime connections, auth untouched; platform SMS fails over from Termii to Africa's Talking. Isolation is checked by Go fuzz tests; the load test ran at 300 projects in the development container, where one shared node's connections and the shared CPUs, not the edge, were the limit. GA is announced after the external penetration test, scoped in `docs/pentest-scope.md`. See `docs/decisions.md`, V4-M37.)*
+
 ### Timeline summary
 
 | Weeks | Milestone | Outcome |

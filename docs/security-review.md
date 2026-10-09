@@ -1,4 +1,4 @@
-# Security review (spec §7, v1.0.0; V2 surfaces, M16)
+# Security review (spec §7, v1.0.0; V2 surfaces, M16; V3 billing, M27; V4 edge, M37)
 
 Each item of spec §7, how PGDock enforces it, and what checks it
 automatically. "CI" means `.github/workflows/ci.yml` on every push (and
@@ -166,6 +166,55 @@ them for real.
   it may have leaked.
 - The webhook endpoint is public and unauthenticated requests are cheap to
   refuse; each refusal is logged with the remote address.
+
+## V4 review of the edge (M37)
+
+pgdock-edge is the internet-facing part of backend services: every
+request names a project only by its host and proves itself only with that
+project's key and, for a user, that project's token. The review read each
+path a request can take (keyed, keyless, WebSocket), the feed and report
+channel to pgdock-server, and how it reaches the databases, and added fuzz
+tests where an input decides which project or data is touched. Plain
+`go test` runs the fuzz seeds; `go test -fuzz` runs them further (the
+numbers below are from the review).
+
+| Surface | Enforced by | Verified by |
+| --- | --- | --- |
+| Which project a request is for | Only the host: exactly one label under the API domain, lower-cased, port and a trailing dot ignored; anything else is `unknown_host`. Paths, headers and tokens never name a project | `FuzzRefFromHost` (1.1M inputs), `TestRefFromHost` |
+| Keys | The key's SHA-256 is looked up in that project's own key map; a key of another project, a revoked key or a near miss is `invalid_key`. Secret keys are refused from browsers unless the project allows it | `FuzzGatewayIsolation` (1.1M requests over two projects, every host/key/token combination and random ones), `TestEdgeFoundation` |
+| User tokens | ES256 only, by kid from that project's JWKS; `aud` must be the project's ref, `role` must be `user`, expiry with a minute's leeway. Both fuzz projects use the same kid, so a token can't pick the other's key by naming it | `FuzzGatewayIsolation` (other project's token, a token signed for the other audience, a service-role token, an expired and an unsigned one), `TestSignVerify` |
+| Database access | Each request role is its own login for that project's database only (V4-M32f); `CONNECT` on other databases is revoked; RLS decides rows | `TestDataAPIReads` (the RLS suite), `TestTenantIsolation`, `TestAuthPhoneOAuthMFA` (the hook role) |
+| Query safety | Names are quoted with `pgx.Identifier`, JSON path keys as literals with quotes doubled, every value is a parameter; a cost guard (`EXPLAIN`) and statement timeout cap each read | `FuzzReadSQL` (0.9M query strings: nothing outside quotes but the builder's own words, no `;`, comments or a marker value; every parameter used), `TestReadSQL`, `TestDataAPIReads` (the cost guard) |
+| Signed file URLs | HMAC-SHA256 with the project's own storage secret over kind, project, bucket, path and expiry, compared in constant time | `FuzzSignedURL` (another project's secret, project, bucket, path or kind, and every one-byte change, refuse), `TestTokens`, `TestStorage` |
+| Files served from the API origin | `X-Content-Type-Options: nosniff`, a sandboxing `Content-Security-Policy`, and only images, audio, video, PDF and plain text inline; everything else downloads. Paths with `..`, `.`, empty segments, control characters or invalid UTF-8 are refused | `TestStorage`, `TestPathsAndBuckets`, `TestDetectMIME` |
+| Browser access | Allowed origins per project; CORS never allows credentials; the edge sets no cookies | `TestEdgeFoundation` |
+| Abuse and cost | Per-IP and per-key limits on keyed and keyless requests, auth limits per endpoint group, realtime sends per connection, render concurrency per process, body limits on every endpoint, a 256 KB WebSocket frame limit; spend caps tighten all of them (V4-M37) | `TestEdgeFoundation`, `TestAuthCore`, `TestSpendCapBackendServices`, `TestLimiter` |
+| The feed and reports | Signed with `PGDOCK_EDGE_SECRET` and a timestamp; the edge never reads the metadata database | `TestEdgeFoundation` |
+
+### Found and fixed
+
+- **Keyless downloads weren't slowed by a spend cap** (low). Public and
+  signed downloads are metered egress, but only keyed requests got the
+  capped rate limit. They now share it.
+
+No way was found for a request to reach a project other than the one its
+host names, to act as a role its key or token doesn't grant, or to put
+request text into SQL outside a parameter, quoted name or literal.
+
+### Accepted
+
+- pgdock-edge sets no read or write timeout on bodies (uploads and
+  WebSockets are long), so slow clients hold connections. Put it behind a
+  load balancer or TLS terminator that limits connections per address.
+- Database errors are returned to the client with their SQLSTATE and
+  message (as PostgREST does), which can name tables and constraints the
+  caller can already reach.
+- An edge process killed mid-report loses up to `ReportEvery` (a few
+  seconds) of request counts and logs; usage is under-counted, never
+  over-counted.
+
+The external penetration test before GA is scoped in
+[pentest-scope.md](pentest-scope.md); its findings are tracked there.
 
 ## Dependency audit
 

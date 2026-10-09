@@ -17,6 +17,14 @@ type AuthPhone struct {
 	TermiiAPIKey   string
 	TermiiSenderID string
 	TermiiURL      string
+	// Africa's Talking is the fallback when Termii fails (V4 §15):
+	// PGDOCK_AFRICASTALKING_USERNAME, PGDOCK_AFRICASTALKING_API_KEY (or
+	// _FILE), PGDOCK_AFRICASTALKING_FROM (a sender id, optional),
+	// PGDOCK_AFRICASTALKING_URL.
+	ATUsername string
+	ATAPIKey   string
+	ATFrom     string
+	ATURL      string
 	// WhatsApp authentication codes go out from support's WhatsApp number
 	// (PGDOCK_WHATSAPP_PHONE_NUMBER_ID and _ACCESS_TOKEN) as the approved
 	// authentication template PGDOCK_WHATSAPP_OTP_TEMPLATE in
@@ -35,11 +43,17 @@ type AuthPhone struct {
 }
 
 // SMSOn reports whether the platform sends SMS.
-func (a AuthPhone) SMSOn() bool { return a.TermiiAPIKey != "" }
+func (a AuthPhone) SMSOn() bool { return a.TermiiAPIKey != "" || a.ATOn() }
+
+// ATOn reports whether Africa's Talking is configured.
+func (a AuthPhone) ATOn() bool { return a.ATAPIKey != "" }
 
 func loadAuthPhone(getenv func(string) string, readFile func(string) ([]byte, error), cfg *Config) []error {
 	a := AuthPhone{TermiiSenderID: strings.TrimSpace(getenv("PGDOCK_TERMII_SENDER_ID")),
 		TermiiURL:        strings.TrimRight(getenv("PGDOCK_TERMII_URL"), "/"),
+		ATUsername:       strings.TrimSpace(getenv("PGDOCK_AFRICASTALKING_USERNAME")),
+		ATFrom:           strings.TrimSpace(getenv("PGDOCK_AFRICASTALKING_FROM")),
+		ATURL:            strings.TrimRight(getenv("PGDOCK_AFRICASTALKING_URL"), "/"),
 		WhatsAppTemplate: strings.TrimSpace(getenv("PGDOCK_WHATSAPP_OTP_TEMPLATE")),
 		WhatsAppLanguage: strings.TrimSpace(getenv("PGDOCK_WHATSAPP_OTP_LANGUAGE")),
 		Currency:         strings.ToUpper(strings.TrimSpace(getenv("PGDOCK_MESSAGE_CURRENCY"))),
@@ -50,6 +64,12 @@ func loadAuthPhone(getenv func(string) string, readFile func(string) ([]byte, er
 		errs = append(errs, err)
 	}
 	a.TermiiAPIKey = key
+	if a.ATAPIKey, err = secretFrom(getenv, readFile, "PGDOCK_AFRICASTALKING_API_KEY"); err != nil {
+		errs = append(errs, err)
+	}
+	if a.ATOn() && a.ATUsername == "" {
+		errs = append(errs, errors.New("PGDOCK_AFRICASTALKING_API_KEY needs PGDOCK_AFRICASTALKING_USERNAME"))
+	}
 	if a.Currency == "" {
 		a.Currency = "NGN"
 	} else if len(a.Currency) != 3 {
@@ -71,12 +91,15 @@ func loadAuthPhone(getenv func(string) string, readFile func(string) ([]byte, er
 		}
 		a.FreeAllowed = b
 	}
-	if a.SMSOn() && a.TermiiSenderID == "" {
+	if a.TermiiAPIKey != "" && a.TermiiSenderID == "" {
 		errs = append(errs, errors.New("PGDOCK_TERMII_API_KEY needs PGDOCK_TERMII_SENDER_ID"))
 	}
-	if a.TermiiURL != "" {
-		if u, err := url.Parse(a.TermiiURL); err != nil || u.Scheme != "https" && u.Scheme != "http" {
-			errs = append(errs, errors.New("PGDOCK_TERMII_URL must be an http(s) URL"))
+	for name, v := range map[string]string{"PGDOCK_TERMII_URL": a.TermiiURL, "PGDOCK_AFRICASTALKING_URL": a.ATURL} {
+		if v == "" {
+			continue
+		}
+		if u, err := url.Parse(v); err != nil || u.Scheme != "https" && u.Scheme != "http" {
+			errs = append(errs, fmt.Errorf("%s must be an http(s) URL", name))
 		}
 	}
 	if a.WhatsAppTemplate != "" && getenv("PGDOCK_WHATSAPP_PHONE_NUMBER_ID") == "" {

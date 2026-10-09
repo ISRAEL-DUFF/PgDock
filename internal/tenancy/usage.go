@@ -41,6 +41,10 @@ const (
 	// Auth codes sent over the platform's SMS and WhatsApp (V4 §6.2).
 	MetricMessagesSMS      = "messages_sms"
 	MetricMessagesWhatsApp = "messages_whatsapp"
+	// Their provider cost in kobo, which they are billed at plus a margin
+	// (V4 §12).
+	MetricMessagesSMSCost      = "messages_sms_cost_kobo"
+	MetricMessagesWhatsAppCost = "messages_whatsapp_cost_kobo"
 
 	// Backend services' storage (V4 §5, §11.1).
 	MetricStorageGBHours  = "storage_gb_hours"
@@ -80,6 +84,8 @@ var UsageMetrics = []struct{ Name, Unit, Granularity string }{
 	{MetricAuthMAU, "users", "hour"},
 	{MetricMessagesSMS, "messages", "hour"},
 	{MetricMessagesWhatsApp, "messages", "hour"},
+	{MetricMessagesSMSCost, "kobo", "hour"},
+	{MetricMessagesWhatsAppCost, "kobo", "hour"},
 	{MetricStorageGBHours, "GB-hours", "hour"},
 	{MetricStorageEgress, "GB", "hour"},
 	{MetricImageTransforms, "transforms", "hour"},

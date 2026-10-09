@@ -157,8 +157,10 @@ SELECT s.project_id, s.ref, s.enabled, s.cors_origins, s.settings, s.exposed_sch
   s.storage_quota_bytes, s.upload_max_bytes, s.storage_egress_blocked, s.transforms_blocked,
   s.realtime_max_connections, s.realtime_messages_blocked,
   EXISTS (SELECT 1 FROM read_replicas r WHERE r.project_id = p.id AND r.deleted_at IS NULL)::boolean AS has_replicas,
-  p.db_name, p.region, p.data_residency, p.org_id, p.lifecycle, p.status, p.deleted_at, o.status AS org_status, o.plan_id
+  p.db_name, p.region, p.data_residency, p.org_id, p.lifecycle, p.status, p.deleted_at, o.status AS org_status, o.plan_id,
+  coalesce(b.capped, false)::boolean AS spend_capped
 FROM project_services s JOIN projects p ON p.id = s.project_id JOIN organizations o ON o.id = p.org_id
+LEFT JOIN billing_accounts b ON b.org_id = p.org_id
 WHERE s.changed_seq > $1
 ORDER BY s.changed_seq
 LIMIT $2
@@ -196,6 +198,7 @@ type EdgeConfigChangesRow struct {
 	DeletedAt               *time.Time
 	OrgStatus               string
 	PlanID                  uuid.UUID
+	SpendCapped             bool
 }
 
 // tenant: system - pgdock-edge's configuration feed: every project with backend services changed since a point.
@@ -235,6 +238,7 @@ func (q *Queries) EdgeConfigChanges(ctx context.Context, arg EdgeConfigChangesPa
 			&i.DeletedAt,
 			&i.OrgStatus,
 			&i.PlanID,
+			&i.SpendCapped,
 		); err != nil {
 			return nil, err
 		}

@@ -240,7 +240,13 @@ type rtMessage struct {
 // connectRT opens a WebSocket to ed for project ref with key.
 func connectRT(t *testing.T, ed *testenv.Edge, ref, key string) *rtClient {
 	t.Helper()
-	u := strings.Replace(ed.URL, "http://", "ws://", 1) + "/realtime/v1/websocket?vsn=1.0.0&apikey=" + url.QueryEscape(key)
+	return connectRTAt(t, ed.URL, ref, key)
+}
+
+// connectRTAt opens a WebSocket to the edge at base for project ref.
+func connectRTAt(t *testing.T, base, ref, key string) *rtClient {
+	t.Helper()
+	u := strings.Replace(base, "http://", "ws://", 1) + "/realtime/v1/websocket?vsn=1.0.0&apikey=" + url.QueryEscape(key)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	ws, res, err := websocket.Dial(ctx, u, &websocket.DialOptions{Host: ref + "." + testenv.EdgeDomain})

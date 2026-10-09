@@ -121,6 +121,11 @@ func (e *Edge) realtime(c *call, req Request) {
 		c.fail(http.StatusTooManyRequests, "realtime_quota_exceeded", "the organisation's realtime messages for this month are used up")
 		return
 	}
+	if c.p.cfg.SpendCapped {
+		// Connections already open stay; new ones wait for the cap (V4 §12).
+		c.fail(http.StatusTooManyRequests, "spend_cap_reached", "the organisation has reached its spend cap; new realtime connections are refused")
+		return
+	}
 	hub := e.hub(c.p.cfg.Ref)
 	if !hub.admit(rc.MaxConnections) {
 		hub.release()

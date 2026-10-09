@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 func capture(t *testing.T, answer string) (*httptest.Server, *[]*http.Request, *[]string) {
@@ -71,5 +72,59 @@ func TestTwilioAndAfricasTalking(t *testing.T) {
 	sent, err := at.Send(context.Background(), Message{Channel: SMS, To: "+2348031234567", Body: "x"})
 	if err != nil || sent.ID != "ATX" || sent.CostMinor == nil || *sent.CostMinor != 220 || sent.Currency != "NGN" {
 		t.Fatalf("%+v %v", sent, err)
+	}
+}
+
+type flaky struct {
+	name  string
+	fail  bool
+	calls int
+}
+
+func (f *flaky) Name() string            { return f.name }
+func (f *flaky) Supports(ch string) bool { return ch == SMS }
+func (f *flaky) Send(context.Context, Message) (Sent, error) {
+	f.calls++
+	if f.fail {
+		return Sent{}, errors.New(f.name + " down")
+	}
+	return Sent{ID: f.name}, nil
+}
+
+func TestFailover(t *testing.T) {
+	a, b := &flaky{name: "termii"}, &flaky{name: "africastalking"}
+	now := time.Unix(1_800_000_000, 0)
+	var alerts []string
+	f := &Failover{Providers: []Provider{a, b}, Cooldown: time.Minute, now: func() time.Time { return now },
+		OnFail: func(p string, _ error) { alerts = append(alerts, p) }}
+	msg := Message{Channel: SMS, To: "+2348031234567", Body: "123456"}
+	if s, err := f.Send(context.Background(), msg); err != nil || s.Provider != "termii" {
+		t.Fatalf("healthy: %+v %v", s, err)
+	}
+	// The primary goes down: the fallback sends, and for the cooldown the
+	// primary isn't tried first.
+	a.fail = true
+	if s, err := f.Send(context.Background(), msg); err != nil || s.Provider != "africastalking" || a.calls != 2 {
+		t.Fatalf("primary down: %+v %v (primary tried %d)", s, err, a.calls)
+	}
+	if s, err := f.Send(context.Background(), msg); err != nil || s.Provider != "africastalking" || a.calls != 2 {
+		t.Fatalf("cooling: %+v %v (primary tried %d)", s, err, a.calls)
+	}
+	// Both down: the error names both; the cooling primary is still tried.
+	b.fail = true
+	if _, err := f.Send(context.Background(), msg); err == nil || !strings.Contains(err.Error(), "termii down") || !strings.Contains(err.Error(), "africastalking down") {
+		t.Fatalf("both down: %v", err)
+	}
+	// After the cooldown a recovered primary is first again.
+	a.fail, b.fail = false, false
+	now = now.Add(2 * time.Minute)
+	if s, err := f.Send(context.Background(), msg); err != nil || s.Provider != "termii" {
+		t.Fatalf("recovered: %+v %v", s, err)
+	}
+	if f.Name() != "termii+africastalking" || len(alerts) != 3 {
+		t.Fatalf("name %q, alerts %v", f.Name(), alerts)
+	}
+	if _, err := f.Send(context.Background(), Message{Channel: WhatsApp}); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("whatsapp: %v", err)
 	}
 }

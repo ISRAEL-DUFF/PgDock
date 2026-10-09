@@ -821,6 +821,13 @@ report is recorded once even if it is retried. The request log (method,
 path, status, latency, role, user, key, IP) is on the API page and at
 `GET /api/v1/projects/{id}/services/logs`, kept 7 days.
 
+When the organisation reaches its spend cap ([billing](billing.md)),
+the project slows down instead of stopping: data and storage requests
+get a quarter of the usual rate limits (`429 spend_cap_rate_limited`),
+new image transforms answer `429 spend_cap_reached` (cached ones still
+serve), and new realtime connections are refused with `429
+spend_cap_reached` while open ones stay. Auth endpoints are unaffected.
+
 ## Running pgdock-edge
 
 Run one pgdock-edge per region, on the region's nodes. It keeps no state.
@@ -863,6 +870,7 @@ provider. Set:
 | Variable | |
 | --- | --- |
 | `PGDOCK_TERMII_API_KEY` (or `_FILE`), `PGDOCK_TERMII_SENDER_ID` | Termii's API key and an approved sender ID. Codes go by Termii's `dnd` channel. `PGDOCK_TERMII_URL` is the account's API base if it isn't `https://api.ng.termii.com`. |
+| `PGDOCK_AFRICASTALKING_USERNAME`, `PGDOCK_AFRICASTALKING_API_KEY` (or `_FILE`), `PGDOCK_AFRICASTALKING_FROM`, `PGDOCK_AFRICASTALKING_URL` | Africa's Talking, the fallback for SMS. With both set, a code goes by Termii and, if Termii fails, by Africa's Talking at once; a provider that failed is tried last for a minute, so an outage costs one timeout rather than one per code. Each failure is logged (`platform SMS provider failed`) and the provider that sent each code is recorded in `message_sends`. Either alone also works. |
 | `PGDOCK_WHATSAPP_OTP_TEMPLATE`, `PGDOCK_WHATSAPP_OTP_LANGUAGE` | An approved **authentication** template (with a copy-code button) on the WhatsApp number support uses (`PGDOCK_WHATSAPP_PHONE_NUMBER_ID`, `PGDOCK_WHATSAPP_ACCESS_TOKEN`); the language defaults to `en`. |
 | `PGDOCK_SMS_PRICE_MINOR`, `PGDOCK_WHATSAPP_PRICE_MINOR`, `PGDOCK_MESSAGE_CURRENCY` | What a message costs the project, in minor units (default NGN 4.50 and NGN 15.00), shown as spend; usage is metered as `messages_sms` and `messages_whatsapp`. |
 | `PGDOCK_PHONE_AUTH_FREE` | `true` lets Free projects use the platform's providers (by default they bring their own). |
@@ -870,11 +878,22 @@ provider. Set:
 Without them, phone sign-in works only for projects with their own
 provider.
 
-## Not yet
+## Status and limits
 
-These come in the next milestones (V4 §14): read replicas (M35).
-Realtime over logical decoding for high-volume tables and subscriptions to
-every table at once are not built. Copying files into a branch, moving files with a project
-that changes region, and malware scanning of uploads are not built yet. Auth's leaked-password check and bounce handling
-for auth emails are not built yet. Rating the new usage on invoices and per-plan limits come
-with billing (M37).
+Backend services are ready for general availability (V4-M37): the data
+API, auth, storage and realtime are billed as the plan's
+[prices](billing.md) say, spend caps slow them rather than stop them, and
+they have had a security review of the edge with fuzz tests of its
+isolation ([security review](security-review.md#v4-review-of-the-edge-m37)),
+load tests ([load test](load-test.md#v4-backend-services-load-test)) and
+failure injection (an edge killed mid-upload, an SMS provider outage, a
+realtime process lost). What to do when something breaks is in the
+[runbook](backend-runbook.md). An operator announces GA once the
+external penetration test of the edge ([scope](pentest-scope.md)) has no
+open critical or high finding.
+
+Not built: realtime over logical decoding for high-volume tables, and
+subscriptions to every table at once; copying files into a branch,
+moving files with a project that changes region, and malware scanning of
+uploads; auth's leaked-password check and bounce handling for auth
+emails.

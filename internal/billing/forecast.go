@@ -24,6 +24,9 @@ type Forecast struct {
 	Usage int64
 	// Elapsed is the share of the month whose usage is recorded.
 	Elapsed Dec
+	// ByService is the projected cost per service (LineService), the
+	// month's plan fee under "plan".
+	ByService map[string]int64
 }
 
 // budgetThresholds are the budget alerts' percentages (V3 §3.10).
@@ -53,10 +56,17 @@ func (s *Service) Forecast(ctx context.Context, orgID uuid.UUID) (Forecast, erro
 		return Forecast{}, err
 	}
 	f.Spend = r.Subtotal - r.NextFee + r.MonthFee
+	f.ByService = map[string]int64{}
+	if r.MonthFee > 0 {
+		f.ByService["plan"] = r.MonthFee
+	}
 	for _, l := range r.Lines {
 		switch l.Kind {
 		case KindOverage, KindDedicated, KindAddon:
 			f.Usage += l.Amount
+		}
+		if !l.Advance {
+			f.ByService[LineService(l)] += l.Amount
 		}
 	}
 	return f, nil
@@ -109,6 +119,7 @@ func (s *Service) RefreshForecast(ctx context.Context, orgID uuid.UUID) (Forecas
 			fmt.Sprintf("PGDock: %s has reached its spend cap", s.orgName(ctx, orgID)),
 			fmt.Sprintf("Usage charges for %s are forecast at %s, at or above the spend cap of %s.\n\n"+
 				"Until the cap is raised or next month starts, new branches, dedicated instances and HA are refused, webhook deliveries queue, and scheduled jobs are skipped. "+
+				"Backend services slow down: data and storage API rate limits are tightened, new image transforms pause and new realtime connections are refused; sign-in and existing connections carry on. "+
 				"Databases stay connected and no data is deleted.\n\nChange the cap: %s/org/billing?org=%s\n",
 				month, Naira(f.Usage), Naira(*a.SpendCapMinor), s.publicURL, orgID))
 	case !capped && a.Capped:

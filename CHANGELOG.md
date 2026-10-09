@@ -144,6 +144,33 @@ bundle share one version (spec §11.5).
   (it was pgx's 4 on a small box) unless `PGDOCK_DATABASE_URL` sets
   `pool_max_conns`; the auth message and hook senders no longer hold a
   connection while they send.
+- Backend services billing, hardening and GA readiness (V4-M37):
+  - **Rating:** invoices charge each plan's backend-services usage above
+    its allowance: data API requests and transfer, monthly active users,
+    file storage (GB-hours) and downloads, image transforms, realtime
+    connection-minutes and messages. SMS and WhatsApp codes are charged at
+    the provider's cost plus the price book's margin (20% by default).
+    Published price books without these lines charge nothing for them.
+  - **Billing page:** every invoice and forecast line names its service,
+    and **This month so far** breaks the month down by service, so far
+    and projected.
+  - **Spend caps** slow backend services instead of stopping them: a
+    quarter of the data and storage rate limits, new image transforms
+    paused, new realtime connections refused; sign-in, token refresh and
+    open connections carry on. New migration 00043.
+  - **SMS failover:** with Africa's Talking configured
+    (`PGDOCK_AFRICASTALKING_*`), platform SMS codes go by Termii and, when
+    it fails, by Africa's Talking; a failed provider is tried last for a
+    minute.
+  - **Security review of the edge** with fuzz tests of its isolation
+    (hosts, keys, tokens), query SQL safety and signed URLs
+    (docs/security-review.md), and the scope of the external penetration
+    test (docs/pentest-scope.md).
+  - **Load and failure tests:** `TestBackendLoad` (projects with backend
+    services, a data API rate, image transform bursts; docs/load-test.md)
+    and failure injection: an edge killed mid-upload, an SMS provider
+    outage, a realtime process lost.
+  - **Runbook** for backend services (docs/backend-runbook.md).
 
 ### V3.1 (on feature/pgdock3)
 - Failure domains (V3.1-M1): each node can record what fails with it (a

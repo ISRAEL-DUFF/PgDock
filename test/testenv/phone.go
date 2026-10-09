@@ -10,15 +10,18 @@ import (
 	"time"
 )
 
-// FakePhone answers as Termii (POST /api/sms/send) and the WhatsApp Cloud
-// API (POST /<phone id>/messages), recording what it was asked to send.
+// FakePhone answers as Termii (POST /api/sms/send), Africa's Talking (POST
+// /version1/messaging) and the WhatsApp Cloud API (POST /<phone
+// id>/messages), recording what it was asked to send.
 type FakePhone struct {
 	URL string
 	srv *httptest.Server
 
-	mu   sync.Mutex
-	sent []PhoneMessage
-	fail int // fail the next n sends with a 500
+	mu    sync.Mutex
+	sent  []PhoneMessage
+	fail  int  // fail the next n sends with a 500
+	down  bool // fail every send with a 503 (an outage)
+	tried int  // sends asked for, failed or not
 }
 
 // PhoneMessage is one recorded send.
@@ -40,6 +43,20 @@ func NewFakePhone() *FakePhone {
 // Close stops it.
 func (f *FakePhone) Close() { f.srv.Close() }
 
+// SetDown starts or ends an outage: every send fails with a 503.
+func (f *FakePhone) SetDown(down bool) {
+	f.mu.Lock()
+	f.down = down
+	f.mu.Unlock()
+}
+
+// Tried is how many sends it was asked for, failed or not.
+func (f *FakePhone) Tried() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.tried
+}
+
 // FailNext makes the next n sends fail.
 func (f *FakePhone) FailNext(n int) {
 	f.mu.Lock()
@@ -50,6 +67,11 @@ func (f *FakePhone) FailNext(n int) {
 func (f *FakePhone) serve(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.tried++
+	if f.down {
+		http.Error(w, `{"message":"service unavailable"}`, http.StatusServiceUnavailable)
+		return
+	}
 	if f.fail > 0 {
 		f.fail--
 		http.Error(w, `{"message":"down"}`, http.StatusInternalServerError)
@@ -67,6 +89,15 @@ func (f *FakePhone) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		f.sent = append(f.sent, PhoneMessage{Channel: "sms", To: in.To, Body: in.SMS})
 		_ = json.NewEncoder(w).Encode(map[string]any{"message_id": len(f.sent), "message": "Successfully Sent", "balance": 100})
+	case r.Method == http.MethodPost && r.URL.Path == "/version1/messaging":
+		_ = r.ParseForm()
+		if r.Header.Get("apiKey") == "" || r.Form.Get("username") == "" {
+			http.Error(w, `{"message":"no key"}`, http.StatusUnauthorized)
+			return
+		}
+		f.sent = append(f.sent, PhoneMessage{Channel: "sms", To: strings.TrimPrefix(r.Form.Get("to"), "+"), Body: r.Form.Get("message")})
+		_ = json.NewEncoder(w).Encode(map[string]any{"SMSMessageData": map[string]any{"Recipients": []map[string]string{
+			{"status": "Success", "messageId": "ATXid_test", "cost": "NGN 3.2000"}}}})
 	case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/messages"):
 		var in struct {
 			To       string `json:"to"`
