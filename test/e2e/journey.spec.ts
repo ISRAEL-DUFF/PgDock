@@ -2005,8 +2005,13 @@ test.describe("with the saved session", () => {
     await expect(fileRow).toContainText("text/plain");
     await expect(fileRow).toContainText("12 B");
     await expect(page.getByTestId("files-stat-bytes")).toContainText("12 B", { timeout: 10_000 });
-    // This install has no API domain, so there is no URL to sign.
-    await expect(fileRow.getByRole("button", { name: "Signed URL" })).toHaveCount(0);
+    // A private bucket's file gets a signed link on the project's API URL.
+    await fileRow.getByRole("button", { name: "Signed URL" }).click();
+    const signed = page.getByRole("dialog", { name: "Signed URL" });
+    await expect(signed.getByLabel("Signed URL")).toHaveValue(/\/storage\/v1\/object\/sign\/docs\/hello\.txt\?token=.+/);
+    expect(await signed.getByLabel("Signed URL").inputValue()).toMatch(new RegExp("^" + apiURL.replaceAll(".", "\\.") + "/"));
+    await page.keyboard.press("Escape");
+    await expect(signed).toBeHidden();
     await expect(fileRow.getByRole("link", { name: "Download" })).toHaveAttribute("href", /\/files\/buckets\/docs\/object\?path=hello\.txt$/);
     await shot(page, "79-storage");
     page.once("dialog", (d) => void d.accept());
