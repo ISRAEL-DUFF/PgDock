@@ -1215,6 +1215,39 @@ paths:
                 $ref: "#/components/schemas/Operation"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/migrate/supabase:
+    post:
+      operationId: migrateSupabase
+      summary: Run a step of the Supabase migration helper (V4 §9)
+      description: |
+        For a project with backend services on, after its database was
+        imported from Supabase. `policies` rewrites the imported policies
+        and column defaults to the project's request roles and pgd_auth
+        helpers; `users` copies auth.users and auth.identities from the
+        Supabase database, keeping ids and bcrypt password hashes (upgraded
+        to argon2id at each user's next sign-in); `storage` copies buckets,
+        files (over Supabase's S3 protocol) and storage policies. Each step
+        reports what it couldn't carry over in the operation's log, and can
+        run again (what's already there is kept). Credentials stay in the
+        server's memory only.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupabaseMigrationRequest"
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/replicas:
     get:
       operationId: listProjectReplicas
@@ -9836,6 +9869,32 @@ components:
       properties:
         synchronous:
           type: boolean
+    SupabaseMigrationRequest:
+      type: object
+      required: [step]
+      properties:
+        step:
+          type: string
+          enum: [policies, users, storage]
+        source_url:
+          type: string
+          description: The Supabase database's connection string (users and storage).
+        s3:
+          $ref: "#/components/schemas/SupabaseS3"
+    SupabaseS3:
+      type: object
+      required: [endpoint, access_key, secret_key]
+      description: The Supabase project's S3 connection (Project Settings → Storage).
+      properties:
+        endpoint:
+          type: string
+          description: e.g. https://<ref>.supabase.co/storage/v1/s3
+        region:
+          type: string
+        access_key:
+          type: string
+        secret_key:
+          type: string
     ReplicaCreateRequest:
       type: object
       properties:

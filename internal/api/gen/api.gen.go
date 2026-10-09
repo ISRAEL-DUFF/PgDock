@@ -2540,6 +2540,27 @@ func (e StorageTargetKind) Valid() bool {
 	}
 }
 
+// Defines values for SupabaseMigrationRequestStep.
+const (
+	Policies SupabaseMigrationRequestStep = "policies"
+	Storage  SupabaseMigrationRequestStep = "storage"
+	Users    SupabaseMigrationRequestStep = "users"
+)
+
+// Valid indicates whether the value is a known member of the SupabaseMigrationRequestStep enum.
+func (e SupabaseMigrationRequestStep) Valid() bool {
+	switch e {
+	case Policies:
+		return true
+	case Storage:
+		return true
+	case Users:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TableConstraintKind.
 const (
 	TableConstraintKindCheck      TableConstraintKind = "check"
@@ -8284,6 +8305,29 @@ type StorageTestStep struct {
 	TookMs int     `json:"took_ms"`
 }
 
+// SupabaseMigrationRequest defines model for SupabaseMigrationRequest.
+type SupabaseMigrationRequest struct {
+	// S3 The Supabase project's S3 connection (Project Settings → Storage).
+	S3 *SupabaseS3 `json:"s3,omitempty"`
+
+	// SourceUrl The Supabase database's connection string (users and storage).
+	SourceUrl *string                      `json:"source_url,omitempty"`
+	Step      SupabaseMigrationRequestStep `json:"step"`
+}
+
+// SupabaseMigrationRequestStep defines model for SupabaseMigrationRequest.Step.
+type SupabaseMigrationRequestStep string
+
+// SupabaseS3 The Supabase project's S3 connection (Project Settings → Storage).
+type SupabaseS3 struct {
+	AccessKey string `json:"access_key"`
+
+	// Endpoint e.g. https://<ref>.supabase.co/storage/v1/s3
+	Endpoint  string  `json:"endpoint"`
+	Region    *string `json:"region,omitempty"`
+	SecretKey string  `json:"secret_key"`
+}
+
 // SupportContext What the support console shows about the organisation. Metadata only; tenant data needs break-glass.
 type SupportContext struct {
 	BillingMode      *string            `json:"billing_mode,omitempty"`
@@ -9996,6 +10040,9 @@ type AddProjectMemberJSONRequestBody = ProjectMemberRequest
 // UpdateProjectMemberJSONRequestBody defines body for UpdateProjectMember for application/json ContentType.
 type UpdateProjectMemberJSONRequestBody = ProjectRoleRequest
 
+// MigrateSupabaseJSONRequestBody defines body for MigrateSupabase for application/json ContentType.
+type MigrateSupabaseJSONRequestBody = SupabaseMigrationRequest
+
 // RestoreProjectPITRJSONRequestBody defines body for RestoreProjectPITR for application/json ContentType.
 type RestoreProjectPITRJSONRequestBody = PitrRequest
 
@@ -10994,6 +11041,9 @@ type ServerInterface interface {
 	// GetProjectMetrics A project's metric series and top queries
 	// (GET /api/v1/projects/{id}/metrics)
 	GetProjectMetrics(w http.ResponseWriter, r *http.Request, id ProjectID, params GetProjectMetricsParams)
+	// MigrateSupabase Run a step of the Supabase migration helper (V4 §9)
+	// (POST /api/v1/projects/{id}/migrate/supabase)
+	MigrateSupabase(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ListProjectMoves The project's recent moves between instances, newest first
 	// (GET /api/v1/projects/{id}/moves)
 	ListProjectMoves(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -13016,6 +13066,12 @@ func (_ Unimplemented) UpdateProjectMember(w http.ResponseWriter, r *http.Reques
 // GetProjectMetrics A project's metric series and top queries
 // (GET /api/v1/projects/{id}/metrics)
 func (_ Unimplemented) GetProjectMetrics(w http.ResponseWriter, r *http.Request, id ProjectID, params GetProjectMetricsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// MigrateSupabase Run a step of the Supabase migration helper (V4 §9)
+// (POST /api/v1/projects/{id}/migrate/supabase)
+func (_ Unimplemented) MigrateSupabase(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -21489,6 +21545,32 @@ func (siw *ServerInterfaceWrapper) GetProjectMetrics(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// MigrateSupabase operation middleware
+func (siw *ServerInterfaceWrapper) MigrateSupabase(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MigrateSupabase(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListProjectMoves operation middleware
 func (siw *ServerInterfaceWrapper) ListProjectMoves(w http.ResponseWriter, r *http.Request) {
 
@@ -24515,6 +24597,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/ha/etcd-move", wrapper.MoveProjectEtcd)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/projects/{id}/migrate/supabase", wrapper.MigrateSupabase)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/replicas", wrapper.ListProjectReplicas)
