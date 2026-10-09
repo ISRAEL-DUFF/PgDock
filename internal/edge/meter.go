@@ -97,7 +97,7 @@ func (m *meter) record(l edgeapi.Log, billed, files bool, transforms int64) {
 }
 
 // take moves what was collected into a new pending report.
-func (m *meter) take(edge, region string, aliveEvery time.Duration) {
+func (m *meter) take(edge, region string, aliveEvery time.Duration, cpu *cpuSampler) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	now := time.Now().UTC()
@@ -106,7 +106,7 @@ func (m *meter) take(edge, region string, aliveEvery time.Duration) {
 		return
 	}
 	m.lastTaken = now
-	r := edgeapi.Report{BatchID: uuid.NewString(), Edge: edge, Region: region, At: now, Logs: m.logs}
+	r := edgeapi.Report{BatchID: uuid.NewString(), Edge: edge, Region: region, At: now, Logs: m.logs, CPUPercent: cpu.sample()}
 	for _, u := range m.usage {
 		r.Usage = append(r.Usage, *u)
 	}
@@ -157,7 +157,7 @@ func (e *Edge) report(ctx context.Context) {
 
 // flush sends what was collected (and any earlier reports not accepted).
 func (e *Edge) flush(ctx context.Context) {
-	e.meter.take(e.cfg.Name, e.cfg.Region, e.cfg.AliveEvery)
+	e.meter.take(e.cfg.Name, e.cfg.Region, e.cfg.AliveEvery, &e.cpu)
 	for {
 		r, ok := e.meter.next()
 		if !ok {

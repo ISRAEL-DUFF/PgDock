@@ -12219,8 +12219,8 @@ components:
           example: 10.0.0.12
         role:
           type: string
-          enum: [shared, dedicated, both, pooler]
-          description: "pooler: an edge pooler host (both PgBouncers and keepalived), never given a database."
+          enum: [shared, dedicated, both, pooler, edge]
+          description: "pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11)."
         region:
           type: string
           description: The region the node is in (default the home region). A pooler host serves that region's projects.
@@ -15961,6 +15961,9 @@ components:
           type: integer
         cluster_memory_mb:
           type: integer
+        cpu_threshold:
+          type: number
+          description: "Edge: propose an edge node when a region's edges average above this percentage of their hosts' CPUs for an hour (70)."
     CapacitySettings:
       type: object
       required: [auto_apply, monthly_budget_minor, budget_currency, shared, dedicated, auto_rebalance, rebalance_spread, delete_empty_after_hours]
@@ -15975,6 +15978,8 @@ components:
         shared:
           $ref: "#/components/schemas/TierSettings"
         dedicated:
+          $ref: "#/components/schemas/TierSettings"
+        edge:
           $ref: "#/components/schemas/TierSettings"
         auto_rebalance:
           type: boolean
@@ -15993,7 +15998,7 @@ components:
           type: string
         tier:
           type: string
-          enum: [shared, dedicated]
+          enum: [shared, dedicated, edge]
         reason:
           type: string
         provider:
@@ -16349,6 +16354,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/UnitCost"
+        services:
+          type: array
+          description: Margins per service (V4.1 §11).
+          items:
+            $ref: "#/components/schemas/ServiceMargin"
         revenue_minor:
           type: integer
           format: int64
@@ -16368,6 +16378,25 @@ components:
           type: integer
           format: int64
         fx_erosion_minor:
+          type: integer
+          format: int64
+        margin_pct:
+          type: number
+    ServiceMargin:
+      type: object
+      required: [service, revenue_minor, cost_minor, margin_minor]
+      properties:
+        service:
+          type: string
+          enum: [database, api, files, messages]
+          description: "database: plans, hosting, backups and replicas; api: the data API, auth and realtime (the edges); files: storage; messages: platform SMS and WhatsApp."
+        revenue_minor:
+          type: integer
+          format: int64
+        cost_minor:
+          type: integer
+          format: int64
+        margin_minor:
           type: integer
           format: int64
         margin_pct:
@@ -16419,6 +16448,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Overhead"
+        edge_share_percent:
+          type: number
+          description: The share of shared nodes' cost moved to the edge category, where pgdock-edge runs on them (0 to 100, default 0).
     FXRate:
       type: object
       required: [id, currency, ngn_per_unit, effective_at, source]

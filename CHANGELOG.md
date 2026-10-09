@@ -100,6 +100,15 @@ bundle share one version (spec §11.5).
   change at once; other changes show within the TTL. Cached answers are
   still metered. Upgrade pgdock-edge with pgdock-server;
   `PGDOCK_EDGE_CACHE_MB` sizes the cache (64 by default).
+- Cost attribution for backend services (V4.1-M10): new cost categories
+  **edge** (edge nodes, and a configurable share of shared nodes, split by
+  each organisation's requests and realtime minutes), **files** and
+  **messages** (the provider's charge for each platform-sent code), and a
+  **Margin by service** table on Platform → Costs & margins. Nodes can
+  have the role `edge`; edges report their CPU, and an hour above 70% in
+  a region proposes an edge node, which runs pgdock-edge only
+  (`PGDOCK_CLOUD_EDGE_IMAGE`). Upgrade pgdock-edge with pgdock-server. New
+  migration 00049.
 
 ### V4 (on feature/pgdock4)
 - Backend services' edge foundation (V4-M28): a project can turn on backend

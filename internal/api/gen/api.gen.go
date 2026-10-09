@@ -16,19 +16,19 @@ import (
 
 // Defines values for APITokenCreatedVia.
 const (
-	Api    APITokenCreatedVia = "api"
-	Device APITokenCreatedVia = "device"
-	Ui     APITokenCreatedVia = "ui"
+	APITokenCreatedViaApi    APITokenCreatedVia = "api"
+	APITokenCreatedViaDevice APITokenCreatedVia = "device"
+	APITokenCreatedViaUi     APITokenCreatedVia = "ui"
 )
 
 // Valid indicates whether the value is a known member of the APITokenCreatedVia enum.
 func (e APITokenCreatedVia) Valid() bool {
 	switch e {
-	case Api:
+	case APITokenCreatedViaApi:
 		return true
-	case Device:
+	case APITokenCreatedViaDevice:
 		return true
-	case Ui:
+	case APITokenCreatedViaUi:
 		return true
 	default:
 		return false
@@ -656,6 +656,7 @@ func (e CapacityProposalStatus) Valid() bool {
 // Defines values for CapacityProposalTier.
 const (
 	CapacityProposalTierDedicated CapacityProposalTier = "dedicated"
+	CapacityProposalTierEdge      CapacityProposalTier = "edge"
 	CapacityProposalTierShared    CapacityProposalTier = "shared"
 )
 
@@ -663,6 +664,8 @@ const (
 func (e CapacityProposalTier) Valid() bool {
 	switch e {
 	case CapacityProposalTierDedicated:
+		return true
+	case CapacityProposalTierEdge:
 		return true
 	case CapacityProposalTierShared:
 		return true
@@ -771,6 +774,7 @@ func (e CreateApiKeyRequestKind) Valid() bool {
 const (
 	CreateNodeRequestRoleBoth      CreateNodeRequestRole = "both"
 	CreateNodeRequestRoleDedicated CreateNodeRequestRole = "dedicated"
+	CreateNodeRequestRoleEdge      CreateNodeRequestRole = "edge"
 	CreateNodeRequestRolePooler    CreateNodeRequestRole = "pooler"
 	CreateNodeRequestRoleShared    CreateNodeRequestRole = "shared"
 )
@@ -781,6 +785,8 @@ func (e CreateNodeRequestRole) Valid() bool {
 	case CreateNodeRequestRoleBoth:
 		return true
 	case CreateNodeRequestRoleDedicated:
+		return true
+	case CreateNodeRequestRoleEdge:
 		return true
 	case CreateNodeRequestRolePooler:
 		return true
@@ -2648,6 +2654,30 @@ func (e ServiceChargeService) Valid() bool {
 	case ServiceChargeServiceRealtime:
 		return true
 	case ServiceChargeServiceStorage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServiceMarginService.
+const (
+	ServiceMarginServiceApi      ServiceMarginService = "api"
+	ServiceMarginServiceDatabase ServiceMarginService = "database"
+	ServiceMarginServiceFiles    ServiceMarginService = "files"
+	ServiceMarginServiceMessages ServiceMarginService = "messages"
+)
+
+// Valid indicates whether the value is a known member of the ServiceMarginService enum.
+func (e ServiceMarginService) Valid() bool {
+	switch e {
+	case ServiceMarginServiceApi:
+		return true
+	case ServiceMarginServiceDatabase:
+		return true
+	case ServiceMarginServiceFiles:
+		return true
+	case ServiceMarginServiceMessages:
 		return true
 	default:
 		return false
@@ -5200,14 +5230,15 @@ type CapacityProposalList struct {
 
 // CapacitySettings defines model for CapacitySettings.
 type CapacitySettings struct {
-	AutoApply             bool         `json:"auto_apply"`
-	AutoRebalance         bool         `json:"auto_rebalance"`
-	BudgetCurrency        string       `json:"budget_currency"`
-	Dedicated             TierSettings `json:"dedicated"`
-	DeleteEmptyAfterHours int          `json:"delete_empty_after_hours"`
-	MonthlyBudgetMinor    int64        `json:"monthly_budget_minor"`
-	RebalanceSpread       float32      `json:"rebalance_spread"`
-	Shared                TierSettings `json:"shared"`
+	AutoApply             bool          `json:"auto_apply"`
+	AutoRebalance         bool          `json:"auto_rebalance"`
+	BudgetCurrency        string        `json:"budget_currency"`
+	Dedicated             TierSettings  `json:"dedicated"`
+	DeleteEmptyAfterHours int           `json:"delete_empty_after_hours"`
+	Edge                  *TierSettings `json:"edge,omitempty"`
+	MonthlyBudgetMinor    int64         `json:"monthly_budget_minor"`
+	RebalanceSpread       float32       `json:"rebalance_spread"`
+	Shared                TierSettings  `json:"shared"`
 }
 
 // CatalogAccess defines model for CatalogAccess.
@@ -5354,7 +5385,10 @@ type ConnectionInfo struct {
 
 // CostSettings defines model for CostSettings.
 type CostSettings struct {
-	Currency                  string     `json:"currency"`
+	Currency string `json:"currency"`
+
+	// EdgeSharePercent The share of shared nodes' cost moved to the edge category, where pgdock-edge runs on them (0 to 100, default 0).
+	EdgeSharePercent          *float32   `json:"edge_share_percent,omitempty"`
 	EgressGbMinor             float32    `json:"egress_gb_minor"`
 	FloatingIpMonthlyMinor    int64      `json:"floating_ip_monthly_minor"`
 	FloatingIps               int        `json:"floating_ips"`
@@ -5399,11 +5433,11 @@ type CreateNodeRequest struct {
 	// Region The region the node is in (default the home region). A pooler host serves that region's projects.
 	Region *string `json:"region,omitempty"`
 
-	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database.
+	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
 	Role CreateNodeRequestRole `json:"role"`
 }
 
-// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database.
+// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
 type CreateNodeRequestRole string
 
 // CreateOrgRequest defines model for CreateOrgRequest.
@@ -6881,8 +6915,11 @@ type Margins struct {
 	Plans             []PlanMargin       `json:"plans"`
 	Rates             map[string]float32 `json:"rates"`
 	RevenueMinor      int64              `json:"revenue_minor"`
-	UnallocatedMinor  int64              `json:"unallocated_minor"`
-	Units             []UnitCost         `json:"units"`
+
+	// Services Margins per service (V4.1 §11).
+	Services         *[]ServiceMargin `json:"services,omitempty"`
+	UnallocatedMinor int64            `json:"unallocated_minor"`
+	Units            []UnitCost       `json:"units"`
 }
 
 // MetricPoint defines model for MetricPoint.
@@ -8625,6 +8662,20 @@ type ServiceCharge struct {
 // ServiceChargeService defines model for ServiceCharge.Service.
 type ServiceChargeService string
 
+// ServiceMargin defines model for ServiceMargin.
+type ServiceMargin struct {
+	CostMinor    int64    `json:"cost_minor"`
+	MarginMinor  int64    `json:"margin_minor"`
+	MarginPct    *float32 `json:"margin_pct,omitempty"`
+	RevenueMinor int64    `json:"revenue_minor"`
+
+	// Service database: plans, hosting, backups and replicas; api: the data API, auth and realtime (the edges); files: storage; messages: platform SMS and WhatsApp.
+	Service ServiceMarginService `json:"service"`
+}
+
+// ServiceMarginService database: plans, hosting, backups and replicas; api: the data API, auth and realtime (the edges); files: storage; messages: platform SMS and WhatsApp.
+type ServiceMarginService string
+
 // ServiceSpend defines model for ServiceSpend.
 type ServiceSpend struct {
 	// ProjectedMinor The whole month's, projected from usage so far.
@@ -9380,14 +9431,17 @@ type TicketUpdateStatus string
 
 // TierSettings defines model for TierSettings.
 type TierSettings struct {
-	ClusterMemoryMb *int     `json:"cluster_memory_mb,omitempty"`
-	DiskThreshold   *float32 `json:"disk_threshold,omitempty"`
-	Enabled         bool     `json:"enabled"`
-	HorizonDays     *int     `json:"horizon_days,omitempty"`
-	MinCpus         *int     `json:"min_cpus,omitempty"`
-	MinDiskGb       *int     `json:"min_disk_gb,omitempty"`
-	MinMemoryGb     *float32 `json:"min_memory_gb,omitempty"`
-	ServerType      *string  `json:"server_type,omitempty"`
+	ClusterMemoryMb *int `json:"cluster_memory_mb,omitempty"`
+
+	// CpuThreshold Edge: propose an edge node when a region's edges average above this percentage of their hosts' CPUs for an hour (70).
+	CpuThreshold  *float32 `json:"cpu_threshold,omitempty"`
+	DiskThreshold *float32 `json:"disk_threshold,omitempty"`
+	Enabled       bool     `json:"enabled"`
+	HorizonDays   *int     `json:"horizon_days,omitempty"`
+	MinCpus       *int     `json:"min_cpus,omitempty"`
+	MinDiskGb     *int     `json:"min_disk_gb,omitempty"`
+	MinMemoryGb   *float32 `json:"min_memory_gb,omitempty"`
+	ServerType    *string  `json:"server_type,omitempty"`
 }
 
 // TlsStatus defines model for TlsStatus.

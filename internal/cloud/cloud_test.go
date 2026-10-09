@@ -172,3 +172,69 @@ func TestCloudInit(t *testing.T) {
 		}
 	}
 }
+
+// TestCloudInitEdge: an edge node runs pgdock-edge beside the agent, with
+// its secret in a root-only file (V4.1 §11).
+func TestCloudInitEdge(t *testing.T) {
+	b := Bootstrap{
+		NodeName: "pgd-ng-lagos-4", ServerURL: "https://pgdock.example.com", Token: "pgdreg_abc",
+		AgentImage: "ghcr.io/acme/pgdock-agent:3.0.0", PGImage: "ghcr.io/acme/pgdock-postgres:{major}",
+		PrivateCIDR: "10.0.0.0/16", ServerCA: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n",
+		Edge: &EdgeBootstrap{Image: "ghcr.io/acme/pgdock-edge:4.1.0", ControlURL: "https://pgdock.example.com",
+			Secret: strings.Repeat("s", 40), Domain: "api.pgdock.ng", Region: "ng-lagos"},
+	}
+	doc, err := b.CloudInit()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed struct {
+		WriteFiles []struct {
+			Path, Permissions, Content string
+		} `yaml:"write_files"`
+	}
+	if err := yaml.Unmarshal([]byte(doc), &parsed); err != nil {
+		t.Fatalf("YAML: %v\n%s", err, doc)
+	}
+	files, perms := map[string]string{}, map[string]string{}
+	for _, f := range parsed.WriteFiles {
+		files[f.Path], perms[f.Path] = f.Content, f.Permissions
+	}
+	env := files["/etc/pgdock/edge.env"]
+	for _, want := range []string{"PGDOCK_EDGE_NAME=pgd-ng-lagos-4", "PGDOCK_EDGE_SECRET=" + strings.Repeat("s", 40),
+		"PGDOCK_EDGE_DOMAIN=api.pgdock.ng", "PGDOCK_EDGE_REGION=ng-lagos", "PGDOCK_EDGE_CONTROL_URL=https://pgdock.example.com"} {
+		if !strings.Contains(env, want) {
+			t.Errorf("edge.env lacks %s:\n%s", want, env)
+		}
+	}
+	if perms["/etc/pgdock/edge.env"] != "0600" {
+		t.Errorf("edge.env permissions %s", perms["/etc/pgdock/edge.env"])
+	}
+	if !strings.Contains(files["/etc/pgdock/agent.env"], "PGDOCK_AGENT_SERVER_CA=") || strings.Contains(env, "AGENT") {
+		t.Errorf("the env files are mixed up:\nagent: %s\nedge: %s", files["/etc/pgdock/agent.env"], env)
+	}
+	join := files["/usr/local/sbin/pgdock-join"]
+	for _, want := range []string{"ufw allow 8443/tcp", "--name pgdock-edge", "--env-file /etc/pgdock/edge.env", "ghcr.io/acme/pgdock-edge:4.1.0", "--name pgdock-agent"} {
+		if !strings.Contains(join, want) {
+			t.Errorf("the join script lacks %s:\n%s", want, join)
+		}
+	}
+	for name, mut := range map[string]func(*EdgeBootstrap){
+		"short secret":  func(e *EdgeBootstrap) { e.Secret = "short" },
+		"quoted secret": func(e *EdgeBootstrap) { e.Secret = strings.Repeat("s", 40) + "'" },
+		"bad domain":    func(e *EdgeBootstrap) { e.Domain = "api pgdock" },
+		"bad image":     func(e *EdgeBootstrap) { e.Image = "a b" },
+	} {
+		e := *b.Edge
+		mut(&e)
+		c := b
+		c.Edge = &e
+		if _, err := c.CloudInit(); err == nil {
+			t.Errorf("%s: rendered", name)
+		}
+	}
+	plain := b
+	plain.Edge = nil
+	if doc, _ := plain.CloudInit(); strings.Contains(doc, "pgdock-edge") {
+		t.Error("a database node runs the edge")
+	}
+}

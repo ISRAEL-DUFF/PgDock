@@ -378,6 +378,9 @@ type Report struct {
 	KeysUsed []uuid.UUID `json:"keys_used,omitempty"`
 	// ActiveUsers is who used auth since the last report, once each.
 	ActiveUsers []ActiveUser `json:"active_users,omitempty"`
+	// CPUPercent is the edge process's share of its host's CPUs since its
+	// previous report (V4.1 §11), when it can tell.
+	CPUPercent *float64 `json:"cpu_percent,omitempty"`
 }
 
 // Wake asks for a paused project to be resumed.

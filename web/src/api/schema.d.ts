@@ -7869,10 +7869,10 @@ export interface components {
              */
             private_addr: string;
             /**
-             * @description pooler: an edge pooler host (both PgBouncers and keepalived), never given a database.
+             * @description pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
              * @enum {string}
              */
-            role: "shared" | "dedicated" | "both" | "pooler";
+            role: "shared" | "dedicated" | "both" | "pooler" | "edge";
             /** @description The region the node is in (default the home region). A pooler host serves that region's projects. */
             region?: string;
             /** @description What fails with this node (a rack, a host, a power feed), e.g. lagos-dc1-r3. Letters, digits, dots, colons, dashes and underscores. */
@@ -9842,6 +9842,8 @@ export interface components {
             min_memory_gb?: number;
             min_disk_gb?: number;
             cluster_memory_mb?: number;
+            /** @description Edge: propose an edge node when a region's edges average above this percentage of their hosts' CPUs for an hour (70). */
+            cpu_threshold?: number;
         };
         CapacitySettings: {
             auto_apply: boolean;
@@ -9850,6 +9852,7 @@ export interface components {
             budget_currency: string;
             shared: components["schemas"]["TierSettings"];
             dedicated: components["schemas"]["TierSettings"];
+            edge?: components["schemas"]["TierSettings"];
             auto_rebalance: boolean;
             rebalance_spread: number;
             delete_empty_after_hours: number;
@@ -9859,7 +9862,7 @@ export interface components {
             id: string;
             region: string;
             /** @enum {string} */
-            tier: "shared" | "dedicated";
+            tier: "shared" | "dedicated" | "edge";
             reason: string;
             provider: string;
             server_type: string;
@@ -10045,6 +10048,8 @@ export interface components {
             plans: components["schemas"]["PlanMargin"][];
             orgs: components["schemas"]["OrgMargin"][];
             units: components["schemas"]["UnitCost"][];
+            /** @description Margins per service (V4.1 §11). */
+            services?: components["schemas"]["ServiceMargin"][];
             /** Format: int64 */
             revenue_minor: number;
             /** Format: int64 */
@@ -10059,6 +10064,20 @@ export interface components {
             margin_minor: number;
             /** Format: int64 */
             fx_erosion_minor: number;
+            margin_pct?: number;
+        };
+        ServiceMargin: {
+            /**
+             * @description database: plans, hosting, backups and replicas; api: the data API, auth and realtime (the edges); files: storage; messages: platform SMS and WhatsApp.
+             * @enum {string}
+             */
+            service: "database" | "api" | "files" | "messages";
+            /** Format: int64 */
+            revenue_minor: number;
+            /** Format: int64 */
+            cost_minor: number;
+            /** Format: int64 */
+            margin_minor: number;
             margin_pct?: number;
         };
         AttributeRequest: {
@@ -10087,6 +10106,8 @@ export interface components {
             /** Format: int64 */
             floating_ip_monthly_minor: number;
             overheads: components["schemas"]["Overhead"][];
+            /** @description The share of shared nodes' cost moved to the edge category, where pgdock-edge runs on them (0 to 100, default 0). */
+            edge_share_percent?: number;
         };
         FXRate: {
             /** Format: int64 */

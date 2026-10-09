@@ -435,11 +435,18 @@ func run() error {
 	}
 	var capacitySvc *capacity.Service
 	if backups != nil {
+		var edgeBoot *cloud.EdgeBootstrap
+		if cfg.Cloud.EdgeImage != "" && cfg.Edge.Secret != "" && cfg.Edge.Domain != "" {
+			// Edge nodes (V4.1 §11) run pgdock-edge with the edge secret.
+			edgeBoot = &cloud.EdgeBootstrap{Image: cfg.Cloud.EdgeImage, ControlURL: cfg.Cloud.ServerURL,
+				Secret: cfg.Edge.Secret, Domain: cfg.Edge.Domain}
+		}
 		capacitySvc = capacity.New(pool, nodeSvc, backups.Dedicated, cloudProvider(cfg.Cloud), costSvc, capacity.Config{
 			Region: cfg.Cloud.Region, Location: cfg.Cloud.HetznerLocation, Image: cfg.Cloud.HetznerImage,
 			Network: cfg.Cloud.HetznerNetworkID, PlacementGroup: cfg.Cloud.HetznerPlacementGroup, SSHKeys: cfg.Cloud.HetznerSSHKeys,
 			Bootstrap: cloud.Bootstrap{ServerURL: cfg.Cloud.ServerURL, ServerCA: cfg.Cloud.ServerCA, AgentImage: cfg.Cloud.AgentImage,
 				PGImage: cfg.Cloud.PGImage, PrivateCIDR: cfg.Cloud.PrivateCIDR},
+			Edge: edgeBoot,
 		}, log)
 		for name, k := range capacitySvc.Kinds() {
 			kinds[name] = k

@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/israel-duff/pgdock/internal/billing"
 	"github.com/israel-duff/pgdock/internal/store"
 )
 
@@ -62,6 +63,51 @@ type UnitCost struct {
 	PerUnitNG float64 `json:"per_unit_ngn_minor"`
 }
 
+// ServiceMargin is a service's month across organisations (V4.1 §11):
+// what the price book earned for it against what it cost, beside the M37
+// revenue breakdown.
+type ServiceMargin struct {
+	Service   string   `json:"service"`
+	Revenue   int64    `json:"revenue_minor"`
+	Cost      int64    `json:"cost_minor"`
+	Margin    int64    `json:"margin_minor"`
+	MarginPct *float64 `json:"margin_pct,omitempty"`
+}
+
+// Services in the margins, in order: databases (plans, shared and
+// dedicated hosting, backups, replicas), the API (data API, auth and
+// realtime, served by the edges), files and messages.
+var marginServices = []string{"database", "api", "files", "messages"}
+
+// serviceOfLine groups billing's per-service revenue (billing.LineService).
+func serviceOfLine(svc string) string {
+	switch svc {
+	case "data_api", "auth", "realtime":
+		return "api"
+	case "storage":
+		return "files"
+	case "messages":
+		return "messages"
+	}
+	return "database" // plan, database, read_replicas
+}
+
+// serviceOfCategory groups the cost categories; "" for those charged to
+// no organisation.
+func serviceOfCategory(cat string) string {
+	switch cat {
+	case CatEdge:
+		return "api"
+	case CatFiles:
+		return "files"
+	case CatMessages:
+		return "messages"
+	case CatIdle, CatFloatingIP, CatOverhead:
+		return ""
+	}
+	return "database"
+}
+
 // Margins is the cost side of the dashboard for a month.
 type Margins struct {
 	Month string `json:"month"`
@@ -75,9 +121,11 @@ type Margins struct {
 	Plans        []PlanMargin   `json:"plans"`
 	Orgs         []OrgMargin    `json:"orgs"`
 	Units        []UnitCost     `json:"units"`
-	Revenue      int64          `json:"revenue_minor"`
-	Cost         int64          `json:"cost_minor"`
-	CostBooked   int64          `json:"cost_booked_minor"`
+	// Services are the margins per service (V4.1 §11).
+	Services   []ServiceMargin `json:"services"`
+	Revenue    int64           `json:"revenue_minor"`
+	Cost       int64           `json:"cost_minor"`
+	CostBooked int64           `json:"cost_booked_minor"`
 	// Unallocated is idle capacity, floating IPs and overheads: charged to
 	// no organisation, so in the total margin only.
 	Unallocated int64 `json:"unallocated_minor"`
@@ -114,7 +162,9 @@ func (s *Service) Margins(ctx context.Context, month time.Time) (Margins, error)
 	if err != nil {
 		return Margins{}, err
 	}
-	out := Margins{Month: from.Format("2006-01"), Rates: now, Categories: []CategoryCost{}, Plans: []PlanMargin{}, Orgs: []OrgMargin{}, Units: []UnitCost{}}
+	out := Margins{Month: from.Format("2006-01"), Rates: now, Categories: []CategoryCost{}, Plans: []PlanMargin{}, Orgs: []OrgMargin{},
+		Units: []UnitCost{}, Services: []ServiceMargin{}}
+	svcRevenue, svcCost := map[string]int64{}, map[string]float64{}
 	// Each day's rates, for the booked view.
 	dayRates := map[string]Rates{}
 	rateOn := func(d time.Time) (Rates, error) {
@@ -156,6 +206,9 @@ func (s *Service) Margins(ctx context.Context, month time.Time) (Margins, error)
 			missing[r.Currency] = true
 		}
 		catNGN[k] += ngn
+		if svc := serviceOfCategory(r.Category); svc != "" && r.OrgID != uuid.Nil {
+			svcCost[svc] += ngn
+		}
 		// At the rate in effect that day; before the first rate recorded,
 		// at the current one.
 		booked := ngn
@@ -247,6 +300,12 @@ func (s *Service) Margins(ctx context.Context, month time.Time) (Margins, error)
 			r, err := s.rater.Rate(ctx, o.ID, from)
 			if err == nil {
 				revenue = earned(r.Subtotal, r.NextFee, r.MonthFee)
+				svcRevenue["database"] += r.MonthFee
+				for _, l := range r.Lines {
+					if !l.Advance {
+						svcRevenue[serviceOfLine(billing.LineService(l))] += l.Amount
+					}
+				}
 			} else {
 				s.log.Warn("margin: rate", "org", o.ID, "err", err)
 			}
@@ -287,6 +346,15 @@ func (s *Service) Margins(ctx context.Context, month time.Time) (Margins, error)
 	}
 	out.Margin = out.Revenue - out.Cost
 	out.MarginPct = pct(out.Margin, out.Revenue)
+	for _, svc := range marginServices {
+		sm := ServiceMargin{Service: svc, Revenue: svcRevenue[svc], Cost: int64(math.Round(svcCost[svc]))}
+		if sm.Revenue == 0 && sm.Cost == 0 {
+			continue
+		}
+		sm.Margin = sm.Revenue - sm.Cost
+		sm.MarginPct = pct(sm.Margin, sm.Revenue)
+		out.Services = append(out.Services, sm)
+	}
 	return out, nil
 }
 
@@ -325,6 +393,15 @@ func WriteMarginsCSV(w io.Writer, m Margins) error {
 			p = strconv.FormatFloat(*o.MarginPct, 'f', 1, 64)
 		}
 		_ = cw.Write([]string{o.Name, o.OrgID.String(), o.Plan, kobo(o.Revenue), kobo(o.Cost), kobo(o.Margin), p})
+	}
+	_ = cw.Write(nil)
+	_ = cw.Write([]string{"service", "revenue_ngn", "cost_ngn", "margin_ngn", "margin_pct"})
+	for _, sm := range m.Services {
+		p := ""
+		if sm.MarginPct != nil {
+			p = strconv.FormatFloat(*sm.MarginPct, 'f', 1, 64)
+		}
+		_ = cw.Write([]string{sm.Service, kobo(sm.Revenue), kobo(sm.Cost), kobo(sm.Margin), p})
 	}
 	_ = cw.Write(nil)
 	_ = cw.Write([]string{"total revenue", kobo(m.Revenue)})

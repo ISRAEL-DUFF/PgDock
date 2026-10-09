@@ -81,6 +81,15 @@ func (s *Service) runProvision(ctx context.Context, op store.Operation, log *job
 			}
 			b := s.cfg.Bootstrap
 			b.NodeName, b.Token = node.Name, token
+			if p.Tier == TierEdge {
+				// pgdock-edge runs beside the agent (V4.1 §11).
+				if s.cfg.Edge == nil {
+					return jobs.Permanent(errors.New("edge nodes need PGDOCK_CLOUD_EDGE_IMAGE and PGDOCK_EDGE_SECRET on pgdock-server; add the server by hand and mark the proposal done"))
+				}
+				e := *s.cfg.Edge
+				e.Region = p.Region
+				b.Edge = &e
+			}
 			userData, err := b.CloudInit()
 			if err != nil {
 				return jobs.Permanent(err)
@@ -186,8 +195,11 @@ func (s *Service) proposalNode(ctx context.Context, id uuid.UUID) (node store.No
 			return err
 		}
 		role := "shared"
-		if p.Tier == TierDedicated {
+		switch p.Tier {
+		case TierDedicated:
 			role = "dedicated"
+		case TierEdge:
+			role = "edge"
 		}
 		cost := p.MonthlyCostMinor
 		typ := p.ServerType

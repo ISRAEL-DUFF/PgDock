@@ -348,6 +348,13 @@ type Edge struct {
 	LastReportAt time.Time
 }
 
+type EdgeCpuSample struct {
+	Edge       string
+	Region     string
+	At         time.Time
+	CpuPercent float32
+}
+
 type EdgeReport struct {
 	BatchID    string
 	Edge       string

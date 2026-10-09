@@ -13,6 +13,49 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const edgeCPUByRegion = `-- name: EdgeCPUByRegion :many
+SELECT region, min(avg_cpu)::float8 AS min_cpu, max(avg_cpu)::float8 AS max_cpu, count(*)::int AS buckets
+FROM (
+  SELECT region, date_bin('5 minutes', at, '2000-01-01') AS bucket, avg(cpu_percent) AS avg_cpu
+  FROM edge_cpu_samples WHERE at >= $1 GROUP BY region, bucket
+) b
+GROUP BY region ORDER BY region
+`
+
+type EdgeCPUByRegionRow struct {
+	Region  string
+	MinCpu  float64
+	MaxCpu  float64
+	Buckets int32
+}
+
+// tenant: system - each region's edge CPU since a time, in 5-minute buckets
+// averaged across its edges: the lowest bucket and how many there are.
+func (q *Queries) EdgeCPUByRegion(ctx context.Context, since time.Time) ([]EdgeCPUByRegionRow, error) {
+	rows, err := q.db.Query(ctx, edgeCPUByRegion, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EdgeCPUByRegionRow
+	for rows.Next() {
+		var i EdgeCPUByRegionRow
+		if err := rows.Scan(
+			&i.Region,
+			&i.MinCpu,
+			&i.MaxCpu,
+			&i.Buckets,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const edgeHealth = `-- name: EdgeHealth :many
 SELECT region, count(*)::int AS edges, (count(*) FILTER (WHERE last_report_at < $1))::int AS silent
 FROM edges WHERE last_report_at > now() - interval '1 day'
@@ -44,6 +87,22 @@ func (q *Queries) EdgeHealth(ctx context.Context, staleBefore time.Time) ([]Edge
 		return nil, err
 	}
 	return items, nil
+}
+
+const insertEdgeCPUSample = `-- name: InsertEdgeCPUSample :exec
+INSERT INTO edge_cpu_samples (edge, region, cpu_percent) VALUES ($1, $2, $3)
+`
+
+type InsertEdgeCPUSampleParams struct {
+	Edge       string
+	Region     string
+	CpuPercent float32
+}
+
+// tenant: system - an edge report's CPU, for edge capacity (V4.1 §11).
+func (q *Queries) InsertEdgeCPUSample(ctx context.Context, arg InsertEdgeCPUSampleParams) error {
+	_, err := q.db.Exec(ctx, insertEdgeCPUSample, arg.Edge, arg.Region, arg.CpuPercent)
+	return err
 }
 
 const orgBillingStanding = `-- name: OrgBillingStanding :one
@@ -163,6 +222,16 @@ func (q *Queries) ProviderUnavailableSince(ctx context.Context, since time.Time)
 		return nil, err
 	}
 	return items, nil
+}
+
+const pruneEdgeCPUSamples = `-- name: PruneEdgeCPUSamples :exec
+DELETE FROM edge_cpu_samples WHERE at < now() - interval '2 days'
+`
+
+// tenant: system - edge CPU is kept two days.
+func (q *Queries) PruneEdgeCPUSamples(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, pruneEdgeCPUSamples)
+	return err
 }
 
 const setBillingContactStatusEmails = `-- name: SetBillingContactStatusEmails :execrows

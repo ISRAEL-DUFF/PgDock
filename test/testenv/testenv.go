@@ -368,6 +368,7 @@ func Start(t testing.TB, opts Options) *Env {
 	capacitySvc := capacity.New(db, nodeSvc, ded, &cloud.HetznerProvider{API: hetznerSrv.URL + "/v1", Token: "hetzner-test-token"}, nil, capacity.Config{
 		Region: "eu-central", Location: "fsn1", Image: "ubuntu-24.04", JoinTimeout: 2 * time.Minute, Poll: 300 * time.Millisecond,
 		Bootstrap: cloud.Bootstrap{ServerURL: "https://pgdock.test", AgentImage: "pgdock-agent:test", PGImage: "pgdock-postgres:{major}", PrivateCIDR: "10.0.0.0/16"},
+		Edge:      &cloud.EdgeBootstrap{Image: "pgdock-edge:test", ControlURL: "https://pgdock.test", Secret: EdgeSecret, Domain: EdgeDomain},
 	}, log)
 	for name, k := range capacitySvc.Kinds() {
 		kinds[name] = k

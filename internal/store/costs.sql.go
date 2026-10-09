@@ -293,11 +293,13 @@ func (q *Queries) CostOrgs(ctx context.Context, fromDay pgtype.Date) ([]CostOrgs
 }
 
 const costUsageForDay = `-- name: CostUsageForDay :many
-SELECT org_id, project_id, metric, sum(quantity)::float8 AS quantity
-FROM usage_records
-WHERE period_start >= $1 AND period_start < $2
-  AND metric IN ('shared_storage_gb_hours', 'backup_storage_gb_hours', 'pooler_transfer_gb', 'branch_gb_hours')
-GROUP BY org_id, project_id, metric
+SELECT u.org_id, u.project_id, u.metric, coalesce(p.region, '')::text AS region, sum(u.quantity)::float8 AS quantity
+FROM usage_records u LEFT JOIN projects p ON p.id = u.project_id
+WHERE u.period_start >= $1 AND u.period_start < $2
+  AND u.metric IN ('shared_storage_gb_hours', 'backup_storage_gb_hours', 'pooler_transfer_gb', 'branch_gb_hours',
+    'api_requests', 'realtime_connection_minutes', 'storage_gb_hours', 'storage_egress_gb',
+    'messages_sms_cost_kobo', 'messages_whatsapp_cost_kobo')
+GROUP BY u.org_id, u.project_id, u.metric, p.region
 `
 
 type CostUsageForDayParams struct {
@@ -309,10 +311,12 @@ type CostUsageForDayRow struct {
 	OrgID     uuid.UUID
 	ProjectID uuid.UUID
 	Metric    string
+	Region    string
 	Quantity  float64
 }
 
-// tenant: system - every organisation's usage on a day, for cost attribution.
+// tenant: system - every organisation's usage on a day, for cost attribution,
+// with each project's region (backend services' edge cost is split by region).
 func (q *Queries) CostUsageForDay(ctx context.Context, arg CostUsageForDayParams) ([]CostUsageForDayRow, error) {
 	rows, err := q.db.Query(ctx, costUsageForDay, arg.DayStart, arg.DayEnd)
 	if err != nil {
@@ -326,6 +330,7 @@ func (q *Queries) CostUsageForDay(ctx context.Context, arg CostUsageForDayParams
 			&i.OrgID,
 			&i.ProjectID,
 			&i.Metric,
+			&i.Region,
 			&i.Quantity,
 		); err != nil {
 			return nil, err

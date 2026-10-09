@@ -30,12 +30,15 @@ WHERE i.deleted_at IS NULL;
 SELECT m.node_id, m.instance_id FROM instance_members m WHERE m.deleted_at IS NULL AND m.role <> 'stopped';
 
 -- name: CostUsageForDay :many
--- tenant: system - every organisation's usage on a day, for cost attribution.
-SELECT org_id, project_id, metric, sum(quantity)::float8 AS quantity
-FROM usage_records
-WHERE period_start >= @day_start AND period_start < @day_end
-  AND metric IN ('shared_storage_gb_hours', 'backup_storage_gb_hours', 'pooler_transfer_gb', 'branch_gb_hours')
-GROUP BY org_id, project_id, metric;
+-- tenant: system - every organisation's usage on a day, for cost attribution,
+-- with each project's region (backend services' edge cost is split by region).
+SELECT u.org_id, u.project_id, u.metric, coalesce(p.region, '')::text AS region, sum(u.quantity)::float8 AS quantity
+FROM usage_records u LEFT JOIN projects p ON p.id = u.project_id
+WHERE u.period_start >= @day_start AND u.period_start < @day_end
+  AND u.metric IN ('shared_storage_gb_hours', 'backup_storage_gb_hours', 'pooler_transfer_gb', 'branch_gb_hours',
+    'api_requests', 'realtime_connection_minutes', 'storage_gb_hours', 'storage_egress_gb',
+    'messages_sms_cost_kobo', 'messages_whatsapp_cost_kobo')
+GROUP BY u.org_id, u.project_id, u.metric, p.region;
 
 -- name: CostConnectionHours :many
 -- tenant: system - each project's client connection-hours on a day (hourly

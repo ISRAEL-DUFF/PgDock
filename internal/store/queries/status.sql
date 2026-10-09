@@ -71,3 +71,21 @@ LIMIT 20;
 -- An org's dunning state, failing card and this month's budget alert.
 SELECT b.dunning_state, (b.card_failing_since IS NOT NULL)::bool AS card_failing, b.budget_alerted, b.budget_month
 FROM billing_accounts b WHERE b.org_id = @org_id;
+
+-- name: InsertEdgeCPUSample :exec
+-- tenant: system - an edge report's CPU, for edge capacity (V4.1 §11).
+INSERT INTO edge_cpu_samples (edge, region, cpu_percent) VALUES (@edge, @region, @cpu_percent);
+
+-- name: PruneEdgeCPUSamples :exec
+-- tenant: system - edge CPU is kept two days.
+DELETE FROM edge_cpu_samples WHERE at < now() - interval '2 days';
+
+-- name: EdgeCPUByRegion :many
+-- tenant: system - each region's edge CPU since a time, in 5-minute buckets
+-- averaged across its edges: the lowest bucket and how many there are.
+SELECT region, min(avg_cpu)::float8 AS min_cpu, max(avg_cpu)::float8 AS max_cpu, count(*)::int AS buckets
+FROM (
+  SELECT region, date_bin('5 minutes', at, '2000-01-01') AS bucket, avg(cpu_percent) AS avg_cpu
+  FROM edge_cpu_samples WHERE at >= @since GROUP BY region, bucket
+) b
+GROUP BY region ORDER BY region;

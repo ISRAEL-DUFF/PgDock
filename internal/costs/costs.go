@@ -38,6 +38,11 @@ const (
 	CatFloatingIP = "floating_ip"
 	CatOverhead   = "overhead"
 	CatIdle       = "idle"
+	// Backend services (V4.1 §11): edge nodes (and a share of shared nodes
+	// running edges), file storage, and platform SMS and WhatsApp.
+	CatEdge     = "edge"
+	CatFiles    = "files"
+	CatMessages = "messages"
 )
 
 // NGN is the naira, the currency revenue is in.
@@ -105,6 +110,9 @@ type Settings struct {
 	FloatingIPMonthly int64 `json:"floating_ip_monthly_minor"`
 	// Overheads are fixed monthly costs no organisation is charged with.
 	Overheads []Overhead `json:"overheads"`
+	// EdgeSharePercent is the share of shared nodes' cost moved to the edge
+	// category where pgdock-edge runs on them (V4.1 §11): 0 to 100.
+	EdgeSharePercent float64 `json:"edge_share_percent"`
 }
 
 // DefaultSettings are Hetzner's list prices in euros (2026).
@@ -131,6 +139,9 @@ func (st Settings) Validate() error {
 	}
 	if st.ObjectStorageGBMonth < 0 || st.EgressGB < 0 || st.FloatingIPs < 0 || st.FloatingIPMonthly < 0 {
 		return invalid("prices and counts can't be negative")
+	}
+	if st.EdgeSharePercent < 0 || st.EdgeSharePercent > 100 {
+		return invalid("the edge's share of shared nodes is a percentage from 0 to 100")
 	}
 	for _, o := range st.Overheads {
 		if strings.TrimSpace(o.Name) == "" || o.MonthlyMinor < 0 || !validCurrency(o.Currency) {
@@ -276,6 +287,56 @@ func (l ledger) add(org uuid.UUID, cat, region, cur string, amount, qty float64)
 	l[k].quantity += qty
 }
 
+// edgeUse is backend services' use of the edges, per region and
+// organisation: requests and realtime connection-minutes (V4.1 §11).
+type edgeUse struct {
+	requests, minutes map[string]map[uuid.UUID]float64 // region ("*" for all) -> org -> quantity
+}
+
+func (u edgeUse) add(m map[string]map[uuid.UUID]float64, region string, org uuid.UUID, q float64) {
+	for _, r := range []string{region, "*"} {
+		if m[r] == nil {
+			m[r] = map[uuid.UUID]float64{}
+		}
+		m[r][org] += q
+	}
+}
+
+// weights is each organisation's share of region's edge use: half by its
+// share of requests, half by its share of realtime connection-minutes (all
+// of one when there is none of the other). A region without use falls back
+// to every region's; nil when there is none at all.
+func (u edgeUse) weights(region string) map[uuid.UUID]float64 {
+	for _, r := range []string{region, "*"} {
+		var reqs, mins float64
+		for _, v := range u.requests[r] {
+			reqs += v
+		}
+		for _, v := range u.minutes[r] {
+			mins += v
+		}
+		if reqs == 0 && mins == 0 {
+			continue
+		}
+		reqW, minW := 0.5, 0.5
+		switch {
+		case mins == 0:
+			reqW, minW = 1, 0
+		case reqs == 0:
+			reqW, minW = 0, 1
+		}
+		out := map[uuid.UUID]float64{}
+		for org, v := range u.requests[r] {
+			out[org] += reqW * v / reqs
+		}
+		for org, v := range u.minutes[r] {
+			out[org] += minW * v / mins
+		}
+		return out
+	}
+	return nil
+}
+
 // Attribute computes day's costs (a UTC date) and replaces its allocations.
 //
 // Each node costs its monthly price divided by the days in the month. A
@@ -285,6 +346,13 @@ func (l ledger) add(org uuid.UUID, cat, region, cur string, amount, qty float64)
 // by their share of connection-hours. What nothing uses is "idle". Backup
 // storage is priced per GB-month, egress per GB; floating IPs and fixed
 // overheads are booked to no organisation.
+//
+// Backend services (V4.1 §11): an edge node's day goes to organisations by
+// their share of the region's edge use (edgeUse.weights), and so does
+// EdgeSharePercent of each shared node's shared pool; files cost the
+// object storage price per GB-month and the egress price per GB
+// downloaded; platform SMS and WhatsApp cost what the provider charged,
+// converted at the day's rate.
 func (s *Service) Attribute(ctx context.Context, day time.Time) error {
 	day = dayStart(day)
 	end := day.AddDate(0, 0, 1)
@@ -315,6 +383,8 @@ func (s *Service) Attribute(ctx context.Context, day time.Time) error {
 	}
 	dm := daysIn(day)
 	led := ledger{}
+	use := edgeUse{requests: map[string]map[uuid.UUID]float64{}, minutes: map[string]map[uuid.UUID]float64{}}
+	var dayRates Rates // for messages, read on first need
 
 	storage := map[uuid.UUID]float64{} // project → GB-hours on its cluster
 	orgOf := map[uuid.UUID]uuid.UUID{}
@@ -328,6 +398,27 @@ func (s *Service) Attribute(ctx context.Context, day time.Time) error {
 			led.add(u.OrgID, CatBackup, s.region, st.Currency, st.ObjectStorageGBMonth*u.Quantity/(24*dm), u.Quantity)
 		case "pooler_transfer_gb":
 			led.add(u.OrgID, CatEgress, s.region, st.Currency, st.EgressGB*u.Quantity, u.Quantity)
+		case "api_requests":
+			use.add(use.requests, u.Region, u.OrgID, u.Quantity)
+		case "realtime_connection_minutes":
+			use.add(use.minutes, u.Region, u.OrgID, u.Quantity)
+		case "storage_gb_hours":
+			led.add(u.OrgID, CatFiles, s.region, st.Currency, st.ObjectStorageGBMonth*u.Quantity/(24*dm), u.Quantity)
+		case "storage_egress_gb":
+			led.add(u.OrgID, CatFiles, s.region, st.Currency, st.EgressGB*u.Quantity, 0)
+		case "messages_sms_cost_kobo", "messages_whatsapp_cost_kobo":
+			// Kobo the provider charged, in the cost currency at the day's
+			// rate (naira when there is none).
+			if dayRates == nil {
+				if dayRates, err = s.RatesAt(ctx, end); err != nil {
+					return err
+				}
+			}
+			if rate, ok := dayRates[st.Currency]; ok && rate > 0 {
+				led.add(u.OrgID, CatMessages, s.region, st.Currency, u.Quantity/rate, u.Quantity)
+			} else {
+				led.add(u.OrgID, CatMessages, s.region, NGN, u.Quantity, u.Quantity)
+			}
 		}
 	}
 	connHours := map[uuid.UUID]float64{}
@@ -380,6 +471,17 @@ func (s *Service) Attribute(ctx context.Context, day time.Time) error {
 			continue
 		}
 		daily := float64(*n.MonthlyCostMinor) / dm
+		if n.Role == "edge" {
+			// A dedicated edge node: all of it goes by edge use.
+			w := use.weights(n.Region)
+			if w == nil {
+				led.add(uuid.Nil, CatIdle, n.Region, n.CostCurrency, daily, 0)
+			}
+			for org, share := range w {
+				led.add(org, CatEdge, n.Region, n.CostCurrency, daily*share, 0)
+			}
+			continue
+		}
 		var m agentapi.HostMetrics
 		_ = json.Unmarshal(n.Capacity, &m)
 		cpus := float64(m.CPUs)
@@ -402,6 +504,16 @@ func (s *Service) Attribute(ctx context.Context, day time.Time) error {
 		rest := daily * (1 - used)
 		if rest <= 0 {
 			continue
+		}
+		if st.EdgeSharePercent > 0 && (n.Role == "shared" || n.Role == "both") {
+			// Edges running on shared nodes take their share of the pool.
+			if w := use.weights(n.Region); w != nil {
+				moved := rest * st.EdgeSharePercent / 100
+				for org, share := range w {
+					led.add(org, CatEdge, n.Region, n.CostCurrency, moved*share, 0)
+				}
+				rest -= moved
+			}
 		}
 		projects := sharedOn[n.ID]
 		var totalStorage, totalConn float64

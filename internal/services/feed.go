@@ -261,6 +261,12 @@ func (s *Service) Report(ctx context.Context, r edgeapi.Report) error {
 		if err != nil || n == 0 {
 			return err // n == 0: already recorded
 		}
+		if r.CPUPercent != nil && r.Edge != "" && len(r.Edge) <= 200 && len(r.Region) <= 64 {
+			if err := q.InsertEdgeCPUSample(ctx, store.InsertEdgeCPUSampleParams{Edge: r.Edge, Region: r.Region,
+				CpuPercent: float32(min(max(*r.CPUPercent, 0), 100))}); err != nil {
+				return err
+			}
+		}
 		ids := map[uuid.UUID]bool{}
 		for _, u := range r.Usage {
 			ids[u.ProjectID] = true

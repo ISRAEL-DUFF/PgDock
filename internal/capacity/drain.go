@@ -402,8 +402,8 @@ func (s *Service) sweepEmpty(ctx context.Context) error {
 	var errs []error
 	for _, o := range occ {
 		n, ok := byID[o.ID]
-		if !ok || n.Lifecycle == "provisioning" {
-			continue
+		if !ok || n.Lifecycle == "provisioning" || n.Role == "edge" {
+			continue // an edge node holds no databases: it is never "empty"
 		}
 		empty := o.Projects == 0 && o.Dedicated == 0 && o.Retired == 0 && o.Members == 0 && o.Etcd == 0
 		switch {
