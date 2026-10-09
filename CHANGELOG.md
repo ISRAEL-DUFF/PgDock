@@ -105,6 +105,35 @@ bundle share one version (spec §11.5).
   See docs/read-replicas.md.
 - New migration 00042 (read replicas). HA standby billing no longer counts
   removed members.
+- Supabase migration helper (V4-M36), run after importing a Supabase
+  database into a project with backend services:
+  - **Policies:** imported policies and column defaults are rewritten to
+    the project's request roles and `pgd_auth` helpers.
+  - **Users:** users and identities are copied with their ids. Supabase's
+    bcrypt password hashes keep working and become argon2id at each user's
+    next sign-in. OAuth identities keep their provider ids.
+  - **Files:** buckets and files are copied over Supabase's S3 protocol,
+    and storage policies are recreated on `pgd_storage.objects`.
+  - **Reports:** each step lists what it couldn't carry over, and can run
+    again.
+  - Run it from Project → API → Migrate from Supabase,
+    `pgdock migrate supabase`, or `POST /api/v1/projects/{id}/migrate/supabase`.
+    See docs/migrate-from-supabase.md and the supabase-js mapping
+    (docs/supabase-client-mapping.md).
+- Password sign-in accepts bcrypt hashes and re-hashes them with argon2id
+  on success (`password_rehashed` in the auth log).
+- SDKs: `@pgdock/client` for TypeScript (sdk/js), Dart and Flutter
+  (sdk/dart, `pgdock` on pub.dev), and Go (sdk/go). Each covers data, auth,
+  storage and realtime, with:
+  - typed rows from `pgdock gen types`;
+  - token refresh before expiry, one refresh at a time;
+  - consistent errors;
+  - live queries that refetch on changes, resyncs and reconnects.
+
+  `TestSDKs` runs each one against a real edge.
+- A documentation site: `make docs-site` renders docs/ with navigation,
+  search and a link check. It adds guides for Next.js, React Native and
+  Flutter, and SDK references.
 - Built with Go 1.26.9 (1.25 is out of support; html/template and net/http
   fixes are only in 1.26), and linted with golangci-lint 2.14. ES256 keys
   are encoded and parsed through `ecdsa.PublicKey.Bytes` and

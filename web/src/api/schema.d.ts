@@ -980,6 +980,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/migrate/supabase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a step of the Supabase migration helper (V4 §9)
+         * @description For a project with backend services on, after its database was
+         *     imported from Supabase. `policies` rewrites the imported policies
+         *     and column defaults to the project's request roles and pgd_auth
+         *     helpers; `users` copies auth.users and auth.identities from the
+         *     Supabase database, keeping ids and bcrypt password hashes (upgraded
+         *     to argon2id at each user's next sign-in); `storage` copies buckets,
+         *     files (over Supabase's S3 protocol) and storage policies. Each step
+         *     reports what it couldn't carry over in the operation's log, and can
+         *     run again (what's already there is kept). Credentials stay in the
+         *     server's memory only.
+         */
+        post: operations["migrateSupabase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/replicas": {
         parameters: {
             query?: never;
@@ -6519,6 +6548,21 @@ export interface components {
         HAUpdateRequest: {
             synchronous: boolean;
         };
+        SupabaseMigrationRequest: {
+            /** @enum {string} */
+            step: "policies" | "users" | "storage";
+            /** @description The Supabase database's connection string (users and storage). */
+            source_url?: string;
+            s3?: components["schemas"]["SupabaseS3"];
+        };
+        /** @description The Supabase project's S3 connection (Project Settings → Storage). */
+        SupabaseS3: {
+            /** @description e.g. https://<ref>.supabase.co/storage/v1/s3 */
+            endpoint: string;
+            region?: string;
+            access_key: string;
+            secret_key: string;
+        };
         ReplicaCreateRequest: {
             /**
              * Format: uuid
@@ -11664,6 +11708,33 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    migrateSupabase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupabaseMigrationRequest"];
+            };
+        };
         responses: {
             /** @description Queued. */
             202: {

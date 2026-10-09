@@ -729,6 +729,18 @@ func (e *Edge) signinPassword(c *call) {
 			fail = refuse(http.StatusForbidden, "phone_not_confirmed", "confirm the phone number first")
 			return nil
 		}
+		// A bcrypt hash brought from Supabase becomes argon2id now that the
+		// password is known (V4 §9).
+		if projauth.NeedsRehash(u) {
+			var rerr error
+			e.hash(func() { rerr = projauth.Rehash(ctx, tx, u, in.Password) })
+			if rerr != nil {
+				return rerr
+			}
+			if err := projauth.Audit(ctx, tx, &u.ID, projauth.ActPasswordRehashed, c.ip, map[string]any{"from": "bcrypt"}); err != nil {
+				return err
+			}
+		}
 		out, err = e.startSession(ctx, c, tx, u, "password")
 		return err
 	})

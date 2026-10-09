@@ -714,6 +714,8 @@ Replica creation on another node or region; pooler read-only route with health a
 
 `@pgdock/client`, Dart/Flutter, and Go SDKs with typed queries and auto-refresh; documentation site with guides (Next.js, React Native, Flutter); Supabase migration helper for schema/RLS rewrite, users (bcrypt upgrade), and storage; client code mapping guide. **Done when:** a real Supabase hobby project is migrated, including its users and files, and its users sign in on PGDock with their existing passwords.
 
+*(As built: the helper is three operations on a project with backend services after the V1 import (policies, users, storage), each re-runnable and reporting what it couldn't map; policies are rewritten in place and the import's `auth.*` shim is pointed at `pgd_auth` for function bodies; storage policies map only where every column has an equivalent. The SDKs share one shape and are tested live against the edge (`TestSDKs`); the docs site is generated from `docs/` by `cmd/docsite`. See `docs/decisions.md`, V4-M36.)*
+
 ### M37 — Billing integration, hardening, GA (Weeks 23–24)
 
 Rating of all new metrics, billing page breakdown, spend-cap throttling; security review and external penetration test of the edge; load tests; failure injection (edge crash mid-upload, SMS provider outage, realtime node loss); runbooks. **General availability of backend services.**

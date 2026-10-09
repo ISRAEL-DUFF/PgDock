@@ -21,6 +21,7 @@ import {
 } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 import { useOperationStream } from "../lib/useOperationStream";
+import { MigrateSupabaseCard } from "../components/MigrateSupabaseCard";
 import { useProject } from "./ProjectOverview";
 
 type Services = components["schemas"]["BackendServices"];
@@ -65,6 +66,7 @@ function ServicesPanels({ p }: { p: Project }) {
           <ExplorerPanel p={p} />
           <TypesPanel p={p} />
           <LogsPanel p={p} />
+          <MigrateSupabaseCard p={p} />
         </>
       )}
     </>

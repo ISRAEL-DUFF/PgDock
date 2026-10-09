@@ -2544,6 +2544,27 @@ func (e StorageTargetKind) Valid() bool {
 	}
 }
 
+// Defines values for SupabaseMigrationRequestStep.
+const (
+	Policies SupabaseMigrationRequestStep = "policies"
+	Storage  SupabaseMigrationRequestStep = "storage"
+	Users    SupabaseMigrationRequestStep = "users"
+)
+
+// Valid indicates whether the value is a known member of the SupabaseMigrationRequestStep enum.
+func (e SupabaseMigrationRequestStep) Valid() bool {
+	switch e {
+	case Policies:
+		return true
+	case Storage:
+		return true
+	case Users:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TableConstraintKind.
 const (
 	TableConstraintKindCheck      TableConstraintKind = "check"
@@ -8288,6 +8309,29 @@ type StorageTestStep struct {
 	TookMs int     `json:"took_ms"`
 }
 
+// SupabaseMigrationRequest defines model for SupabaseMigrationRequest.
+type SupabaseMigrationRequest struct {
+	// S3 The Supabase project's S3 connection (Project Settings → Storage).
+	S3 *SupabaseS3 `json:"s3,omitempty"`
+
+	// SourceUrl The Supabase database's connection string (users and storage).
+	SourceUrl *string                      `json:"source_url,omitempty"`
+	Step      SupabaseMigrationRequestStep `json:"step"`
+}
+
+// SupabaseMigrationRequestStep defines model for SupabaseMigrationRequest.Step.
+type SupabaseMigrationRequestStep string
+
+// SupabaseS3 The Supabase project's S3 connection (Project Settings → Storage).
+type SupabaseS3 struct {
+	AccessKey string `json:"access_key"`
+
+	// Endpoint e.g. https://<ref>.supabase.co/storage/v1/s3
+	Endpoint  string  `json:"endpoint"`
+	Region    *string `json:"region,omitempty"`
+	SecretKey string  `json:"secret_key"`
+}
+
 // SupportContext What the support console shows about the organisation. Metadata only; tenant data needs break-glass.
 type SupportContext struct {
 	BillingMode      *string            `json:"billing_mode,omitempty"`
@@ -9999,6 +10043,9 @@ type AddProjectMemberJSONRequestBody = ProjectMemberRequest
 
 // UpdateProjectMemberJSONRequestBody defines body for UpdateProjectMember for application/json ContentType.
 type UpdateProjectMemberJSONRequestBody = ProjectRoleRequest
+
+// MigrateSupabaseJSONRequestBody defines body for MigrateSupabase for application/json ContentType.
+type MigrateSupabaseJSONRequestBody = SupabaseMigrationRequest
 
 // RestoreProjectPITRJSONRequestBody defines body for RestoreProjectPITR for application/json ContentType.
 type RestoreProjectPITRJSONRequestBody = PitrRequest
@@ -13011,6 +13058,42 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/projects/{id}/metrics (the `GetProjectMetrics` operationId).
 	GetProjectMetrics(ctx context.Context, id ProjectID, params *GetProjectMetricsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// MigrateSupabaseWithBody Run a step of the Supabase migration helper (V4 §9)
+	//
+	// For a project with backend services on, after its database was
+	// imported from Supabase. `policies` rewrites the imported policies
+	// and column defaults to the project's request roles and pgd_auth
+	// helpers; `users` copies auth.users and auth.identities from the
+	// Supabase database, keeping ids and bcrypt password hashes (upgraded
+	// to argon2id at each user's next sign-in); `storage` copies buckets,
+	// files (over Supabase's S3 protocol) and storage policies. Each step
+	// reports what it couldn't carry over in the operation's log, and can
+	// run again (what's already there is kept). Credentials stay in the
+	// server's memory only.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/migrate/supabase (the `MigrateSupabase` operationId).
+	MigrateSupabaseWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// MigrateSupabase Run a step of the Supabase migration helper (V4 §9)
+	//
+	// For a project with backend services on, after its database was
+	// imported from Supabase. `policies` rewrites the imported policies
+	// and column defaults to the project's request roles and pgd_auth
+	// helpers; `users` copies auth.users and auth.identities from the
+	// Supabase database, keeping ids and bcrypt password hashes (upgraded
+	// to argon2id at each user's next sign-in); `storage` copies buckets,
+	// files (over Supabase's S3 protocol) and storage policies. Each step
+	// reports what it couldn't carry over in the operation's log, and can
+	// run again (what's already there is kept). Credentials stay in the
+	// server's memory only.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/migrate/supabase (the `MigrateSupabase` operationId).
+	MigrateSupabase(ctx context.Context, id ProjectID, body MigrateSupabaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjectMoves The project's recent moves between instances, newest first
 	//
@@ -21007,6 +21090,62 @@ func (c *Client) UpdateProjectMember(ctx context.Context, id ProjectID, user Use
 // Corresponds with GET /api/v1/projects/{id}/metrics (the `GetProjectMetrics` operationId).
 func (c *Client) GetProjectMetrics(ctx context.Context, id ProjectID, params *GetProjectMetricsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectMetricsRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// MigrateSupabaseWithBody Run a step of the Supabase migration helper (V4 §9)
+//
+// For a project with backend services on, after its database was
+// imported from Supabase. `policies` rewrites the imported policies
+// and column defaults to the project's request roles and pgd_auth
+// helpers; `users` copies auth.users and auth.identities from the
+// Supabase database, keeping ids and bcrypt password hashes (upgraded
+// to argon2id at each user's next sign-in); `storage` copies buckets,
+// files (over Supabase's S3 protocol) and storage policies. Each step
+// reports what it couldn't carry over in the operation's log, and can
+// run again (what's already there is kept). Credentials stay in the
+// server's memory only.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/migrate/supabase (the `MigrateSupabase` operationId).
+func (c *Client) MigrateSupabaseWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMigrateSupabaseRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// MigrateSupabase Run a step of the Supabase migration helper (V4 §9)
+//
+// For a project with backend services on, after its database was
+// imported from Supabase. `policies` rewrites the imported policies
+// and column defaults to the project's request roles and pgd_auth
+// helpers; `users` copies auth.users and auth.identities from the
+// Supabase database, keeping ids and bcrypt password hashes (upgraded
+// to argon2id at each user's next sign-in); `storage` copies buckets,
+// files (over Supabase's S3 protocol) and storage policies. Each step
+// reports what it couldn't carry over in the operation's log, and can
+// run again (what's already there is kept). Credentials stay in the
+// server's memory only.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/migrate/supabase (the `MigrateSupabase` operationId).
+func (c *Client) MigrateSupabase(ctx context.Context, id ProjectID, body MigrateSupabaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMigrateSupabaseRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -36013,6 +36152,53 @@ func NewGetProjectMetricsRequest(server string, id ProjectID, params *GetProject
 	return req, nil
 }
 
+// NewMigrateSupabaseRequest calls the generic MigrateSupabase builder with application/json body
+func NewMigrateSupabaseRequest(server string, id ProjectID, body MigrateSupabaseJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewMigrateSupabaseRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewMigrateSupabaseRequestWithBody constructs an http.Request for the MigrateSupabase method, with any body, and a specified content type
+func NewMigrateSupabaseRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/migrate/supabase", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListProjectMovesRequest constructs an http.Request for the ListProjectMoves method
 func NewListProjectMovesRequest(server string, id ProjectID) (*http.Request, error) {
 	var err error
@@ -43420,6 +43606,42 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/projects/{id}/metrics (the `GetProjectMetrics` operationId).
 	GetProjectMetricsWithResponse(ctx context.Context, id ProjectID, params *GetProjectMetricsParams, reqEditors ...RequestEditorFn) (*GetProjectMetricsResponse, error)
+
+	// MigrateSupabaseWithBodyWithResponse Run a step of the Supabase migration helper (V4 §9)
+	//
+	// For a project with backend services on, after its database was
+	// imported from Supabase. `policies` rewrites the imported policies
+	// and column defaults to the project's request roles and pgd_auth
+	// helpers; `users` copies auth.users and auth.identities from the
+	// Supabase database, keeping ids and bcrypt password hashes (upgraded
+	// to argon2id at each user's next sign-in); `storage` copies buckets,
+	// files (over Supabase's S3 protocol) and storage policies. Each step
+	// reports what it couldn't carry over in the operation's log, and can
+	// run again (what's already there is kept). Credentials stay in the
+	// server's memory only.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/migrate/supabase (the `MigrateSupabase` operationId).
+	MigrateSupabaseWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MigrateSupabaseResponse, error)
+
+	// MigrateSupabaseWithResponse Run a step of the Supabase migration helper (V4 §9)
+	//
+	// For a project with backend services on, after its database was
+	// imported from Supabase. `policies` rewrites the imported policies
+	// and column defaults to the project's request roles and pgd_auth
+	// helpers; `users` copies auth.users and auth.identities from the
+	// Supabase database, keeping ids and bcrypt password hashes (upgraded
+	// to argon2id at each user's next sign-in); `storage` copies buckets,
+	// files (over Supabase's S3 protocol) and storage policies. Each step
+	// reports what it couldn't carry over in the operation's log, and can
+	// run again (what's already there is kept). Credentials stay in the
+	// server's memory only.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/migrate/supabase (the `MigrateSupabase` operationId).
+	MigrateSupabaseWithResponse(ctx context.Context, id ProjectID, body MigrateSupabaseJSONRequestBody, reqEditors ...RequestEditorFn) (*MigrateSupabaseResponse, error)
 
 	// ListProjectMovesWithResponse The project's recent moves between instances, newest first
 	//
@@ -58280,6 +58502,54 @@ func (r GetProjectMetricsResponse) ContentType() string {
 	return ""
 }
 
+type MigrateSupabaseResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r MigrateSupabaseResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r MigrateSupabaseResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r MigrateSupabaseResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r MigrateSupabaseResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r MigrateSupabaseResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r MigrateSupabaseResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListProjectMovesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -68350,6 +68620,54 @@ func (c *ClientWithResponses) GetProjectMetricsWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseGetProjectMetricsResponse(rsp)
+}
+
+// MigrateSupabaseWithBodyWithResponse Run a step of the Supabase migration helper (V4 §9)
+//
+// For a project with backend services on, after its database was
+// imported from Supabase. `policies` rewrites the imported policies
+// and column defaults to the project's request roles and pgd_auth
+// helpers; `users` copies auth.users and auth.identities from the
+// Supabase database, keeping ids and bcrypt password hashes (upgraded
+// to argon2id at each user's next sign-in); `storage` copies buckets,
+// files (over Supabase's S3 protocol) and storage policies. Each step
+// reports what it couldn't carry over in the operation's log, and can
+// run again (what's already there is kept). Credentials stay in the
+// server's memory only.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/migrate/supabase (the `MigrateSupabase` operationId).
+func (c *ClientWithResponses) MigrateSupabaseWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MigrateSupabaseResponse, error) {
+	rsp, err := c.MigrateSupabaseWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMigrateSupabaseResponse(rsp)
+}
+
+// MigrateSupabaseWithResponse Run a step of the Supabase migration helper (V4 §9)
+//
+// For a project with backend services on, after its database was
+// imported from Supabase. `policies` rewrites the imported policies
+// and column defaults to the project's request roles and pgd_auth
+// helpers; `users` copies auth.users and auth.identities from the
+// Supabase database, keeping ids and bcrypt password hashes (upgraded
+// to argon2id at each user's next sign-in); `storage` copies buckets,
+// files (over Supabase's S3 protocol) and storage policies. Each step
+// reports what it couldn't carry over in the operation's log, and can
+// run again (what's already there is kept). Credentials stay in the
+// server's memory only.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/migrate/supabase (the `MigrateSupabase` operationId).
+func (c *ClientWithResponses) MigrateSupabaseWithResponse(ctx context.Context, id ProjectID, body MigrateSupabaseJSONRequestBody, reqEditors ...RequestEditorFn) (*MigrateSupabaseResponse, error) {
+	rsp, err := c.MigrateSupabase(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMigrateSupabaseResponse(rsp)
 }
 
 // ListProjectMovesWithResponse The project's recent moves between instances, newest first
@@ -79783,6 +80101,39 @@ func ParseGetProjectMetricsResponse(rsp *http.Response) (*GetProjectMetricsRespo
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseMigrateSupabaseResponse parses an HTTP response from a MigrateSupabaseWithResponse call
+func ParseMigrateSupabaseResponse(rsp *http.Response) (*MigrateSupabaseResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &MigrateSupabaseResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error

@@ -1897,6 +1897,16 @@ test.describe("with the saved session", () => {
     await explorer.getByRole("button", { name: "Send" }).click();
     await expect(explorer.getByTestId("explorer-result")).toContainText("200");
 
+    // M36: the Supabase migration helper. The users and files steps need the
+    // Supabase project's credentials; the policies step runs on its own.
+    const mig = page.getByTestId("migrate-supabase");
+    await expect(mig).toContainText("Migrate from Supabase");
+    await expect(mig.getByTestId("migrate-users")).toBeDisabled();
+    await expect(mig.getByTestId("migrate-storage")).toBeDisabled();
+    await mig.getByTestId("migrate-policies").click();
+    await expect(mig.getByTestId("operation-log")).toContainText("policies migrated", { timeout: 60_000 });
+    await shot(page, "74-migrate-supabase");
+
     // M31: the app's users on Project → Authentication.
     await page.goto(`/projects/${id}/auth`);
     await expect(page.getByTestId("auth-users-empty")).toBeVisible();

@@ -60,6 +60,22 @@ jobs:
       - name: Frontend type-check and tests
         run: make test-web
 
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.9.4
+
+      - name: SDK tests (TypeScript, Go, Dart)
+        run: make test-sdk
+
+      - name: Documentation site
+        run: make docs-site
+
+      - name: Upload the documentation site
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-site
+          path: dist/docs
+
       - name: Generated code is up to date
         run: make check-generated
 
@@ -158,16 +174,19 @@ jobs:
           go-version-file: go.mod
 
       - name: Go vulnerabilities (govulncheck)
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+        run: |
+          go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+          (cd sdk/go && go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...)
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: npm audit (web UI and e2e harness)
+      - name: npm audit (web UI, e2e harness, JS SDK)
         run: |
           (cd web && npm audit --audit-level=high)
           (cd test/e2e && npm audit --audit-level=high)
+          (cd sdk/js && npm audit --audit-level=high)
 
   # 150 shared projects with pgbench on 10 (spec §13), weekly and on demand.
   load:

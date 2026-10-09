@@ -21,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/crypto"
 	"github.com/israel-duff/pgdock/internal/jobs"
 	"github.com/israel-duff/pgdock/internal/jwtes"
@@ -91,19 +92,25 @@ type Service struct {
 	// downloads in flight (a minute by default; tests shorten it).
 	StorageGrace time.Duration
 	emailKick    chan struct{}
+	// secrets holds migrations' source credentials while they run.
+	secrets *backup.Ephemeral
 }
 
 // New returns the service.
 func New(db *pgxpool.Pool, projects *provision.Service, cfg Config, log *slog.Logger) *Service {
-	return &Service{db: db, keyring: projects.Keyring(), projects: projects, cfg: cfg, log: log, emailKick: make(chan struct{}, 1)}
+	return &Service{db: db, keyring: projects.Keyring(), projects: projects, cfg: cfg, log: log, emailKick: make(chan struct{}, 1), secrets: backup.NewEphemeral()}
 }
 
 // Kinds are the operations it runs.
 func (s *Service) Kinds() map[string]jobs.Kind {
-	return map[string]jobs.Kind{
+	kinds := map[string]jobs.Kind{
 		KindEnable:  {Handler: s.runEnable, MaxAttempts: 3, Timeout: 10 * time.Minute},
 		KindDisable: {Handler: s.runDisable, MaxAttempts: 3, Timeout: 10 * time.Minute},
 	}
+	for k, v := range s.supabaseKinds() {
+		kinds[k] = v
+	}
+	return kinds
 }
 
 // URL is a project's API base URL.

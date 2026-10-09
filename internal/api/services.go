@@ -441,3 +441,34 @@ func (s *Server) ExploreDataAPI(w http.ResponseWriter, r *http.Request, id gen.P
 	ct := res.ContentType
 	writeJSON(w, http.StatusOK, gen.ExploreResponse{Status: res.Status, ContentType: &ct, Body: res.Body})
 }
+
+// MigrateSupabase implements POST /api/v1/projects/{id}/migrate/supabase.
+func (s *Server) MigrateSupabase(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+	if !s.requireServices(w) {
+		return
+	}
+	var req gen.SupabaseMigrationRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	a := auditFrom(r.Context())
+	a.target("project", id.String())
+	a.set("step", string(req.Step))
+	m := services.SupabaseMigration{Step: string(req.Step)}
+	if req.SourceUrl != nil {
+		m.SourceURL = *req.SourceUrl
+	}
+	if req.S3 != nil {
+		m.S3 = &services.SupabaseS3{Endpoint: req.S3.Endpoint, AccessKey: req.S3.AccessKey, SecretKey: req.S3.SecretKey}
+		if req.S3.Region != nil {
+			m.S3.Region = *req.S3.Region
+		}
+		a.set("s3_endpoint", req.S3.Endpoint)
+	}
+	op, err := s.services.MigrateSupabase(r.Context(), id, m, userID(r.Context()))
+	if err != nil {
+		s.servicesError(w, "supabase migration", err)
+		return
+	}
+	s.writeOperation(w, "supabase migration", op)
+}

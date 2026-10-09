@@ -1,0 +1,14 @@
+{
+  "title": "PGDock",
+  "repo": "https://github.com/ISRAEL-DUFF/PgDock/blob/main",
+  "sections": [
+    {"title": "Get started", "pages": ["index.md", "user-guide.md", "cli.md"]},
+    {"title": "Build apps", "pages": ["backend-services.md", "sdk/javascript.md", "sdk/go.md", "sdk/dart.md"]},
+    {"title": "Guides", "pages": ["guides/nextjs.md", "guides/react-native.md", "guides/flutter.md", "examples/flutter-auth/README.md"]},
+    {"title": "Migrate", "pages": ["migrate-from-supabase.md", "supabase-client-mapping.md", "guides/import-docker-vps-db.md"]},
+    {"title": "Databases", "pages": ["ha.md", "read-replicas.md", "moves.md", "query-insights.md", "webhooks.md", "regions.md", "free-tier.md"]},
+    {"title": "Billing", "pages": ["billing.md", "payments.md"]},
+    {"title": "Operate", "pages": ["install.md", "operations.md", "upgrade.md", "disaster-recovery.md", "admin-runbook.md", "capacity.md", "edge-poolers.md", "failure-domains.md", "status-page.md", "incidents.md", "support.md", "legal.md", "security-review.md"]},
+    {"title": "Internals", "pages": ["decisions.md"]}
+  ]
+}

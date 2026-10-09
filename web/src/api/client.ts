@@ -709,6 +709,9 @@ export const api = {
   moveProject: (id: string, b: S["MoveProjectRequest"]) =>
     request<Operation>("POST", `/api/v1/admin/projects/${id}/move`, b),
   projectHA: (id: string) => getJSON<HAStatus>(`/api/v1/projects/${id}/ha`),
+  /** A step of the Supabase migration helper (V4 §9). */
+  migrateSupabase: (id: string, b: S["SupabaseMigrationRequest"]) =>
+    request<Operation>("POST", `/api/v1/projects/${id}/migrate/supabase`, b),
   /** A dedicated project's read replicas (V4 §7). */
   replicas: (id: string) =>
     getJSON<ReplicaList>(`/api/v1/projects/${id}/replicas`),

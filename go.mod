@@ -23,6 +23,7 @@ require (
 	github.com/johannesboyne/gofakes3 v1.2.0
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/pressly/goose/v3 v3.27.3
+	github.com/yuin/goldmark v1.7.17
 	go.uber.org/zap v1.27.1
 	golang.org/x/crypto v0.55.0
 	golang.org/x/image v0.38.0
