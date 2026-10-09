@@ -486,16 +486,35 @@ func (s *Service) runMigrateUsers(ctx context.Context, op store.Operation, log *
 		return err
 	}
 
-	var hasAnon, hasProviderID bool
-	if err := src.QueryRow(ctx, `SELECT
-		EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'auth' AND table_name = 'users' AND column_name = 'is_anonymous'),
-		EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'auth' AND table_name = 'identities' AND column_name = 'provider_id')`).
-		Scan(&hasAnon, &hasProviderID); err != nil {
-		return redact(err, pg.Password)
+	// Older GoTrue versions lack some columns.
+	has := func(table, col string) (bool, error) {
+		var ok bool
+		err := src.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'auth' AND table_name = $1 AND column_name = $2)`,
+			table, col).Scan(&ok)
+		return ok, redact(err, pg.Password)
 	}
-	anon := "false"
-	if hasAnon {
-		anon = "coalesce(is_anonymous, false)"
+	orFalse := func(table, col, expr string) (string, error) {
+		ok, err := has(table, col)
+		if !ok || err != nil {
+			return "false", err
+		}
+		return expr, nil
+	}
+	anon, err := orFalse("users", "is_anonymous", "coalesce(is_anonymous, false)")
+	if err != nil {
+		return err
+	}
+	deleted, err := orFalse("users", "deleted_at", "deleted_at IS NOT NULL")
+	if err != nil {
+		return err
+	}
+	sso, err := orFalse("users", "is_sso_user", "coalesce(is_sso_user, false)")
+	if err != nil {
+		return err
+	}
+	hasProviderID, err := has("identities", "provider_id")
+	if err != nil {
+		return err
 	}
 	var copied, existing int
 	var skipped []string
@@ -503,7 +522,7 @@ func (s *Service) runMigrateUsers(ctx context.Context, op store.Operation, log *
 	for {
 		rows, err := src.Query(ctx, `SELECT id, nullif(email, ''), nullif(phone, ''), nullif(encrypted_password, ''), email_confirmed_at, phone_confirmed_at,
 			invited_at, `+anon+`, coalesce(raw_app_meta_data, '{}'), coalesce(raw_user_meta_data, '{}'), banned_until, coalesce(created_at, now()),
-			coalesce(updated_at, now()), last_sign_in_at, deleted_at IS NOT NULL, coalesce(is_sso_user, false)
+			coalesce(updated_at, now()), last_sign_in_at, `+deleted+`, `+sso+`
 			FROM auth.users WHERE id > $1 ORDER BY id LIMIT 500`, after)
 		if err != nil {
 			return redact(err, pg.Password)
@@ -852,19 +871,26 @@ func (s *Service) runMigrateStorage(ctx context.Context, op store.Operation, log
 		return nil
 	}
 
-	var hasUserMeta bool
-	if err := src.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'storage' AND table_name = 'objects' AND column_name = 'user_metadata')`).
-		Scan(&hasUserMeta); err != nil {
+	// Older storage-api versions lack some columns.
+	var hasUserMeta, hasOwnerID bool
+	if err := src.QueryRow(ctx, `SELECT
+		EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'storage' AND table_name = 'objects' AND column_name = 'user_metadata'),
+		EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'storage' AND table_name = 'objects' AND column_name = 'owner_id')`).
+		Scan(&hasUserMeta, &hasOwnerID); err != nil {
 		return redact(err, pg.Password)
 	}
 	userMeta := "'{}'::jsonb"
 	if hasUserMeta {
 		userMeta = "coalesce(user_metadata, '{}')"
 	}
+	owner := "owner::text"
+	if hasOwnerID {
+		owner = "coalesce(owner::text, owner_id)"
+	}
 	afterBucket, afterName := "", ""
 	lastLog := time.Now()
 	for !quotaHit {
-		rows, err := src.Query(ctx, `SELECT bucket_id, name, coalesce(owner::text, owner_id), metadata ->> 'mimetype', (metadata ->> 'size')::bigint, `+userMeta+`,
+		rows, err := src.Query(ctx, `SELECT bucket_id, name, `+owner+`, metadata ->> 'mimetype', (metadata ->> 'size')::bigint, `+userMeta+`,
 			coalesce(created_at, now()), coalesce(updated_at, created_at, now())
 			FROM storage.objects WHERE (bucket_id, name) > ($1, $2) ORDER BY bucket_id, name LIMIT 200`, afterBucket, afterName)
 		if err != nil {
