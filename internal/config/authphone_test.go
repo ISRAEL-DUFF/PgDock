@@ -21,8 +21,17 @@ func TestAuthPhone(t *testing.T) {
 	if a := cfg.AuthPhone; !a.SMSOn() || a.SMSPriceMinor != 500 || !a.FreeAllowed || a.Currency != "GHS" {
 		t.Fatalf("set: %+v", a)
 	}
+	cfg, err = load(env(map[string]string{"PGDOCK_AFRICASTALKING_API_KEY": "at", "PGDOCK_AFRICASTALKING_USERNAME": "pgdock"}), noFiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a := cfg.AuthPhone; !a.SMSOn() || !a.ATOn() || a.ATUsername != "pgdock" {
+		t.Fatalf("africa's talking: %+v", a)
+	}
 	for _, bad := range []map[string]string{
 		{"PGDOCK_TERMII_API_KEY": "tk"},
+		{"PGDOCK_AFRICASTALKING_API_KEY": "at"},
+		{"PGDOCK_AFRICASTALKING_API_KEY": "at", "PGDOCK_AFRICASTALKING_USERNAME": "u", "PGDOCK_AFRICASTALKING_URL": "x"},
 		{"PGDOCK_SMS_PRICE_MINOR": "4.5"},
 		{"PGDOCK_WHATSAPP_OTP_TEMPLATE": "code"},
 		{"PGDOCK_TERMII_URL": "ftp://x"},

@@ -450,6 +450,9 @@ func (s *Service) sendOne(ctx context.Context, d store.AuthMessageOutbox) (sendR
 		if err != nil {
 			return res, err
 		}
+		if sent.Provider != "" {
+			res.provider = sent.Provider
+		}
 		if d.Via == "platform" {
 			c, cur := s.Phone.SMSCostMinor, s.Phone.Currency
 			res.metric = tenancy.MetricMessagesSMS

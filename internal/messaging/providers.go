@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -36,6 +37,8 @@ type Sent struct {
 	// CostMinor and Currency are the provider's price when it reports one.
 	CostMinor *int64
 	Currency  string
+	// Provider is the provider that sent it, when a Failover chose.
+	Provider string
 }
 
 // Provider sends codes.
@@ -329,4 +332,93 @@ func (a AfricasTalking) Send(ctx context.Context, m Message) (Sent, error) {
 		}
 	}
 	return s, nil
+}
+
+// ---- Failover ----------------------------------------------------------------
+
+// Failover sends through the first of Providers that takes the message
+// (V4 §15: multiple SMS providers with fallback). A provider that fails is
+// tried last for Cooldown (a minute by default), so an outage costs one
+// timeout, not one per message; it is still tried if the others fail.
+type Failover struct {
+	Providers []Provider
+	Cooldown  time.Duration
+	// OnFail is told of each provider's failure (an operator alert).
+	OnFail func(provider string, err error)
+
+	mu   sync.Mutex
+	down map[int]time.Time
+	now  func() time.Time
+}
+
+// Name implements Provider: the providers in order.
+func (f *Failover) Name() string {
+	names := make([]string, len(f.Providers))
+	for i, p := range f.Providers {
+		names[i] = p.Name()
+	}
+	return strings.Join(names, "+")
+}
+
+// Supports implements Provider.
+func (f *Failover) Supports(ch string) bool {
+	for _, p := range f.Providers {
+		if p.Supports(ch) {
+			return true
+		}
+	}
+	return false
+}
+
+// Send implements Provider. The Sent names the provider that sent it.
+func (f *Failover) Send(ctx context.Context, m Message) (Sent, error) {
+	now := time.Now
+	if f.now != nil {
+		now = f.now
+	}
+	f.mu.Lock()
+	var up, cooling []int
+	for i, p := range f.Providers {
+		if !p.Supports(m.Channel) {
+			continue
+		}
+		if until, ok := f.down[i]; ok && now().Before(until) {
+			cooling = append(cooling, i)
+		} else {
+			up = append(up, i)
+		}
+	}
+	f.mu.Unlock()
+	var errs []error
+	for _, i := range append(up, cooling...) {
+		if ctx.Err() != nil {
+			break
+		}
+		p := f.Providers[i]
+		s, err := p.Send(ctx, m)
+		f.mu.Lock()
+		if err == nil {
+			delete(f.down, i)
+			f.mu.Unlock()
+			s.Provider = p.Name()
+			return s, nil
+		}
+		if f.down == nil {
+			f.down = map[int]time.Time{}
+		}
+		cool := f.Cooldown
+		if cool <= 0 {
+			cool = time.Minute
+		}
+		f.down[i] = now().Add(cool)
+		f.mu.Unlock()
+		if f.OnFail != nil {
+			f.OnFail(p.Name(), err)
+		}
+		errs = append(errs, err)
+	}
+	if len(errs) == 0 {
+		return Sent{}, ErrUnsupported
+	}
+	return Sent{}, errors.Join(errs...)
 }

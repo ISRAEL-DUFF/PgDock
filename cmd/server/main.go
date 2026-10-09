@@ -389,7 +389,7 @@ func run() error {
 		}
 		bg.Add(1)
 		servicesSvc.Mail = mailSvc
-		servicesSvc.Phone = platformPhone(cfg)
+		servicesSvc.Phone = platformPhone(cfg, log)
 		if backups != nil {
 			servicesSvc.Files = backups.FilesTarget
 		}
@@ -987,12 +987,25 @@ func cloudProvider(c config.Cloud) cloud.Provider {
 
 // platformPhone is the platform's SMS (Termii) and WhatsApp (support's
 // number, an authentication template) for project auth codes (V4 §6.2).
-func platformPhone(cfg config.Config) services.PlatformPhone {
+func platformPhone(cfg config.Config, log *slog.Logger) services.PlatformPhone {
 	a := cfg.AuthPhone
 	p := services.PlatformPhone{SMSCostMinor: a.SMSPriceMinor, WhatsAppCostMinor: a.WhatsAppPriceMinor, Currency: a.Currency,
 		DisallowFreePlans: !a.FreeAllowed}
-	if a.SMSOn() {
-		p.SMS = messaging.Termii{BaseURL: a.TermiiURL, APIKey: a.TermiiAPIKey, SenderID: a.TermiiSenderID}
+	var sms []messaging.Provider
+	if a.TermiiAPIKey != "" {
+		sms = append(sms, messaging.Termii{BaseURL: a.TermiiURL, APIKey: a.TermiiAPIKey, SenderID: a.TermiiSenderID})
+	}
+	if a.ATOn() {
+		sms = append(sms, messaging.AfricasTalking{BaseURL: a.ATURL, Username: a.ATUsername, APIKey: a.ATAPIKey, From: a.ATFrom})
+	}
+	switch len(sms) {
+	case 1:
+		p.SMS = sms[0]
+	case 2:
+		// Termii first; Africa's Talking when it fails (V4 §15).
+		p.SMS = &messaging.Failover{Providers: sms, OnFail: func(provider string, err error) {
+			log.Warn("platform SMS provider failed; trying the next", "provider", provider, "err", err)
+		}}
 	}
 	if a.WhatsAppTemplate != "" && cfg.Support.WhatsAppOn() {
 		p.WhatsApp = messaging.WhatsAppCloud{BaseURL: cfg.Support.WhatsAppGraphURL, PhoneNumberID: cfg.Support.WhatsAppPhoneNumberID,

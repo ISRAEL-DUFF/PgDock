@@ -870,6 +870,7 @@ provider. Set:
 | Variable | |
 | --- | --- |
 | `PGDOCK_TERMII_API_KEY` (or `_FILE`), `PGDOCK_TERMII_SENDER_ID` | Termii's API key and an approved sender ID. Codes go by Termii's `dnd` channel. `PGDOCK_TERMII_URL` is the account's API base if it isn't `https://api.ng.termii.com`. |
+| `PGDOCK_AFRICASTALKING_USERNAME`, `PGDOCK_AFRICASTALKING_API_KEY` (or `_FILE`), `PGDOCK_AFRICASTALKING_FROM`, `PGDOCK_AFRICASTALKING_URL` | Africa's Talking, the fallback for SMS. With both set, a code goes by Termii and, if Termii fails, by Africa's Talking at once; a provider that failed is tried last for a minute, so an outage costs one timeout rather than one per code. Each failure is logged (`platform SMS provider failed`) and the provider that sent each code is recorded in `message_sends`. Either alone also works. |
 | `PGDOCK_WHATSAPP_OTP_TEMPLATE`, `PGDOCK_WHATSAPP_OTP_LANGUAGE` | An approved **authentication** template (with a copy-code button) on the WhatsApp number support uses (`PGDOCK_WHATSAPP_PHONE_NUMBER_ID`, `PGDOCK_WHATSAPP_ACCESS_TOKEN`); the language defaults to `en`. |
 | `PGDOCK_SMS_PRICE_MINOR`, `PGDOCK_WHATSAPP_PRICE_MINOR`, `PGDOCK_MESSAGE_CURRENCY` | What a message costs the project, in minor units (default NGN 4.50 and NGN 15.00), shown as spend; usage is metered as `messages_sms` and `messages_whatsapp`. |
 | `PGDOCK_PHONE_AUTH_FREE` | `true` lets Free projects use the platform's providers (by default they bring their own). |
