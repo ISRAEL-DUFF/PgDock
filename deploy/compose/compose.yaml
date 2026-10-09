@@ -135,6 +135,12 @@ services:
       PGDOCK_CLOUD_PG_IMAGE: ${PGDOCK_CLOUD_PG_IMAGE:-}
       PGDOCK_CLOUD_SERVER_URL: ${PGDOCK_CLOUD_SERVER_URL:-}
       PGDOCK_CLOUD_PRIVATE_CIDR: ${PGDOCK_CLOUD_PRIVATE_CIDR:-10.0.0.0/16}
+      # Backend services (V4, docs/backend-services.md#running-pgdock-edge):
+      # projects' API domain, the secret every pgdock-edge shares (32+
+      # characters), and the edge image for edge nodes PGDock adds.
+      PGDOCK_API_DOMAIN: ${PGDOCK_API_DOMAIN:-}
+      PGDOCK_EDGE_SECRET: ${PGDOCK_EDGE_SECRET:-}
+      PGDOCK_CLOUD_EDGE_IMAGE: ${PGDOCK_CLOUD_EDGE_IMAGE:-}
     volumes:
       - pgdock-data:/var/lib/pgdock
       - pooler-config:/var/lib/pgdock/pooler

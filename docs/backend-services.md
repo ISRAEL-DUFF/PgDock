@@ -968,7 +968,9 @@ Run one pgdock-edge per region, on the region's nodes. It keeps no state.
 | `PGDOCK_EDGE_RENDER_IN_PROCESS` | Optional: set to render images inside the edge process instead of in workers (not recommended; a bad image can then take the edge down). |
 
 `deploy/edge/Dockerfile` builds the image, and `deploy/edge/edge.env.example`
-lists the settings.
+lists the settings. With the compose install, set `PGDOCK_API_DOMAIN` and
+`PGDOCK_EDGE_SECRET` in its `.env` (the compose file passes them to
+pgdock-server).
 
 - **DNS:** a wildcard record `*.<domain>` pointing at the region's edge.
 - **TLS:** get the wildcard certificate with a DNS-01 client for your DNS
@@ -1010,8 +1012,9 @@ isolation ([security review](security-review.md#v4-review-of-the-edge-m37)),
 load tests ([load test](load-test.md#v4-backend-services-load-test)) and
 failure injection (an edge killed mid-upload, an SMS provider outage, a
 realtime process lost). What to do when something breaks is in the
-[runbook](backend-runbook.md). An operator announces GA once the
-external penetration test of the edge ([scope](pentest-scope.md)) has no
+[runbook](backend-runbook.md). An operator announces GA once every
+[GA gate](backend-runbook.md#ga-gates) has a dated result, the external
+penetration test of the edge ([scope](pentest-scope.md)) among them with no
 open critical or high finding.
 
 Not built: realtime over logical decoding for high-volume tables, and

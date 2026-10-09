@@ -189,3 +189,24 @@ use. Watch `SELECT count(*) FROM pg_stat_activity WHERE backend_type =
 Capacity) before active projects reach about 250 per node. Edges are
 CPU-bound: the load test served 500 requests a second at a 15 ms p95 on
 a 4-vCPU host shared with everything else.
+
+## GA gates
+
+V4.1 §13: backend services' general availability is announced on
+evidence. Each gate has a script or test and a place where its result is
+recorded; GA waits on every row having a dated result there. Update this
+list whenever one changes.
+
+**As of 2026-10-09: GA is not announced.** Every engineering part is
+done; what blocks it is operator work on real servers and with outside
+people.
+
+| Gate | Engineering part | Result recorded in | Status (2026-10-09) |
+| --- | --- | --- | --- |
+| 20 GB move (M18) | `make test-move`; `.github/workflows/move-20gb.yml` on a runner with ≥ 80 GB | [moves](moves.md#checking-the-20-gb-target) | Not run at 20 GB; 1 GB passes in CI |
+| 1,000 projects at 2,000 requests/s (V4 §13) | `TestBackendLoad` with `PGDOCK_LOAD_TARGET`; the six-server rig in `deploy/loadtest/` | [load test](load-test.md#v4-backend-services-load-test) | Run in the development container only (300 projects on one node; see its findings) |
+| Payment sandboxes (M21) | `make test-payments-sandbox`; the steps in [payments](payments.md#sandbox-rehearsal) | [payments](payments.md#sandbox-rehearsal) | Not run: needs sandbox keys |
+| Floating-IP failover (M17) | `scripts/rehearse-pooler-failover.sh` | [edge poolers](edge-poolers.md#tested-and-not-yet) | Not run on Hetzner; 3.1 s measured against a paused dev Postgres |
+| Accountant's answers (M27) | — | [billing audit](billing-audit.md#for-the-accountant) | Pending |
+| Lagos failure domains (V3.1) | The region launch checks refuse to open a region whose etcd isn't in three domains | [Lagos launch](lagos-launch.md) | Waiting on the facility to confirm racks or feeds |
+| Penetration test (V4 §13) | A staging region per [the scope](pentest-scope.md) | [pen-test tracking](pentest-scope.md#tracking) | Not engaged |

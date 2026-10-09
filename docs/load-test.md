@@ -151,6 +151,19 @@ It fails if more than 0.1% of requests fail, under 95% of the target
 rate is served, the data API's p95 exceeds 250 ms (500 ms during the
 burst), or a transform fails or the burst takes over a minute.
 
+### On real servers
+
+V4.1 §13's gate runs the same test against a real install:
+`PGDOCK_LOAD_TARGET` (pgdock-server's URL) with a platform admin's email,
+password and TOTP secret, `PGDOCK_LOAD_API_DOMAIN`, and optionally
+`PGDOCK_LOAD_EDGE_ADDR` (the edge to dial for every project, so no DNS is
+needed) and `PGDOCK_LOAD_EDGE_CA`. The projects are made through the API,
+their plan and gateway rate limits are lifted for the test's organisations,
+and the load goes to the edge. [`deploy/loadtest/`](../deploy/loadtest/README.md)
+sets up the six servers (one install, three more shared nodes, an edge and a
+load host) and runs it; the rig is thrown away afterwards, projects and all.
+Record the result below with the date and server types.
+
 ### Results (2026-10-09)
 
 The 4-vCPU development container, with pgdock-server, one shared node

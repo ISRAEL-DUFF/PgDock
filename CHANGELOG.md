@@ -118,6 +118,13 @@ bundle share one version (spec §11.5).
   auth was reviewed against ASVS 4.0 level 2 (docs/security-review.md),
   and new tests run three sample apps' RLS policies through the data API,
   storage and realtime. Upgrade pgdock-edge with pgdock-server.
+- Launch gates (V4.1-M12): `TestBackendLoad` can run against a real
+  install (`PGDOCK_LOAD_TARGET`), with a six-server rig in
+  `deploy/loadtest/` for the 1,000-project, 2,000 requests a second gate;
+  docs/backend-runbook.md lists every GA gate with its dated status.
+  Fixed: the compose install now passes `PGDOCK_API_DOMAIN`,
+  `PGDOCK_EDGE_SECRET` and `PGDOCK_CLOUD_EDGE_IMAGE` from `.env` to
+  pgdock-server; set the first two there to serve edges.
 
 ### V4 (on feature/pgdock4)
 - Backend services' edge foundation (V4-M28): a project can turn on backend

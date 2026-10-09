@@ -44,6 +44,10 @@ type backendProject struct {
 // target rate are served, the data API's p95 exceeds 250 ms (500 ms
 // during the transform burst), or a transform fails or the burst takes
 // over a minute.
+//
+// With PGDOCK_LOAD_TARGET it runs against a real install instead (V4.1
+// §13; see remoteFromEnv and deploy/loadtest/README.md): projects are made
+// through its API as a platform admin and the load goes to its edge.
 func TestBackendLoad(t *testing.T) {
 	if os.Getenv("PGDOCK_TEST_LOAD") == "" {
 		t.Skip("set PGDOCK_TEST_LOAD=1 (make test-load)")
@@ -54,10 +58,21 @@ func TestBackendLoad(t *testing.T) {
 	transforms := envInt("PGDOCK_LOAD_TRANSFORMS", 200)
 	parallel := envInt("PGDOCK_LOAD_PARALLEL", 8)
 	perOrg := 100
-	e := testenv.Start(t, testenv.Options{})
-	e.ConfigureBackups() // file storage for the transforms
 	ctx := context.Background()
+	remote := remoteFromEnv(t)
+	var e *testenv.Env // nil against a remote target
+	var ctl control
+	if remote != nil {
+		ctl = remote.signIn(t)
+	} else {
+		e = testenv.Start(t, testenv.Options{})
+		e.ConfigureBackups() // file storage for the transforms
+		ctl = e
+	}
 	t.Cleanup(func() {
+		if e == nil {
+			return // a load rig is thrown away afterwards
+		}
 		rows, _ := e.DB.Query(context.Background(), `SELECT db_name FROM projects`)
 		names, _ := pgx.CollectRows(rows, pgx.RowTo[string])
 		c := e.SharedAdmin("postgres")
@@ -74,15 +89,24 @@ func TestBackendLoad(t *testing.T) {
 		_ = os.WriteFile(out, []byte(report.String()), 0o644)
 		t.Log("\n" + report.String())
 	}()
-	fmt.Fprintf(report, "# Backend services load test (V4-M37)\n\n%s: %d projects with backend services behind one edge; %d data API requests/s for %d s; %d image transforms at once.\n\n",
-		time.Now().UTC().Format(time.RFC3339), total, rps, seconds, transforms)
+	where := "in-process (one edge)"
+	if remote != nil {
+		where = remote.URL + ", edge " + remote.APIDomain
+		if remote.EdgeAddr != "" {
+			where += " at " + remote.EdgeAddr
+		}
+	}
+	fmt.Fprintf(report, "# Backend services load test (V4-M37)\n\n%s, %s: %d projects with backend services; %d data API requests/s for %d s; %d image transforms at once.\n\n",
+		time.Now().UTC().Format(time.RFC3339), where, total, rps, seconds, transforms)
 
 	// ---- The projects ------------------------------------------------------------------
 	orgs := make([]uuid.UUID, (total+perOrg-1)/perOrg)
 	for i := range orgs {
-		orgs[i] = e.CreateOrg(fmt.Sprintf("Backend load %02d", i))
-		if code := e.Do("PATCH", "/api/v1/admin/orgs/"+orgs[i].String(), map[string]any{"limit_overrides": map[string]int64{
+		orgs[i] = ctl.CreateOrg(fmt.Sprintf("Backend load %02d", i))
+		// The plan's API ceilings too: every request comes from one address.
+		if code := ctl.Do("PATCH", "/api/v1/admin/orgs/"+orgs[i].String(), map[string]any{"limit_overrides": map[string]int64{
 			"projects": 1000, "operations_in_flight": 1000, "shared_storage_mb": 1000000, "project_storage_mb": 100000,
+			"api_requests_per_month": 1_000_000_000, "api_rate_per_ip_per_min": 1_000_000, "api_rate_per_key_per_min": 10_000_000,
 		}}, nil); code != http.StatusOK {
 			t.Fatalf("overrides: %d", code)
 		}
@@ -101,20 +125,20 @@ func TestBackendLoad(t *testing.T) {
 			defer func() { <-sem }()
 			t0 := time.Now()
 			var c gen.ProjectCredentials
-			if code := e.Do("POST", "/api/v1/projects", map[string]any{"name": fmt.Sprintf("backend %04d", i), "org_id": orgs[i/perOrg]}, &c); code != http.StatusAccepted {
+			if code := ctl.Do("POST", "/api/v1/projects", map[string]any{"name": fmt.Sprintf("backend %04d", i), "org_id": orgs[i/perOrg]}, &c); code != http.StatusAccepted {
 				errs <- fmt.Errorf("create %d: %d", i, code)
 				return
 			}
-			if op := e.WaitOperation(c.Operation.Id); op.Status != gen.OperationStatusSucceeded {
+			if op := ctl.WaitOperation(c.Operation.Id); op.Status != gen.OperationStatusSucceeded {
 				errs <- fmt.Errorf("create %d: %s", i, op.Status)
 				return
 			}
 			var en gen.BackendServicesEnabled
-			if code := e.Do("POST", "/api/v1/projects/"+c.Project.Id.String()+"/services", nil, &en); code != http.StatusAccepted {
+			if code := ctl.Do("POST", "/api/v1/projects/"+c.Project.Id.String()+"/services", nil, &en); code != http.StatusAccepted {
 				errs <- fmt.Errorf("enable %d: %d", i, code)
 				return
 			}
-			if op := e.WaitOperation(en.Operation.Id); op.Status != gen.OperationStatusSucceeded {
+			if op := ctl.WaitOperation(en.Operation.Id); op.Status != gen.OperationStatusSucceeded {
 				errs <- fmt.Errorf("enable %d: %s %s", i, op.Status, testenv.FormatLog(op))
 				return
 			}
@@ -150,23 +174,52 @@ func TestBackendLoad(t *testing.T) {
 		total, time.Since(start).Round(time.Second), parallel, ms(pct(lat, .5)), ms(pct(lat, .95)))
 	// Every request comes from one address and one key per project: lift
 	// the per-IP and per-key limits so the test measures capacity.
-	if _, err := e.DB.Exec(ctx, `UPDATE project_services SET settings = settings || '{"rate_per_ip": 1000000, "rate_per_key": 10000000}'`); err != nil {
-		t.Fatal(err)
+	limits := map[string]any{"rate_per_ip": 1000000, "rate_per_key": 10000000}
+	if e != nil {
+		if _, err := e.DB.Exec(ctx, `UPDATE project_services SET settings = settings || $1`, limits); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		for _, p := range projects {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+				if code := ctl.Do("PATCH", "/api/v1/projects/"+p.pid.String()+"/services", map[string]any{"settings": limits}, nil); code != http.StatusOK {
+					t.Errorf("lift the rate limits of %s: %d", p.ref, code)
+				}
+			}()
+		}
+		wg.Wait()
+		if t.Failed() {
+			t.FailNow()
+		}
 	}
 
-	ed := e.StartEdge()
 	tr := &http.Transport{MaxIdleConns: 2000, MaxIdleConnsPerHost: 2000, IdleConnTimeout: time.Minute}
+	// base and host: where a project's requests go, and as which name.
+	var base func(p backendProject) string
+	host := func(p backendProject) string { return p.ref + "." + testenv.EdgeDomain }
+	if e != nil {
+		ed := e.StartEdge()
+		base = func(backendProject) string { return ed.URL }
+	} else {
+		remote.edgeTransport(t, tr)
+		host = func(p backendProject) string { return p.ref + "." + remote.APIDomain }
+		base = func(p backendProject) string { return "https://" + host(p) }
+	}
 	client := &http.Client{Transport: tr, Timeout: 30 * time.Second}
 	do := func(p backendProject, method, path string, body []byte, ctype string) (int, []byte, error) {
 		var r io.Reader
 		if body != nil {
 			r = bytes.NewReader(body)
 		}
-		req, err := http.NewRequest(method, ed.URL+path, r)
+		req, err := http.NewRequest(method, base(p)+path, r)
 		if err != nil {
 			return 0, nil, err
 		}
-		req.Host = p.ref + "." + testenv.EdgeDomain
+		req.Host = host(p)
 		req.Header.Set("apikey", p.sec)
 		if ctype != "" {
 			req.Header.Set("Content-Type", ctype)
@@ -179,6 +232,7 @@ func TestBackendLoad(t *testing.T) {
 		b, err := io.ReadAll(res.Body)
 		return res.StatusCode, b, err
 	}
+	// A remote edge takes its feed's poll to hear of new projects.
 	waitAll := time.Now().Add(2 * time.Minute)
 	for _, p := range projects {
 		for {
@@ -281,6 +335,9 @@ func TestBackendLoad(t *testing.T) {
 	var maxBackends atomic.Int64
 	watchStop := make(chan struct{})
 	go func() {
+		if e == nil {
+			return // a remote target's backends are on its nodes' dashboards
+		}
 		c := e.SharedAdmin("postgres")
 		defer c.Close(context.Background())
 		for {
@@ -316,6 +373,10 @@ func TestBackendLoad(t *testing.T) {
 	// The pooler's idle server connections close after its
 	// server_idle_timeout; wait for the backends to drain first.
 	drainBy := time.Now().Add(90 * time.Second)
+	if e == nil {
+		time.Sleep(30 * time.Second)
+		drainBy = time.Now()
+	}
 	for time.Now().Before(drainBy) {
 		var n int64
 		c := e.SharedAdmin("postgres")
