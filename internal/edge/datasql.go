@@ -35,6 +35,8 @@ type apiError struct {
 	Code    string
 	Message string
 	Details map[string]any
+	// RetryAfter, in seconds, is sent as Retry-After when set.
+	RetryAfter int
 }
 
 func (e *apiError) Error() string { return e.Message }

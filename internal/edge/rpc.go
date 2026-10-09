@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -88,10 +89,16 @@ func (e *Edge) rpc(c *call, req Request, name string) {
 	args := map[string]json.RawMessage{}
 	q := c.r.URL.Query()
 	output := url.Values{}
+	var key *idempotency
 	switch c.r.Method {
 	case http.MethodPost:
 		body, ok := readBody(c)
 		if !ok {
+			return
+		}
+		var ae *apiError
+		if key, ae = idempotencyOf(c, req, body); ae != nil {
+			c.apiFail(ae)
 			return
 		}
 		if len(bytes.TrimSpace(body)) > 0 {
@@ -144,6 +151,9 @@ func (e *Edge) rpc(c *call, req Request, name string) {
 	var fn *datacat.Function
 	var fp string
 	err = e.WithRequest(ctx, c.p, req, func(tx pgx.Tx) error {
+		if err := key.claim(ctx, tx); err != nil {
+			return err
+		}
 		cat, _, err := e.catalog(ctx, c.p, tx)
 		if err != nil {
 			return err
@@ -217,10 +227,19 @@ func (e *Edge) rpc(c *call, req Request, name string) {
 		}
 		buf.WriteString("}\n")
 		out = buf.Bytes()
-		return nil
+		return key.store(ctx, tx, http.StatusOK, out)
 	})
 	if err != nil {
-		e.dataDBError(c, err)
+		var rp *replayed
+		var ae *apiError
+		switch {
+		case errors.As(err, &rp):
+			c.writeReplay(rp)
+		case errors.As(err, &ae):
+			c.apiFail(ae)
+		default:
+			e.dataDBError(c, err)
+		}
 		return
 	}
 	if failed != nil {

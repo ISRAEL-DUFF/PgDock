@@ -398,21 +398,38 @@ func readBody(c *call) ([]byte, bool) {
 }
 
 // inTx runs fn in the request's transaction with the catalog; an
-// *apiError from fn rolls back and is the response.
-func (e *Edge) inTx(c *call, req Request, fn func(ctx context.Context, tx pgx.Tx, cat *Catalog) (any, int, error)) {
+// *apiError from fn rolls back and is the response. With an
+// Idempotency-Key the key is claimed first and the answer kept beside the
+// write, so a repeat gets the first answer.
+func (e *Edge) inTx(c *call, req Request, key *idempotency, fn func(ctx context.Context, tx pgx.Tx, cat *Catalog) (any, int, error)) {
 	ctx, cancel := context.WithTimeout(c.r.Context(), req.Timeout+3*time.Second)
 	defer cancel()
-	var out any
+	var out []byte
 	status := http.StatusOK
 	err := e.WithRequest(ctx, c.p, req, func(tx pgx.Tx) error {
+		if err := key.claim(ctx, tx); err != nil {
+			return err
+		}
 		cat, _, err := e.catalog(ctx, c.p, tx)
 		if err != nil {
 			return err
 		}
-		out, status, err = fn(ctx, tx, cat)
-		return err
+		var v any
+		if v, status, err = fn(ctx, tx, cat); err != nil {
+			return err
+		}
+		if out, err = json.Marshal(v); err != nil {
+			return err
+		}
+		out = append(out, '\n')
+		return key.store(ctx, tx, status, out)
 	})
 	if err != nil {
+		var rp *replayed
+		if errors.As(err, &rp) {
+			c.writeReplay(rp)
+			return
+		}
 		var ae *apiError
 		if errors.As(err, &ae) {
 			c.apiFail(ae)
@@ -424,7 +441,11 @@ func (e *Edge) inTx(c *call, req Request, fn func(ctx context.Context, tx pgx.Tx
 	// Committed: drop the cached reads it could have changed (V4.1 §10)
 	// before answering, so the caller's next read sees its write.
 	e.dropWritten(c, c.wrote, false)
-	c.json(status, out)
+	h := c.w.Header()
+	h.Set("Content-Type", "application/json")
+	h.Set("Cache-Control", "no-store")
+	c.w.WriteHeader(status)
+	_, _ = c.w.Write(out)
 }
 
 func (e *Edge) findWritable(cat *Catalog, p *project, role, name string) (*Table, error) {
@@ -460,7 +481,12 @@ func (e *Edge) write(c *call, req Request, name string, pk *string) {
 			return
 		}
 	}
-	e.inTx(c, req, func(ctx context.Context, tx pgx.Tx, cat *Catalog) (any, int, error) {
+	key, ae := idempotencyOf(c, req, body)
+	if ae != nil {
+		c.apiFail(ae)
+		return
+	}
+	e.inTx(c, req, key, func(ctx context.Context, tx pgx.Tx, cat *Catalog) (any, int, error) {
 		t, err := e.findWritable(cat, c.p, req.Role, name)
 		if err != nil {
 			return nil, 0, err
@@ -522,7 +548,12 @@ func (e *Edge) batch(c *call, req Request) {
 		c.apiFail(badRequest("invalid_body", "a batch has 1 to %d operations", maxBatchOps))
 		return
 	}
-	e.inTx(c, req, func(ctx context.Context, tx pgx.Tx, cat *Catalog) (any, int, error) {
+	key, ae := idempotencyOf(c, req, body)
+	if ae != nil {
+		c.apiFail(ae)
+		return
+	}
+	e.inTx(c, req, key, func(ctx context.Context, tx pgx.Tx, cat *Catalog) (any, int, error) {
 		results := make([]writeResult, 0, len(in.Operations))
 		for i, op := range in.Operations {
 			if t := cat.Find(op.Table); t != nil {

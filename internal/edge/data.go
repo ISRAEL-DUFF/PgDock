@@ -54,6 +54,9 @@ func (p *project) gateFor(role string) gate {
 }
 
 func (c *call) apiFail(e *apiError) {
+	if e.RetryAfter > 0 {
+		c.w.Header().Set("Retry-After", strconv.Itoa(e.RetryAfter))
+	}
 	c.json(e.Status, map[string]Error{"error": {Code: e.Code, Message: e.Message, Details: e.Details, RequestID: c.id}})
 }
 
