@@ -282,6 +282,10 @@ var roles = map[string]bool{"shared": true, "dedicated": true, "both": true}
 // RolePooler is an edge pooler host.
 const RolePooler = "pooler"
 
+// RoleEdge is a node that runs pgdock-edge only (V4.1 §11): never given a
+// database, its cost split by backend services' use.
+const RoleEdge = "edge"
+
 var nodeName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
 
 // CreateNode records a node an operator is adding and issues its one-time
@@ -293,8 +297,8 @@ func (s *Service) CreateNode(ctx context.Context, name, privateAddr, role, regio
 	if !nodeName.MatchString(name) {
 		return store.Node{}, "", time.Time{}, fmt.Errorf("%w: node names are lowercase letters, digits, and dashes", ErrInvalid)
 	}
-	if !roles[role] && role != RolePooler {
-		return store.Node{}, "", time.Time{}, fmt.Errorf("%w: role must be shared, dedicated, both, or pooler", ErrInvalid)
+	if !roles[role] && role != RolePooler && role != RoleEdge {
+		return store.Node{}, "", time.Time{}, fmt.Errorf("%w: role must be shared, dedicated, both, pooler or edge", ErrInvalid)
 	}
 	privateAddr = strings.TrimSpace(privateAddr)
 	if privateAddr == "" || strings.ContainsAny(privateAddr, " /:") {

@@ -59,6 +59,10 @@ type Config struct {
 	PollWait    time.Duration
 	ResyncEvery time.Duration
 	ReportEvery time.Duration
+	// AliveEvery is the longest the edge goes without a report, sending an
+	// empty one when it has nothing to say (default 30s), so pgdock-server
+	// sees it is up (V4.1 §7.2).
+	AliveEvery time.Duration
 	// AuthRateScale multiplies the per-IP limits on auth endpoints (tests
 	// sign in many times from one address); 0 means 1.
 	AuthRateScale int
@@ -70,7 +74,16 @@ type Config struct {
 	// GarbageGrace is how long replaced and deleted objects' bytes stay, for
 	// downloads in flight (default a minute).
 	GarbageGrace time.Duration
-	Log          *slog.Logger
+	// CacheBytes bounds the anonymous-read cache (default 64 MB).
+	CacheBytes int
+	// RenderWorker is the command a render worker runs as (V4.1 §12.4),
+	// e.g. {"/usr/local/bin/pgdock-edge", "render-worker"}; empty renders
+	// in the edge's own process.
+	RenderWorker []string
+	// RenderWorkerEnv is added to the workers' environment (GOMEMLIMIT,
+	// the address-space cap, a test's crash marker).
+	RenderWorkerEnv []string
+	Log             *slog.Logger
 }
 
 func (c *Config) defaults() {
@@ -82,6 +95,9 @@ func (c *Config) defaults() {
 	}
 	if c.ReportEvery == 0 {
 		c.ReportEvery = 10 * time.Second
+	}
+	if c.AliveEvery == 0 {
+		c.AliveEvery = 30 * time.Second
 	}
 	if c.PoolerSSLMode == "" {
 		c.PoolerSSLMode = "require"
@@ -106,8 +122,12 @@ type Edge struct {
 	ready  bool
 	meter  *meter
 	limits *limiter
-	mau    mauSeen
-	waking sync.Map // ref -> time.Time of the last wake asked
+	cache  *respCache
+	cpu    cpuSampler
+	// renders are the render workers; nil renders in process.
+	renders *renderPool
+	mau     mauSeen
+	waking  sync.Map // ref -> time.Time of the last wake asked
 	// hashSlots bound concurrent password hashes, renderSlots image
 	// transforms.
 	hashSlots   chan struct{}
@@ -173,15 +193,29 @@ func (d *dbconn) close() {
 // New returns an edge; Run starts following the feed and reporting.
 func New(cfg Config) *Edge {
 	cfg.defaults()
-	return &Edge{
+	e := &Edge{
 		cfg:         cfg,
 		client:      &edgeapi.Client{URL: cfg.ControlURL, Secret: cfg.Secret},
 		byRef:       map[string]*project{},
 		meter:       newMeter(),
 		limits:      newLimiter(),
+		cache:       newRespCache(cfg.CacheBytes),
 		hashSlots:   make(chan struct{}, max(2, runtime.GOMAXPROCS(0))),
 		renderSlots: make(chan struct{}, max(1, runtime.GOMAXPROCS(0)/2)),
 	}
+	if len(cfg.RenderWorker) > 0 {
+		e.renders = newRenderPool(cfg.RenderWorker, cfg.RenderWorkerEnv, cap(e.renderSlots), cfg.Log)
+	}
+	return e
+}
+
+// RenderWorkersStarted is how many render workers the edge has started
+// (tests watch a crashed one replaced).
+func (e *Edge) RenderWorkersStarted() int {
+	if e.renders == nil {
+		return 0
+	}
+	return e.renders.Started()
 }
 
 func (e *Edge) httpClient() *http.Client {
@@ -220,6 +254,9 @@ func (e *Edge) Run(ctx context.Context) {
 	}()
 	wg.Wait()
 	e.closePools()
+	if e.renders != nil {
+		e.renders.close()
+	}
 	e.flush(context.Background())
 }
 

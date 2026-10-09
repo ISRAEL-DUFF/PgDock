@@ -188,6 +188,21 @@ func (s *Service) advanceMoves(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// With automatic rebalancing, rebalance moves run only inside the
+	// maintenance window (V4.1 §8.4); drains don't wait.
+	if m.Kind == MoveRebalance {
+		if st, err := s.Settings(ctx); err != nil {
+			return err
+		} else if st.AutoRebalance {
+			w, err := s.ded.MaintenanceWindow(ctx)
+			if err != nil {
+				return err
+			}
+			if !w.Contains(s.cfg.Now()) {
+				return nil
+			}
+		}
+	}
 	fail := func(status, msg string) error {
 		return q.SetRebalanceMove(ctx, store.SetRebalanceMoveParams{ID: m.ID, Status: status, Error: &msg})
 	}
@@ -387,8 +402,8 @@ func (s *Service) sweepEmpty(ctx context.Context) error {
 	var errs []error
 	for _, o := range occ {
 		n, ok := byID[o.ID]
-		if !ok || n.Lifecycle == "provisioning" {
-			continue
+		if !ok || n.Lifecycle == "provisioning" || n.Role == "edge" {
+			continue // an edge node holds no databases: it is never "empty"
 		}
 		empty := o.Projects == 0 && o.Dedicated == 0 && o.Retired == 0 && o.Members == 0 && o.Etcd == 0
 		switch {

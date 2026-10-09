@@ -40,6 +40,7 @@ The provider is where new servers come from. There are two.
 | `PGDOCK_CLOUD_SERVER_URL` | How agents reach pgdock-server (default `PGDOCK_PUBLIC_URL`) |
 | `PGDOCK_CLOUD_SERVER_CA_FILE` | The PEM of a private CA, if pgdock-server's certificate isn't publicly trusted |
 | `PGDOCK_CLOUD_PRIVATE_CIDR` | The private network, default `10.0.0.0/16`. Instances accept logins from it, and the agent advertises its address on it. |
+| `PGDOCK_CLOUD_EDGE_IMAGE` | Optional: pgdock-edge's image, for the edge nodes PGDock adds. Their cloud-init also gets `PGDOCK_EDGE_SECRET` and `PGDOCK_API_DOMAIN`. Without it, edge proposals are added by hand. |
 
 Servers PGDock creates carry the labels `pgdock=node`, `pgdock-node=<name>`
 and `pgdock-region=<region>`. Don't delete them by hand while PGDock still
@@ -47,7 +48,7 @@ lists them: drain the node instead (below).
 
 ## Proposals
 
-Every hour, and when you choose **Check now**, PGDock checks two
+Every hour, and when you choose **Check now**, PGDock checks three
 thresholds in each region.
 
 - **Shared tier:** the region's shared disk is projected to pass 70%
@@ -56,6 +57,19 @@ thresholds in each region.
 - **Dedicated tier:** no dedicated host has room for the largest instance
   size (vCPU, memory and disk). This check only runs in regions that
   already have a dedicated host.
+- **Edge tier** (V4.1 §11): the region's pgdock-edge processes used more
+  than 70% of their hosts' CPUs throughout the last hour. Each edge
+  reports its process's share of its host's CPUs; the check averages a
+  region's edges in 5-minute buckets and needs at least 11 of the hour's
+  12 above the threshold. Edges that serve every region count towards the
+  home region.
+
+An **edge node** runs pgdock-edge beside its agent and never gets a
+database: no shared cluster, no dedicated instance, and the empty-node
+cleanup leaves it alone. Its cloud-init writes the edge's settings
+(including the edge secret) to a root-only file and opens port 8443 for
+the load balancer or TLS terminator in front of the edges. You can also
+register one by hand with the role `edge` so its cost is attributed.
 
 When a threshold trips, PGDock records a **proposal**: the server type, the
 location, the monthly price from the provider's catalog, and the reason. A
@@ -86,6 +100,21 @@ Provisioning is an operation with a log, and it runs these steps:
 
 From then on, new projects go to the node with the fewest projects, which
 is the new one.
+
+### Dedicated hosts on demand
+
+New dedicated instances are placed on the node in their region with room
+for them (its reported vCPUs, memory and disk minus what its instances are
+allocated) and the fewest instances. When none has room and the provider
+can create servers, the creation itself asks for a host: it opens the
+region's dedicated proposal (or joins the open one) with the reason. Within
+the budget the server is created at once and the project shows **Waiting
+for a host** in its operation's log while it joins (usually 5–10 minutes,
+up to 25), then lands on it. Over the budget, or while a proposal waits
+for approval, the creation is refused with `409 capacity_pending_approval`
+and the alert above fires; the user can try again once it is in service.
+With hosts added by hand, the creation is refused with `503 no_capacity`,
+naming the region.
 
 If any step fails, PGDock deletes the server and removes the node, the
 proposal is marked failed, and a critical alert fires. The server's
@@ -121,7 +150,10 @@ The settings (Platform → Capacity → Settings) are:
   proposes moves from the fullest node to the emptiest, at most ten in a
   batch, choosing the largest projects that narrow the gap. Approve or
   reject the batch. With automatic rebalancing on, batches are approved by
-  themselves during the maintenance window (Nodes → Maintenance window).
+  themselves during the maintenance window (Nodes → Maintenance window),
+  and their moves run only inside it: one not started when the window
+  ends waits for the next. Rebalancing moves shared projects only; HA
+  projects are never among them.
 - **Empty nodes:** a node with no projects, dedicated instances, HA
   members, etcd member, or move copies is marked empty. The copies a move
   keeps are kept for 48 hours. A server from a provider is deleted after
@@ -140,6 +172,10 @@ organisations that used it (V3 §5.4):
 | Backup storage | The object storage price per GB-month | Each organisation's backup GB-hours |
 | Data transfer | The price per GB | Each organisation's pooler transfer |
 | Floating IPs, fixed overheads | Their monthly prices (Costs & margins → Cost settings), ÷ days | Nobody: **unallocated** |
+| An edge node (role `edge`) | Its monthly price ÷ days | Organisations' share of the region's backend services: half by `api_requests`, half by realtime connection-minutes (all by one when there is none of the other; every region's when the region has none). Booked as **edge**. |
+| Edges on shared nodes | **Edges' share of shared nodes** (Cost settings, default 0%) of each shared node's shared pool | The same as an edge node, as **edge**; the rest of the pool is divided as above. |
+| File storage | The object storage price per GB-month, and the transfer price per GB downloaded | Each organisation's `storage_gb_hours` and `storage_egress_gb`, as **files** |
+| SMS and WhatsApp codes | What the provider charged for each platform-sent code, in the cost currency at the day's rate (naira without one) | The organisation that sent it, as **messages** |
 
 Costs stay in the currency they're billed in. Hetzner bills in euros, and
 so do the default storage, transfer and floating IP prices. Yesterday and
@@ -153,6 +189,12 @@ left out of days recomputed after its removal.
 
 - **Cost by region and tier**, in the billing currency, in naira at
   today's rate, and in naira at the rate in effect on each day.
+- **Margin by service** (V4.1 §11): what the price book earned for
+  databases (plans, hosting, backups, replicas), the API (data API, auth
+  and realtime), files and messages, the billing page's breakdown, against
+  what each cost: databases the node, backup and transfer categories, the
+  API the edges, files and messages their own. Unallocated costs are in
+  the total only.
 - **Margin by plan** and **by organisation**. Revenue is what the month
   earns: its usage, and its own plan fee, even though the invoice bills
   the next month's fee in advance. Margin is revenue minus the

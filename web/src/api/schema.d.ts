@@ -1194,10 +1194,16 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Change a dedicated project's instance settings
+         * Change a dedicated project's instance (size, disk, recovery window)
          * @description The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
          *     as billed add-ons on Pro and Team. A longer window grows day by day
          *     from now; a shorter one drops the older base backups at the next one.
+         *
+         *     A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+         *     the instance restarts in a few seconds with the poolers holding
+         *     clients, or with HA a standby is resized and switched to. When its
+         *     node can't hold the new size, a `logical_move` to one that can is
+         *     queued instead (`plan.move_to`). The dedicated allowance applies.
          */
         patch: operations["updateProjectInstance"];
         trace?: never;
@@ -2492,6 +2498,26 @@ export interface paths {
         patch: operations["updateOrg"];
         trace?: never;
     };
+    "/api/v1/orgs/{org}/incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open incidents affecting the organisation's projects
+         * @description Open status page incidents whose components and region match one of the organisation's projects, or that name one of its projects or the nodes they run on (V4.1 §7.3). Public fields only.
+         */
+        get: operations["listOrgIncidents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{org}/members": {
         parameters: {
             query?: never;
@@ -2728,8 +2754,45 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The API's request logs (7 days), newest first */
+        /**
+         * The API's request logs (7 days), newest first; with after, newer ones oldest first
+         * @description With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
+         */
         get: operations["listAPIRequestLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What the data API exposes, with row-level security, policies and access per table (the API docs) */
+        get: operations["getServicesCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** This month's backend-services usage, against the plan, and the charges that fall to the project */
+        get: operations["getServicesUsage"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3503,7 +3566,11 @@ export interface paths {
         delete: operations["removeBillingContact"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Turn a billing contact's status page emails on or off
+         * @description Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+         */
+        patch: operations["updateBillingContact"];
         trace?: never;
     };
     "/api/v1/orgs/{org}/billing/invoices": {
@@ -5028,6 +5095,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/pg-versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Postgres majors and where each is in its life (V4.1 §6.1) */
+        get: operations["listPgVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/pg-versions/{major}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Promote, deprecate or retire a Postgres major
+         * @description Deprecating sets a retirement date at least 180 days ahead and emails
+         *     the owners and admins of every organisation with a project on it
+         *     (again at 90, 30 and 7 days). Retiring early is refused while
+         *     projects are on it. Retired: no new projects; existing ones keep
+         *     running, unsupported.
+         */
+        patch: operations["updatePgVersion"];
+        trace?: never;
+    };
     "/api/v1/admin/regions": {
         parameters: {
             query?: never;
@@ -5073,6 +5181,43 @@ export interface paths {
         get: operations["getAdminRegionReadiness"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/regions/{region_id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1) */
+        get: operations["getAdminRegionOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/regions/{region_id}/etcd-move-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move every HA project on another region's etcd onto this region's, one at a time
+         * @description Queues one operation that runs the per-project etcd moves in turn (each pauses its own project for a few seconds); never two at once in the region.
+         */
+        post: operations["moveAllToRegionEtcd"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5515,6 +5660,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/maintenance/announcements/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The email an announcement would send, and how many it reaches
+         * @description Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+         */
+        post: operations["previewMaintenanceAnnouncement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/maintenance/announcements/{incident_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Announce a maintenance draft PGDock proposed
+         * @description Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
+         */
+        post: operations["confirmMaintenanceDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/maintenance/announcements/{incident_id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discard a maintenance draft; the work it was for keeps waiting */
+        post: operations["discardMaintenanceDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/maintenance/announcements/{incident_id}": {
         parameters: {
             query?: never;
@@ -5717,6 +5919,39 @@ export interface components {
             /** @enum {string} */
             level: "info" | "warn" | "error";
             msg: string;
+        };
+        RegionOverview: {
+            region: string;
+            pooler_hosts: components["schemas"]["RegionPoolerHost"][];
+            /** @description Set when the pair shares a failure domain (or one isn't set). */
+            pooler_pair_problem?: string | null;
+            etcd_members: components["schemas"]["RegionEtcdMember"][];
+            etcd_ready: boolean;
+            /** @description Why the region's cluster can't take projects yet, when it can't. */
+            etcd_problem?: string | null;
+            /** @description The region's HA projects whose Patroni state is in another region's etcd cluster. */
+            ha_elsewhere: components["schemas"]["RegionHAElsewhere"][];
+            move_all?: components["schemas"]["Operation"];
+        };
+        RegionPoolerHost: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            status: string;
+            failure_domain?: string | null;
+        };
+        RegionEtcdMember: {
+            /** Format: uuid */
+            node_id: string;
+            node_name: string;
+            status: string;
+            failure_domain?: string | null;
+        };
+        RegionHAElsewhere: {
+            /** Format: uuid */
+            project_id: string;
+            name: string;
+            etcd_region: string;
         };
         Operation: {
             /** Format: uuid */
@@ -5974,6 +6209,8 @@ export interface components {
             removed_copies: number;
         };
         CreateProjectRequest: {
+            /** @description Allow a Postgres major in preview (V4.1 §6.1). */
+            preview?: boolean;
             /**
              * Format: uuid
              * @description The organisation; your personal organisation when omitted.
@@ -6005,6 +6242,14 @@ export interface components {
             operation: components["schemas"]["Operation"];
             password: string;
             connection: components["schemas"]["ConnectionInfo"];
+            api?: components["schemas"]["BranchApi"];
+        };
+        /** @description A branch's own backend services API (V4.1 §9.5), when its parent has them: a new ref and keys, shown once. The parent's keys and tokens don't work on it. */
+        BranchApi: {
+            ref: string;
+            url?: string | null;
+            publishable_key: string;
+            secret_key: string;
         };
         SessionState: {
             authenticated: boolean;
@@ -6129,6 +6374,8 @@ export interface components {
             schema_only?: boolean;
             /** @description Hours until the branch deletes itself (1 to 720; 0 keeps it). Default 168. */
             ttl_hours?: number;
+            /** @description With backend services: copy the parent's stored files into the branch, in the background (counted against the organisation's file storage). Without it, the copied file records have no bytes. */
+            copy_files?: boolean;
         };
         BranchResetRequest: {
             /**
@@ -6750,8 +6997,34 @@ export interface components {
             /** @description Announced less than 72 hours ahead, so minutes before excluded_from count. */
             short_notice?: boolean;
             emailed?: number;
+            /** @description Proposed by PGDock and not announced yet; confirm or discard it. */
+            draft?: boolean;
+            /** @description What PGDock proposed it for (minor_upgrade). */
+            proposed_for?: string | null;
             scope_projects: string[];
             scope_nodes: string[];
+        };
+        MaintenancePreviewRequest: {
+            /**
+             * Format: uuid
+             * @description A draft to preview; the other fields are then ignored.
+             */
+            incident_id?: string;
+            title?: string;
+            body?: string;
+            region?: string;
+            /** Format: date-time */
+            start?: string;
+            /** Format: date-time */
+            end?: string;
+            project_ids?: string[];
+            node_ids?: string[];
+        };
+        MaintenancePreview: {
+            subject: string;
+            body: string;
+            organisations: number;
+            addresses: number;
         };
         MaintenanceAnnouncementList: {
             items: components["schemas"]["MaintenanceAnnouncement"][];
@@ -6817,6 +7090,10 @@ export interface components {
             max_query_cost?: number;
             /** @description Send publishable-key data API GETs to the read replicas without a Read-Replica header (V4 §7). Off by default. */
             replica_reads?: boolean;
+            /** @description Cache anonymous reads (publishable key, no user token) of these tables ("schema.table") and stable functions ("rpc.name" or "rpc.schema.name") on the edge for up to that many seconds, 1 to 3,600 (V4.1 §10). A TTL is a staleness budget: writes made outside this edge's data API show within it. Sent whole: {} turns caching off. */
+            cache_ttl_seconds?: {
+                [key: string]: number;
+            };
         };
         AuthSettings: {
             /** @description Where links go when a request names no redirect (and the base of allowed redirects). */
@@ -7331,6 +7608,109 @@ export interface components {
         };
         ApiRequestLogList: {
             items: components["schemas"]["ApiRequestLog"][];
+            /**
+             * Format: int64
+             * @description With after, the cursor to follow from next.
+             */
+            next?: number;
+        };
+        ServicesUsage: {
+            /** @description The month (UTC), as 2006-01. */
+            month: string;
+            metrics: components["schemas"]["ServicesUsageMetric"][];
+            /** @description The month's charges so far, before VAT, that fall to the project: its own lines, and of an allowance's overage the share its usage is of the organisation's. Absent without billing, or to a caller who can't see the organisation's billing. */
+            charges?: components["schemas"]["ServiceCharge"][] | null;
+        };
+        ServicesUsageMetric: {
+            metric: string;
+            /** @enum {string} */
+            service: "data_api" | "auth" | "messages" | "storage" | "realtime";
+            /** @description The project's, this month. */
+            quantity: number;
+            /** @description The organisation's, this month (allowances and limits are shared by its projects). */
+            org_quantity: number;
+            /** @description The plan's allowance this month, above which usage is charged. */
+            included?: number | null;
+            /** @description The plan's hard limit this month, at which the service stops. */
+            limit?: number | null;
+        };
+        ServiceCharge: {
+            /** @enum {string} */
+            service: "plan" | "database" | "data_api" | "auth" | "messages" | "storage" | "realtime" | "read_replicas";
+            /** Format: int64 */
+            amount_minor: number;
+        };
+        ServicesCatalog: {
+            /** @description The project's API ref (its URL's host), when services are on. */
+            ref?: string;
+            api_url?: string | null;
+            schemas: string[];
+            tables: components["schemas"]["CatalogTable"][];
+            functions: components["schemas"]["CatalogFunction"][];
+        };
+        CatalogTable: {
+            schema: string;
+            name: string;
+            /** @enum {string} */
+            kind: "table" | "view" | "materialized_view" | "foreign_table";
+            rls: boolean;
+            /** @description Marked public; anyone with the publishable key reads every row. */
+            public: boolean;
+            columns: components["schemas"]["CatalogColumn"][];
+            primary_key: string[];
+            foreign_keys: components["schemas"]["CatalogForeignKey"][];
+            referenced_by: components["schemas"]["CatalogForeignKey"][];
+            policies: components["schemas"]["CatalogPolicy"][];
+            /** @description The request roles' privileges (anon, user); row-level security then decides which rows. */
+            access: {
+                [key: string]: components["schemas"]["CatalogAccess"];
+            };
+        };
+        CatalogColumn: {
+            name: string;
+            type: string;
+            nullable: boolean;
+            default?: string;
+            identity: boolean;
+            generated: boolean;
+            enum?: string[];
+        };
+        CatalogForeignKey: {
+            name: string;
+            columns: string[];
+            table: string;
+            ref_columns: string[];
+            /** @description The name to embed the other side with in a select. */
+            embed: string;
+            multiple: boolean;
+        };
+        CatalogPolicy: {
+            name: string;
+            command: string;
+            permissive: boolean;
+            /** @description anon, user, service, everyone, or a database role. */
+            roles: string[];
+            using?: string;
+            check?: string;
+        };
+        CatalogAccess: {
+            select: boolean;
+            insert: boolean;
+            update: boolean;
+            delete: boolean;
+        };
+        CatalogFunction: {
+            schema: string;
+            name: string;
+            args: {
+                name: string;
+                type: string;
+                optional: boolean;
+            }[];
+            returns: string;
+            returns_set: boolean;
+            volatility: string;
+            security_definer: boolean;
         };
         OutageMinute: {
             /** Format: date-time */
@@ -7352,6 +7732,32 @@ export interface components {
         InstanceUpdate: {
             /** @enum {integer} */
             pitr_days?: 7 | 14 | 30;
+            /** @description A size from GET /profiles, in place of cpus and memory_mb. */
+            profile?: string;
+            cpus?: number;
+            memory_mb?: number;
+            /** @description Up only; to shrink, move into a smaller instance. */
+            disk_gb?: number;
+            /** @description Only say what a resize would do (in place, or a move to which node). */
+            dry_run?: boolean;
+        };
+        InstanceUpdated: {
+            instance: components["schemas"]["InstanceSummary"];
+            operation?: components["schemas"]["Operation"];
+            plan?: components["schemas"]["ResizePlan"];
+        };
+        ResizePlan: {
+            from: components["schemas"]["InstanceSize"];
+            to: components["schemas"]["InstanceSize"];
+            /** @description The containers restart (a CPU or memory change); a disk change alone doesn't. */
+            restart: boolean;
+            /** @description The node the project moves to, when its own can't hold the new size. */
+            move_to?: string;
+        };
+        InstanceSize: {
+            cpus: number;
+            memory_mb: number;
+            disk_gb: number;
         };
         InstanceSummary: {
             /** @description Postgres major version. */
@@ -7360,6 +7766,16 @@ export interface components {
             ha_enabled?: boolean;
             /** @description Dedicated only. The point-in-time recovery window in days (7, 14 or 30). */
             pitr_days?: number;
+            /**
+             * @description Where its Postgres major is in its life (V4.1 §6.1).
+             * @enum {string}
+             */
+            pg_version_status?: "preview" | "supported" | "deprecated" | "retired";
+            /**
+             * Format: date-time
+             * @description When its deprecated major retires.
+             */
+            pg_version_retires_at?: string;
             /** @description The release the instance runs ("18.1"), as its agent last reported. */
             pg_release?: string | null;
             /** @description The release its image now holds; a newer minor is applied in the maintenance window. */
@@ -7411,9 +7827,38 @@ export interface components {
             items: components["schemas"]["Profile"][];
             default_profile: string;
             default_volume_gb: number;
-            /** @description Supported Postgres major versions, oldest first (V3 §2.4). */
+            /** @description Postgres majors open for new projects, oldest first (V3 §2.4); a preview needs `preview` on the create request. */
             pg_versions: number[];
             default_pg_version: number;
+            /** @description Where each major is in its life (V4.1 §6.1). */
+            pg_version_lifecycle?: components["schemas"]["PgVersionInfo"][];
+        };
+        PgVersionInfo: {
+            major: number;
+            /**
+             * @description A deprecated major past its retirement date is retired.
+             * @enum {string}
+             */
+            status: "preview" | "supported" | "deprecated" | "retired";
+            /** Format: date-time */
+            deprecated_at?: string;
+            /** Format: date-time */
+            retires_at?: string;
+            notes: string;
+            /** @description The server has an image for it (PGDOCK_PG_VERSIONS). */
+            installed: boolean;
+            /** @description Live projects on it (the admin list only). */
+            projects?: number;
+        };
+        PgVersionUpdate: {
+            /** @enum {string} */
+            status: "preview" | "supported" | "deprecated" | "retired";
+            /**
+             * Format: date-time
+             * @description Required to deprecate, at least 180 days ahead.
+             */
+            retires_at?: string;
+            notes?: string;
         };
         CreateNodeRequest: {
             /** @example node-b */
@@ -7424,10 +7869,10 @@ export interface components {
              */
             private_addr: string;
             /**
-             * @description pooler: an edge pooler host (both PgBouncers and keepalived), never given a database.
+             * @description pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
              * @enum {string}
              */
-            role: "shared" | "dedicated" | "both" | "pooler";
+            role: "shared" | "dedicated" | "both" | "pooler" | "edge";
             /** @description The region the node is in (default the home region). A pooler host serves that region's projects. */
             region?: string;
             /** @description What fails with this node (a rack, a host, a power feed), e.g. lagos-dc1-r3. Letters, digits, dots, colons, dashes and underscores. */
@@ -7506,7 +7951,7 @@ export interface components {
         };
         UpgradeCheck: {
             /** @enum {string} */
-            name: "version" | "target" | "replication" | "schema" | "extensions";
+            name: "version" | "target" | "replication" | "schema" | "extensions" | "deprecated";
             /** @enum {string} */
             status: "ok" | "warning" | "blocked";
             message: string;
@@ -8282,8 +8727,11 @@ export interface components {
         };
         /** @enum {string} */
         IncidentSeverity: "minor" | "major" | "critical" | "maintenance";
-        /** @enum {string} */
-        IncidentStatus: "investigating" | "identified" | "monitoring" | "resolved";
+        /**
+         * @description draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+         * @enum {string}
+         */
+        IncidentStatus: "draft" | "investigating" | "identified" | "monitoring" | "resolved";
         Incident: {
             /** Format: uuid */
             id: string;
@@ -8305,6 +8753,24 @@ export interface components {
             pushed_at?: string;
             push_error?: string;
             updates: components["schemas"]["IncidentUpdate"][];
+        };
+        OrgIncidentList: {
+            items: components["schemas"]["OrgIncident"][];
+        };
+        OrgIncident: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            components: string[];
+            region?: string | null;
+            severity: components["schemas"]["IncidentSeverity"];
+            status: components["schemas"]["IncidentStatus"];
+            /** Format: date-time */
+            started_at: string;
+            /** @description The newest update's text. */
+            latest_update?: string | null;
+            /** @description The incident on the status page, when one is configured. */
+            url?: string | null;
         };
         IncidentUpdate: {
             /** Format: int64 */
@@ -8636,6 +9102,13 @@ export interface components {
              * @description Set while the organisation is being deleted.
              */
             delete_after?: string | null;
+            /**
+             * @description The organisation's billing standing when it needs attention (V4.1 §7.3), shown to every member; amounts are on the billing page, for owners and billing members.
+             * @enum {string|null}
+             */
+            billing_state?: "overdue" | "restricted" | "suspended" | "payment_failed" | null;
+            /** @description The highest budget threshold (80 or 100) this month's spend has reached; only for owners and billing members. */
+            budget_alert_percent?: number | null;
             /** @description Open break-glass sessions (V2 §2.4), shown to everyone in the organisation. */
             break_glass?: components["schemas"]["BreakGlassSession"][];
             /** Format: date-time */
@@ -9292,6 +9765,8 @@ export interface components {
         BillingContact: {
             email: string;
             name?: string | null;
+            /** @description Gets the status page's incident emails while the organisation is on a paid plan (default true). */
+            status_emails?: boolean;
         };
         LegalDocument: {
             /** Format: uuid */
@@ -9367,6 +9842,8 @@ export interface components {
             min_memory_gb?: number;
             min_disk_gb?: number;
             cluster_memory_mb?: number;
+            /** @description Edge: propose an edge node when a region's edges average above this percentage of their hosts' CPUs for an hour (70). */
+            cpu_threshold?: number;
         };
         CapacitySettings: {
             auto_apply: boolean;
@@ -9375,6 +9852,7 @@ export interface components {
             budget_currency: string;
             shared: components["schemas"]["TierSettings"];
             dedicated: components["schemas"]["TierSettings"];
+            edge?: components["schemas"]["TierSettings"];
             auto_rebalance: boolean;
             rebalance_spread: number;
             delete_empty_after_hours: number;
@@ -9384,7 +9862,7 @@ export interface components {
             id: string;
             region: string;
             /** @enum {string} */
-            tier: "shared" | "dedicated";
+            tier: "shared" | "dedicated" | "edge";
             reason: string;
             provider: string;
             server_type: string;
@@ -9570,6 +10048,8 @@ export interface components {
             plans: components["schemas"]["PlanMargin"][];
             orgs: components["schemas"]["OrgMargin"][];
             units: components["schemas"]["UnitCost"][];
+            /** @description Margins per service (V4.1 §11). */
+            services?: components["schemas"]["ServiceMargin"][];
             /** Format: int64 */
             revenue_minor: number;
             /** Format: int64 */
@@ -9584,6 +10064,20 @@ export interface components {
             margin_minor: number;
             /** Format: int64 */
             fx_erosion_minor: number;
+            margin_pct?: number;
+        };
+        ServiceMargin: {
+            /**
+             * @description database: plans, hosting, backups and replicas; api: the data API, auth and realtime (the edges); files: storage; messages: platform SMS and WhatsApp.
+             * @enum {string}
+             */
+            service: "database" | "api" | "files" | "messages";
+            /** Format: int64 */
+            revenue_minor: number;
+            /** Format: int64 */
+            cost_minor: number;
+            /** Format: int64 */
+            margin_minor: number;
             margin_pct?: number;
         };
         AttributeRequest: {
@@ -9612,6 +10106,8 @@ export interface components {
             /** Format: int64 */
             floating_ip_monthly_minor: number;
             overheads: components["schemas"]["Overhead"][];
+            /** @description The share of shared nodes' cost moved to the edge category, where pgdock-edge runs on them (0 to 100, default 0). */
+            edge_share_percent?: number;
         };
         FXRate: {
             /** Format: int64 */
@@ -12100,13 +12596,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The instance. */
+            /** @description The instance, with the queued resize or move if any. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InstanceSummary"];
+                    "application/json": components["schemas"]["InstanceUpdated"];
                 };
             };
             default: components["responses"]["Error"];
@@ -14392,6 +14888,29 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listOrgIncidents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matching incidents, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgIncidentList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listOrgMembers: {
         parameters: {
             query?: never;
@@ -14908,6 +15427,14 @@ export interface operations {
             query?: {
                 /** @description A log id from the previous page. */
                 before?: number;
+                /** @description Follow from this log id. */
+                after?: number;
+                /** @description With after, seconds to wait for a new log (at most 25). */
+                wait?: number;
+                /** @description A status (404) or class (5xx, 4xx). */
+                status?: string;
+                /** @description Only requests whose path starts with this. */
+                path?: string;
                 limit?: number;
             };
             header?: never;
@@ -14925,6 +15452,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiRequestLogList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getServicesCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The catalog. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicesCatalog"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getServicesUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The month so far. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicesUsage"];
                 };
             };
             default: components["responses"]["Error"];
@@ -16361,6 +16934,36 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateBillingContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                email: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    status_emails: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingContact"];
+                };
             };
             default: components["responses"]["Error"];
         };
@@ -19087,6 +19690,56 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listPgVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The majors. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["PgVersionInfo"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePgVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                major: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PgVersionUpdate"];
+            };
+        };
+        responses: {
+            /** @description The major. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PgVersionInfo"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listAdminRegions: {
         parameters: {
             query?: never;
@@ -19153,6 +19806,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegionReadiness"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAdminRegionOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The region. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    moveAllToRegionEtcd: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
                 };
             };
             default: components["responses"]["Error"];
@@ -19946,6 +20645,77 @@ export interface operations {
         responses: {
             /** @description Announced. */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceAnnouncement"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewMaintenanceAnnouncement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaintenancePreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description The email. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenancePreview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    confirmMaintenanceDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Announced. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceAnnouncement"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    discardMaintenanceDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Discarded. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -318,6 +318,13 @@ export function platformRail(role: string = "platform_admin"): RailItem[] {
       match: ["/admin/regions"],
     },
     {
+      key: "pg-versions",
+      label: "Postgres versions",
+      icon: Layers,
+      to: "/admin/pg-versions",
+      match: ["/admin/pg-versions"],
+    },
+    {
       key: "orgs",
       label: "Organisations",
       icon: Building2,

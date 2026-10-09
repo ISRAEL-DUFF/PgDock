@@ -1350,6 +1350,11 @@ func (e *Edge) updateUser(c *call, req Request) {
 			action := projauth.ActUpdated
 			if hash != nil {
 				action = projauth.ActPasswordChange
+				// A new password signs out every other session (ASVS 3.3.3):
+				// whoever knew the old one is out.
+				if _, err := projauth.EndSessions(ctx, tx, uid, &sid); err != nil {
+					return err
+				}
 			}
 			if err := projauth.Audit(ctx, tx, &uid, action, c.ip, nil); err != nil {
 				return err

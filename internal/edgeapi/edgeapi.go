@@ -89,6 +89,9 @@ type Settings struct {
 	// ReplicaReads sends publishable-key GETs to the read replicas without
 	// a Read-Replica header (V4 §7).
 	ReplicaReads bool `json:"replica_reads,omitempty"`
+	// CacheTTLSeconds caches anonymous reads of the listed relations
+	// ("schema.table", "rpc.function") on the edge for that long (V4.1 §10).
+	CacheTTLSeconds map[string]int `json:"cache_ttl_seconds,omitempty"`
 }
 
 // Project is one project's configuration on the edge.
@@ -368,12 +371,16 @@ type Log struct {
 type Report struct {
 	BatchID  string      `json:"batch_id"`
 	Edge     string      `json:"edge"`
+	Region   string      `json:"region,omitempty"` // the edge's PGDOCK_EDGE_REGION
 	At       time.Time   `json:"at"`
 	Usage    []Usage     `json:"usage,omitempty"`
 	Logs     []Log       `json:"logs,omitempty"`
 	KeysUsed []uuid.UUID `json:"keys_used,omitempty"`
 	// ActiveUsers is who used auth since the last report, once each.
 	ActiveUsers []ActiveUser `json:"active_users,omitempty"`
+	// CPUPercent is the edge process's share of its host's CPUs since its
+	// previous report (V4.1 §11), when it can tell.
+	CPUPercent *float64 `json:"cpu_percent,omitempty"`
 }
 
 // Wake asks for a paused project to be resumed.

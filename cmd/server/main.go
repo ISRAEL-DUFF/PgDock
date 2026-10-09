@@ -60,6 +60,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/orgs"
 	"github.com/israel-duff/pgdock/internal/outbound"
+	"github.com/israel-duff/pgdock/internal/pgversions"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/regions"
@@ -371,6 +372,9 @@ func run() error {
 	var servicesSvc *services.Service
 	if projects != nil {
 		servicesSvc = services.New(pool, projects, services.Config{Domain: cfg.Edge.Domain, EdgeSecret: cfg.Edge.Secret}, log)
+		if branchSvc != nil {
+			branchSvc.API = servicesSvc // branches get an API of their own (V4.1 §9.5)
+		}
 		if freeSvc != nil {
 			servicesSvc.Waker = func(ctx context.Context, projectID uuid.UUID) error {
 				_, err := freeSvc.Resume(ctx, projectID, nil)
@@ -422,16 +426,34 @@ func run() error {
 	costSvc := costs.New(pool, billingSvc, cfg.Cloud.Region, log)
 	bg.Add(1)
 	go func() { defer bg.Done(); costSvc.Run(bgCtx, time.Hour) }()
+	// The Postgres version lifecycle's notices (V4.1 §6.1).
+	var pgVersionSvc *pgversions.Service
+	if projects != nil {
+		pgVersionSvc = pgversions.New(pool, projects, mailSvc, pgversions.Config{PublicURL: cfg.Insight.PublicURL}, log)
+		bg.Add(1)
+		go func() { defer bg.Done(); pgVersionSvc.Run(bgCtx, time.Hour) }()
+	}
 	var capacitySvc *capacity.Service
 	if backups != nil {
+		var edgeBoot *cloud.EdgeBootstrap
+		if cfg.Cloud.EdgeImage != "" && cfg.Edge.Secret != "" && cfg.Edge.Domain != "" {
+			// Edge nodes (V4.1 §11) run pgdock-edge with the edge secret.
+			edgeBoot = &cloud.EdgeBootstrap{Image: cfg.Cloud.EdgeImage, ControlURL: cfg.Cloud.ServerURL,
+				Secret: cfg.Edge.Secret, Domain: cfg.Edge.Domain}
+		}
 		capacitySvc = capacity.New(pool, nodeSvc, backups.Dedicated, cloudProvider(cfg.Cloud), costSvc, capacity.Config{
 			Region: cfg.Cloud.Region, Location: cfg.Cloud.HetznerLocation, Image: cfg.Cloud.HetznerImage,
 			Network: cfg.Cloud.HetznerNetworkID, PlacementGroup: cfg.Cloud.HetznerPlacementGroup, SSHKeys: cfg.Cloud.HetznerSSHKeys,
 			Bootstrap: cloud.Bootstrap{ServerURL: cfg.Cloud.ServerURL, ServerCA: cfg.Cloud.ServerCA, AgentImage: cfg.Cloud.AgentImage,
 				PGImage: cfg.Cloud.PGImage, PrivateCIDR: cfg.Cloud.PrivateCIDR},
+			Edge: edgeBoot,
 		}, log)
 		for name, k := range capacitySvc.Kinds() {
 			kinds[name] = k
+		}
+		if backups.Dedicated != nil {
+			// Dedicated hosts on demand (V4.1 §5.3).
+			backups.Dedicated.Hosts = capacitySvc.HostFor
 		}
 		bg.Add(1)
 		go func() { defer bg.Done(); capacitySvc.Run(bgCtx, 30*time.Second) }()
@@ -507,6 +529,10 @@ func run() error {
 		URL: cfg.Status.URL, Secret: cfg.Status.PushSecret, Components: cfg.Status.Components, Region: cfg.Status.Region,
 	}, log)
 	incidentSvc.SetMailer(mailSvc, cfg.Insight.PublicURL)
+	incidentSvc.Billing = billingSvc.Health
+	if backups != nil && backups.Dedicated != nil {
+		backups.Dedicated.SetProposer(incidentSvc)
+	}
 	if cfg.Status.URL != "" {
 		log.Info("pushing heartbeats and incidents to the status page", "url", cfg.Status.URL)
 		bg.Add(1)
@@ -576,6 +602,7 @@ func run() error {
 		Capacity:        capacitySvc,
 		Costs:           costSvc,
 		Regions:         regionSvc,
+		PGVersions:      pgVersionSvc,
 		Webhooks:        webhookSvc,
 		Jobs:            jobSvc,
 		Outbound:        outboundSvc,

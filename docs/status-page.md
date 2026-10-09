@@ -118,6 +118,57 @@ use, and refused if they are more than 5 minutes old.
 Confirmed subscribers get an email for every new update, automatic or
 posted.
 
+### Customers' emails (managed subscribers)
+
+pgdock-server also subscribes customers itself, hourly
+(`PUT /api/v1/subscribers/managed`): for every paying organisation (any
+plan but Free, not suspended), its **owners** and its **billing contacts**
+with *Status page emails* on (Org → Billing → Billing contacts), each
+with the components and regions its projects use:
+
+| Projects | Components |
+| --- | --- |
+| any | dashboard, edge-pooler, backups, billing, webhooks-jobs |
+| shared tier | shared-tier |
+| dedicated or HA | dedicated |
+| backend services on | backend-services |
+
+They skip double opt-in (the terms cover it) and get only incidents on one
+of their components, in one of their regions or in none. Every email has
+the unsubscribe link; an unsubscribe is remembered, so the next sync
+doesn't add the address back (subscribing on the page again still works).
+A contact turned off, or an organisation that goes back to Free, is
+removed at the next sync.
+
+### Billing and backend services
+
+- **billing** (heartbeat): degraded while a payment provider's last
+  automatic charge in the last half hour hit an outage, or when last
+  month's invoices haven't issued by the 2nd (with automatic issue on).
+- **backend services** (heartbeat, per region): every pgdock-edge reports
+  at least every 30 seconds; a region is degraded when some of its edges
+  have been silent for 2 minutes and down when all have. Edges silent for
+  a day are taken as gone. Give the component a probe of the region's
+  edge (`/healthz`) as well, and the worse of the two is shown.
+
+A heartbeat component's `heartbeat_id` (default its `id`) is the ID
+pgdock-server reports; a report for a region applies to the components
+of that ID in that region, so one `backend-services` report per region
+fills one line per region (see `status.example.toml`).
+
+### In the dashboard
+
+Members of an organisation see, at the top of every page:
+
+- its **billing state** (overdue, restricted, suspended, a payment
+  declined): owners and billing members with the pay link, everyone else
+  with "ask an owner or a billing member", and never an amount;
+- the **budget** reaching 80% or 100%, to owners and billing members;
+- an **open incident affecting its projects**: one that names one of its
+  projects or their nodes, or, unscoped, is in a project's region (or all
+  regions) on a component the project uses (`GET
+  /api/v1/orgs/{org}/incidents`), linked to the status page.
+
 ## Operate
 
 - **Back up** `/var/lib/pgdock-status/status.db` (the `data` volume) if you

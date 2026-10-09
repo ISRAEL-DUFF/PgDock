@@ -31,6 +31,7 @@ const capacityNodes = `-- name: CapacityNodes :many
 
 SELECT n.id, n.name, n.private_addr, n.agent_port, n.role, n.agent_cert_fp, n.pg_admin_secret, n.capacity, n.status, n.last_heartbeat, n.created_at, n.agent_host, n.agent_version, n.registration_token, n.registration_expires_at, n.last_reachable_at, n.provider_server_id, n.pooler_generation, n.pooler_hash, n.pooler_vrrp_state, n.pooler_ready, n.pooler_checked_at, n.provider, n.region, n.server_type, n.monthly_cost_minor, n.cost_currency, n.lifecycle, n.empty_since, n.keep, n.failure_domain, n.placement_group,
   (SELECT count(*) FROM instances i WHERE i.node_id = n.id AND i.deleted_at IS NULL)::int AS instances,
+  (SELECT count(*) FROM instances i WHERE i.node_id = n.id AND i.deleted_at IS NULL AND i.kind = 'dedicated')::int AS dedicated_instances,
   (SELECT count(*) FROM instances i JOIN projects p ON p.instance_id = i.id AND p.deleted_at IS NULL
      WHERE i.node_id = n.id AND i.deleted_at IS NULL)::int AS projects,
   (SELECT coalesce(sum(i.cpu_limit), 0) FROM instances i WHERE i.node_id = n.id AND i.deleted_at IS NULL AND i.kind = 'dedicated')::float8 AS dedicated_cpus,
@@ -76,6 +77,7 @@ type CapacityNodesRow struct {
 	FailureDomain         *string
 	PlacementGroup        *string
 	Instances             int32
+	DedicatedInstances    int32
 	Projects              int32
 	DedicatedCpus         float64
 	ReservedMemMb         int64
@@ -130,6 +132,7 @@ func (q *Queries) CapacityNodes(ctx context.Context) ([]CapacityNodesRow, error)
 			&i.FailureDomain,
 			&i.PlacementGroup,
 			&i.Instances,
+			&i.DedicatedInstances,
 			&i.Projects,
 			&i.DedicatedCpus,
 			&i.ReservedMemMb,
@@ -527,6 +530,36 @@ func (q *Queries) ListRebalanceMoves(ctx context.Context) ([]ListRebalanceMovesR
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockCapacityProposal = `-- name: LockCapacityProposal :one
+SELECT id, region, tier, reason, provider, server_type, location, monthly_cost_minor, currency, status, auto, node_id, operation_id, error, decided_by, decided_at, created_at, updated_at FROM capacity_proposals WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) LockCapacityProposal(ctx context.Context, id uuid.UUID) (CapacityProposal, error) {
+	row := q.db.QueryRow(ctx, lockCapacityProposal, id)
+	var i CapacityProposal
+	err := row.Scan(
+		&i.ID,
+		&i.Region,
+		&i.Tier,
+		&i.Reason,
+		&i.Provider,
+		&i.ServerType,
+		&i.Location,
+		&i.MonthlyCostMinor,
+		&i.Currency,
+		&i.Status,
+		&i.Auto,
+		&i.NodeID,
+		&i.OperationID,
+		&i.Error,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const movingRebalanceMoves = `-- name: MovingRebalanceMoves :many

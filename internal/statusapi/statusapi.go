@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	netmail "net/mail"
 	"regexp"
 	"slices"
 	"strings"
@@ -31,7 +32,55 @@ const (
 	// results since a time (a POST so the request is signed like pushes).
 	PathSLATargets = "/api/v1/sla/targets"
 	PathSLAResults = "/api/v1/sla/results"
+	// PathManagedSubscribers: PUT replaces the subscribers pgdock-server
+	// manages (V4.1 §7.1): paying organisations' owners and billing
+	// contacts, with no double opt-in.
+	PathManagedSubscribers = "/api/v1/subscribers/managed"
 )
+
+// ManagedSubscriber is one address pgdock-server subscribes, with the
+// components and regions its organisations' projects use; an incident is
+// mailed when it names one of the components and its region is one of
+// the regions (or it has none, or the list is empty).
+type ManagedSubscriber struct {
+	Email      string   `json:"email"`
+	Components []string `json:"components"`
+	Regions    []string `json:"regions,omitempty"`
+}
+
+// ManagedSubscribers is the full list (PUT replaces it).
+type ManagedSubscribers struct {
+	Subscribers []ManagedSubscriber `json:"subscribers"`
+}
+
+// Validate checks the list and lower-cases the addresses.
+func (m *ManagedSubscribers) Validate() error {
+	if len(m.Subscribers) > 200000 {
+		return errors.New("too many subscribers")
+	}
+	seen := map[string]bool{}
+	for i := range m.Subscribers {
+		x := &m.Subscribers[i]
+		x.Email = strings.ToLower(strings.TrimSpace(x.Email))
+		a, err := netmail.ParseAddress(x.Email)
+		if err != nil || a.Address != x.Email || len(x.Email) > 254 || strings.ContainsAny(x.Email, "\r\n") {
+			return fmt.Errorf("subscriber %d: %q is not an email address", i+1, x.Email)
+		}
+		if seen[x.Email] {
+			return fmt.Errorf("subscriber %s is listed twice", x.Email)
+		}
+		seen[x.Email] = true
+		if len(x.Components) == 0 || len(x.Components) > 50 || len(x.Regions) > 50 {
+			return fmt.Errorf("subscriber %s: 1–50 components and at most 50 regions", x.Email)
+		}
+		for _, id := range append(slices.Clone(x.Components), x.Regions...) {
+			if !ValidID(id) {
+				return fmt.Errorf("subscriber %s: %q is not a valid component or region", x.Email, id)
+			}
+		}
+	}
+	return nil
+}
 
 // SLATarget is a project's pooler endpoint to probe: a connection string
 // with a login that may only connect and run SELECT 1.
@@ -123,6 +172,9 @@ type ComponentState struct {
 	ID     string `json:"id"`
 	Status string `json:"status"` // operational, degraded or down
 	Detail string `json:"detail,omitempty"`
+	// Region, when set, is the region the state is for: it applies to the
+	// page's components of that heartbeat ID in that region only.
+	Region string `json:"region,omitempty"`
 }
 
 // Incident is an incident as the status page shows it.
@@ -161,6 +213,9 @@ func (h *Heartbeat) Validate() error {
 	for _, c := range h.Components {
 		if !ValidID(c.ID) {
 			return fmt.Errorf("component ID %q is not valid", c.ID)
+		}
+		if c.Region != "" && !ValidID(c.Region) {
+			return fmt.Errorf("component %s: region %q is not valid", c.ID, c.Region)
 		}
 		if c.Status != Operational && c.Status != Degraded && c.Status != Down {
 			return fmt.Errorf("component %s: status %q is not operational, degraded or down", c.ID, c.Status)
@@ -246,6 +301,11 @@ func (c *Client) PutSLATargets(ctx context.Context, t SLATargets) error {
 func (c *Client) SLAResults(ctx context.Context, since time.Time) (SLAResults, error) {
 	var out SLAResults
 	return out, c.call(ctx, http.MethodPost, PathSLAResults, SLAResultsRequest{Since: since}, &out)
+}
+
+// PutManagedSubscribers replaces the managed subscribers.
+func (c *Client) PutManagedSubscribers(ctx context.Context, m ManagedSubscribers) error {
+	return c.send(ctx, http.MethodPut, PathManagedSubscribers, m)
 }
 
 // PutIncident creates or replaces in.

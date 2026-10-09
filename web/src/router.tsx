@@ -80,6 +80,10 @@ const AdminCapacityPage = lazyRouteComponent(
   () => import("./pages/AdminCapacity"),
   "AdminCapacityPage",
 );
+const AdminPgVersionsPage = lazyRouteComponent(
+  () => import("./pages/AdminPgVersions"),
+  "AdminPgVersionsPage",
+);
 const AdminRegionsPage = lazyRouteComponent(
   () => import("./pages/AdminRegions"),
   "AdminRegionsPage",
@@ -607,6 +611,11 @@ const adminCapacity = createRoute({
   path: "/admin/capacity",
   component: AdminCapacityPage,
 });
+const adminPgVersions = createRoute({
+  getParentRoute: () => app,
+  path: "/admin/pg-versions",
+  component: AdminPgVersionsPage,
+});
 const adminRegions = createRoute({
   getParentRoute: () => app,
   path: "/admin/regions",
@@ -715,6 +724,7 @@ const routeTree = root.addChildren([
     adminRevenue,
     adminCosts,
     adminRegions,
+    adminPgVersions,
     adminCapacity,
     adminSupport,
     adminLegal,

@@ -22,6 +22,9 @@ import {
 import { formatDate, relativeTime } from "../lib/format";
 import { useOperationStream } from "../lib/useOperationStream";
 import { MigrateSupabaseCard } from "../components/MigrateSupabaseCard";
+import type { ExplorePrefill } from "../lib/apiDocs";
+import { formatCacheTTLs, parseCacheTTLs } from "../lib/cacheTtl";
+import { DocsPanel, QuickStartPanel, UsagePanel } from "./ProjectAPIDocs";
 import { useProject } from "./ProjectOverview";
 
 type Services = components["schemas"]["BackendServices"];
@@ -47,6 +50,9 @@ export function ProjectAPIPage() {
 }
 
 function ServicesPanels({ p }: { p: Project }) {
+  const [prefill, setPrefill] = useState<
+    (ExplorePrefill & { n: number }) | null
+  >(null);
   const q = useQuery({
     queryKey: ["services", p.id],
     queryFn: () => api.backendServices(p.id),
@@ -55,15 +61,24 @@ function ServicesPanels({ p }: { p: Project }) {
   if (q.isPending) return <Spinner />;
   if (q.isError) return <Alert>{errorMessage(q.error)}</Alert>;
   const svc = q.data;
+  const tryIt = (e: ExplorePrefill) => {
+    setPrefill({ ...e, n: (prefill?.n ?? 0) + 1 });
+    document
+      .querySelector('[data-testid="services-explorer"]')
+      ?.scrollIntoView({ behavior: "smooth" });
+  };
   return (
     <>
       <StatusPanel p={p} svc={svc} />
       {svc.enabled && (
         <>
+          <QuickStartPanel p={p} svc={svc} />
           <KeysPanel p={p} svc={svc} />
+          <UsagePanel p={p} />
+          <DocsPanel p={p} svc={svc} onTry={tryIt} />
+          <ExplorerPanel p={p} prefill={prefill} />
           <SettingsPanel p={p} svc={svc} />
           <AdvisorPanel p={p} />
-          <ExplorerPanel p={p} />
           <TypesPanel p={p} />
           <LogsPanel p={p} />
           <MigrateSupabaseCard p={p} />
@@ -387,14 +402,22 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
   const [replicaReads, setReplicaReads] = useState(
     svc.settings.replica_reads ?? false,
   );
+  const [cacheTTLs, setCacheTTLs] = useState(
+    formatCacheTTLs(svc.settings.cache_ttl_seconds),
+  );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const save = async (e: FormEvent) => {
     e.preventDefault();
-    setBusy(true);
     setErr(null);
     setSaved(false);
+    const ttls = parseCacheTTLs(cacheTTLs);
+    if (!ttls.ok) {
+      setErr(ttls.error);
+      return;
+    }
+    setBusy(true);
     try {
       await api.updateBackendServices(p.id, {
         cors_origins: origins
@@ -414,6 +437,7 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
           rate_per_ip: perIP,
           allow_secret_in_browser: secretInBrowser,
           replica_reads: replicaReads,
+          cache_ttl_seconds: ttls.value,
         },
       });
       await qc.invalidateQueries({ queryKey: ["services", p.id] });
@@ -502,6 +526,18 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
             className="min-h-16 w-full rounded-md border border-line-strong bg-surface-2 p-2.5 font-mono text-xs"
             value={publicTables}
             onChange={(e) => setPublicTables(e.target.value)}
+          />
+        </FormRow>
+        <FormRow
+          label="Cache anonymous reads"
+          description="Tables (schema.table) and stable functions (rpc.name) whose reads with the publishable key and no signed-in user the edge may serve from its cache, with the seconds, up to 3600: one per line, like public.products 60. Writes through the API show at once; changes made any other way can take that long."
+        >
+          <textarea
+            aria-label="Cache anonymous reads"
+            className="min-h-16 w-full rounded-md border border-line-strong bg-surface-2 p-2.5 font-mono text-xs"
+            value={cacheTTLs}
+            onChange={(e) => setCacheTTLs(e.target.value)}
+            placeholder="public.products 60"
           />
         </FormRow>
         <FormRow
@@ -690,12 +726,25 @@ function AdvisorPanel({ p }: { p: Project }) {
 
 /** The request explorer (V4 §3.4): send a data API request as anon, a
  * user or the service role and see what that caller would get. */
-function ExplorerPanel({ p }: { p: Project }) {
+function ExplorerPanel({
+  p,
+  prefill,
+}: {
+  p: Project;
+  /** A request "Try it" in the docs put here; n changes on each. */
+  prefill: (ExplorePrefill & { n: number }) | null;
+}) {
   const [method, setMethod] = useState<ExploreRequest["method"]>("GET");
   const [path, setPath] = useState("/data/v1/");
   const [role, setRole] = useState<ExploreRequest["role"]>("anon");
   const [userId, setUserId] = useState("");
   const [body, setBody] = useState("");
+  useEffect(() => {
+    if (!prefill) return;
+    setMethod(prefill.method);
+    setPath(prefill.path);
+    setBody(prefill.body ?? "");
+  }, [prefill]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [res, setRes] = useState<ExploreResponse | null>(null);

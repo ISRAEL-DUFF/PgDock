@@ -184,8 +184,18 @@ signature, and delivery.
 `<p>` is a project's name or id; `<branch>` is a branch's id, its name,
 or `<parent>/<name>`. `branch create --env` prints `DATABASE_URL=…`,
 `DATABASE_URL_SESSION=…`, `PGDOCK_BRANCH_ID=…` and `PGDOCK_BRANCH=…`
-lines for `$GITHUB_ENV` or a `.env` file; `--replace` deletes a branch
-of the same name first. `connect` prints a URL with your
+lines for `$GITHUB_ENV` or a `.env` file, and, when the parent has
+backend services, the branch's own `PGDOCK_API_URL=…`,
+`PGDOCK_PUBLISHABLE_KEY=…` and `PGDOCK_SECRET_KEY=…`; `--copy-files`
+copies the parent's stored files into the branch in the background;
+`--replace` deletes a branch of the same name first.
+
+`policies list <p> [--table t]` shows each table's row-level security
+and policies, with the roles as `anon`, `user`, `service` or `everyone`.
+`policies lint <p>` prints the security advisor's findings and exits 1
+when one is marked danger, for CI (`--json` for the list). `logs api <p>
+[--follow] [--status 5xx|404] [--path /data/v1/…]` prints the API's
+request log; `--follow` keeps printing new requests. `connect` prints a URL with your
 **personal** database login for the project (issuing one the first
 time, and remembering it in `~/.config/pgdock/credentials.toml`); `creds
 --rotate` issues a new password.

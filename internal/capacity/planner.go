@@ -22,6 +22,7 @@ import (
 const (
 	TierShared    = "shared"
 	TierDedicated = "dedicated"
+	TierEdge      = "edge"
 )
 
 // Proposal statuses.
@@ -215,12 +216,67 @@ func (s *Service) Evaluate(ctx context.Context) ([]store.CapacityProposal, error
 			made = append(made, *p)
 		}
 	}
+	edge, err := s.edgeProposals(ctx, st, provisioning)
+	made = append(made, edge...)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	return made, errors.Join(errs...)
+}
+
+// edgeWindow is how long a region's edges must stay busy for an edge node.
+const edgeWindow = time.Hour
+
+// edgeProposals proposes an edge node for each region whose edge processes
+// averaged above the threshold in every 5-minute bucket of the last hour
+// (V4.1 §11); an hour needs at least 11 of its 12 buckets reported.
+func (s *Service) edgeProposals(ctx context.Context, st Settings, provisioning map[string]bool) ([]store.CapacityProposal, error) {
+	q := store.New(s.db)
+	if err := q.PruneEdgeCPUSamples(ctx); err != nil {
+		return nil, err
+	}
+	if !st.Edge.Enabled {
+		return nil, nil
+	}
+	rows, err := q.EdgeCPUByRegion(ctx, s.cfg.Now().Add(-edgeWindow))
+	if err != nil {
+		return nil, err
+	}
+	var made []store.CapacityProposal
+	var errs []error
+	for _, r := range rows {
+		region := r.Region
+		if region == "" {
+			region = s.cfg.Region // edges serving every region
+		}
+		if r.Buckets < 11 || r.MinCpu <= st.Edge.CPUThreshold || provisioning[region+"/"+TierEdge] {
+			continue
+		}
+		if _, err := q.GetRegion(ctx, region); errors.Is(err, pgx.ErrNoRows) {
+			s.log.Warn("edge capacity: edges report a region that doesn't exist", "region", region)
+			continue
+		} else if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		reason := fmt.Sprintf("The edges in %s used %.0f%% to %.0f%% of their hosts' CPUs throughout the last hour, over the %.0f%% threshold.",
+			region, r.MinCpu, r.MaxCpu, st.Edge.CPUThreshold)
+		p, err := s.propose(ctx, st, region, TierEdge, reason)
+		if err != nil {
+			errs = append(errs, err)
+		} else if p != nil {
+			made = append(made, *p)
+		}
+	}
 	return made, errors.Join(errs...)
 }
 
 func tierOf(role string) string {
-	if role == "dedicated" {
+	switch role {
+	case "dedicated":
 		return TierDedicated
+	case "edge":
+		return TierEdge
 	}
 	return TierShared
 }
@@ -301,8 +357,11 @@ func abs(v int64) int64 {
 // and applies it when it may.
 func (s *Service) propose(ctx context.Context, st Settings, region, tier, reason string) (*store.CapacityProposal, error) {
 	t := st.Shared
-	if tier == TierDedicated {
+	switch tier {
+	case TierDedicated:
 		t = st.Dedicated
+	case TierEdge:
+		t = st.Edge
 	}
 	price, err := s.serverFor(ctx, t)
 	if err != nil {

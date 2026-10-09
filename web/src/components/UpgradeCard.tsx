@@ -29,6 +29,7 @@ const checkLabel: Record<UpgradePreflight["checks"][number]["name"], string> = {
   replication: "Copy",
   schema: "Schema",
   extensions: "Extensions",
+  deprecated: "Removed features",
 };
 const checkTone = { ok: "ok", warning: "warn", blocked: "danger" } as const;
 const checkMark = { ok: "OK", warning: "Warning", blocked: "Blocked" } as const;

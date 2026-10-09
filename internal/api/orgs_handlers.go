@@ -40,7 +40,7 @@ func (s *Server) genOrg(r *http.Request, o store.Organization, role string, memb
 		sessions = append(sessions, gen.BreakGlassSession{Id: b.ID, OrgId: b.OrgID, AdminEmail: b.AdminEmail, Reason: b.Reason, StartsAt: b.StartsAt, ExpiresAt: b.ExpiresAt})
 	}
 	g.BreakGlass = &sessions
-	return g, nil
+	return g, s.billingStanding(r, &g, role)
 }
 
 func (s *Server) planName(r *http.Request, id uuid.UUID) (string, error) {

@@ -16,6 +16,13 @@ export function CredentialPanel({ creds, onDismiss, ready }: { creds: ProjectCre
       <CopyField label="Password" value={creds.password} secret testId="credential-password" />
       <CopyField label="Pooled URL (transaction mode, for apps)" value={creds.connection.pooled_url} secret testId="credential-pooled-url" />
       <CopyField label="Session URL (for migrations and session features)" value={creds.connection.session_url} secret testId="credential-session-url" />
+      {creds.api && (
+        <>
+          {creds.api.url && <CopyField label="API URL (the branch's own)" value={creds.api.url} testId="credential-api-url" />}
+          <CopyField label="Publishable key" value={creds.api.publishable_key} testId="credential-publishable-key" />
+          <CopyField label="Secret key (shown once)" value={creds.api.secret_key} secret testId="credential-secret-key" />
+        </>
+      )}
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} />
         I've saved the password somewhere safe

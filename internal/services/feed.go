@@ -160,7 +160,7 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 		timeout, perIP, perKey := EffectiveSettings(st, PlanCeilings{TimeoutMs: r.PlanTimeoutMs, RatePerIP: r.PlanRatePerIp, RatePerKey: r.PlanRatePerKey})
 		p.Settings = edgeapi.Settings{StatementTimeoutMs: timeout, RatePerIP: perIP, RatePerKey: perKey,
 			AllowSecretInBrowser: st.AllowSecretInBrowser, MaxQueryCost: float64(or(st.MaxQueryCost, DefaultMaxQueryCost)),
-			ReplicaReads: st.ReplicaReads}
+			ReplicaReads: st.ReplicaReads, CacheTTLSeconds: st.CacheTTLSeconds}
 		p.RequestsBlocked, p.MAUBlocked = r.ApiRequestsBlocked, r.MauBlocked
 		if r.MauBlocked {
 			p.MAUCounted = r.MauCounted
@@ -250,11 +250,22 @@ func (s *Service) Report(ctx context.Context, r edgeapi.Report) error {
 	if r.BatchID == "" || len(r.BatchID) > 100 {
 		return fmt.Errorf("%w: a report needs a batch id", ErrInvalid)
 	}
+	if r.Edge != "" && len(r.Edge) <= 200 && len(r.Region) <= 64 {
+		if err := store.New(s.db).TouchEdge(ctx, store.TouchEdgeParams{Name: r.Edge, Region: r.Region}); err != nil {
+			return err
+		}
+	}
 	return pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		q := store.New(tx)
 		n, err := q.InsertEdgeReport(ctx, store.InsertEdgeReportParams{BatchID: r.BatchID, Edge: r.Edge})
 		if err != nil || n == 0 {
 			return err // n == 0: already recorded
+		}
+		if r.CPUPercent != nil && r.Edge != "" && len(r.Edge) <= 200 && len(r.Region) <= 64 {
+			if err := q.InsertEdgeCPUSample(ctx, store.InsertEdgeCPUSampleParams{Edge: r.Edge, Region: r.Region,
+				CpuPercent: float32(min(max(*r.CPUPercent, 0), 100))}); err != nil {
+				return err
+			}
 		}
 		ids := map[uuid.UUID]bool{}
 		for _, u := range r.Usage {

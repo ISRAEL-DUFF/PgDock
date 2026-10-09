@@ -54,7 +54,13 @@ export function NewProjectPage() {
   const [err, setErr] = useState<string | null>(null);
   const [creds, setCreds] = useState<ProjectCredentials | null>(null);
   const profiles = useQuery({ queryKey: ["profiles"], queryFn: api.profiles });
-  const versions = profiles.data?.pg_versions ?? [];
+  // Majors open for new projects, and any in preview (V4.1 §6.1).
+  const previews = (profiles.data?.pg_version_lifecycle ?? [])
+    .filter((v) => v.status === "preview")
+    .map((v) => v.major);
+  const versions = [...(profiles.data?.pg_versions ?? []), ...previews].sort(
+    (a, b) => a - b,
+  );
   const defaultVersion = profiles.data?.default_pg_version ?? 18;
   const nodes = useQuery({
     queryKey: ["nodes"],
@@ -77,6 +83,7 @@ export function NewProjectPage() {
           description: description || undefined,
           tier,
           pg_version: version ? Number(version) : undefined,
+          preview: previews.includes(Number(version)) || undefined,
           region: region || undefined,
           data_residency: residency && picked?.residency ? true : undefined,
           ...(tier === "dedicated"
@@ -248,6 +255,7 @@ export function NewProjectPage() {
                   <option key={v} value={v === defaultVersion ? "" : String(v)}>
                     Postgres {v}
                     {v === defaultVersion ? " (default)" : ""}
+                    {previews.includes(v) ? " (preview)" : ""}
                   </option>
                 ))}
               </Select>

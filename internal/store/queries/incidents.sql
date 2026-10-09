@@ -9,7 +9,8 @@ RETURNING *;
 SELECT * FROM incidents WHERE id = @id;
 
 -- name: ListIncidents :many
-SELECT * FROM incidents ORDER BY (resolved_at IS NULL) DESC, started_at DESC LIMIT @lim;
+SELECT * FROM incidents WHERE NOT (severity = 'maintenance' AND announced_at IS NULL)
+ORDER BY (resolved_at IS NULL) DESC, started_at DESC LIMIT @lim;
 
 -- name: UpdateIncident :one
 -- A change clears pushed_at so the pusher sends it again.
@@ -31,7 +32,9 @@ ORDER BY u.posted_at, u.id;
 
 -- name: UnpushedIncidents :many
 -- Changed since the last push (or never pushed), oldest change first.
-SELECT * FROM incidents WHERE pushed_at IS NULL ORDER BY updated_at LIMIT 20;
+-- Maintenance drafts (never announced) stay off the status page.
+SELECT * FROM incidents WHERE pushed_at IS NULL AND NOT (severity = 'maintenance' AND announced_at IS NULL)
+ORDER BY updated_at LIMIT 20;
 
 -- name: MarkIncidentPushed :exec
 -- Only if nothing changed while the push was in flight.
@@ -86,7 +89,7 @@ RETURNING *;
 
 -- name: ListMaintenance :many
 -- tenant: system - maintenance announcements, newest window first.
-SELECT * FROM incidents WHERE announced_at IS NOT NULL AND scheduled_end >= @since::timestamptz
+SELECT * FROM incidents WHERE (announced_at IS NOT NULL OR proposed_for IS NOT NULL) AND scheduled_end >= @since::timestamptz
 ORDER BY scheduled_start DESC LIMIT @lim;
 
 -- name: MaintenanceOrgEmails :many
@@ -105,3 +108,53 @@ WHERE p.id = sqlc.arg(project_id) AND i.severity = 'maintenance' AND i.announced
   AND w.at >= i.scheduled_start AND w.at < i.scheduled_end
   AND i.announced_at <= w.at - interval '72 hours' AND maintenance_covers(i, p)
 ORDER BY i.announced_at LIMIT 1;
+
+-- name: InsertMaintenanceDraft :one
+-- tenant: system - maintenance PGDock proposes; not announced until confirmed.
+INSERT INTO incidents (title, components, region_id, severity, status, started_at, scheduled_start, scheduled_end, proposed_for)
+VALUES (@title, @components, NULL, 'maintenance', 'draft', @scheduled_start, @scheduled_start, @scheduled_end, @proposed_for)
+RETURNING *;
+
+-- name: OpenDraftFor :one
+-- tenant: system - the open draft proposed for a window and a reason, to add projects to.
+SELECT * FROM incidents WHERE status = 'draft' AND proposed_for = @proposed_for AND scheduled_start = @scheduled_start
+ORDER BY started_at, id LIMIT 1;
+
+-- name: MaintenancePlannedFor :one
+-- tenant: system - whether a project already has maintenance ahead (announced, or a draft), or had a draft for that window discarded.
+SELECT EXISTS (
+  SELECT 1 FROM incidents i, projects p
+  WHERE p.id = @project_id AND i.severity = 'maintenance' AND i.scheduled_end > @now::timestamptz
+    AND (i.announced_at IS NOT NULL OR i.status = 'draft' OR i.proposed_for IS NOT NULL)
+    AND (i.cancelled_at IS NULL OR (i.announced_at IS NULL AND i.scheduled_start = @window_start::timestamptz))
+    AND maintenance_covers(i, p))::bool;
+
+-- name: ConfirmDraft :one
+-- tenant: system - a draft announced: from now its notice counts.
+UPDATE incidents SET status = 'identified', announced_at = now(), pushed_at = NULL, updated_at = now()
+WHERE id = @id AND status = 'draft' AND scheduled_start > now()
+RETURNING *;
+
+-- name: DiscardDraft :one
+-- tenant: system - a draft thrown away; the work it was for keeps waiting.
+UPDATE incidents SET status = 'resolved', resolved_at = now(), cancelled_at = now(), updated_at = now()
+WHERE id = @id AND status = 'draft'
+RETURNING *;
+
+-- name: ExpireDrafts :execrows
+-- tenant: system - drafts whose window started unconfirmed.
+UPDATE incidents SET status = 'resolved', resolved_at = now(), cancelled_at = now(), updated_at = now()
+WHERE status = 'draft' AND scheduled_start <= @at::timestamptz;
+
+-- name: MaintenanceRecipients :many
+-- tenant: system - who an announcement of this scope would reach: owners and admins of organisations with live projects it covers (as maintenance_covers).
+SELECT DISTINCT m.org_id, u.email::text AS email FROM users u
+JOIN org_members m ON m.user_id = u.id AND m.role IN ('owner', 'admin')
+JOIN projects p ON p.org_id = m.org_id AND p.deleted_at IS NULL
+WHERE u.disabled_at IS NULL AND (
+  CASE WHEN cardinality(@project_ids::uuid[]) + cardinality(@node_ids::uuid[]) > 0 THEN
+    p.id = ANY(@project_ids::uuid[])
+    OR EXISTS (SELECT 1 FROM instance_members im WHERE im.instance_id = p.instance_id AND im.deleted_at IS NULL AND im.node_id = ANY(@node_ids::uuid[]))
+    OR (SELECT n.node_id FROM instances n WHERE n.id = p.instance_id) = ANY(@node_ids::uuid[])
+  ELSE sqlc.narg(region)::text IS NULL OR p.region = sqlc.narg(region)::text END)
+ORDER BY email;

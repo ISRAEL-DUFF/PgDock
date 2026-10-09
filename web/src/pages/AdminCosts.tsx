@@ -26,6 +26,16 @@ const CATEGORY_LABEL: Record<string, string> = {
   floating_ip: "Floating IPs",
   overhead: "Fixed overheads",
   idle: "Idle capacity",
+  edge: "Edges (API, auth, realtime)",
+  files: "File storage",
+  messages: "SMS and WhatsApp",
+};
+
+const SERVICE_LABEL: Record<string, string> = {
+  database: "Databases",
+  api: "API, auth and realtime",
+  files: "Files",
+  messages: "SMS and WhatsApp",
 };
 
 function native(m: Record<string, number>): string {
@@ -173,6 +183,30 @@ export function AdminCostsPage() {
               <td className="px-3 py-2">{naira(c.ngn_minor)}</td>
               <td className="px-3 py-2 text-xs text-muted">
                 {naira(c.ngn_booked_minor)}
+              </td>
+            </tr>
+          ))}
+        </Table>
+      </Panel>
+
+      <Panel
+        title="Margin by service"
+        description="What each service earned (the billing breakdown) against what it cost. Databases include plan fees, backups and replicas; the API's cost is the edges'."
+        testId="service-margins"
+      >
+        <Table head={["Service", "Revenue", "Cost", "Margin"]}>
+          {(m.services ?? []).map((sm) => (
+            <tr key={sm.service} data-testid={`service-margin-${sm.service}`}>
+              <td className="px-3 py-2">
+                {SERVICE_LABEL[sm.service] ?? sm.service}
+              </td>
+              <td className="px-3 py-2">{naira(sm.revenue_minor)}</td>
+              <td className="px-3 py-2">{naira(sm.cost_minor)}</td>
+              <td className="px-3 py-2">
+                {naira(sm.margin_minor)}{" "}
+                <span className="text-xs text-muted">
+                  {pctText(sm.margin_pct)}
+                </span>
               </td>
             </tr>
           ))}
@@ -406,6 +440,21 @@ function CostSettingsPanel({
                 value={String(cur.egress_gb_minor)}
                 onChange={(e) =>
                   set({ egress_gb_minor: Number(e.target.value) })
+                }
+              />
+            )}
+          </Field>
+          <Field
+            label="Edges' share of shared nodes (%)"
+            hint="Where pgdock-edge runs on the shared nodes, this much of their cost is the edges', split by each organisation's requests and realtime minutes."
+          >
+            {(id) => (
+              <Input
+                id={id}
+                inputMode="decimal"
+                value={String(cur.edge_share_percent ?? 0)}
+                onChange={(e) =>
+                  set({ edge_share_percent: Number(e.target.value) })
                 }
               />
             )}

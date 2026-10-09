@@ -67,9 +67,12 @@ type Component struct {
 	Region      string `toml:"region"`
 	Description string `toml:"description"`
 	// Heartbeat components take their state from pgdock-server's
-	// heartbeats instead of probes.
-	Heartbeat bool    `toml:"heartbeat"`
-	Probes    []Probe `toml:"probe"`
+	// heartbeats: the states it reports for HeartbeatID (default ID) in
+	// the component's region, or for all regions. A heartbeat component
+	// may have probes too (V4.1 §7.2); the worse of the two wins.
+	Heartbeat   bool    `toml:"heartbeat"`
+	HeartbeatID string  `toml:"heartbeat_id"`
+	Probes      []Probe `toml:"probe"`
 }
 
 // Probe is one outside check of a component. A component with several is
@@ -183,8 +186,17 @@ func (c *Config) resolve() error {
 		if comp.Name == "" {
 			comp.Name = comp.ID
 		}
-		if comp.Heartbeat == (len(comp.Probes) > 0) {
-			errs = append(errs, fmt.Errorf("component %s: give it probes or heartbeat = true, not both", comp.ID))
+		if !comp.Heartbeat && len(comp.Probes) == 0 {
+			errs = append(errs, fmt.Errorf("component %s: give it probes or heartbeat = true", comp.ID))
+		}
+		if comp.HeartbeatID != "" && !comp.Heartbeat {
+			errs = append(errs, fmt.Errorf("component %s: heartbeat_id needs heartbeat = true", comp.ID))
+		}
+		if comp.Heartbeat && comp.HeartbeatID == "" {
+			comp.HeartbeatID = comp.ID
+		}
+		if !statusapi.ValidID(comp.HeartbeatID) && comp.Heartbeat {
+			errs = append(errs, fmt.Errorf("component %s: heartbeat_id %q is not valid", comp.ID, comp.HeartbeatID))
 		}
 		for j := range comp.Probes {
 			if err := comp.Probes[j].resolve(); err != nil {

@@ -171,6 +171,15 @@ func (s *Server) PutCapacitySettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
+	if req.Edge == nil {
+		// A client from before edge nodes (V4.1 §11) keeps the edge tier as it is.
+		cur, err := cs.Settings(r.Context())
+		if err != nil {
+			s.internalError(w, "capacity settings", err)
+			return
+		}
+		st.Edge = cur.Edge
+	}
 	st.BudgetCurrency = strings.ToUpper(st.BudgetCurrency)
 	if err := cs.SetSettings(r.Context(), st); err != nil {
 		s.capacityError(w, "capacity settings", err)

@@ -263,7 +263,7 @@ func (s *Service) Tick(ctx context.Context) error {
 	m := make([]measured, len(s.cfg.Components))
 	var wg sync.WaitGroup
 	for i, c := range s.cfg.Components {
-		if c.Heartbeat {
+		if len(c.Probes) == 0 {
 			h, ok := hbs[c.ID]
 			st, d := heartbeatState(h, ok, now, s.cfg.HeartbeatTTL.Duration)
 			m[i] = measured{st, d}
@@ -283,6 +283,18 @@ func (s *Service) Tick(ctx context.Context) error {
 			}
 			pwg.Wait()
 			st, d := combine(res)
+			if c.Heartbeat {
+				// Both: the worse wins, with both details.
+				h, ok := hbs[c.ID]
+				hst, hd := heartbeatState(h, ok, now, s.cfg.HeartbeatTTL.Duration)
+				if statusapi.Rank(hst) > statusapi.Rank(st) {
+					st = hst
+				}
+				d = strings.Trim(strings.Join([]string{hd, d}, " "), " ")
+				if st == statusapi.Operational {
+					d = ""
+				}
+			}
 			m[i] = measured{st, d}
 		}()
 	}
@@ -408,5 +420,34 @@ func (s *Service) Heartbeat(ctx context.Context, hb statusapi.Heartbeat) error {
 	if err := hb.Validate(); err != nil {
 		return err
 	}
-	return s.st.saveHeartbeat(ctx, hb, s.known, s.Now().UTC())
+	return s.st.saveHeartbeat(ctx, s.heartbeatStates(hb), s.Now().UTC())
+}
+
+// heartbeatStates maps a heartbeat's states to the page's components: a
+// state for a region applies to that region's component of its ID, and
+// one without a region to every component of its ID that has no state
+// of its own region in the same heartbeat.
+func (s *Service) heartbeatStates(hb statusapi.Heartbeat) map[string]statusapi.ComponentState {
+	out := map[string]statusapi.ComponentState{}
+	for _, c := range s.cfg.Components {
+		if !c.Heartbeat {
+			continue
+		}
+		var all, own *statusapi.ComponentState
+		for i, st := range hb.Components {
+			switch {
+			case st.ID != c.HeartbeatID:
+			case st.Region == "":
+				all = &hb.Components[i]
+			case st.Region == c.Region:
+				own = &hb.Components[i]
+			}
+		}
+		if own != nil {
+			out[c.ID] = *own
+		} else if all != nil {
+			out[c.ID] = *all
+		}
+	}
+	return out
 }

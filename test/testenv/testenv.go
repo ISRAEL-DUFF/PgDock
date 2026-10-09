@@ -71,6 +71,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/orgs"
 	"github.com/israel-duff/pgdock/internal/outbound"
+	"github.com/israel-duff/pgdock/internal/pgversions"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/regions"
@@ -143,7 +144,10 @@ type Env struct {
 	Costs    *costs.Service
 	Hetzner  *cloud.FakeHetzner
 	// Regions are the platform's regions (V3 §6).
-	Regions              *regions.Service
+	Regions *regions.Service
+	// PGVersions is the Postgres version lifecycle (V4.1 §6.1); tests
+	// call its Sweep and move its clock.
+	PGVersions           *pgversions.Service
 	Insights             *insights.Service
 	SupportInboundSecret string
 	// Flutterwave and ISpend are the payment providers' fake sandboxes.
@@ -319,7 +323,7 @@ func Start(t testing.TB, opts Options) *Env {
 	// The test server runs on the host: it reaches instances through the
 	// ports agents publish on 127.0.0.1.
 	ded := dedicated.New(db, keyring, nodeSvc, svc, backups, dedicated.Config{AdminVia: "published", ReadyTimeout: 3 * time.Minute, AfterFreeze: opts.AfterFreeze, ReplicaMaxLag: 3 * time.Second,
-		MoveWait: dedicated.MoveWait{StableFor: 2 * time.Second, Poll: 250 * time.Millisecond}}, log)
+		MoveWait: dedicated.MoveWait{StableFor: 2 * time.Second, Poll: 250 * time.Millisecond}, HostPoll: 300 * time.Millisecond}, log)
 	ded.Snapshot = backups.Snapshot
 	svc.Instances = ded
 	backups.Dedicated = ded
@@ -341,6 +345,7 @@ func Start(t testing.TB, opts Options) *Env {
 		kinds[name] = k
 	}
 	mailSvc := mail.New(db, keyring)
+	pgVersionSvc := pgversions.New(db, svc, mailSvc, pgversions.Config{PublicURL: "https://pgdock.test"}, log)
 	e := &Env{}
 	branchSvc := branching.New(db, svc, backups, nodeSvc, mailSvc, branching.Config{
 		PublicURL: "https://pgdock.test",
@@ -363,10 +368,12 @@ func Start(t testing.TB, opts Options) *Env {
 	capacitySvc := capacity.New(db, nodeSvc, ded, &cloud.HetznerProvider{API: hetznerSrv.URL + "/v1", Token: "hetzner-test-token"}, nil, capacity.Config{
 		Region: "eu-central", Location: "fsn1", Image: "ubuntu-24.04", JoinTimeout: 2 * time.Minute, Poll: 300 * time.Millisecond,
 		Bootstrap: cloud.Bootstrap{ServerURL: "https://pgdock.test", AgentImage: "pgdock-agent:test", PGImage: "pgdock-postgres:{major}", PrivateCIDR: "10.0.0.0/16"},
+		Edge:      &cloud.EdgeBootstrap{Image: "pgdock-edge:test", ControlURL: "https://pgdock.test", Secret: EdgeSecret, Domain: EdgeDomain},
 	}, log)
 	for name, k := range capacitySvc.Kinds() {
 		kinds[name] = k
 	}
+	ded.Hosts = capacitySvc.HostFor
 	freeSvc := freetier.New(db, svc, backups, mailSvc, freetier.Config{PublicURL: "https://pgdock.test"}, log)
 	for name, k := range freeSvc.Kinds() {
 		kinds[name] = k
@@ -388,6 +395,7 @@ func Start(t testing.TB, opts Options) *Env {
 	turnstile := NewFakeTurnstile()
 	t.Cleanup(turnstile.Close)
 	servicesSvc := services.New(db, svc, services.Config{Domain: EdgeDomain, EdgeSecret: EdgeSecret, CaptchaVerifyURL: turnstile.URL}, log)
+	branchSvc.API = servicesSvc
 	servicesSvc.Mail = mailSvc
 	servicesSvc.Files = backups.FilesTarget
 	servicesSvc.StorageGrace = time.Millisecond
@@ -465,6 +473,8 @@ func Start(t testing.TB, opts Options) *Env {
 	incidentSvc := incidents.New(db, incidents.Config{URL: opts.StatusURL, Secret: opts.StatusSecret}, log)
 	incidentSvc.SetMailer(mailSvc, "https://pgdock.test")
 	billingSvc := billing.New(db, mailSvc, "https://pgdock.test", log)
+	incidentSvc.Billing = billingSvc.Health
+	ded.SetProposer(incidentSvc)
 	costSvc := costs.New(db, billingSvc, "eu-central", log)
 	capacitySvc.SetConverter(costSvc)
 	if err := billingSvc.Init(ctx); err != nil {
@@ -494,7 +504,7 @@ func Start(t testing.TB, opts Options) *Env {
 	t.Cleanup(waSrv.Close)
 	supportSvc.SetWhatsApp(support.CloudAPI{BaseURL: waSrv.URL, PhoneNumberID: wa.PhoneNumberID, AccessToken: wa.AccessToken, AppSecret: wa.AppSecret, VerifyToken: "wa-verify"})
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
-		Incidents: incidentSvc, Billing: billingSvc, FreeTier: freeSvc, Support: supportSvc, Legal: legalSvc, Capacity: capacitySvc, Costs: costSvc, Regions: regionSvc, Insights: insightSvc,
+		Incidents: incidentSvc, Billing: billingSvc, FreeTier: freeSvc, Support: supportSvc, Legal: legalSvc, Capacity: capacitySvc, Costs: costSvc, Regions: regionSvc, PGVersions: pgVersionSvc, Insights: insightSvc,
 		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
 		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
 		Tokens: tokenSvc, Services: servicesSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://pgdock.test",
@@ -519,7 +529,7 @@ func Start(t testing.TB, opts Options) *Env {
 
 	*e = Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Services: servicesSvc, Tokens: tokenSvc, Branches: branchSvc,
-		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Phone: phone, PhoneFallback: phoneFallback, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, wakerLn: wakerLn, wakerAddr: wakerLn.Addr().String(), wakerCtx: ctx, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, Insights: insightSvc,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Phone: phone, PhoneFallback: phoneFallback, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, wakerLn: wakerLn, wakerAddr: wakerLn.Addr().String(), wakerCtx: ctx, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, PGVersions: pgVersionSvc, Insights: insightSvc,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,

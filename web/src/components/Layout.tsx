@@ -129,12 +129,32 @@ export function BackupBanner() {
  * suspension and its reason, a pending deletion (owners can cancel), and
  * open break-glass sessions (owners can end them).
  */
+/** Billing standing as each member may see it (V4.1 §7.3): the state for
+ * everyone, the way to pay for owners and billing members, and never an
+ * amount. */
+const BILLING_TEXT: Record<string, string> = {
+  overdue: "has an overdue invoice",
+  restricted:
+    "has an overdue invoice: creating projects, branches and dedicated instances is blocked until it is paid",
+  suspended:
+    "is suspended for non-payment: its databases are offline until it is paid",
+  payment_failed: "had a payment declined: PGDock will try again",
+};
+
 export function OrgBanners() {
   const { org } = useCurrentOrg();
   const qc = useQueryClient();
   const [err, setErr] = useState<string | null>(null);
+  const incidents = useQuery({
+    queryKey: ["org-incidents", org?.id],
+    queryFn: () => api.orgIncidents(org!.id),
+    enabled: !!org,
+    refetchInterval: 60_000,
+  });
   if (!org) return null;
   const owner = org.role === "owner";
+  const canPay = owner || org.role === "billing";
+  const billing = org.billing_state ?? null;
   const act = async (f: () => Promise<unknown>) => {
     setErr(null);
     try {
@@ -174,6 +194,70 @@ export function OrgBanners() {
           )}
         </div>
       )}
+      {billing && BILLING_TEXT[billing] && (
+        <div
+          className={cx(
+            banner,
+            billing === "suspended" || billing === "restricted"
+              ? "border-danger/40 bg-danger/10 text-danger-text"
+              : "border-warn/40 bg-warn/10 text-warn-text",
+          )}
+          role="alert"
+          data-testid="billing-banner"
+        >
+          <span>
+            <strong>{org.name}</strong> {BILLING_TEXT[billing]}.
+            {!canPay && " Ask an owner or a billing member to pay."}
+          </span>
+          {canPay && (
+            <Link to="/org/billing" className="font-medium underline">
+              Pay now
+            </Link>
+          )}
+        </div>
+      )}
+      {canPay && org.budget_alert_percent && (
+        <div
+          className={cx(banner, "border-warn/40 bg-warn/10 text-warn-text")}
+          role="status"
+          data-testid="budget-banner"
+        >
+          <span>
+            This month&apos;s spend has reached{" "}
+            {org.budget_alert_percent >= 100
+              ? "the"
+              : `${org.budget_alert_percent}% of the`}{" "}
+            budget.
+          </span>
+          <Link to="/org/billing" className="font-medium underline">
+            Billing
+          </Link>
+        </div>
+      )}
+      {(incidents.data?.items ?? []).map((i) => (
+        <div
+          key={i.id}
+          className={cx(banner, "border-warn/40 bg-warn/10 text-warn-text")}
+          role="status"
+          data-testid="incident-banner"
+        >
+          <span>
+            <strong>{i.title}</strong>
+            {i.region ? ` (${i.region})` : ""}: this may affect your projects.
+            {i.latest_update ? ` ${i.latest_update}` : ""}
+          </span>
+          {i.url && (
+            <a
+              href={i.url}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium underline"
+            >
+              Status page
+            </a>
+          )}
+        </div>
+      ))}
       {(org.break_glass ?? []).map((b) => (
         <div key={b.id} className={cx(banner, "border-warn/40 bg-warn/10 text-warn-text")} role="status" data-testid="break-glass-banner">
           <span>

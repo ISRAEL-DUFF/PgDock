@@ -29,6 +29,102 @@ bundle share one version (spec §11.5).
   lines. New migration 00045. Price books published before this have no
   add-on prices until a new one is published.
 - Fixed: a price book saved through the API dropped its message margin.
+- Resizing dedicated projects (V4.1-M4): a new size or a bigger disk from
+  Project Settings → Size and disk, `pgdock instance resize|disk` or
+  `PATCH /projects/{id}/instance`, with a cost estimate and a dry run. The
+  instance restarts in a few seconds under the poolers' pause, or with HA
+  switches over to a resized standby; a size its node can't hold moves it
+  to one that can. Dedicated placement now checks a node has room.
+- Dedicated hosts on demand: with no room in the region and a provider
+  that creates servers, a dedicated create provisions a host within the
+  infrastructure budget and waits for it; over the budget it is refused
+  with `409 capacity_pending_approval` while the proposal waits.
+- Postgres version lifecycle (V4.1-M5): Admin → Platform → Postgres
+  versions sets each major to preview, supported, deprecated (with a
+  retirement date at least 180 days out) or retired. Deprecation emails
+  the owners and admins of affected organisations, with reminders at 90,
+  30 and 7 days, and puts a banner on their projects; retired majors take
+  no new projects, while existing ones keep running. Preview majors can be
+  chosen on the create form. The terms template has a Postgres versions
+  section. New migration 00046.
+- The major upgrade preflight now checks dedicated projects too, restoring
+  the schema into a temporary instance of the new major, and warns about
+  features the new major removed.
+- Status page (V4.1-M6): paying organisations' owners and billing
+  contacts are subscribed to the incidents on the components and regions
+  their projects use, synced hourly (a per-contact *Status page emails*
+  toggle; an unsubscribe is kept). New **billing** and per-region
+  **backend services** components; pgdock-edge now reports at least every
+  30 seconds. Upgrade pgdock-status with pgdock-server and add the new
+  components to status.toml (see status.example.toml). New migration
+  00047.
+- Proposed maintenance (V4.1-M7): when an HA project's minor upgrade waits
+  for an announced window, PGDock drafts the announcement for the first
+  window at least 96 hours away; confirm it (it shows the exact email,
+  and how many it reaches) or discard it under Admin → Incidents →
+  Scheduled maintenance. The schedule form previews its email too. New
+  migration 00048.
+- Region page: a region's pooler pair and failure domains, its etcd
+  cluster, and its HA projects still on another region's etcd, with
+  **Move all**, which moves them one at a time.
+- With automatic rebalancing on, rebalance moves run only inside the
+  maintenance window.
+- Banners: every member of an organisation sees an overdue, restricted or
+  suspended billing state or a declined payment (owners and billing
+  members with the pay link, no amounts), owners and billing members see
+  the budget reaching 80% and 100%, and everyone sees open incidents
+  affecting the organisation's projects.
+- API page (V4.1-M8): a **Quick start** with the project's URL and
+  publishable key in TypeScript, Dart and Go; **API docs** for each
+  exposed table, view and function (columns, row-level security, policies,
+  who may do what, and examples in curl, TypeScript, Dart and Go, with
+  **Try it** in the request explorer); and **Usage this month** against
+  the plan, with the project's share of the month's charges for owners and
+  billing members. New `GET /projects/{id}/services/catalog` and
+  `/services/usage`.
+- CLI: `pgdock policies list` and `pgdock policies lint` (exit 1 on a
+  danger finding, for CI); `pgdock logs api` with `--status`, `--path` and
+  `--follow`.
+- Branches of a project with backend services get their own API: a new
+  URL, keys and signing key, the parent's settings without its auth
+  secrets, and the users the copy brought, signed out. The create
+  response, the credentials panel, the .env download and
+  `pgdock branch create --env` give `PGDOCK_API_URL`,
+  `PGDOCK_PUBLISHABLE_KEY` and `PGDOCK_SECRET_KEY`; `copy_files` (or
+  `--copy-files`) copies the parent's stored files in the background.
+- Edge caching of anonymous reads (V4.1-M9): list tables and stable
+  functions with a TTL (Settings → API → **Cache anonymous reads**, or
+  `cache_ttl_seconds`, at most 3,600 seconds) and publishable-key GETs
+  without a user's token are served from each edge's cache (`X-Cache`,
+  `Age`, `Cache-Control: public`). Writes through the API drop what they
+  change at once; other changes show within the TTL. Cached answers are
+  still metered. Upgrade pgdock-edge with pgdock-server;
+  `PGDOCK_EDGE_CACHE_MB` sizes the cache (64 by default).
+- Cost attribution for backend services (V4.1-M10): new cost categories
+  **edge** (edge nodes, and a configurable share of shared nodes, split by
+  each organisation's requests and realtime minutes), **files** and
+  **messages** (the provider's charge for each platform-sent code), and a
+  **Margin by service** table on Platform → Costs & margins. Nodes can
+  have the role `edge`; edges report their CPU, and an hour above 70% in
+  a region proposes an edge node, which runs pgdock-edge only
+  (`PGDOCK_CLOUD_EDGE_IMAGE`). Upgrade pgdock-edge with pgdock-server. New
+  migration 00049.
+- Tests and hardening (V4.1-M11): image transforms run in separate
+  `pgdock-edge render-worker` processes, so a bad image costs one request
+  (`500 transform_failed`) rather than the edge
+  (`PGDOCK_EDGE_RENDER_MEMORY_MB`, 512 by default). Fixed: a sign-in code
+  used up by five wrong tries no longer lets a new one be sent at once;
+  changing a password now signs out the user's other sessions. Project
+  auth was reviewed against ASVS 4.0 level 2 (docs/security-review.md),
+  and new tests run three sample apps' RLS policies through the data API,
+  storage and realtime. Upgrade pgdock-edge with pgdock-server.
+- Launch gates (V4.1-M12): `TestBackendLoad` can run against a real
+  install (`PGDOCK_LOAD_TARGET`), with a six-server rig in
+  `deploy/loadtest/` for the 1,000-project, 2,000 requests a second gate;
+  docs/backend-runbook.md lists every GA gate with its dated status.
+  Fixed: the compose install now passes `PGDOCK_API_DOMAIN`,
+  `PGDOCK_EDGE_SECRET` and `PGDOCK_CLOUD_EDGE_IMAGE` from `.env` to
+  pgdock-server; set the first two there to serve edges.
 
 ### V4 (on feature/pgdock4)
 - Backend services' edge foundation (V4-M28): a project can turn on backend

@@ -33,8 +33,12 @@ type Cloud struct {
 	// agents reach pgdock-server; default PGDOCK_PUBLIC_URL),
 	// PGDOCK_CLOUD_SERVER_CA_FILE (a private CA's PEM), and
 	// PGDOCK_CLOUD_PRIVATE_CIDR (the private network, default 10.0.0.0/16).
-	AgentImage  string
-	PGImage     string
+	AgentImage string
+	PGImage    string
+	// EdgeImage is pgdock-edge's image for edge nodes the planner adds
+	// (PGDOCK_CLOUD_EDGE_IMAGE, V4.1 §11); empty leaves them to be added
+	// by hand.
+	EdgeImage   string
 	ServerURL   string
 	ServerCA    string
 	PrivateCIDR string
@@ -52,6 +56,7 @@ func loadCloud(getenv func(string) string, readFile func(string) ([]byte, error)
 		HetznerImage: strings.TrimSpace(getenv("PGDOCK_HETZNER_IMAGE")), HetznerNetworkID: strings.TrimSpace(getenv("PGDOCK_HETZNER_NETWORK_ID")),
 		HetznerPlacementGroup: strings.TrimSpace(getenv("PGDOCK_HETZNER_PLACEMENT_GROUP_ID")),
 		AgentImage:            strings.TrimSpace(getenv("PGDOCK_CLOUD_AGENT_IMAGE")), PGImage: strings.TrimSpace(getenv("PGDOCK_CLOUD_PG_IMAGE")),
+		EdgeImage: strings.TrimSpace(getenv("PGDOCK_CLOUD_EDGE_IMAGE")),
 		ServerURL: strings.TrimRight(getenv("PGDOCK_CLOUD_SERVER_URL"), "/"), PrivateCIDR: strings.TrimSpace(getenv("PGDOCK_CLOUD_PRIVATE_CIDR")),
 	}
 	for _, k := range strings.Split(getenv("PGDOCK_HETZNER_SSH_KEYS"), ",") {

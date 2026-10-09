@@ -19,6 +19,7 @@ import (
 	"net/netip"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -35,6 +36,11 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+// renderASFactor sizes a render worker's address-space cap from its
+// memory: the WebAssembly decoders reserve far more address space than
+// they use.
+const renderASFactor = 16
 
 func env(k, def string) string {
 	if v := os.Getenv(k); v != "" {
@@ -53,6 +59,9 @@ func run(args []string) error {
 		v := version.Get()
 		fmt.Printf("pgdock-edge %s (commit %s, built %s, %s)\n", v.Version, v.Commit, v.BuildDate, v.GoVersion)
 		return nil
+	case "render-worker":
+		// A child of the edge that renders images (V4.1 §12.4).
+		return edge.RunRenderWorker(os.Stdin, os.Stdout)
 	case "run":
 	default:
 		return fmt.Errorf("unknown command %q: use run or version", cmd)
@@ -67,6 +76,27 @@ func run(args []string) error {
 		PoolerAddr:    os.Getenv("PGDOCK_EDGE_POOLER_ADDR"),
 		SessionAddr:   os.Getenv("PGDOCK_EDGE_SESSION_ADDR"),
 		PoolerSSLMode: env("PGDOCK_EDGE_POOLER_SSLMODE", "require"),
+	}
+	if os.Getenv("PGDOCK_EDGE_RENDER_IN_PROCESS") == "" {
+		// Image transforms in child processes (V4.1 §12.4), each capped.
+		self, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("find pgdock-edge's own binary for render workers (or set PGDOCK_EDGE_RENDER_IN_PROCESS=1): %w", err)
+		}
+		mb, err := strconv.Atoi(env("PGDOCK_EDGE_RENDER_MEMORY_MB", "512"))
+		if err != nil || mb < 64 {
+			return errors.New("PGDOCK_EDGE_RENDER_MEMORY_MB is each render worker's memory in MB, at least 64 (default 512)")
+		}
+		cfg.RenderWorker = []string{self, "render-worker"}
+		cfg.RenderWorkerEnv = []string{fmt.Sprintf("GOMEMLIMIT=%dMiB", mb),
+			fmt.Sprintf("%s=%d", edge.RenderWorkerASEnv, int64(mb)*renderASFactor<<20)}
+	}
+	if mb := os.Getenv("PGDOCK_EDGE_CACHE_MB"); mb != "" {
+		n, err := strconv.Atoi(mb)
+		if err != nil || n < 1 {
+			return errors.New("PGDOCK_EDGE_CACHE_MB is the anonymous-read cache's size in MB (default 64)")
+		}
+		cfg.CacheBytes = n << 20
 	}
 	switch {
 	case cfg.ControlURL == "":

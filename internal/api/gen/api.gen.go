@@ -16,19 +16,19 @@ import (
 
 // Defines values for APITokenCreatedVia.
 const (
-	Api    APITokenCreatedVia = "api"
-	Device APITokenCreatedVia = "device"
-	Ui     APITokenCreatedVia = "ui"
+	APITokenCreatedViaApi    APITokenCreatedVia = "api"
+	APITokenCreatedViaDevice APITokenCreatedVia = "device"
+	APITokenCreatedViaUi     APITokenCreatedVia = "ui"
 )
 
 // Valid indicates whether the value is a known member of the APITokenCreatedVia enum.
 func (e APITokenCreatedVia) Valid() bool {
 	switch e {
-	case Api:
+	case APITokenCreatedViaApi:
 		return true
-	case Device:
+	case APITokenCreatedViaDevice:
 		return true
-	case Ui:
+	case APITokenCreatedViaUi:
 		return true
 	default:
 		return false
@@ -656,6 +656,7 @@ func (e CapacityProposalStatus) Valid() bool {
 // Defines values for CapacityProposalTier.
 const (
 	CapacityProposalTierDedicated CapacityProposalTier = "dedicated"
+	CapacityProposalTierEdge      CapacityProposalTier = "edge"
 	CapacityProposalTierShared    CapacityProposalTier = "shared"
 )
 
@@ -664,7 +665,33 @@ func (e CapacityProposalTier) Valid() bool {
 	switch e {
 	case CapacityProposalTierDedicated:
 		return true
+	case CapacityProposalTierEdge:
+		return true
 	case CapacityProposalTierShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CatalogTableKind.
+const (
+	CatalogTableKindForeignTable     CatalogTableKind = "foreign_table"
+	CatalogTableKindMaterializedView CatalogTableKind = "materialized_view"
+	CatalogTableKindTable            CatalogTableKind = "table"
+	CatalogTableKindView             CatalogTableKind = "view"
+)
+
+// Valid indicates whether the value is a known member of the CatalogTableKind enum.
+func (e CatalogTableKind) Valid() bool {
+	switch e {
+	case CatalogTableKindForeignTable:
+		return true
+	case CatalogTableKindMaterializedView:
+		return true
+	case CatalogTableKindTable:
+		return true
+	case CatalogTableKindView:
 		return true
 	default:
 		return false
@@ -747,6 +774,7 @@ func (e CreateApiKeyRequestKind) Valid() bool {
 const (
 	CreateNodeRequestRoleBoth      CreateNodeRequestRole = "both"
 	CreateNodeRequestRoleDedicated CreateNodeRequestRole = "dedicated"
+	CreateNodeRequestRoleEdge      CreateNodeRequestRole = "edge"
 	CreateNodeRequestRolePooler    CreateNodeRequestRole = "pooler"
 	CreateNodeRequestRoleShared    CreateNodeRequestRole = "shared"
 )
@@ -757,6 +785,8 @@ func (e CreateNodeRequestRole) Valid() bool {
 	case CreateNodeRequestRoleBoth:
 		return true
 	case CreateNodeRequestRoleDedicated:
+		return true
+	case CreateNodeRequestRoleEdge:
 		return true
 	case CreateNodeRequestRolePooler:
 		return true
@@ -1153,6 +1183,7 @@ func (e IncidentSeverity) Valid() bool {
 
 // Defines values for IncidentStatus.
 const (
+	IncidentStatusDraft         IncidentStatus = "draft"
 	IncidentStatusIdentified    IncidentStatus = "identified"
 	IncidentStatusInvestigating IncidentStatus = "investigating"
 	IncidentStatusMonitoring    IncidentStatus = "monitoring"
@@ -1162,6 +1193,8 @@ const (
 // Valid indicates whether the value is a known member of the IncidentStatus enum.
 func (e IncidentStatus) Valid() bool {
 	switch e {
+	case IncidentStatusDraft:
+		return true
 	case IncidentStatusIdentified:
 		return true
 	case IncidentStatusInvestigating:
@@ -1247,6 +1280,30 @@ func (e InstanceSummaryKind) Valid() bool {
 	case InstanceSummaryKindDedicated:
 		return true
 	case InstanceSummaryKindShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceSummaryPgVersionStatus.
+const (
+	InstanceSummaryPgVersionStatusDeprecated InstanceSummaryPgVersionStatus = "deprecated"
+	InstanceSummaryPgVersionStatusPreview    InstanceSummaryPgVersionStatus = "preview"
+	InstanceSummaryPgVersionStatusRetired    InstanceSummaryPgVersionStatus = "retired"
+	InstanceSummaryPgVersionStatusSupported  InstanceSummaryPgVersionStatus = "supported"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSummaryPgVersionStatus enum.
+func (e InstanceSummaryPgVersionStatus) Valid() bool {
+	switch e {
+	case InstanceSummaryPgVersionStatusDeprecated:
+		return true
+	case InstanceSummaryPgVersionStatusPreview:
+		return true
+	case InstanceSummaryPgVersionStatusRetired:
+		return true
+	case InstanceSummaryPgVersionStatusSupported:
 		return true
 	default:
 		return false
@@ -1775,6 +1832,33 @@ func (e OperationStatus) Valid() bool {
 	}
 }
 
+// Defines values for OrgBillingState.
+const (
+	OrgBillingStateLessThannil   OrgBillingState = "<nil>"
+	OrgBillingStateOverdue       OrgBillingState = "overdue"
+	OrgBillingStatePaymentFailed OrgBillingState = "payment_failed"
+	OrgBillingStateRestricted    OrgBillingState = "restricted"
+	OrgBillingStateSuspended     OrgBillingState = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the OrgBillingState enum.
+func (e OrgBillingState) Valid() bool {
+	switch e {
+	case OrgBillingStateLessThannil:
+		return true
+	case OrgBillingStateOverdue:
+		return true
+	case OrgBillingStatePaymentFailed:
+		return true
+	case OrgBillingStateRestricted:
+		return true
+	case OrgBillingStateSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OrgStatus.
 const (
 	OrgStatusActive    OrgStatus = "active"
@@ -1871,6 +1955,54 @@ func (e PersonalCredentialsInfoAccess) Valid() bool {
 	case PersonalCredentialsInfoAccessReadOnly:
 		return true
 	case PersonalCredentialsInfoAccessReadWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PgVersionInfoStatus.
+const (
+	PgVersionInfoStatusDeprecated PgVersionInfoStatus = "deprecated"
+	PgVersionInfoStatusPreview    PgVersionInfoStatus = "preview"
+	PgVersionInfoStatusRetired    PgVersionInfoStatus = "retired"
+	PgVersionInfoStatusSupported  PgVersionInfoStatus = "supported"
+)
+
+// Valid indicates whether the value is a known member of the PgVersionInfoStatus enum.
+func (e PgVersionInfoStatus) Valid() bool {
+	switch e {
+	case PgVersionInfoStatusDeprecated:
+		return true
+	case PgVersionInfoStatusPreview:
+		return true
+	case PgVersionInfoStatusRetired:
+		return true
+	case PgVersionInfoStatusSupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PgVersionUpdateStatus.
+const (
+	PgVersionUpdateStatusDeprecated PgVersionUpdateStatus = "deprecated"
+	PgVersionUpdateStatusPreview    PgVersionUpdateStatus = "preview"
+	PgVersionUpdateStatusRetired    PgVersionUpdateStatus = "retired"
+	PgVersionUpdateStatusSupported  PgVersionUpdateStatus = "supported"
+)
+
+// Valid indicates whether the value is a known member of the PgVersionUpdateStatus enum.
+func (e PgVersionUpdateStatus) Valid() bool {
+	switch e {
+	case PgVersionUpdateStatusDeprecated:
+		return true
+	case PgVersionUpdateStatusPreview:
+		return true
+	case PgVersionUpdateStatusRetired:
+		return true
+	case PgVersionUpdateStatusSupported:
 		return true
 	default:
 		return false
@@ -2492,6 +2624,66 @@ func (e SchemaRiskLevel) Valid() bool {
 	}
 }
 
+// Defines values for ServiceChargeService.
+const (
+	ServiceChargeServiceAuth         ServiceChargeService = "auth"
+	ServiceChargeServiceDataApi      ServiceChargeService = "data_api"
+	ServiceChargeServiceDatabase     ServiceChargeService = "database"
+	ServiceChargeServiceMessages     ServiceChargeService = "messages"
+	ServiceChargeServicePlan         ServiceChargeService = "plan"
+	ServiceChargeServiceReadReplicas ServiceChargeService = "read_replicas"
+	ServiceChargeServiceRealtime     ServiceChargeService = "realtime"
+	ServiceChargeServiceStorage      ServiceChargeService = "storage"
+)
+
+// Valid indicates whether the value is a known member of the ServiceChargeService enum.
+func (e ServiceChargeService) Valid() bool {
+	switch e {
+	case ServiceChargeServiceAuth:
+		return true
+	case ServiceChargeServiceDataApi:
+		return true
+	case ServiceChargeServiceDatabase:
+		return true
+	case ServiceChargeServiceMessages:
+		return true
+	case ServiceChargeServicePlan:
+		return true
+	case ServiceChargeServiceReadReplicas:
+		return true
+	case ServiceChargeServiceRealtime:
+		return true
+	case ServiceChargeServiceStorage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServiceMarginService.
+const (
+	ServiceMarginServiceApi      ServiceMarginService = "api"
+	ServiceMarginServiceDatabase ServiceMarginService = "database"
+	ServiceMarginServiceFiles    ServiceMarginService = "files"
+	ServiceMarginServiceMessages ServiceMarginService = "messages"
+)
+
+// Valid indicates whether the value is a known member of the ServiceMarginService enum.
+func (e ServiceMarginService) Valid() bool {
+	switch e {
+	case ServiceMarginServiceApi:
+		return true
+	case ServiceMarginServiceDatabase:
+		return true
+	case ServiceMarginServiceFiles:
+		return true
+	case ServiceMarginServiceMessages:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ServiceSpendService.
 const (
 	ServiceSpendServiceAuth         ServiceSpendService = "auth"
@@ -2522,6 +2714,33 @@ func (e ServiceSpendService) Valid() bool {
 	case ServiceSpendServiceRealtime:
 		return true
 	case ServiceSpendServiceStorage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServicesUsageMetricService.
+const (
+	ServicesUsageMetricServiceAuth     ServicesUsageMetricService = "auth"
+	ServicesUsageMetricServiceDataApi  ServicesUsageMetricService = "data_api"
+	ServicesUsageMetricServiceMessages ServicesUsageMetricService = "messages"
+	ServicesUsageMetricServiceRealtime ServicesUsageMetricService = "realtime"
+	ServicesUsageMetricServiceStorage  ServicesUsageMetricService = "storage"
+)
+
+// Valid indicates whether the value is a known member of the ServicesUsageMetricService enum.
+func (e ServicesUsageMetricService) Valid() bool {
+	switch e {
+	case ServicesUsageMetricServiceAuth:
+		return true
+	case ServicesUsageMetricServiceDataApi:
+		return true
+	case ServicesUsageMetricServiceMessages:
+		return true
+	case ServicesUsageMetricServiceRealtime:
+		return true
+	case ServicesUsageMetricServiceStorage:
 		return true
 	default:
 		return false
@@ -3025,6 +3244,7 @@ func (e UpdateUserRequestPlatformRole) Valid() bool {
 
 // Defines values for UpgradeCheckName.
 const (
+	UpgradeCheckNameDeprecated  UpgradeCheckName = "deprecated"
 	UpgradeCheckNameExtensions  UpgradeCheckName = "extensions"
 	UpgradeCheckNameReplication UpgradeCheckName = "replication"
 	UpgradeCheckNameSchema      UpgradeCheckName = "schema"
@@ -3035,6 +3255,8 @@ const (
 // Valid indicates whether the value is a known member of the UpgradeCheckName enum.
 func (e UpgradeCheckName) Valid() bool {
 	switch e {
+	case UpgradeCheckNameDeprecated:
+		return true
 	case UpgradeCheckNameExtensions:
 		return true
 	case UpgradeCheckNameReplication:
@@ -4167,6 +4389,9 @@ type ApiRequestLog struct {
 // ApiRequestLogList defines model for ApiRequestLogList.
 type ApiRequestLogList struct {
 	Items []ApiRequestLog `json:"items"`
+
+	// Next With after, the cursor to follow from next.
+	Next *int64 `json:"next,omitempty"`
 }
 
 // AttributeRequest defines model for AttributeRequest.
@@ -4643,6 +4868,9 @@ type BackendServicesSettings struct {
 	// AllowSecretInBrowser Accept the secret key from a page (a request with an Origin header). Off by default.
 	AllowSecretInBrowser *bool `json:"allow_secret_in_browser,omitempty"`
 
+	// CacheTtlSeconds Cache anonymous reads (publishable key, no user token) of these tables ("schema.table") and stable functions ("rpc.name" or "rpc.schema.name") on the edge for up to that many seconds, 1 to 3,600 (V4.1 §10). A TTL is a staleness budget: writes made outside this edge's data API show within it. Sent whole: {} turns caching off.
+	CacheTtlSeconds *map[string]int `json:"cache_ttl_seconds,omitempty"`
+
 	// MaxQueryCost Data API reads whose estimated cost (EXPLAIN) is higher are refused (0 for the default, 1000000).
 	MaxQueryCost *int `json:"max_query_cost,omitempty"`
 
@@ -4812,6 +5040,9 @@ type BillingAccountTerm string
 type BillingContact struct {
 	Email string  `json:"email"`
 	Name  *string `json:"name,omitempty"`
+
+	// StatusEmails Gets the status page's incident emails while the organisation is on a paid plan (default true).
+	StatusEmails *bool `json:"status_emails,omitempty"`
 }
 
 // BillingDetailsUpdate defines model for BillingDetailsUpdate.
@@ -4886,6 +5117,14 @@ type BloatList struct {
 	Items []TableBloat `json:"items"`
 }
 
+// BranchApi A branch's own backend services API (V4.1 §9.5), when its parent has them: a new ref and keys, shown once. The parent's keys and tokens don't work on it.
+type BranchApi struct {
+	PublishableKey string  `json:"publishable_key"`
+	Ref            string  `json:"ref"`
+	SecretKey      string  `json:"secret_key"`
+	Url            *string `json:"url,omitempty"`
+}
+
 // BranchInfo defines model for BranchInfo.
 type BranchInfo struct {
 	// Backups Whether it takes nightly backups.
@@ -4902,7 +5141,9 @@ type BranchInfoSource string
 
 // BranchRequest defines model for BranchRequest.
 type BranchRequest struct {
-	Name string `json:"name"`
+	// CopyFiles With backend services: copy the parent's stored files into the branch, in the background (counted against the organisation's file storage). Without it, the copied file records have no bytes.
+	CopyFiles *bool  `json:"copy_files,omitempty"`
+	Name      string `json:"name"`
 
 	// SchemaOnly Defaults to whether the parent contains sensitive data.
 	SchemaOnly *bool                `json:"schema_only,omitempty"`
@@ -4989,15 +5230,95 @@ type CapacityProposalList struct {
 
 // CapacitySettings defines model for CapacitySettings.
 type CapacitySettings struct {
-	AutoApply             bool         `json:"auto_apply"`
-	AutoRebalance         bool         `json:"auto_rebalance"`
-	BudgetCurrency        string       `json:"budget_currency"`
-	Dedicated             TierSettings `json:"dedicated"`
-	DeleteEmptyAfterHours int          `json:"delete_empty_after_hours"`
-	MonthlyBudgetMinor    int64        `json:"monthly_budget_minor"`
-	RebalanceSpread       float32      `json:"rebalance_spread"`
-	Shared                TierSettings `json:"shared"`
+	AutoApply             bool          `json:"auto_apply"`
+	AutoRebalance         bool          `json:"auto_rebalance"`
+	BudgetCurrency        string        `json:"budget_currency"`
+	Dedicated             TierSettings  `json:"dedicated"`
+	DeleteEmptyAfterHours int           `json:"delete_empty_after_hours"`
+	Edge                  *TierSettings `json:"edge,omitempty"`
+	MonthlyBudgetMinor    int64         `json:"monthly_budget_minor"`
+	RebalanceSpread       float32       `json:"rebalance_spread"`
+	Shared                TierSettings  `json:"shared"`
 }
+
+// CatalogAccess defines model for CatalogAccess.
+type CatalogAccess struct {
+	Delete bool `json:"delete"`
+	Insert bool `json:"insert"`
+	Select bool `json:"select"`
+	Update bool `json:"update"`
+}
+
+// CatalogColumn defines model for CatalogColumn.
+type CatalogColumn struct {
+	Default   *string   `json:"default,omitempty"`
+	Enum      *[]string `json:"enum,omitempty"`
+	Generated bool      `json:"generated"`
+	Identity  bool      `json:"identity"`
+	Name      string    `json:"name"`
+	Nullable  bool      `json:"nullable"`
+	Type      string    `json:"type"`
+}
+
+// CatalogForeignKey defines model for CatalogForeignKey.
+type CatalogForeignKey struct {
+	Columns []string `json:"columns"`
+
+	// Embed The name to embed the other side with in a select.
+	Embed      string   `json:"embed"`
+	Multiple   bool     `json:"multiple"`
+	Name       string   `json:"name"`
+	RefColumns []string `json:"ref_columns"`
+	Table      string   `json:"table"`
+}
+
+// CatalogFunction defines model for CatalogFunction.
+type CatalogFunction struct {
+	Args []struct {
+		Name     string `json:"name"`
+		Optional bool   `json:"optional"`
+		Type     string `json:"type"`
+	} `json:"args"`
+	Name            string `json:"name"`
+	Returns         string `json:"returns"`
+	ReturnsSet      bool   `json:"returns_set"`
+	Schema          string `json:"schema"`
+	SecurityDefiner bool   `json:"security_definer"`
+	Volatility      string `json:"volatility"`
+}
+
+// CatalogPolicy defines model for CatalogPolicy.
+type CatalogPolicy struct {
+	Check      *string `json:"check,omitempty"`
+	Command    string  `json:"command"`
+	Name       string  `json:"name"`
+	Permissive bool    `json:"permissive"`
+
+	// Roles anon, user, service, everyone, or a database role.
+	Roles []string `json:"roles"`
+	Using *string  `json:"using,omitempty"`
+}
+
+// CatalogTable defines model for CatalogTable.
+type CatalogTable struct {
+	// Access The request roles' privileges (anon, user); row-level security then decides which rows.
+	Access      map[string]CatalogAccess `json:"access"`
+	Columns     []CatalogColumn          `json:"columns"`
+	ForeignKeys []CatalogForeignKey      `json:"foreign_keys"`
+	Kind        CatalogTableKind         `json:"kind"`
+	Name        string                   `json:"name"`
+	Policies    []CatalogPolicy          `json:"policies"`
+	PrimaryKey  []string                 `json:"primary_key"`
+
+	// Public Marked public; anyone with the publishable key reads every row.
+	Public       bool                `json:"public"`
+	ReferencedBy []CatalogForeignKey `json:"referenced_by"`
+	Rls          bool                `json:"rls"`
+	Schema       string              `json:"schema"`
+}
+
+// CatalogTableKind defines model for CatalogTable.Kind.
+type CatalogTableKind string
 
 // CategoryCost defines model for CategoryCost.
 type CategoryCost struct {
@@ -5064,7 +5385,10 @@ type ConnectionInfo struct {
 
 // CostSettings defines model for CostSettings.
 type CostSettings struct {
-	Currency                  string     `json:"currency"`
+	Currency string `json:"currency"`
+
+	// EdgeSharePercent The share of shared nodes' cost moved to the edge category, where pgdock-edge runs on them (0 to 100, default 0).
+	EdgeSharePercent          *float32   `json:"edge_share_percent,omitempty"`
 	EgressGbMinor             float32    `json:"egress_gb_minor"`
 	FloatingIpMonthlyMinor    int64      `json:"floating_ip_monthly_minor"`
 	FloatingIps               int        `json:"floating_ips"`
@@ -5087,8 +5411,10 @@ type CreateIncidentRequest struct {
 	Components []string         `json:"components"`
 	Region     *string          `json:"region,omitempty"`
 	Severity   IncidentSeverity `json:"severity"`
-	Status     IncidentStatus   `json:"status"`
-	Title      string           `json:"title"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status IncidentStatus `json:"status"`
+	Title  string         `json:"title"`
 }
 
 // CreateNodeRequest defines model for CreateNodeRequest.
@@ -5107,11 +5433,11 @@ type CreateNodeRequest struct {
 	// Region The region the node is in (default the home region). A pooler host serves that region's projects.
 	Region *string `json:"region,omitempty"`
 
-	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database.
+	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
 	Role CreateNodeRequestRole `json:"role"`
 }
 
-// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database.
+// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
 type CreateNodeRequestRole string
 
 // CreateOrgRequest defines model for CreateOrgRequest.
@@ -5136,6 +5462,9 @@ type CreateProjectRequest struct {
 
 	// PgVersion Postgres major version (see /profiles); default the newest.
 	PgVersion *int `json:"pg_version,omitempty"`
+
+	// Preview Allow a Postgres major in preview (V4.1 §6.1).
+	Preview *bool `json:"preview,omitempty"`
 
 	// Profile Dedicated only (see /profiles); default small.
 	Profile *string `json:"profile,omitempty"`
@@ -5808,10 +6137,12 @@ type Incident struct {
 	ResolvedAt *time.Time       `json:"resolved_at,omitempty"`
 	Severity   IncidentSeverity `json:"severity"`
 	StartedAt  time.Time        `json:"started_at"`
-	Status     IncidentStatus   `json:"status"`
-	Title      string           `json:"title"`
-	UpdatedAt  time.Time        `json:"updated_at"`
-	Updates    []IncidentUpdate `json:"updates"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status    IncidentStatus   `json:"status"`
+	Title     string           `json:"title"`
+	UpdatedAt time.Time        `json:"updated_at"`
+	Updates   []IncidentUpdate `json:"updates"`
 }
 
 // IncidentList defines model for IncidentList.
@@ -5826,7 +6157,7 @@ type IncidentList struct {
 // IncidentSeverity defines model for IncidentSeverity.
 type IncidentSeverity string
 
-// IncidentStatus defines model for IncidentStatus.
+// IncidentStatus draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
 type IncidentStatus string
 
 // IncidentUpdate defines model for IncidentUpdate.
@@ -5836,13 +6167,17 @@ type IncidentUpdate struct {
 	PostedAt time.Time `json:"posted_at"`
 
 	// PostedBy The poster's email.
-	PostedBy *string        `json:"posted_by,omitempty"`
-	Status   IncidentStatus `json:"status"`
+	PostedBy *string `json:"posted_by,omitempty"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status IncidentStatus `json:"status"`
 }
 
 // IncidentUpdateRequest defines model for IncidentUpdateRequest.
 type IncidentUpdateRequest struct {
-	Body   string         `json:"body"`
+	Body string `json:"body"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 }
 
@@ -5971,6 +6306,13 @@ type InstanceActionRequest struct {
 // InstanceActionRequestAction defines model for InstanceActionRequest.Action.
 type InstanceActionRequestAction string
 
+// InstanceSize defines model for InstanceSize.
+type InstanceSize struct {
+	Cpus     float32 `json:"cpus"`
+	DiskGb   int     `json:"disk_gb"`
+	MemoryMb int     `json:"memory_mb"`
+}
+
 // InstanceState defines model for InstanceState.
 type InstanceState struct {
 	Container *string `json:"container,omitempty"`
@@ -6000,6 +6342,12 @@ type InstanceSummary struct {
 	// PgVersion Postgres major version.
 	PgVersion int `json:"pg_version"`
 
+	// PgVersionRetiresAt When its deprecated major retires.
+	PgVersionRetiresAt *time.Time `json:"pg_version_retires_at,omitempty"`
+
+	// PgVersionStatus Where its Postgres major is in its life (V4.1 §6.1).
+	PgVersionStatus *InstanceSummaryPgVersionStatus `json:"pg_version_status,omitempty"`
+
 	// PitrDays Dedicated only. The point-in-time recovery window in days (7, 14 or 30).
 	PitrDays *int    `json:"pitr_days,omitempty"`
 	Profile  *string `json:"profile,omitempty"`
@@ -6010,13 +6358,34 @@ type InstanceSummary struct {
 // InstanceSummaryKind defines model for InstanceSummary.Kind.
 type InstanceSummaryKind string
 
+// InstanceSummaryPgVersionStatus Where its Postgres major is in its life (V4.1 §6.1).
+type InstanceSummaryPgVersionStatus string
+
 // InstanceUpdate defines model for InstanceUpdate.
 type InstanceUpdate struct {
+	Cpus *float32 `json:"cpus,omitempty"`
+
+	// DiskGb Up only; to shrink, move into a smaller instance.
+	DiskGb *int `json:"disk_gb,omitempty"`
+
+	// DryRun Only say what a resize would do (in place, or a move to which node).
+	DryRun   *bool                   `json:"dry_run,omitempty"`
+	MemoryMb *int                    `json:"memory_mb,omitempty"`
 	PitrDays *InstanceUpdatePitrDays `json:"pitr_days,omitempty"`
+
+	// Profile A size from GET /profiles, in place of cpus and memory_mb.
+	Profile *string `json:"profile,omitempty"`
 }
 
 // InstanceUpdatePitrDays defines model for InstanceUpdate.PitrDays.
 type InstanceUpdatePitrDays int
+
+// InstanceUpdated defines model for InstanceUpdated.
+type InstanceUpdated struct {
+	Instance  InstanceSummary `json:"instance"`
+	Operation *Operation      `json:"operation,omitempty"`
+	Plan      *ResizePlan     `json:"plan,omitempty"`
+}
 
 // Invitation defines model for Invitation.
 type Invitation struct {
@@ -6440,11 +6809,17 @@ type MailSettingsRequestTls string
 type MaintenanceAnnouncement struct {
 	AnnouncedAt *time.Time `json:"announced_at,omitempty"`
 	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
-	Emailed     *int       `json:"emailed,omitempty"`
+
+	// Draft Proposed by PGDock and not announced yet; confirm or discard it.
+	Draft   *bool `json:"draft,omitempty"`
+	Emailed *int  `json:"emailed,omitempty"`
 
 	// ExcludedFrom When the SLA starts excluding the window's minutes (72 hours after the announcement, or the start).
-	ExcludedFrom   *time.Time           `json:"excluded_from,omitempty"`
-	Incident       Incident             `json:"incident"`
+	ExcludedFrom *time.Time `json:"excluded_from,omitempty"`
+	Incident     Incident   `json:"incident"`
+
+	// ProposedFor What PGDock proposed it for (minor_upgrade).
+	ProposedFor    *string              `json:"proposed_for,omitempty"`
 	ScheduledEnd   *time.Time           `json:"scheduled_end,omitempty"`
 	ScheduledStart *time.Time           `json:"scheduled_start,omitempty"`
 	ScopeNodes     []openapi_types.UUID `json:"scope_nodes"`
@@ -6478,6 +6853,28 @@ type MaintenanceAnnouncementRequest struct {
 	Replaces *openapi_types.UUID `json:"replaces,omitempty"`
 	Start    time.Time           `json:"start"`
 	Title    *string             `json:"title,omitempty"`
+}
+
+// MaintenancePreview defines model for MaintenancePreview.
+type MaintenancePreview struct {
+	Addresses     int    `json:"addresses"`
+	Body          string `json:"body"`
+	Organisations int    `json:"organisations"`
+	Subject       string `json:"subject"`
+}
+
+// MaintenancePreviewRequest defines model for MaintenancePreviewRequest.
+type MaintenancePreviewRequest struct {
+	Body *string    `json:"body,omitempty"`
+	End  *time.Time `json:"end,omitempty"`
+
+	// IncidentId A draft to preview; the other fields are then ignored.
+	IncidentId *openapi_types.UUID   `json:"incident_id,omitempty"`
+	NodeIds    *[]openapi_types.UUID `json:"node_ids,omitempty"`
+	ProjectIds *[]openapi_types.UUID `json:"project_ids,omitempty"`
+	Region     *string               `json:"region,omitempty"`
+	Start      *time.Time            `json:"start,omitempty"`
+	Title      *string               `json:"title,omitempty"`
 }
 
 // MaintenanceStatus defines model for MaintenanceStatus.
@@ -6518,8 +6915,11 @@ type Margins struct {
 	Plans             []PlanMargin       `json:"plans"`
 	Rates             map[string]float32 `json:"rates"`
 	RevenueMinor      int64              `json:"revenue_minor"`
-	UnallocatedMinor  int64              `json:"unallocated_minor"`
-	Units             []UnitCost         `json:"units"`
+
+	// Services Margins per service (V4.1 §11).
+	Services         *[]ServiceMargin `json:"services,omitempty"`
+	UnallocatedMinor int64            `json:"unallocated_minor"`
+	Units            []UnitCost       `json:"units"`
 }
 
 // MetricPoint defines model for MetricPoint.
@@ -6748,9 +7148,15 @@ type OrderFormPublish struct {
 
 // Org defines model for Org.
 type Org struct {
+	// BillingState The organisation's billing standing when it needs attention (V4.1 §7.3), shown to every member; amounts are on the billing page, for owners and billing members.
+	BillingState *OrgBillingState `json:"billing_state,omitempty"`
+
 	// BreakGlass Open break-glass sessions (V2 §2.4), shown to everyone in the organisation.
 	BreakGlass *[]BreakGlassSession `json:"break_glass,omitempty"`
-	CreatedAt  time.Time            `json:"created_at"`
+
+	// BudgetAlertPercent The highest budget threshold (80 or 100) this month's spend has reached; only for owners and billing members.
+	BudgetAlertPercent *int      `json:"budget_alert_percent,omitempty"`
+	CreatedAt          time.Time `json:"created_at"`
 
 	// DeleteAfter Set while the organisation is being deleted.
 	DeleteAfter              *time.Time         `json:"delete_after,omitempty"`
@@ -6772,12 +7178,39 @@ type Org struct {
 	SuspendedReason    *string   `json:"suspended_reason,omitempty"`
 }
 
+// OrgBillingState The organisation's billing standing when it needs attention (V4.1 §7.3), shown to every member; amounts are on the billing page, for owners and billing members.
+type OrgBillingState string
+
 // OrgStatus defines model for Org.Status.
 type OrgStatus string
 
 // OrgDeletion defines model for OrgDeletion.
 type OrgDeletion struct {
 	DeleteAfter time.Time `json:"delete_after"`
+}
+
+// OrgIncident defines model for OrgIncident.
+type OrgIncident struct {
+	Components []string           `json:"components"`
+	Id         openapi_types.UUID `json:"id"`
+
+	// LatestUpdate The newest update's text.
+	LatestUpdate *string          `json:"latest_update,omitempty"`
+	Region       *string          `json:"region,omitempty"`
+	Severity     IncidentSeverity `json:"severity"`
+	StartedAt    time.Time        `json:"started_at"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status IncidentStatus `json:"status"`
+	Title  string         `json:"title"`
+
+	// Url The incident on the status page, when one is configured.
+	Url *string `json:"url,omitempty"`
+}
+
+// OrgIncidentList defines model for OrgIncidentList.
+type OrgIncidentList struct {
+	Items []OrgIncident `json:"items"`
 }
 
 // OrgLegal defines model for OrgLegal.
@@ -6973,6 +7406,38 @@ type PersonalCredentialsInfo struct {
 
 // PersonalCredentialsInfoAccess What your role allows (the access a new login would get).
 type PersonalCredentialsInfoAccess string
+
+// PgVersionInfo defines model for PgVersionInfo.
+type PgVersionInfo struct {
+	DeprecatedAt *time.Time `json:"deprecated_at,omitempty"`
+
+	// Installed The server has an image for it (PGDOCK_PG_VERSIONS).
+	Installed bool   `json:"installed"`
+	Major     int    `json:"major"`
+	Notes     string `json:"notes"`
+
+	// Projects Live projects on it (the admin list only).
+	Projects  *int       `json:"projects,omitempty"`
+	RetiresAt *time.Time `json:"retires_at,omitempty"`
+
+	// Status A deprecated major past its retirement date is retired.
+	Status PgVersionInfoStatus `json:"status"`
+}
+
+// PgVersionInfoStatus A deprecated major past its retirement date is retired.
+type PgVersionInfoStatus string
+
+// PgVersionUpdate defines model for PgVersionUpdate.
+type PgVersionUpdate struct {
+	Notes *string `json:"notes,omitempty"`
+
+	// RetiresAt Required to deprecate, at least 180 days ahead.
+	RetiresAt *time.Time            `json:"retires_at,omitempty"`
+	Status    PgVersionUpdateStatus `json:"status"`
+}
+
+// PgVersionUpdateStatus defines model for PgVersionUpdate.Status.
+type PgVersionUpdateStatus string
 
 // PitrRequest defines model for PitrRequest.
 type PitrRequest struct {
@@ -7255,7 +7720,10 @@ type ProfileList struct {
 	DefaultVolumeGb  int       `json:"default_volume_gb"`
 	Items            []Profile `json:"items"`
 
-	// PgVersions Supported Postgres major versions, oldest first (V3 §2.4).
+	// PgVersionLifecycle Where each major is in its life (V4.1 §6.1).
+	PgVersionLifecycle *[]PgVersionInfo `json:"pg_version_lifecycle,omitempty"`
+
+	// PgVersions Postgres majors open for new projects, oldest first (V3 §2.4); a preview needs `preview` on the create request.
 	PgVersions []int `json:"pg_versions"`
 }
 
@@ -7356,6 +7824,8 @@ type ProjectBackupStorage struct {
 
 // ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
 type ProjectCredentials struct {
+	// Api A branch's own backend services API (V4.1 §9.5), when its parent has them: a new ref and keys, shown once. The parent's keys and tokens don't work on it.
+	Api        *BranchApi     `json:"api,omitempty"`
 	Connection ConnectionInfo `json:"connection"`
 	Operation  Operation      `json:"operation"`
 	Password   string         `json:"password"`
@@ -7736,9 +8206,50 @@ type RegionDedicated struct {
 	Region    string  `json:"region"`
 }
 
+// RegionEtcdMember defines model for RegionEtcdMember.
+type RegionEtcdMember struct {
+	FailureDomain *string            `json:"failure_domain,omitempty"`
+	NodeId        openapi_types.UUID `json:"node_id"`
+	NodeName      string             `json:"node_name"`
+	Status        string             `json:"status"`
+}
+
+// RegionHAElsewhere defines model for RegionHAElsewhere.
+type RegionHAElsewhere struct {
+	EtcdRegion string             `json:"etcd_region"`
+	Name       string             `json:"name"`
+	ProjectId  openapi_types.UUID `json:"project_id"`
+}
+
 // RegionList defines model for RegionList.
 type RegionList struct {
 	Items []Region `json:"items"`
+}
+
+// RegionOverview defines model for RegionOverview.
+type RegionOverview struct {
+	EtcdMembers []RegionEtcdMember `json:"etcd_members"`
+
+	// EtcdProblem Why the region's cluster can't take projects yet, when it can't.
+	EtcdProblem *string `json:"etcd_problem,omitempty"`
+	EtcdReady   bool    `json:"etcd_ready"`
+
+	// HaElsewhere The region's HA projects whose Patroni state is in another region's etcd cluster.
+	HaElsewhere []RegionHAElsewhere `json:"ha_elsewhere"`
+	MoveAll     *Operation          `json:"move_all,omitempty"`
+	PoolerHosts []RegionPoolerHost  `json:"pooler_hosts"`
+
+	// PoolerPairProblem Set when the pair shares a failure domain (or one isn't set).
+	PoolerPairProblem *string `json:"pooler_pair_problem,omitempty"`
+	Region            string  `json:"region"`
+}
+
+// RegionPoolerHost defines model for RegionPoolerHost.
+type RegionPoolerHost struct {
+	FailureDomain *string            `json:"failure_domain,omitempty"`
+	Id            openapi_types.UUID `json:"id"`
+	Name          string             `json:"name"`
+	Status        string             `json:"status"`
 }
 
 // RegionReadiness defines model for RegionReadiness.
@@ -7806,6 +8317,18 @@ type ReplicaList struct {
 	// ReadUrl The read-only route's connection string, without a password.
 	ReadUrl  *string       `json:"read_url,omitempty"`
 	Replicas []ReadReplica `json:"replicas"`
+}
+
+// ResizePlan defines model for ResizePlan.
+type ResizePlan struct {
+	From InstanceSize `json:"from"`
+
+	// MoveTo The node the project moves to, when its own can't hold the new size.
+	MoveTo *string `json:"move_to,omitempty"`
+
+	// Restart The containers restart (a CPU or memory change); a disk change alone doesn't.
+	Restart bool         `json:"restart"`
+	To      InstanceSize `json:"to"`
 }
 
 // RestoreRequest defines model for RestoreRequest.
@@ -8130,6 +8653,29 @@ type ServerPriceList struct {
 	Provider string        `json:"provider"`
 }
 
+// ServiceCharge defines model for ServiceCharge.
+type ServiceCharge struct {
+	AmountMinor int64                `json:"amount_minor"`
+	Service     ServiceChargeService `json:"service"`
+}
+
+// ServiceChargeService defines model for ServiceCharge.Service.
+type ServiceChargeService string
+
+// ServiceMargin defines model for ServiceMargin.
+type ServiceMargin struct {
+	CostMinor    int64    `json:"cost_minor"`
+	MarginMinor  int64    `json:"margin_minor"`
+	MarginPct    *float32 `json:"margin_pct,omitempty"`
+	RevenueMinor int64    `json:"revenue_minor"`
+
+	// Service database: plans, hosting, backups and replicas; api: the data API, auth and realtime (the edges); files: storage; messages: platform SMS and WhatsApp.
+	Service ServiceMarginService `json:"service"`
+}
+
+// ServiceMarginService database: plans, hosting, backups and replicas; api: the data API, auth and realtime (the edges); files: storage; messages: platform SMS and WhatsApp.
+type ServiceMarginService string
+
 // ServiceSpend defines model for ServiceSpend.
 type ServiceSpend struct {
 	// ProjectedMinor The whole month's, projected from usage so far.
@@ -8142,6 +8688,47 @@ type ServiceSpend struct {
 
 // ServiceSpendService defines model for ServiceSpend.Service.
 type ServiceSpendService string
+
+// ServicesCatalog defines model for ServicesCatalog.
+type ServicesCatalog struct {
+	ApiUrl    *string           `json:"api_url,omitempty"`
+	Functions []CatalogFunction `json:"functions"`
+
+	// Ref The project's API ref (its URL's host), when services are on.
+	Ref     *string        `json:"ref,omitempty"`
+	Schemas []string       `json:"schemas"`
+	Tables  []CatalogTable `json:"tables"`
+}
+
+// ServicesUsage defines model for ServicesUsage.
+type ServicesUsage struct {
+	// Charges The month's charges so far, before VAT, that fall to the project: its own lines, and of an allowance's overage the share its usage is of the organisation's. Absent without billing, or to a caller who can't see the organisation's billing.
+	Charges *[]ServiceCharge      `json:"charges,omitempty"`
+	Metrics []ServicesUsageMetric `json:"metrics"`
+
+	// Month The month (UTC), as 2006-01.
+	Month string `json:"month"`
+}
+
+// ServicesUsageMetric defines model for ServicesUsageMetric.
+type ServicesUsageMetric struct {
+	// Included The plan's allowance this month, above which usage is charged.
+	Included *float32 `json:"included,omitempty"`
+
+	// Limit The plan's hard limit this month, at which the service stops.
+	Limit  *float32 `json:"limit,omitempty"`
+	Metric string   `json:"metric"`
+
+	// OrgQuantity The organisation's, this month (allowances and limits are shared by its projects).
+	OrgQuantity float32 `json:"org_quantity"`
+
+	// Quantity The project's, this month.
+	Quantity float32                    `json:"quantity"`
+	Service  ServicesUsageMetricService `json:"service"`
+}
+
+// ServicesUsageMetricService defines model for ServicesUsageMetric.Service.
+type ServicesUsageMetricService string
 
 // SessionInfo defines model for SessionInfo.
 type SessionInfo struct {
@@ -8844,14 +9431,17 @@ type TicketUpdateStatus string
 
 // TierSettings defines model for TierSettings.
 type TierSettings struct {
-	ClusterMemoryMb *int     `json:"cluster_memory_mb,omitempty"`
-	DiskThreshold   *float32 `json:"disk_threshold,omitempty"`
-	Enabled         bool     `json:"enabled"`
-	HorizonDays     *int     `json:"horizon_days,omitempty"`
-	MinCpus         *int     `json:"min_cpus,omitempty"`
-	MinDiskGb       *int     `json:"min_disk_gb,omitempty"`
-	MinMemoryGb     *float32 `json:"min_memory_gb,omitempty"`
-	ServerType      *string  `json:"server_type,omitempty"`
+	ClusterMemoryMb *int `json:"cluster_memory_mb,omitempty"`
+
+	// CpuThreshold Edge: propose an edge node when a region's edges average above this percentage of their hosts' CPUs for an hour (70).
+	CpuThreshold  *float32 `json:"cpu_threshold,omitempty"`
+	DiskThreshold *float32 `json:"disk_threshold,omitempty"`
+	Enabled       bool     `json:"enabled"`
+	HorizonDays   *int     `json:"horizon_days,omitempty"`
+	MinCpus       *int     `json:"min_cpus,omitempty"`
+	MinDiskGb     *int     `json:"min_disk_gb,omitempty"`
+	MinMemoryGb   *float32 `json:"min_memory_gb,omitempty"`
+	ServerType    *string  `json:"server_type,omitempty"`
 }
 
 // TlsStatus defines model for TlsStatus.
@@ -9636,6 +10226,11 @@ type StartCheckoutJSONBodyChannel string
 // StartCheckoutJSONBodyPurpose defines parameters for StartCheckout.
 type StartCheckoutJSONBodyPurpose string
 
+// UpdateBillingContactJSONBody defines parameters for UpdateBillingContact.
+type UpdateBillingContactJSONBody struct {
+	StatusEmails bool `json:"status_emails"`
+}
+
 // EstimateOrgCostJSONBody defines parameters for EstimateOrgCost.
 type EstimateOrgCostJSONBody struct {
 	// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
@@ -9833,7 +10428,19 @@ type SetRealtimeTableJSONBody struct {
 type ListAPIRequestLogsParams struct {
 	// Before A log id from the previous page.
 	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
-	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// After Follow from this log id.
+	After *int64 `form:"after,omitempty" json:"after,omitempty"`
+
+	// Wait With after, seconds to wait for a new log (at most 25).
+	Wait *int `form:"wait,omitempty" json:"wait,omitempty"`
+
+	// Status A status (404) or class (5xx, 4xx).
+	Status *string `form:"status,omitempty" json:"status,omitempty"`
+
+	// Path Only requests whose path starts with this.
+	Path  *string `form:"path,omitempty" json:"path,omitempty"`
+	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // GetServiceTypesParams defines parameters for GetServiceTypes.
@@ -9993,6 +10600,9 @@ type AdminPublishLegalJSONRequestBody = LegalPublish
 // AnnounceMaintenanceJSONRequestBody defines body for AnnounceMaintenance for application/json ContentType.
 type AnnounceMaintenanceJSONRequestBody = MaintenanceAnnouncementRequest
 
+// PreviewMaintenanceAnnouncementJSONRequestBody defines body for PreviewMaintenanceAnnouncement for application/json ContentType.
+type PreviewMaintenanceAnnouncementJSONRequestBody = MaintenancePreviewRequest
+
 // PutMaintenanceWindowJSONRequestBody defines body for PutMaintenanceWindow for application/json ContentType.
 type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
 
@@ -10028,6 +10638,9 @@ type AdminRecordPaymentJSONRequestBody AdminRecordPaymentJSONBody
 
 // AdminRefundPaymentJSONRequestBody defines body for AdminRefundPayment for application/json ContentType.
 type AdminRefundPaymentJSONRequestBody AdminRefundPaymentJSONBody
+
+// UpdatePgVersionJSONRequestBody defines body for UpdatePgVersion for application/json ContentType.
+type UpdatePgVersionJSONRequestBody = PgVersionUpdate
 
 // CreatePlanJSONRequestBody defines body for CreatePlan for application/json ContentType.
 type CreatePlanJSONRequestBody = PlanRequest
@@ -10199,6 +10812,9 @@ type StartCheckoutJSONRequestBody StartCheckoutJSONBody
 
 // AddBillingContactJSONRequestBody defines body for AddBillingContact for application/json ContentType.
 type AddBillingContactJSONRequestBody = BillingContact
+
+// UpdateBillingContactJSONRequestBody defines body for UpdateBillingContact for application/json ContentType.
+type UpdateBillingContactJSONRequestBody UpdateBillingContactJSONBody
 
 // EstimateOrgCostJSONRequestBody defines body for EstimateOrgCost for application/json ContentType.
 type EstimateOrgCostJSONRequestBody EstimateOrgCostJSONBody
@@ -10571,9 +11187,18 @@ type ServerInterface interface {
 	// AnnounceMaintenance Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
 	// (POST /api/v1/admin/maintenance/announcements)
 	AnnounceMaintenance(w http.ResponseWriter, r *http.Request)
+	// PreviewMaintenanceAnnouncement The email an announcement would send, and how many it reaches
+	// (POST /api/v1/admin/maintenance/announcements/preview)
+	PreviewMaintenanceAnnouncement(w http.ResponseWriter, r *http.Request)
 	// CancelMaintenance Cancel an announced maintenance window
 	// (DELETE /api/v1/admin/maintenance/announcements/{incident_id})
 	CancelMaintenance(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID)
+	// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+	// (POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm)
+	ConfirmMaintenanceDraft(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID)
+	// DiscardMaintenanceDraft Discard a maintenance draft; the work it was for keeps waiting
+	// (POST /api/v1/admin/maintenance/announcements/{incident_id}/discard)
+	DiscardMaintenanceDraft(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID)
 	// PutMaintenanceWindow Change the weekly maintenance window (UTC)
 	// (PUT /api/v1/admin/maintenance/window)
 	PutMaintenanceWindow(w http.ResponseWriter, r *http.Request)
@@ -10631,6 +11256,12 @@ type ServerInterface interface {
 	// AdminRefundPayment Refund part of a payment from the organisation's credit balance
 	// (POST /api/v1/admin/payments/{payment_id}/refund)
 	AdminRefundPayment(w http.ResponseWriter, r *http.Request, paymentId PaymentID)
+	// ListPgVersions Postgres majors and where each is in its life (V4.1 §6.1)
+	// (GET /api/v1/admin/pg-versions)
+	ListPgVersions(w http.ResponseWriter, r *http.Request)
+	// UpdatePgVersion Promote, deprecate or retire a Postgres major
+	// (PATCH /api/v1/admin/pg-versions/{major})
+	UpdatePgVersion(w http.ResponseWriter, r *http.Request, major int)
 	// ListPlans Quota plan templates (platform admin)
 	// (GET /api/v1/admin/plans)
 	ListPlans(w http.ResponseWriter, r *http.Request)
@@ -10676,6 +11307,12 @@ type ServerInterface interface {
 	// PutAdminRegion Create or change a region
 	// (PUT /api/v1/admin/regions/{region_id})
 	PutAdminRegion(w http.ResponseWriter, r *http.Request, regionId string)
+	// MoveAllToRegionEtcd Move every HA project on another region's etcd onto this region's, one at a time
+	// (POST /api/v1/admin/regions/{region_id}/etcd-move-all)
+	MoveAllToRegionEtcd(w http.ResponseWriter, r *http.Request, regionId string)
+	// GetAdminRegionOverview A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1)
+	// (GET /api/v1/admin/regions/{region_id}/overview)
+	GetAdminRegionOverview(w http.ResponseWriter, r *http.Request, regionId string)
 	// GetAdminRegionReadiness A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
 	// (GET /api/v1/admin/regions/{region_id}/readiness)
 	GetAdminRegionReadiness(w http.ResponseWriter, r *http.Request, regionId string)
@@ -10973,6 +11610,9 @@ type ServerInterface interface {
 	// RemoveBillingContact Remove a billing contact
 	// (DELETE /api/v1/orgs/{org}/billing/contacts/{email})
 	RemoveBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string)
+	// UpdateBillingContact Turn a billing contact's status page emails on or off
+	// (PATCH /api/v1/orgs/{org}/billing/contacts/{email})
+	UpdateBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string)
 	// EstimateOrgCost What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	// (POST /api/v1/orgs/{org}/billing/estimate)
 	EstimateOrgCost(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -11021,6 +11661,9 @@ type ServerInterface interface {
 	// ListOrgDedicatedRequests The organisation's dedicated instance requests
 	// (GET /api/v1/orgs/{org}/dedicated-requests)
 	ListOrgDedicatedRequests(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ListOrgIncidents Open incidents affecting the organisation's projects
+	// (GET /api/v1/orgs/{org}/incidents)
+	ListOrgIncidents(w http.ResponseWriter, r *http.Request, org OrgID)
 	// ListOrgInvitations Pending invitations
 	// (GET /api/v1/orgs/{org}/invitations)
 	ListOrgInvitations(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -11270,7 +11913,7 @@ type ServerInterface interface {
 	// ListSlowQueries Statements over the slow-query threshold
 	// (GET /api/v1/projects/{id}/insights/slow)
 	ListSlowQueries(w http.ResponseWriter, r *http.Request, id ProjectID, params ListSlowQueriesParams)
-	// UpdateProjectInstance Change a dedicated project's instance settings
+	// UpdateProjectInstance Change a dedicated project's instance (size, disk, recovery window)
 	// (PATCH /api/v1/projects/{id}/instance)
 	UpdateProjectInstance(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ProjectInstanceAction Start, stop, or restart a dedicated project's instance
@@ -11411,6 +12054,9 @@ type ServerInterface interface {
 	// GetSecurityAdvisor What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…)
 	// (GET /api/v1/projects/{id}/services/advisor)
 	GetSecurityAdvisor(w http.ResponseWriter, r *http.Request, id ProjectID)
+	// GetServicesCatalog What the data API exposes, with row-level security, policies and access per table (the API docs)
+	// (GET /api/v1/projects/{id}/services/catalog)
+	GetServicesCatalog(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ExploreDataAPI Run a data API request as anon, a user or service (the request explorer)
 	// (POST /api/v1/projects/{id}/services/explore)
 	ExploreDataAPI(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -11420,12 +12066,15 @@ type ServerInterface interface {
 	// RevokeAPIKey Revoke an API key; the edge refuses it within seconds
 	// (DELETE /api/v1/projects/{id}/services/keys/{key_id})
 	RevokeAPIKey(w http.ResponseWriter, r *http.Request, id ProjectID, keyId openapi_types.UUID)
-	// ListAPIRequestLogs The API's request logs (7 days), newest first
+	// ListAPIRequestLogs The API's request logs (7 days), newest first; with after, newer ones oldest first
 	// (GET /api/v1/projects/{id}/services/logs)
 	ListAPIRequestLogs(w http.ResponseWriter, r *http.Request, id ProjectID, params ListAPIRequestLogsParams)
 	// GetServiceTypes Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
 	// (GET /api/v1/projects/{id}/services/types)
 	GetServiceTypes(w http.ResponseWriter, r *http.Request, id ProjectID, params GetServiceTypesParams)
+	// GetServicesUsage This month's backend-services usage, against the plan, and the charges that fall to the project
+	// (GET /api/v1/projects/{id}/services/usage)
+	GetServicesUsage(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// UpdateProject Update a project's name, description, or guardrails
 	// (PATCH /api/v1/projects/{id}/settings)
 	UpdateProject(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -11870,9 +12519,27 @@ func (_ Unimplemented) AnnounceMaintenance(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// PreviewMaintenanceAnnouncement The email an announcement would send, and how many it reaches
+// (POST /api/v1/admin/maintenance/announcements/preview)
+func (_ Unimplemented) PreviewMaintenanceAnnouncement(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // CancelMaintenance Cancel an announced maintenance window
 // (DELETE /api/v1/admin/maintenance/announcements/{incident_id})
 func (_ Unimplemented) CancelMaintenance(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+// (POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm)
+func (_ Unimplemented) ConfirmMaintenanceDraft(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DiscardMaintenanceDraft Discard a maintenance draft; the work it was for keeps waiting
+// (POST /api/v1/admin/maintenance/announcements/{incident_id}/discard)
+func (_ Unimplemented) DiscardMaintenanceDraft(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -11990,6 +12657,18 @@ func (_ Unimplemented) AdminRefundPayment(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListPgVersions Postgres majors and where each is in its life (V4.1 §6.1)
+// (GET /api/v1/admin/pg-versions)
+func (_ Unimplemented) ListPgVersions(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdatePgVersion Promote, deprecate or retire a Postgres major
+// (PATCH /api/v1/admin/pg-versions/{major})
+func (_ Unimplemented) UpdatePgVersion(w http.ResponseWriter, r *http.Request, major int) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListPlans Quota plan templates (platform admin)
 // (GET /api/v1/admin/plans)
 func (_ Unimplemented) ListPlans(w http.ResponseWriter, r *http.Request) {
@@ -12077,6 +12756,18 @@ func (_ Unimplemented) ListAdminRegions(w http.ResponseWriter, r *http.Request) 
 // PutAdminRegion Create or change a region
 // (PUT /api/v1/admin/regions/{region_id})
 func (_ Unimplemented) PutAdminRegion(w http.ResponseWriter, r *http.Request, regionId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// MoveAllToRegionEtcd Move every HA project on another region's etcd onto this region's, one at a time
+// (POST /api/v1/admin/regions/{region_id}/etcd-move-all)
+func (_ Unimplemented) MoveAllToRegionEtcd(w http.ResponseWriter, r *http.Request, regionId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetAdminRegionOverview A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1)
+// (GET /api/v1/admin/regions/{region_id}/overview)
+func (_ Unimplemented) GetAdminRegionOverview(w http.ResponseWriter, r *http.Request, regionId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -12674,6 +13365,12 @@ func (_ Unimplemented) RemoveBillingContact(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// UpdateBillingContact Turn a billing contact's status page emails on or off
+// (PATCH /api/v1/orgs/{org}/billing/contacts/{email})
+func (_ Unimplemented) UpdateBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // EstimateOrgCost What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 // (POST /api/v1/orgs/{org}/billing/estimate)
 func (_ Unimplemented) EstimateOrgCost(w http.ResponseWriter, r *http.Request, org OrgID) {
@@ -12767,6 +13464,12 @@ func (_ Unimplemented) CancelOrgDeletion(w http.ResponseWriter, r *http.Request,
 // ListOrgDedicatedRequests The organisation's dedicated instance requests
 // (GET /api/v1/orgs/{org}/dedicated-requests)
 func (_ Unimplemented) ListOrgDedicatedRequests(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOrgIncidents Open incidents affecting the organisation's projects
+// (GET /api/v1/orgs/{org}/incidents)
+func (_ Unimplemented) ListOrgIncidents(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -13268,7 +13971,7 @@ func (_ Unimplemented) ListSlowQueries(w http.ResponseWriter, r *http.Request, i
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// UpdateProjectInstance Change a dedicated project's instance settings
+// UpdateProjectInstance Change a dedicated project's instance (size, disk, recovery window)
 // (PATCH /api/v1/projects/{id}/instance)
 func (_ Unimplemented) UpdateProjectInstance(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -13550,6 +14253,12 @@ func (_ Unimplemented) GetSecurityAdvisor(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetServicesCatalog What the data API exposes, with row-level security, policies and access per table (the API docs)
+// (GET /api/v1/projects/{id}/services/catalog)
+func (_ Unimplemented) GetServicesCatalog(w http.ResponseWriter, r *http.Request, id ProjectID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ExploreDataAPI Run a data API request as anon, a user or service (the request explorer)
 // (POST /api/v1/projects/{id}/services/explore)
 func (_ Unimplemented) ExploreDataAPI(w http.ResponseWriter, r *http.Request, id ProjectID) {
@@ -13568,7 +14277,7 @@ func (_ Unimplemented) RevokeAPIKey(w http.ResponseWriter, r *http.Request, id P
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// ListAPIRequestLogs The API's request logs (7 days), newest first
+// ListAPIRequestLogs The API's request logs (7 days), newest first; with after, newer ones oldest first
 // (GET /api/v1/projects/{id}/services/logs)
 func (_ Unimplemented) ListAPIRequestLogs(w http.ResponseWriter, r *http.Request, id ProjectID, params ListAPIRequestLogsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -13577,6 +14286,12 @@ func (_ Unimplemented) ListAPIRequestLogs(w http.ResponseWriter, r *http.Request
 // GetServiceTypes Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
 // (GET /api/v1/projects/{id}/services/types)
 func (_ Unimplemented) GetServiceTypes(w http.ResponseWriter, r *http.Request, id ProjectID, params GetServiceTypesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetServicesUsage This month's backend-services usage, against the plan, and the charges that fall to the project
+// (GET /api/v1/projects/{id}/services/usage)
+func (_ Unimplemented) GetServicesUsage(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -14954,6 +15669,20 @@ func (siw *ServerInterfaceWrapper) AnnounceMaintenance(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// PreviewMaintenanceAnnouncement operation middleware
+func (siw *ServerInterfaceWrapper) PreviewMaintenanceAnnouncement(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewMaintenanceAnnouncement(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CancelMaintenance operation middleware
 func (siw *ServerInterfaceWrapper) CancelMaintenance(w http.ResponseWriter, r *http.Request) {
 
@@ -14971,6 +15700,58 @@ func (siw *ServerInterfaceWrapper) CancelMaintenance(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CancelMaintenance(w, r, incidentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfirmMaintenanceDraft operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmMaintenanceDraft(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "incident_id" -------------
+	var incidentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "incident_id", chi.URLParam(r, "incident_id"), &incidentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "incident_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmMaintenanceDraft(w, r, incidentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DiscardMaintenanceDraft operation middleware
+func (siw *ServerInterfaceWrapper) DiscardMaintenanceDraft(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "incident_id" -------------
+	var incidentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "incident_id", chi.URLParam(r, "incident_id"), &incidentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "incident_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DiscardMaintenanceDraft(w, r, incidentId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -15497,6 +16278,46 @@ func (siw *ServerInterfaceWrapper) AdminRefundPayment(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// ListPgVersions operation middleware
+func (siw *ServerInterfaceWrapper) ListPgVersions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPgVersions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdatePgVersion operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePgVersion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "major" -------------
+	var major int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "major", chi.URLParam(r, "major"), &major, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "major", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdatePgVersion(w, r, major)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPlans operation middleware
 func (siw *ServerInterfaceWrapper) ListPlans(w http.ResponseWriter, r *http.Request) {
 
@@ -15794,6 +16615,58 @@ func (siw *ServerInterfaceWrapper) PutAdminRegion(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutAdminRegion(w, r, regionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MoveAllToRegionEtcd operation middleware
+func (siw *ServerInterfaceWrapper) MoveAllToRegionEtcd(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "region_id" -------------
+	var regionId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "region_id", chi.URLParam(r, "region_id"), &regionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "region_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MoveAllToRegionEtcd(w, r, regionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminRegionOverview operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminRegionOverview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "region_id" -------------
+	var regionId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "region_id", chi.URLParam(r, "region_id"), &regionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "region_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminRegionOverview(w, r, regionId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -18189,6 +19062,41 @@ func (siw *ServerInterfaceWrapper) RemoveBillingContact(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// UpdateBillingContact operation middleware
+func (siw *ServerInterfaceWrapper) UpdateBillingContact(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "email" -------------
+	var email string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "email", chi.URLParam(r, "email"), &email, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "email", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateBillingContact(w, r, org, email)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // EstimateOrgCost operation middleware
 func (siw *ServerInterfaceWrapper) EstimateOrgCost(w http.ResponseWriter, r *http.Request) {
 
@@ -18675,6 +19583,32 @@ func (siw *ServerInterfaceWrapper) ListOrgDedicatedRequests(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListOrgDedicatedRequests(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgIncidents operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgIncidents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgIncidents(w, r, org)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -22810,6 +23744,32 @@ func (siw *ServerInterfaceWrapper) GetSecurityAdvisor(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// GetServicesCatalog operation middleware
+func (siw *ServerInterfaceWrapper) GetServicesCatalog(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetServicesCatalog(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ExploreDataAPI operation middleware
 func (siw *ServerInterfaceWrapper) ExploreDataAPI(w http.ResponseWriter, r *http.Request) {
 
@@ -22928,6 +23888,58 @@ func (siw *ServerInterfaceWrapper) ListAPIRequestLogs(w http.ResponseWriter, r *
 		return
 	}
 
+	// ------------- Optional query parameter "after" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "after", r.URL.Query(), &params.After, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "after"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "after", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "wait" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "wait", r.URL.Query(), &params.Wait, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "wait"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "wait", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "path", r.URL.Query(), &params.Path, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "limit" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
@@ -22998,6 +24010,32 @@ func (siw *ServerInterfaceWrapper) GetServiceTypes(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetServiceTypes(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetServicesUsage operation middleware
+func (siw *ServerInterfaceWrapper) GetServicesUsage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetServicesUsage(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25237,6 +26275,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/api/v1/orgs/{org}", wrapper.UpdateOrg)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/incidents", wrapper.ListOrgIncidents)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/members", wrapper.ListOrgMembers)
 	})
 	r.Group(func(r chi.Router) {
@@ -25301,6 +26342,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/services/logs", wrapper.ListAPIRequestLogs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/services/catalog", wrapper.GetServicesCatalog)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/services/usage", wrapper.GetServicesUsage)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/services/types", wrapper.GetServiceTypes)
@@ -25469,6 +26516,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/billing/contacts/{email}", wrapper.RemoveBillingContact)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/orgs/{org}/billing/contacts/{email}", wrapper.UpdateBillingContact)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/invoices", wrapper.ListOrgInvoices)
@@ -25789,6 +26839,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/regions", wrapper.ListRegions)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/pg-versions", wrapper.ListPgVersions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/admin/pg-versions/{major}", wrapper.UpdatePgVersion)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/regions", wrapper.ListAdminRegions)
 	})
 	r.Group(func(r chi.Router) {
@@ -25796,6 +26852,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/regions/{region_id}/readiness", wrapper.GetAdminRegionReadiness)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/regions/{region_id}/overview", wrapper.GetAdminRegionOverview)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/regions/{region_id}/etcd-move-all", wrapper.MoveAllToRegionEtcd)
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/v1/projects/{id}/residency", wrapper.SetProjectResidency)
@@ -25889,6 +26951,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/admin/maintenance/announcements", wrapper.AnnounceMaintenance)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/maintenance/announcements/preview", wrapper.PreviewMaintenanceAnnouncement)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/maintenance/announcements/{incident_id}/confirm", wrapper.ConfirmMaintenanceDraft)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/maintenance/announcements/{incident_id}/discard", wrapper.DiscardMaintenanceDraft)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/v1/admin/maintenance/announcements/{incident_id}", wrapper.CancelMaintenance)

@@ -214,6 +214,46 @@ happen or none do.
 The answer is `{"results":[…]}`, one per operation. When one fails, the error
 names it (`details.operation`, counted from 0) and says nothing was changed.
 
+## Caching anonymous reads
+
+Reads that every visitor makes the same way (a product list, a
+storefront's categories) can be served from the edge instead of the
+database. List the tables and functions, with how long a cached answer may
+be served, under Settings → API → **Cache anonymous reads**, or in the
+settings' `cache_ttl_seconds`:
+
+```json
+{"settings": {"cache_ttl_seconds": {"public.products": 60, "rpc.search_products": 30}}}
+```
+
+Tables are `schema.table`; functions are `rpc.name` (in `public`) or
+`rpc.schema.name`, and must be `STABLE` or `IMMUTABLE` (called with `GET`).
+At most 3,600 seconds and 100 entries.
+
+- **What is cached:** `GET`s with the publishable key and **no** user
+  token (so every caller is `anon` and the same policies apply), unless the
+  request sends `Read-Replica: primary`. Never a signed-in user's read, the
+  secret key, writes, storage, auth or realtime.
+- **The key** is the project, the path and its query with the parameters
+  sorted (the `apikey` parameter left out), the project's configuration
+  version and its schema's fingerprint, so changing the settings or the
+  schema starts afresh.
+- **Headers:** `X-Cache: HIT` or `MISS`, `Age`, and
+  `Cache-Control: public, max-age=<seconds left>` with
+  `Vary: Authorization, Read-Replica`, so a CDN in front may cache too
+  (and keeps signed-in users' requests apart).
+- **A TTL is a staleness budget.** A write through this edge's data API
+  (insert, update, delete, upsert, batch, or a function called with `POST`)
+  drops the entries it could have changed before it answers: those of the
+  table, of reads that embed it, and every function result. With realtime
+  capture on a table, its changes drop its entries on every edge listening
+  to the project. Anything else (SQL, scheduled jobs, a write through
+  another edge) shows within the TTL.
+- **Billing:** cached answers still count as requests and transfer.
+- Each edge process keeps its own cache, at most 64 MB by default
+  (`PGDOCK_EDGE_CACHE_MB`); the least recently used entries go first, and
+  one answer may take at most an eighth of it.
+
 ## Functions
 
 `/data/v1/rpc/<function>` calls a function in the exposed schemas as the
@@ -270,6 +310,33 @@ Each finding says what to do and, where one statement fixes it, gives it.
 row-level security and writes the policies for one of three templates
 (owner only, members of an organisation through a membership table, public
 read with owner writes), showing the SQL before it runs.
+
+## The API page
+
+Project → Settings → **API**, once services are on:
+
+- **Quick start:** the project URL and publishable key filled into a first
+  program in TypeScript, Dart and Go (install, `createClient`, a read,
+  sign-in with a phone code), with a link to the generated types. Hide it
+  and it stays hidden for you in that browser.
+- **API docs:** each exposed table, view and function, from the same
+  catalog as the generated types: its columns (types, nullability,
+  defaults, identity, generated and enum values), whether row-level
+  security is on and its policies (in the request roles' names: anon,
+  user, service), what anon and a signed-in user may do, and examples of a
+  read (with a filter and the relations its foreign keys reach), insert,
+  update, delete, upsert and function call in curl, TypeScript, Dart and Go.
+  Examples only ever hold the publishable key. **Try it** puts the request
+  in the request explorer below. The same catalog is at
+  `GET /api/v1/projects/{id}/services/catalog`.
+- **Usage this month:** requests, transfer, monthly active users, SMS and
+  WhatsApp codes, file storage and downloads, image transforms and
+  realtime minutes and messages, for this project and for the whole
+  organisation, against the plan's allowance and its hard limits (which
+  the organisation's projects share). Owners and billing members also see
+  the month's charges so far that fall to this project: its own lines in
+  full, and of each allowance's overage the share its usage is of the
+  organisation's (`GET /api/v1/projects/{id}/services/usage`).
 
 ## Request explorer
 
@@ -639,6 +706,13 @@ downloads' bytes (5 GB on Personal); once either allowance is used up,
 renders answer `429 transform_limit` or downloads `429
 storage_egress_limit` until the month turns.
 
+Renders run in separate worker processes (`pgdock-edge render-worker`), one
+image at a time each, as many as half the edge's CPUs. A worker has its own
+memory limit (`PGDOCK_EDGE_RENDER_MEMORY_MB`, 512 by default); an image
+that crashes its decoder or runs it out of memory ends only that worker:
+the request gets `500 transform_failed` and the next render starts a new
+worker.
+
 ### Behind the scenes
 
 - **Versions.** Each upload writes a new object under a new version, and
@@ -889,9 +963,14 @@ Run one pgdock-edge per region, on the region's nodes. It keeps no state.
 | `PGDOCK_EDGE_POOLER_ADDR` | Optional: the transaction pooler as the edge reaches it. |
 | `PGDOCK_EDGE_SESSION_ADDR` | Optional: the session-mode pooler as the edge reaches it (realtime's `LISTEN` connections). |
 | `PGDOCK_EDGE_TRUSTED_PROXIES` | Optional: CIDRs allowed to set `X-Forwarded-For`. |
+| `PGDOCK_EDGE_CACHE_MB` | Optional: the anonymous-read cache's size per edge process (default 64). |
+| `PGDOCK_EDGE_RENDER_MEMORY_MB` | Optional: each image render worker's memory limit (default 512, at least 64). |
+| `PGDOCK_EDGE_RENDER_IN_PROCESS` | Optional: set to render images inside the edge process instead of in workers (not recommended; a bad image can then take the edge down). |
 
 `deploy/edge/Dockerfile` builds the image, and `deploy/edge/edge.env.example`
-lists the settings.
+lists the settings. With the compose install, set `PGDOCK_API_DOMAIN` and
+`PGDOCK_EDGE_SECRET` in its `.env` (the compose file passes them to
+pgdock-server).
 
 - **DNS:** a wildcard record `*.<domain>` pointing at the region's edge.
 - **TLS:** get the wildcard certificate with a DNS-01 client for your DNS
@@ -933,8 +1012,9 @@ isolation ([security review](security-review.md#v4-review-of-the-edge-m37)),
 load tests ([load test](load-test.md#v4-backend-services-load-test)) and
 failure injection (an edge killed mid-upload, an SMS provider outage, a
 realtime process lost). What to do when something breaks is in the
-[runbook](backend-runbook.md). An operator announces GA once the
-external penetration test of the edge ([scope](pentest-scope.md)) has no
+[runbook](backend-runbook.md). An operator announces GA once every
+[GA gate](backend-runbook.md#ga-gates) has a dated result, the external
+penetration test of the edge ([scope](pentest-scope.md)) among them with no
 open critical or high finding.
 
 Not built: realtime over logical decoding for high-volume tables, and

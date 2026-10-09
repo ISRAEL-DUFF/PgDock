@@ -212,6 +212,10 @@ func (a *App) commands() []command {
 			{name: "slow", summary: "Slow queries: slow <p> [--range 24h]", run: (*App).insightsSlow},
 			{name: "indexes", summary: "Index suggestions, unused and duplicate indexes: indexes <p>", run: (*App).insightsIndexes},
 		}},
+		{name: "instance", summary: "A dedicated project's instance size and disk", sub: []command{
+			{name: "resize", summary: "resize <p> (--profile medium | --cpus 4 --memory 8192) [--dry-run]", run: (*App).instanceResize},
+			{name: "disk", summary: "Grow the disk: disk <p> --gb 160 [--dry-run]", run: (*App).instanceDisk},
+		}},
 		{name: "ha", summary: "High availability for a dedicated project", sub: []command{
 			{name: "status", summary: "Members, lag, failovers and availability: status <p>", run: (*App).haStatus},
 			{name: "enable", summary: "Add a standby on another node: enable <p> [--node <id>] [--sync]", run: (*App).haEnable},
@@ -282,6 +286,13 @@ func (a *App) commands() []command {
 			{name: "enable", summary: "Deliver a table's changes: enable <p> <[schema.]table>", run: (*App).realtimeEnable},
 			{name: "disable", summary: "Stop: disable <p> <[schema.]table>", run: (*App).realtimeDisable},
 			{name: "history", summary: "Keep broadcasts on these topics 7 days: history <p> [topic…]", run: (*App).realtimeHistory},
+		}},
+		{name: "policies", summary: "Row-level security of the data API's tables (backend services)", sub: []command{
+			{name: "list", summary: "Policies per table, with their roles: list <p> [--table t]", run: (*App).policiesList},
+			{name: "lint", summary: "The security advisor's findings; exits 1 on any marked danger (for CI): lint <p>", run: (*App).policiesLint},
+		}},
+		{name: "logs", summary: "Logs", sub: []command{
+			{name: "api", summary: "The API's request log: api <p> [--follow] [--status 5xx] [--path /data/v1/…]", run: (*App).logsAPI},
 		}},
 		{name: "gen", summary: "Generate code", sub: []command{
 			{name: "types", summary: "Types for the SDKs: types --lang ts|dart|go --project <p> [-o file] [--package name]", run: (*App).genTypes},

@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -113,20 +114,6 @@ func (c *Config) setDefaults() {
 // PGVersions are the supported Postgres majors, oldest first.
 func (s *Service) PGVersions() []int { return slices.Clone(s.cfg.PGVersions) }
 
-// DefaultPGVersion is the newest supported major, for new projects.
-func (s *Service) DefaultPGVersion() int { return s.cfg.PGVersions[len(s.cfg.PGVersions)-1] }
-
-// CheckPGVersion resolves v (0: the default) against the supported majors.
-func (s *Service) CheckPGVersion(v int) (int, error) {
-	if v == 0 {
-		return s.DefaultPGVersion(), nil
-	}
-	if !slices.Contains(s.cfg.PGVersions, v) {
-		return 0, fmt.Errorf("%w: Postgres %d isn't supported (supported: %s)", ErrInvalid, v, joinInts(s.cfg.PGVersions))
-	}
-	return v, nil
-}
-
 func joinInts(xs []int) string {
 	out := make([]string, len(xs))
 	for i, x := range xs {
@@ -142,6 +129,8 @@ type Service struct {
 	pooler  *pooler.Manager
 	cfg     Config
 	log     *slog.Logger
+	// versionsSeeded: the configured majors are in pg_versions.
+	versionsSeeded atomic.Bool
 
 	// FinalBackup, if set, takes the final backup before a delete (spec
 	// §6.2). The backup service sets it.
@@ -178,7 +167,8 @@ func NewService(db *pgxpool.Pool, keyring *crypto.Keyring, pm *pooler.Manager, c
 // Kinds returns the operation kinds this service handles.
 func (s *Service) Kinds() map[string]jobs.Kind {
 	kinds := map[string]jobs.Kind{
-		KindCreate: {Handler: s.runCreate, OnFail: s.rollbackCreate, MaxAttempts: 3},
+		// A dedicated create may wait up to 25 minutes for a host (V4.1 §5.3).
+		KindCreate: {Handler: s.runCreate, OnFail: s.rollbackCreate, MaxAttempts: 3, Timeout: 45 * time.Minute},
 		KindRotate: {Handler: s.runRotate, OnFail: s.rollbackRotate, MaxAttempts: 3},
 		KindDelete: {Handler: s.runDelete, OnFail: s.failDelete, MaxAttempts: 5},
 
@@ -261,8 +251,10 @@ type CreateParams struct {
 	// new): a detached read replica's instance keeps its member's id,
 	// which names its container and volume (V4 §7).
 	InstanceID *uuid.UUID
-	// PgVersion is the Postgres major (0: the default, the newest).
+	// PgVersion is the Postgres major (0: the default, the newest
+	// supported). Preview allows a major in preview (V4.1 §6.1).
 	PgVersion int
+	Preview   bool
 	// Region is where the project runs (empty: the home region, or NodeID's
 	// region); DataResidency keeps its data in that region's country, which
 	// the region must offer (V3 §6.3). A branch takes its parent's.
@@ -390,7 +382,11 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 	if tier == "" {
 		tier = TierShared
 	}
-	if p.PgVersion, err = s.CheckPGVersion(p.PgVersion); err != nil {
+	use := ForProject
+	if p.Preview {
+		use = ForPreviewProject
+	}
+	if p.PgVersion, err = s.CheckVersion(ctx, p.PgVersion, use); err != nil {
 		return Created{}, err
 	}
 	if err := s.resolveRegion(ctx, &p); err != nil {

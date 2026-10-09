@@ -530,6 +530,7 @@ func (h *rtHub) drain(ctx context.Context, q querier) error {
 			}
 		}
 		if len(batch) > 0 {
+			h.dropCached(p, batch)
 			h.deliver(ctx, p, keys, batch)
 		}
 		if len(batch) < rtBatch {
@@ -906,4 +907,22 @@ func (e *Edge) meterRealtime() {
 		}
 		e.meter.realtime(p.cfg.ProjectID, secs, msgs)
 	}
+}
+
+// dropCached drops the cached reads of the tables a batch of changes
+// touched, on this edge (V4.1 §10): every edge listening to the project
+// does the same, whatever wrote the rows.
+func (h *rtHub) dropCached(p *project, batch []change) {
+	if len(p.cfg.Settings.CacheTTLSeconds) == 0 {
+		return
+	}
+	seen := map[string]bool{}
+	var tables []string
+	for _, c := range batch {
+		if k := c.schema + "." + c.table; !seen[k] {
+			seen[k] = true
+			tables = append(tables, k)
+		}
+	}
+	h.e.cache.dropTables(h.ref, tables)
 }

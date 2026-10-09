@@ -1899,6 +1899,32 @@ test.describe("with the saved session", () => {
     await explorer.getByRole("button", { name: "Send" }).click();
     await expect(explorer.getByTestId("explorer-result")).toContainText("200");
 
+    // V4.1-M8: the quick start and a table's docs carry the project's URL
+    // and publishable key, and "Try it" runs in the explorer.
+    const apiURL = (await page.getByTestId("services-url").innerText()).match(/https?:\/\/\S+/)![0];
+    const quick = page.getByTestId("services-quickstart");
+    await expect(quick.getByTestId("quickstart-values")).toContainText(apiURL);
+    await expect(quick.getByTestId("quickstart-values")).toContainText("pgd_pub_");
+    await expect(quick.locator("pre").last()).toContainText(`createClient("${apiURL}", "pgd_pub_`);
+    await quick.getByRole("radio", { name: "Dart" }).click();
+    await expect(quick.locator("pre").last()).toContainText(`PgdockClient('${apiURL}', 'pgd_pub_`);
+    await quick.getByRole("button", { name: "Hide" }).click();
+    await page.reload();
+    await expect(page.getByTestId("services-quickstart").getByRole("button", { name: "Show" })).toBeVisible();
+    const docs = page.getByTestId("services-docs");
+    await docs.getByLabel("Table or function").selectOption("t:notes");
+    await expect(docs.getByTestId("docs-table")).toContainText("owner_id");
+    await expect(docs.getByTestId("docs-table")).toContainText(/Row-level security\s*on/);
+    const read = docs.getByTestId("docs-example-read");
+    await expect(read).toContainText(`${apiURL}/data/v1/notes`);
+    await expect(read).toContainText("apikey: pgd_pub_");
+    await shot(page, "75-api-docs");
+    await read.getByRole("button", { name: "Try it" }).click();
+    await expect(explorer.getByLabel("Path")).toHaveValue(/^\/data\/v1\/notes\?select=/);
+    await explorer.getByRole("button", { name: "Send" }).click();
+    await expect(explorer.getByTestId("explorer-result")).toContainText("200");
+    await expect(page.getByTestId("services-usage").getByTestId("usage-row").first()).toContainText("Requests");
+
     // M36: the Supabase migration helper. The users and files steps need the
     // Supabase project's credentials; the policies step runs on its own.
     const mig = page.getByTestId("migrate-supabase");
@@ -1979,8 +2005,13 @@ test.describe("with the saved session", () => {
     await expect(fileRow).toContainText("text/plain");
     await expect(fileRow).toContainText("12 B");
     await expect(page.getByTestId("files-stat-bytes")).toContainText("12 B", { timeout: 10_000 });
-    // This install has no API domain, so there is no URL to sign.
-    await expect(fileRow.getByRole("button", { name: "Signed URL" })).toHaveCount(0);
+    // A private bucket's file gets a signed link on the project's API URL.
+    await fileRow.getByRole("button", { name: "Signed URL" }).click();
+    const signed = page.getByRole("dialog", { name: "Signed URL" });
+    await expect(signed.getByLabel("Signed URL")).toHaveValue(/\/storage\/v1\/object\/sign\/docs\/hello\.txt\?token=.+/);
+    expect(await signed.getByLabel("Signed URL").inputValue()).toMatch(new RegExp("^" + apiURL.replaceAll(".", "\\.") + "/"));
+    await page.keyboard.press("Escape");
+    await expect(signed).toBeHidden();
     await expect(fileRow.getByRole("link", { name: "Download" })).toHaveAttribute("href", /\/files\/buckets\/docs\/object\?path=hello\.txt$/);
     await shot(page, "79-storage");
     page.once("dialog", (d) => void d.accept());
@@ -2001,6 +2032,57 @@ test.describe("with the saved session", () => {
     await expect(page.getByLabel("Topics")).toHaveValue("lobby");
     await expect(page.getByTestId("realtime-table").filter({ hasText: "public.notes" }).getByRole("switch")).toBeChecked();
     await shot(page, "80-realtime");
+  });
+
+  test("banners: a member sees the overdue invoice without amounts, and an incident affecting the projects", async ({ page, browser }) => {
+    await signedIn(page);
+    // The owner's personal organisation, where the earlier projects are.
+    const orgs = await page.evaluate(async () => (await (await fetch("/api/v1/orgs")).json()).items as { id: string; personal: boolean }[]);
+    const orgID = orgs.find((o) => o.personal)!.id;
+    await page.evaluate((id) => localStorage.setItem("pgdock.org", id), orgID);
+
+    // Dana joins as a plain member: no billing access.
+    const danaEmail = "dana@example.com";
+    await page.goto("/org/members");
+    await page.getByTestId("invite-member").click();
+    await page.getByLabel("Email").fill(danaEmail);
+    await page.getByLabel("Organisation role").selectOption("member");
+    await page.getByRole("button", { name: "Send invitation" }).click();
+    await expect(page.getByTestId("invitation-created")).toBeVisible();
+    await page.getByRole("button", { name: "Done" }).click();
+    const danaCtx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const dana = await danaCtx.newPage();
+    await acceptInvitation(dana, await mailLink(danaEmail, "invitation"), "Dana");
+    await dana.evaluate((id) => localStorage.setItem("pgdock.org", id), orgID);
+
+    // An overdue invoice: every member sees it; only the owner gets the pay link, and nobody sees an amount here.
+    expect(await apiStatus(page, `/api/v1/orgs/${orgID}/billing`)).toBe(200); // opens the billing account
+    await metadataSQL(`UPDATE billing_accounts SET dunning_state = 'overdue' WHERE org_id = '${orgID}'`);
+    await dana.goto("/projects");
+    const danaBanner = dana.getByTestId("billing-banner");
+    await expect(danaBanner).toContainText("has an overdue invoice");
+    await expect(danaBanner).toContainText("Ask an owner or a billing member");
+    await expect(danaBanner).not.toContainText("₦");
+    await expect(danaBanner.getByRole("link", { name: "Pay now" })).toHaveCount(0);
+    await page.goto("/projects");
+    await expect(page.getByTestId("billing-banner").getByRole("link", { name: "Pay now" })).toBeVisible();
+
+    // An open incident on the components the organisation's projects use.
+    const incidentID = await metadataSQL(`WITH i AS (INSERT INTO incidents (title, components, severity, status)
+      VALUES ('Connections are slow', ARRAY['shared-tier', 'dedicated'], 'major', 'investigating') RETURNING id),
+      u AS (INSERT INTO incident_updates (incident_id, status, body) SELECT id, 'investigating', 'We are looking into it.' FROM i)
+      SELECT id FROM i`);
+    await dana.reload();
+    await expect(dana.getByTestId("incident-banner")).toContainText("Connections are slow");
+    await expect(dana.getByTestId("incident-banner")).toContainText("We are looking into it.");
+    await shot(dana, "81-banners");
+
+    await metadataSQL(`UPDATE incidents SET status = 'resolved', resolved_at = now() WHERE id = '${incidentID}'`);
+    await metadataSQL(`UPDATE billing_accounts SET dunning_state = 'ok' WHERE org_id = '${orgID}'`);
+    await dana.reload();
+    await expect(dana.getByTestId("incident-banner")).toHaveCount(0);
+    await expect(dana.getByTestId("billing-banner")).toHaveCount(0);
+    await danaCtx.close();
   });
 
   test("the shell: keyboard shortcuts, and the menu on a narrow screen", async ({ page }) => {

@@ -76,6 +76,15 @@ owners of your organisation within [72 hours] of finding it, with what we
 know and what you should do, and send a written follow-up once it is
 understood.
 
+## Postgres versions
+
+We announce the retirement of a Postgres major version at least [180
+days] ahead, by email to your organisation's owners and admins. After that
+date your projects on it keep running, but they are unsupported: we do not
+fix problems specific to that version, may not be able to restore its
+backups onto newer infrastructure, and do not upgrade it for you. Upgrade
+before the date.
+
 ## Ending
 
 You can delete your account or organisation at any time. We may close the

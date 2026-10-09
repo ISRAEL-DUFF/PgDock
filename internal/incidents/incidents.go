@@ -24,13 +24,16 @@ import (
 
 // DefaultComponents are the status page's component IDs
 // (deploy/status/status.example.toml).
-var DefaultComponents = []string{"dashboard", "edge-pooler", "shared-tier", "dedicated", "backups", "webhooks-jobs"}
+var DefaultComponents = []string{"dashboard", "edge-pooler", "shared-tier", "dedicated", "backups", "webhooks-jobs", "billing", "backend-services"}
 
 // Heartbeat components: the ones pgdock-server reports.
 const (
 	ComponentDedicated    = "dedicated"
 	ComponentBackups      = "backups"
 	ComponentWebhooksJobs = "webhooks-jobs"
+	ComponentBilling      = "billing"
+	// ComponentBackendServices is reported per region (V4.1 §7.2).
+	ComponentBackendServices = "backend-services"
 )
 
 // Config connects PGDock to its status page.
@@ -51,6 +54,9 @@ type Service struct {
 	log       *slog.Logger
 	mailer    Mailer
 	publicURL string
+	// Billing reports the billing component; nil leaves it out.
+	Billing    func(ctx context.Context, now time.Time) (statusapi.ComponentState, error)
+	edgeSilent time.Duration
 }
 
 // New returns the incidents service.
@@ -364,7 +370,9 @@ func (s *Service) Run(ctx context.Context, heartbeatEvery time.Duration) {
 	defer push.Stop()
 	beat := time.NewTicker(heartbeatEvery)
 	defer beat.Stop()
-	var lastPushErr, lastBeatErr string
+	subs := time.NewTicker(syncEvery)
+	defer subs.Stop()
+	var lastPushErr, lastBeatErr, lastSyncErr string
 	report := func(what string, err error, last *string) {
 		msg := ""
 		if err != nil {
@@ -380,6 +388,7 @@ func (s *Service) Run(ctx context.Context, heartbeatEvery time.Duration) {
 	}
 	report("heartbeat", s.Heartbeat(ctx), &lastBeatErr)
 	report("incident push", s.Push(ctx), &lastPushErr)
+	report("subscriber sync", s.SyncSubscribers(ctx), &lastSyncErr)
 	for {
 		select {
 		case <-ctx.Done():
@@ -391,6 +400,8 @@ func (s *Service) Run(ctx context.Context, heartbeatEvery time.Duration) {
 			report("incident push", s.Push(ctx), &lastPushErr)
 		case <-beat.C:
 			report("heartbeat", s.Heartbeat(ctx), &lastBeatErr)
+		case <-subs.C:
+			report("subscriber sync", s.SyncSubscribers(ctx), &lastSyncErr)
 		}
 	}
 }

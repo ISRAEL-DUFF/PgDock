@@ -35,6 +35,39 @@ type Bootstrap struct {
 	MoveAllow string
 	// SSHKeys are public keys for root, besides the provider's.
 	SSHKeys []string
+	// Edge makes the server an edge node: pgdock-edge runs beside the agent
+	// (V4.1 §11).
+	Edge *EdgeBootstrap
+}
+
+// EdgeBootstrap is what an edge node's pgdock-edge needs.
+type EdgeBootstrap struct {
+	// Image is pgdock-edge's pullable image (PGDOCK_CLOUD_EDGE_IMAGE).
+	Image string
+	// ControlURL is pgdock-server as edges reach it, Secret the edge
+	// secret, Domain the API domain, Region the region it serves.
+	ControlURL string
+	Secret     string
+	Domain     string
+	Region     string
+}
+
+var domainRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$`)
+
+func (e EdgeBootstrap) validate() error {
+	switch {
+	case !imageRe.MatchString(e.Image):
+		return fmt.Errorf("cloud-init: the edge image must be a pullable reference (PGDOCK_CLOUD_EDGE_IMAGE)")
+	case !strings.HasPrefix(e.ControlURL, "https://") && !strings.HasPrefix(e.ControlURL, "http://"):
+		return fmt.Errorf("cloud-init: the edge's control URL must be http(s)")
+	case len(e.Secret) < 32 || strings.ContainsAny(e.Secret, " \n'\"$\\`"):
+		return fmt.Errorf("cloud-init: the edge secret must be at least 32 characters without spaces or quotes")
+	case !domainRe.MatchString(e.Domain):
+		return fmt.Errorf("cloud-init: the API domain %q", e.Domain)
+	case !regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,30}$`).MatchString(e.Region):
+		return fmt.Errorf("cloud-init: the region %q", e.Region)
+	}
+	return nil
 }
 
 var (
@@ -55,6 +88,11 @@ func (b Bootstrap) Validate() error {
 		return fmt.Errorf("cloud-init: the agent and Postgres images must be pullable references (PGDOCK_CLOUD_AGENT_IMAGE, PGDOCK_CLOUD_PG_IMAGE)")
 	case !cidrRe.MatchString(b.PrivateCIDR):
 		return fmt.Errorf("cloud-init: the private network %q is not a CIDR", b.PrivateCIDR)
+	}
+	if b.Edge != nil {
+		if err := b.Edge.validate(); err != nil {
+			return err
+		}
 	}
 	for _, c := range []string{b.DBAllow, b.MoveAllow} {
 		for _, p := range strings.Split(c, ",") {
@@ -112,6 +150,18 @@ write_files:
     content: |
 {{indent 6 .ServerCA}}
 {{- end}}
+{{- if .Edge}}
+  - path: /etc/pgdock/edge.env
+    permissions: "0600"
+    content: |
+      PGDOCK_EDGE_NAME={{.NodeName}}
+      PGDOCK_EDGE_CONTROL_URL={{.Edge.ControlURL}}
+      PGDOCK_EDGE_SECRET={{.Edge.Secret}}
+      PGDOCK_EDGE_DOMAIN={{.Edge.Domain}}
+      PGDOCK_EDGE_REGION={{.Edge.Region}}
+      PGDOCK_EDGE_LISTEN=:8443
+      PGDOCK_EDGE_LOG_FORMAT=json
+{{- end}}
   - path: /usr/local/sbin/pgdock-join
     permissions: "0700"
     content: |
@@ -129,6 +179,16 @@ write_files:
       ufw --force enable
       systemctl restart ssh || systemctl restart sshd
       systemctl enable --now docker
+{{- if .Edge}}
+      # An edge node (V4.1 §11): pgdock-edge serves the API on 8443, for the
+      # load balancer or TLS terminator in front.
+      ufw allow 8443/tcp
+      docker pull {{q .Edge.Image}}
+      docker rm -f pgdock-edge 2>/dev/null || true
+      docker run -d --name pgdock-edge --restart unless-stopped --network host --env-file /etc/pgdock/edge.env \
+        {{- if .ServerCA}} -v /etc/pgdock/server-ca.pem:/etc/pgdock/server-ca.pem:ro{{end}} \
+        {{q .Edge.Image}}
+{{- end}}
       docker pull {{q .AgentImage}}
       docker rm -f pgdock-agent 2>/dev/null || true
       docker run -d --name pgdock-agent --restart unless-stopped --network host --user 0:0 \

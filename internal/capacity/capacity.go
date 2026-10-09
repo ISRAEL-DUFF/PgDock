@@ -57,6 +57,9 @@ type Config struct {
 	// Bootstrap is the cloud-init template's fixed part; NodeName and Token
 	// are filled per server.
 	Bootstrap cloud.Bootstrap
+	// Edge is what an edge node runs besides its agent (V4.1 §11): nil
+	// leaves edge proposals to be provisioned by hand.
+	Edge *cloud.EdgeBootstrap
 	// JoinTimeout bounds the wait for a new server's agent (20 minutes).
 	JoinTimeout time.Duration
 	// Poll is how often the provisioning flow checks for the agent (5 s).
@@ -136,6 +139,10 @@ type TierSettings struct {
 	MinDiskGB   int     `json:"min_disk_gb,omitempty"`
 	// ClusterMemoryMB (shared) is the new node's shared cluster's memory.
 	ClusterMemoryMB int `json:"cluster_memory_mb,omitempty"`
+	// CPUThreshold (edge): propose an edge node when a region's edge
+	// processes average above this percentage of their hosts' CPUs for an
+	// hour (V4.1 §11).
+	CPUThreshold float64 `json:"cpu_threshold,omitempty"`
 }
 
 // Settings are the platform's capacity settings (Admin → Capacity).
@@ -149,6 +156,8 @@ type Settings struct {
 	BudgetCurrency     string       `json:"budget_currency"`
 	Shared             TierSettings `json:"shared"`
 	Dedicated          TierSettings `json:"dedicated"`
+	// Edge nodes run pgdock-edge only (V4.1 §11).
+	Edge TierSettings `json:"edge"`
 	// AutoRebalance moves a rebalance batch in the maintenance window
 	// without waiting for approval.
 	AutoRebalance bool `json:"auto_rebalance"`
@@ -167,6 +176,7 @@ func DefaultSettings() Settings {
 		AutoApply: true, BudgetCurrency: "EUR",
 		Shared:          TierSettings{Enabled: true, DiskThreshold: 0.7, HorizonDays: 14, MinCPUs: 4, MinMemoryGB: 8, MinDiskGB: 160, ClusterMemoryMB: 2048},
 		Dedicated:       TierSettings{Enabled: true, MinCPUs: 8, MinMemoryGB: 16, MinDiskGB: 240},
+		Edge:            TierSettings{Enabled: true, CPUThreshold: 70, MinCPUs: 4, MinMemoryGB: 8, MinDiskGB: 40},
 		RebalanceSpread: 0.15, DeleteEmptyAfterHours: 24,
 	}
 }
@@ -188,6 +198,8 @@ func (st Settings) Validate() error {
 		return invalid("the rebalance spread is a fraction between 0 and 1 (0.15)")
 	case st.DeleteEmptyAfterHours < 1:
 		return invalid("empty nodes wait at least an hour")
+	case st.Edge.CPUThreshold <= 0 || st.Edge.CPUThreshold >= 100:
+		return invalid("the edge CPU threshold is a percentage between 0 and 100 (70)")
 	}
 	return nil
 }

@@ -106,6 +106,8 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 	kinds := map[string]jobs.Kind{
 		KindEnable:  {Handler: s.runEnable, MaxAttempts: 3, Timeout: 10 * time.Minute},
 		KindDisable: {Handler: s.runDisable, MaxAttempts: 3, Timeout: 10 * time.Minute},
+		// A branch's files (V4.1 §9.5): retried, skipping what is copied.
+		KindCopyBranchFiles: {Handler: s.runCopyBranchFiles, MaxAttempts: 3, Timeout: 6 * time.Hour},
 	}
 	for k, v := range s.supabaseKinds() {
 		kinds[k] = v
@@ -315,7 +317,20 @@ type Settings struct {
 	// ReplicaReads sends publishable-key data API GETs to the read
 	// replicas by default (V4 §7).
 	ReplicaReads bool `json:"replica_reads,omitempty"`
+	// CacheTTLSeconds caches anonymous reads of the listed tables
+	// ("schema.table") and functions ("rpc.name", "rpc.schema.name") on the
+	// edge for up to that many seconds (V4.1 §10).
+	CacheTTLSeconds map[string]int `json:"cache_ttl_seconds,omitempty"`
 }
+
+// MaxCacheTTLSeconds is the longest an anonymous read may be cached, and
+// MaxCachedRelations how many relations may be listed.
+const (
+	MaxCacheTTLSeconds = 3600
+	MaxCachedRelations = 100
+)
+
+var cacheNameRe = regexp.MustCompile(`^(rpc\.([A-Za-z_][A-Za-z0-9_$]*\.)?|[A-Za-z_][A-Za-z0-9_$]*\.)[A-Za-z_][A-Za-z0-9_$]*$`)
 
 // Defaults.
 const (
@@ -346,6 +361,16 @@ func (st Settings) Validate() error {
 		return fmt.Errorf("%w: rate limits are requests per minute", ErrInvalid)
 	case st.MaxQueryCost < 0:
 		return fmt.Errorf("%w: max_query_cost can't be negative", ErrInvalid)
+	case len(st.CacheTTLSeconds) > MaxCachedRelations:
+		return fmt.Errorf("%w: cache at most %d tables and functions", ErrInvalid, MaxCachedRelations)
+	}
+	for name, ttl := range st.CacheTTLSeconds {
+		if !cacheNameRe.MatchString(name) {
+			return fmt.Errorf("%w: cache_ttl_seconds names a table as schema.table and a function as rpc.name or rpc.schema.name, not %q", ErrInvalid, name)
+		}
+		if ttl < 1 || ttl > MaxCacheTTLSeconds {
+			return fmt.Errorf("%w: %s's cache TTL must be 1 to %d seconds", ErrInvalid, name, MaxCacheTTLSeconds)
+		}
 	}
 	return nil
 }
@@ -488,6 +513,13 @@ func (s *Service) runEnable(ctx context.Context, op store.Operation, log *jobs.S
 	if p.DeletedAt != nil {
 		return jobs.Permanent(fmt.Errorf("the project was deleted"))
 	}
+	return s.enableOn(ctx, p, log)
+}
+
+// enableOn makes p's roles, pgd_* schemas and signing key and turns its
+// API on.
+func (s *Service) enableOn(ctx context.Context, p store.Project, log *jobs.StepLogger) error {
+	q := store.New(s.db)
 	if err := s.ensureRoles(ctx, p); err != nil {
 		return fmt.Errorf("roles: %w", err)
 	}

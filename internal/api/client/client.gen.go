@@ -20,19 +20,19 @@ import (
 
 // Defines values for APITokenCreatedVia.
 const (
-	Api    APITokenCreatedVia = "api"
-	Device APITokenCreatedVia = "device"
-	Ui     APITokenCreatedVia = "ui"
+	APITokenCreatedViaApi    APITokenCreatedVia = "api"
+	APITokenCreatedViaDevice APITokenCreatedVia = "device"
+	APITokenCreatedViaUi     APITokenCreatedVia = "ui"
 )
 
 // Valid indicates whether the value is a known member of the APITokenCreatedVia enum.
 func (e APITokenCreatedVia) Valid() bool {
 	switch e {
-	case Api:
+	case APITokenCreatedViaApi:
 		return true
-	case Device:
+	case APITokenCreatedViaDevice:
 		return true
-	case Ui:
+	case APITokenCreatedViaUi:
 		return true
 	default:
 		return false
@@ -660,6 +660,7 @@ func (e CapacityProposalStatus) Valid() bool {
 // Defines values for CapacityProposalTier.
 const (
 	CapacityProposalTierDedicated CapacityProposalTier = "dedicated"
+	CapacityProposalTierEdge      CapacityProposalTier = "edge"
 	CapacityProposalTierShared    CapacityProposalTier = "shared"
 )
 
@@ -668,7 +669,33 @@ func (e CapacityProposalTier) Valid() bool {
 	switch e {
 	case CapacityProposalTierDedicated:
 		return true
+	case CapacityProposalTierEdge:
+		return true
 	case CapacityProposalTierShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CatalogTableKind.
+const (
+	CatalogTableKindForeignTable     CatalogTableKind = "foreign_table"
+	CatalogTableKindMaterializedView CatalogTableKind = "materialized_view"
+	CatalogTableKindTable            CatalogTableKind = "table"
+	CatalogTableKindView             CatalogTableKind = "view"
+)
+
+// Valid indicates whether the value is a known member of the CatalogTableKind enum.
+func (e CatalogTableKind) Valid() bool {
+	switch e {
+	case CatalogTableKindForeignTable:
+		return true
+	case CatalogTableKindMaterializedView:
+		return true
+	case CatalogTableKindTable:
+		return true
+	case CatalogTableKindView:
 		return true
 	default:
 		return false
@@ -751,6 +778,7 @@ func (e CreateApiKeyRequestKind) Valid() bool {
 const (
 	CreateNodeRequestRoleBoth      CreateNodeRequestRole = "both"
 	CreateNodeRequestRoleDedicated CreateNodeRequestRole = "dedicated"
+	CreateNodeRequestRoleEdge      CreateNodeRequestRole = "edge"
 	CreateNodeRequestRolePooler    CreateNodeRequestRole = "pooler"
 	CreateNodeRequestRoleShared    CreateNodeRequestRole = "shared"
 )
@@ -761,6 +789,8 @@ func (e CreateNodeRequestRole) Valid() bool {
 	case CreateNodeRequestRoleBoth:
 		return true
 	case CreateNodeRequestRoleDedicated:
+		return true
+	case CreateNodeRequestRoleEdge:
 		return true
 	case CreateNodeRequestRolePooler:
 		return true
@@ -1157,6 +1187,7 @@ func (e IncidentSeverity) Valid() bool {
 
 // Defines values for IncidentStatus.
 const (
+	IncidentStatusDraft         IncidentStatus = "draft"
 	IncidentStatusIdentified    IncidentStatus = "identified"
 	IncidentStatusInvestigating IncidentStatus = "investigating"
 	IncidentStatusMonitoring    IncidentStatus = "monitoring"
@@ -1166,6 +1197,8 @@ const (
 // Valid indicates whether the value is a known member of the IncidentStatus enum.
 func (e IncidentStatus) Valid() bool {
 	switch e {
+	case IncidentStatusDraft:
+		return true
 	case IncidentStatusIdentified:
 		return true
 	case IncidentStatusInvestigating:
@@ -1251,6 +1284,30 @@ func (e InstanceSummaryKind) Valid() bool {
 	case InstanceSummaryKindDedicated:
 		return true
 	case InstanceSummaryKindShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceSummaryPgVersionStatus.
+const (
+	InstanceSummaryPgVersionStatusDeprecated InstanceSummaryPgVersionStatus = "deprecated"
+	InstanceSummaryPgVersionStatusPreview    InstanceSummaryPgVersionStatus = "preview"
+	InstanceSummaryPgVersionStatusRetired    InstanceSummaryPgVersionStatus = "retired"
+	InstanceSummaryPgVersionStatusSupported  InstanceSummaryPgVersionStatus = "supported"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSummaryPgVersionStatus enum.
+func (e InstanceSummaryPgVersionStatus) Valid() bool {
+	switch e {
+	case InstanceSummaryPgVersionStatusDeprecated:
+		return true
+	case InstanceSummaryPgVersionStatusPreview:
+		return true
+	case InstanceSummaryPgVersionStatusRetired:
+		return true
+	case InstanceSummaryPgVersionStatusSupported:
 		return true
 	default:
 		return false
@@ -1779,6 +1836,33 @@ func (e OperationStatus) Valid() bool {
 	}
 }
 
+// Defines values for OrgBillingState.
+const (
+	OrgBillingStateLessThannil   OrgBillingState = "<nil>"
+	OrgBillingStateOverdue       OrgBillingState = "overdue"
+	OrgBillingStatePaymentFailed OrgBillingState = "payment_failed"
+	OrgBillingStateRestricted    OrgBillingState = "restricted"
+	OrgBillingStateSuspended     OrgBillingState = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the OrgBillingState enum.
+func (e OrgBillingState) Valid() bool {
+	switch e {
+	case OrgBillingStateLessThannil:
+		return true
+	case OrgBillingStateOverdue:
+		return true
+	case OrgBillingStatePaymentFailed:
+		return true
+	case OrgBillingStateRestricted:
+		return true
+	case OrgBillingStateSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OrgStatus.
 const (
 	OrgStatusActive    OrgStatus = "active"
@@ -1875,6 +1959,54 @@ func (e PersonalCredentialsInfoAccess) Valid() bool {
 	case PersonalCredentialsInfoAccessReadOnly:
 		return true
 	case PersonalCredentialsInfoAccessReadWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PgVersionInfoStatus.
+const (
+	PgVersionInfoStatusDeprecated PgVersionInfoStatus = "deprecated"
+	PgVersionInfoStatusPreview    PgVersionInfoStatus = "preview"
+	PgVersionInfoStatusRetired    PgVersionInfoStatus = "retired"
+	PgVersionInfoStatusSupported  PgVersionInfoStatus = "supported"
+)
+
+// Valid indicates whether the value is a known member of the PgVersionInfoStatus enum.
+func (e PgVersionInfoStatus) Valid() bool {
+	switch e {
+	case PgVersionInfoStatusDeprecated:
+		return true
+	case PgVersionInfoStatusPreview:
+		return true
+	case PgVersionInfoStatusRetired:
+		return true
+	case PgVersionInfoStatusSupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PgVersionUpdateStatus.
+const (
+	PgVersionUpdateStatusDeprecated PgVersionUpdateStatus = "deprecated"
+	PgVersionUpdateStatusPreview    PgVersionUpdateStatus = "preview"
+	PgVersionUpdateStatusRetired    PgVersionUpdateStatus = "retired"
+	PgVersionUpdateStatusSupported  PgVersionUpdateStatus = "supported"
+)
+
+// Valid indicates whether the value is a known member of the PgVersionUpdateStatus enum.
+func (e PgVersionUpdateStatus) Valid() bool {
+	switch e {
+	case PgVersionUpdateStatusDeprecated:
+		return true
+	case PgVersionUpdateStatusPreview:
+		return true
+	case PgVersionUpdateStatusRetired:
+		return true
+	case PgVersionUpdateStatusSupported:
 		return true
 	default:
 		return false
@@ -2496,6 +2628,66 @@ func (e SchemaRiskLevel) Valid() bool {
 	}
 }
 
+// Defines values for ServiceChargeService.
+const (
+	ServiceChargeServiceAuth         ServiceChargeService = "auth"
+	ServiceChargeServiceDataApi      ServiceChargeService = "data_api"
+	ServiceChargeServiceDatabase     ServiceChargeService = "database"
+	ServiceChargeServiceMessages     ServiceChargeService = "messages"
+	ServiceChargeServicePlan         ServiceChargeService = "plan"
+	ServiceChargeServiceReadReplicas ServiceChargeService = "read_replicas"
+	ServiceChargeServiceRealtime     ServiceChargeService = "realtime"
+	ServiceChargeServiceStorage      ServiceChargeService = "storage"
+)
+
+// Valid indicates whether the value is a known member of the ServiceChargeService enum.
+func (e ServiceChargeService) Valid() bool {
+	switch e {
+	case ServiceChargeServiceAuth:
+		return true
+	case ServiceChargeServiceDataApi:
+		return true
+	case ServiceChargeServiceDatabase:
+		return true
+	case ServiceChargeServiceMessages:
+		return true
+	case ServiceChargeServicePlan:
+		return true
+	case ServiceChargeServiceReadReplicas:
+		return true
+	case ServiceChargeServiceRealtime:
+		return true
+	case ServiceChargeServiceStorage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServiceMarginService.
+const (
+	ServiceMarginServiceApi      ServiceMarginService = "api"
+	ServiceMarginServiceDatabase ServiceMarginService = "database"
+	ServiceMarginServiceFiles    ServiceMarginService = "files"
+	ServiceMarginServiceMessages ServiceMarginService = "messages"
+)
+
+// Valid indicates whether the value is a known member of the ServiceMarginService enum.
+func (e ServiceMarginService) Valid() bool {
+	switch e {
+	case ServiceMarginServiceApi:
+		return true
+	case ServiceMarginServiceDatabase:
+		return true
+	case ServiceMarginServiceFiles:
+		return true
+	case ServiceMarginServiceMessages:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ServiceSpendService.
 const (
 	ServiceSpendServiceAuth         ServiceSpendService = "auth"
@@ -2526,6 +2718,33 @@ func (e ServiceSpendService) Valid() bool {
 	case ServiceSpendServiceRealtime:
 		return true
 	case ServiceSpendServiceStorage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServicesUsageMetricService.
+const (
+	ServicesUsageMetricServiceAuth     ServicesUsageMetricService = "auth"
+	ServicesUsageMetricServiceDataApi  ServicesUsageMetricService = "data_api"
+	ServicesUsageMetricServiceMessages ServicesUsageMetricService = "messages"
+	ServicesUsageMetricServiceRealtime ServicesUsageMetricService = "realtime"
+	ServicesUsageMetricServiceStorage  ServicesUsageMetricService = "storage"
+)
+
+// Valid indicates whether the value is a known member of the ServicesUsageMetricService enum.
+func (e ServicesUsageMetricService) Valid() bool {
+	switch e {
+	case ServicesUsageMetricServiceAuth:
+		return true
+	case ServicesUsageMetricServiceDataApi:
+		return true
+	case ServicesUsageMetricServiceMessages:
+		return true
+	case ServicesUsageMetricServiceRealtime:
+		return true
+	case ServicesUsageMetricServiceStorage:
 		return true
 	default:
 		return false
@@ -3029,6 +3248,7 @@ func (e UpdateUserRequestPlatformRole) Valid() bool {
 
 // Defines values for UpgradeCheckName.
 const (
+	UpgradeCheckNameDeprecated  UpgradeCheckName = "deprecated"
 	UpgradeCheckNameExtensions  UpgradeCheckName = "extensions"
 	UpgradeCheckNameReplication UpgradeCheckName = "replication"
 	UpgradeCheckNameSchema      UpgradeCheckName = "schema"
@@ -3039,6 +3259,8 @@ const (
 // Valid indicates whether the value is a known member of the UpgradeCheckName enum.
 func (e UpgradeCheckName) Valid() bool {
 	switch e {
+	case UpgradeCheckNameDeprecated:
+		return true
 	case UpgradeCheckNameExtensions:
 		return true
 	case UpgradeCheckNameReplication:
@@ -4171,6 +4393,9 @@ type ApiRequestLog struct {
 // ApiRequestLogList defines model for ApiRequestLogList.
 type ApiRequestLogList struct {
 	Items []ApiRequestLog `json:"items"`
+
+	// Next With after, the cursor to follow from next.
+	Next *int64 `json:"next,omitempty"`
 }
 
 // AttributeRequest defines model for AttributeRequest.
@@ -4647,6 +4872,9 @@ type BackendServicesSettings struct {
 	// AllowSecretInBrowser Accept the secret key from a page (a request with an Origin header). Off by default.
 	AllowSecretInBrowser *bool `json:"allow_secret_in_browser,omitempty"`
 
+	// CacheTtlSeconds Cache anonymous reads (publishable key, no user token) of these tables ("schema.table") and stable functions ("rpc.name" or "rpc.schema.name") on the edge for up to that many seconds, 1 to 3,600 (V4.1 §10). A TTL is a staleness budget: writes made outside this edge's data API show within it. Sent whole: {} turns caching off.
+	CacheTtlSeconds *map[string]int `json:"cache_ttl_seconds,omitempty"`
+
 	// MaxQueryCost Data API reads whose estimated cost (EXPLAIN) is higher are refused (0 for the default, 1000000).
 	MaxQueryCost *int `json:"max_query_cost,omitempty"`
 
@@ -4816,6 +5044,9 @@ type BillingAccountTerm string
 type BillingContact struct {
 	Email string  `json:"email"`
 	Name  *string `json:"name,omitempty"`
+
+	// StatusEmails Gets the status page's incident emails while the organisation is on a paid plan (default true).
+	StatusEmails *bool `json:"status_emails,omitempty"`
 }
 
 // BillingDetailsUpdate defines model for BillingDetailsUpdate.
@@ -4890,6 +5121,14 @@ type BloatList struct {
 	Items []TableBloat `json:"items"`
 }
 
+// BranchApi A branch's own backend services API (V4.1 §9.5), when its parent has them: a new ref and keys, shown once. The parent's keys and tokens don't work on it.
+type BranchApi struct {
+	PublishableKey string  `json:"publishable_key"`
+	Ref            string  `json:"ref"`
+	SecretKey      string  `json:"secret_key"`
+	Url            *string `json:"url,omitempty"`
+}
+
 // BranchInfo defines model for BranchInfo.
 type BranchInfo struct {
 	// Backups Whether it takes nightly backups.
@@ -4906,7 +5145,9 @@ type BranchInfoSource string
 
 // BranchRequest defines model for BranchRequest.
 type BranchRequest struct {
-	Name string `json:"name"`
+	// CopyFiles With backend services: copy the parent's stored files into the branch, in the background (counted against the organisation's file storage). Without it, the copied file records have no bytes.
+	CopyFiles *bool  `json:"copy_files,omitempty"`
+	Name      string `json:"name"`
 
 	// SchemaOnly Defaults to whether the parent contains sensitive data.
 	SchemaOnly *bool                `json:"schema_only,omitempty"`
@@ -4993,15 +5234,95 @@ type CapacityProposalList struct {
 
 // CapacitySettings defines model for CapacitySettings.
 type CapacitySettings struct {
-	AutoApply             bool         `json:"auto_apply"`
-	AutoRebalance         bool         `json:"auto_rebalance"`
-	BudgetCurrency        string       `json:"budget_currency"`
-	Dedicated             TierSettings `json:"dedicated"`
-	DeleteEmptyAfterHours int          `json:"delete_empty_after_hours"`
-	MonthlyBudgetMinor    int64        `json:"monthly_budget_minor"`
-	RebalanceSpread       float32      `json:"rebalance_spread"`
-	Shared                TierSettings `json:"shared"`
+	AutoApply             bool          `json:"auto_apply"`
+	AutoRebalance         bool          `json:"auto_rebalance"`
+	BudgetCurrency        string        `json:"budget_currency"`
+	Dedicated             TierSettings  `json:"dedicated"`
+	DeleteEmptyAfterHours int           `json:"delete_empty_after_hours"`
+	Edge                  *TierSettings `json:"edge,omitempty"`
+	MonthlyBudgetMinor    int64         `json:"monthly_budget_minor"`
+	RebalanceSpread       float32       `json:"rebalance_spread"`
+	Shared                TierSettings  `json:"shared"`
 }
+
+// CatalogAccess defines model for CatalogAccess.
+type CatalogAccess struct {
+	Delete bool `json:"delete"`
+	Insert bool `json:"insert"`
+	Select bool `json:"select"`
+	Update bool `json:"update"`
+}
+
+// CatalogColumn defines model for CatalogColumn.
+type CatalogColumn struct {
+	Default   *string   `json:"default,omitempty"`
+	Enum      *[]string `json:"enum,omitempty"`
+	Generated bool      `json:"generated"`
+	Identity  bool      `json:"identity"`
+	Name      string    `json:"name"`
+	Nullable  bool      `json:"nullable"`
+	Type      string    `json:"type"`
+}
+
+// CatalogForeignKey defines model for CatalogForeignKey.
+type CatalogForeignKey struct {
+	Columns []string `json:"columns"`
+
+	// Embed The name to embed the other side with in a select.
+	Embed      string   `json:"embed"`
+	Multiple   bool     `json:"multiple"`
+	Name       string   `json:"name"`
+	RefColumns []string `json:"ref_columns"`
+	Table      string   `json:"table"`
+}
+
+// CatalogFunction defines model for CatalogFunction.
+type CatalogFunction struct {
+	Args []struct {
+		Name     string `json:"name"`
+		Optional bool   `json:"optional"`
+		Type     string `json:"type"`
+	} `json:"args"`
+	Name            string `json:"name"`
+	Returns         string `json:"returns"`
+	ReturnsSet      bool   `json:"returns_set"`
+	Schema          string `json:"schema"`
+	SecurityDefiner bool   `json:"security_definer"`
+	Volatility      string `json:"volatility"`
+}
+
+// CatalogPolicy defines model for CatalogPolicy.
+type CatalogPolicy struct {
+	Check      *string `json:"check,omitempty"`
+	Command    string  `json:"command"`
+	Name       string  `json:"name"`
+	Permissive bool    `json:"permissive"`
+
+	// Roles anon, user, service, everyone, or a database role.
+	Roles []string `json:"roles"`
+	Using *string  `json:"using,omitempty"`
+}
+
+// CatalogTable defines model for CatalogTable.
+type CatalogTable struct {
+	// Access The request roles' privileges (anon, user); row-level security then decides which rows.
+	Access      map[string]CatalogAccess `json:"access"`
+	Columns     []CatalogColumn          `json:"columns"`
+	ForeignKeys []CatalogForeignKey      `json:"foreign_keys"`
+	Kind        CatalogTableKind         `json:"kind"`
+	Name        string                   `json:"name"`
+	Policies    []CatalogPolicy          `json:"policies"`
+	PrimaryKey  []string                 `json:"primary_key"`
+
+	// Public Marked public; anyone with the publishable key reads every row.
+	Public       bool                `json:"public"`
+	ReferencedBy []CatalogForeignKey `json:"referenced_by"`
+	Rls          bool                `json:"rls"`
+	Schema       string              `json:"schema"`
+}
+
+// CatalogTableKind defines model for CatalogTable.Kind.
+type CatalogTableKind string
 
 // CategoryCost defines model for CategoryCost.
 type CategoryCost struct {
@@ -5068,7 +5389,10 @@ type ConnectionInfo struct {
 
 // CostSettings defines model for CostSettings.
 type CostSettings struct {
-	Currency                  string     `json:"currency"`
+	Currency string `json:"currency"`
+
+	// EdgeSharePercent The share of shared nodes' cost moved to the edge category, where pgdock-edge runs on them (0 to 100, default 0).
+	EdgeSharePercent          *float32   `json:"edge_share_percent,omitempty"`
 	EgressGbMinor             float32    `json:"egress_gb_minor"`
 	FloatingIpMonthlyMinor    int64      `json:"floating_ip_monthly_minor"`
 	FloatingIps               int        `json:"floating_ips"`
@@ -5091,8 +5415,10 @@ type CreateIncidentRequest struct {
 	Components []string         `json:"components"`
 	Region     *string          `json:"region,omitempty"`
 	Severity   IncidentSeverity `json:"severity"`
-	Status     IncidentStatus   `json:"status"`
-	Title      string           `json:"title"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status IncidentStatus `json:"status"`
+	Title  string         `json:"title"`
 }
 
 // CreateNodeRequest defines model for CreateNodeRequest.
@@ -5111,11 +5437,11 @@ type CreateNodeRequest struct {
 	// Region The region the node is in (default the home region). A pooler host serves that region's projects.
 	Region *string `json:"region,omitempty"`
 
-	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database.
+	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
 	Role CreateNodeRequestRole `json:"role"`
 }
 
-// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database.
+// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
 type CreateNodeRequestRole string
 
 // CreateOrgRequest defines model for CreateOrgRequest.
@@ -5140,6 +5466,9 @@ type CreateProjectRequest struct {
 
 	// PgVersion Postgres major version (see /profiles); default the newest.
 	PgVersion *int `json:"pg_version,omitempty"`
+
+	// Preview Allow a Postgres major in preview (V4.1 §6.1).
+	Preview *bool `json:"preview,omitempty"`
 
 	// Profile Dedicated only (see /profiles); default small.
 	Profile *string `json:"profile,omitempty"`
@@ -5812,10 +6141,12 @@ type Incident struct {
 	ResolvedAt *time.Time       `json:"resolved_at,omitempty"`
 	Severity   IncidentSeverity `json:"severity"`
 	StartedAt  time.Time        `json:"started_at"`
-	Status     IncidentStatus   `json:"status"`
-	Title      string           `json:"title"`
-	UpdatedAt  time.Time        `json:"updated_at"`
-	Updates    []IncidentUpdate `json:"updates"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status    IncidentStatus   `json:"status"`
+	Title     string           `json:"title"`
+	UpdatedAt time.Time        `json:"updated_at"`
+	Updates   []IncidentUpdate `json:"updates"`
 }
 
 // IncidentList defines model for IncidentList.
@@ -5830,7 +6161,7 @@ type IncidentList struct {
 // IncidentSeverity defines model for IncidentSeverity.
 type IncidentSeverity string
 
-// IncidentStatus defines model for IncidentStatus.
+// IncidentStatus draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
 type IncidentStatus string
 
 // IncidentUpdate defines model for IncidentUpdate.
@@ -5840,13 +6171,17 @@ type IncidentUpdate struct {
 	PostedAt time.Time `json:"posted_at"`
 
 	// PostedBy The poster's email.
-	PostedBy *string        `json:"posted_by,omitempty"`
-	Status   IncidentStatus `json:"status"`
+	PostedBy *string `json:"posted_by,omitempty"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status IncidentStatus `json:"status"`
 }
 
 // IncidentUpdateRequest defines model for IncidentUpdateRequest.
 type IncidentUpdateRequest struct {
-	Body   string         `json:"body"`
+	Body string `json:"body"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 }
 
@@ -5975,6 +6310,13 @@ type InstanceActionRequest struct {
 // InstanceActionRequestAction defines model for InstanceActionRequest.Action.
 type InstanceActionRequestAction string
 
+// InstanceSize defines model for InstanceSize.
+type InstanceSize struct {
+	Cpus     float32 `json:"cpus"`
+	DiskGb   int     `json:"disk_gb"`
+	MemoryMb int     `json:"memory_mb"`
+}
+
 // InstanceState defines model for InstanceState.
 type InstanceState struct {
 	Container *string `json:"container,omitempty"`
@@ -6004,6 +6346,12 @@ type InstanceSummary struct {
 	// PgVersion Postgres major version.
 	PgVersion int `json:"pg_version"`
 
+	// PgVersionRetiresAt When its deprecated major retires.
+	PgVersionRetiresAt *time.Time `json:"pg_version_retires_at,omitempty"`
+
+	// PgVersionStatus Where its Postgres major is in its life (V4.1 §6.1).
+	PgVersionStatus *InstanceSummaryPgVersionStatus `json:"pg_version_status,omitempty"`
+
 	// PitrDays Dedicated only. The point-in-time recovery window in days (7, 14 or 30).
 	PitrDays *int    `json:"pitr_days,omitempty"`
 	Profile  *string `json:"profile,omitempty"`
@@ -6014,13 +6362,34 @@ type InstanceSummary struct {
 // InstanceSummaryKind defines model for InstanceSummary.Kind.
 type InstanceSummaryKind string
 
+// InstanceSummaryPgVersionStatus Where its Postgres major is in its life (V4.1 §6.1).
+type InstanceSummaryPgVersionStatus string
+
 // InstanceUpdate defines model for InstanceUpdate.
 type InstanceUpdate struct {
+	Cpus *float32 `json:"cpus,omitempty"`
+
+	// DiskGb Up only; to shrink, move into a smaller instance.
+	DiskGb *int `json:"disk_gb,omitempty"`
+
+	// DryRun Only say what a resize would do (in place, or a move to which node).
+	DryRun   *bool                   `json:"dry_run,omitempty"`
+	MemoryMb *int                    `json:"memory_mb,omitempty"`
 	PitrDays *InstanceUpdatePitrDays `json:"pitr_days,omitempty"`
+
+	// Profile A size from GET /profiles, in place of cpus and memory_mb.
+	Profile *string `json:"profile,omitempty"`
 }
 
 // InstanceUpdatePitrDays defines model for InstanceUpdate.PitrDays.
 type InstanceUpdatePitrDays int
+
+// InstanceUpdated defines model for InstanceUpdated.
+type InstanceUpdated struct {
+	Instance  InstanceSummary `json:"instance"`
+	Operation *Operation      `json:"operation,omitempty"`
+	Plan      *ResizePlan     `json:"plan,omitempty"`
+}
 
 // Invitation defines model for Invitation.
 type Invitation struct {
@@ -6444,11 +6813,17 @@ type MailSettingsRequestTls string
 type MaintenanceAnnouncement struct {
 	AnnouncedAt *time.Time `json:"announced_at,omitempty"`
 	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
-	Emailed     *int       `json:"emailed,omitempty"`
+
+	// Draft Proposed by PGDock and not announced yet; confirm or discard it.
+	Draft   *bool `json:"draft,omitempty"`
+	Emailed *int  `json:"emailed,omitempty"`
 
 	// ExcludedFrom When the SLA starts excluding the window's minutes (72 hours after the announcement, or the start).
-	ExcludedFrom   *time.Time           `json:"excluded_from,omitempty"`
-	Incident       Incident             `json:"incident"`
+	ExcludedFrom *time.Time `json:"excluded_from,omitempty"`
+	Incident     Incident   `json:"incident"`
+
+	// ProposedFor What PGDock proposed it for (minor_upgrade).
+	ProposedFor    *string              `json:"proposed_for,omitempty"`
 	ScheduledEnd   *time.Time           `json:"scheduled_end,omitempty"`
 	ScheduledStart *time.Time           `json:"scheduled_start,omitempty"`
 	ScopeNodes     []openapi_types.UUID `json:"scope_nodes"`
@@ -6482,6 +6857,28 @@ type MaintenanceAnnouncementRequest struct {
 	Replaces *openapi_types.UUID `json:"replaces,omitempty"`
 	Start    time.Time           `json:"start"`
 	Title    *string             `json:"title,omitempty"`
+}
+
+// MaintenancePreview defines model for MaintenancePreview.
+type MaintenancePreview struct {
+	Addresses     int    `json:"addresses"`
+	Body          string `json:"body"`
+	Organisations int    `json:"organisations"`
+	Subject       string `json:"subject"`
+}
+
+// MaintenancePreviewRequest defines model for MaintenancePreviewRequest.
+type MaintenancePreviewRequest struct {
+	Body *string    `json:"body,omitempty"`
+	End  *time.Time `json:"end,omitempty"`
+
+	// IncidentId A draft to preview; the other fields are then ignored.
+	IncidentId *openapi_types.UUID   `json:"incident_id,omitempty"`
+	NodeIds    *[]openapi_types.UUID `json:"node_ids,omitempty"`
+	ProjectIds *[]openapi_types.UUID `json:"project_ids,omitempty"`
+	Region     *string               `json:"region,omitempty"`
+	Start      *time.Time            `json:"start,omitempty"`
+	Title      *string               `json:"title,omitempty"`
 }
 
 // MaintenanceStatus defines model for MaintenanceStatus.
@@ -6522,8 +6919,11 @@ type Margins struct {
 	Plans             []PlanMargin       `json:"plans"`
 	Rates             map[string]float32 `json:"rates"`
 	RevenueMinor      int64              `json:"revenue_minor"`
-	UnallocatedMinor  int64              `json:"unallocated_minor"`
-	Units             []UnitCost         `json:"units"`
+
+	// Services Margins per service (V4.1 §11).
+	Services         *[]ServiceMargin `json:"services,omitempty"`
+	UnallocatedMinor int64            `json:"unallocated_minor"`
+	Units            []UnitCost       `json:"units"`
 }
 
 // MetricPoint defines model for MetricPoint.
@@ -6752,9 +7152,15 @@ type OrderFormPublish struct {
 
 // Org defines model for Org.
 type Org struct {
+	// BillingState The organisation's billing standing when it needs attention (V4.1 §7.3), shown to every member; amounts are on the billing page, for owners and billing members.
+	BillingState *OrgBillingState `json:"billing_state,omitempty"`
+
 	// BreakGlass Open break-glass sessions (V2 §2.4), shown to everyone in the organisation.
 	BreakGlass *[]BreakGlassSession `json:"break_glass,omitempty"`
-	CreatedAt  time.Time            `json:"created_at"`
+
+	// BudgetAlertPercent The highest budget threshold (80 or 100) this month's spend has reached; only for owners and billing members.
+	BudgetAlertPercent *int      `json:"budget_alert_percent,omitempty"`
+	CreatedAt          time.Time `json:"created_at"`
 
 	// DeleteAfter Set while the organisation is being deleted.
 	DeleteAfter              *time.Time         `json:"delete_after,omitempty"`
@@ -6776,12 +7182,39 @@ type Org struct {
 	SuspendedReason    *string   `json:"suspended_reason,omitempty"`
 }
 
+// OrgBillingState The organisation's billing standing when it needs attention (V4.1 §7.3), shown to every member; amounts are on the billing page, for owners and billing members.
+type OrgBillingState string
+
 // OrgStatus defines model for Org.Status.
 type OrgStatus string
 
 // OrgDeletion defines model for OrgDeletion.
 type OrgDeletion struct {
 	DeleteAfter time.Time `json:"delete_after"`
+}
+
+// OrgIncident defines model for OrgIncident.
+type OrgIncident struct {
+	Components []string           `json:"components"`
+	Id         openapi_types.UUID `json:"id"`
+
+	// LatestUpdate The newest update's text.
+	LatestUpdate *string          `json:"latest_update,omitempty"`
+	Region       *string          `json:"region,omitempty"`
+	Severity     IncidentSeverity `json:"severity"`
+	StartedAt    time.Time        `json:"started_at"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status IncidentStatus `json:"status"`
+	Title  string         `json:"title"`
+
+	// Url The incident on the status page, when one is configured.
+	Url *string `json:"url,omitempty"`
+}
+
+// OrgIncidentList defines model for OrgIncidentList.
+type OrgIncidentList struct {
+	Items []OrgIncident `json:"items"`
 }
 
 // OrgLegal defines model for OrgLegal.
@@ -6977,6 +7410,38 @@ type PersonalCredentialsInfo struct {
 
 // PersonalCredentialsInfoAccess What your role allows (the access a new login would get).
 type PersonalCredentialsInfoAccess string
+
+// PgVersionInfo defines model for PgVersionInfo.
+type PgVersionInfo struct {
+	DeprecatedAt *time.Time `json:"deprecated_at,omitempty"`
+
+	// Installed The server has an image for it (PGDOCK_PG_VERSIONS).
+	Installed bool   `json:"installed"`
+	Major     int    `json:"major"`
+	Notes     string `json:"notes"`
+
+	// Projects Live projects on it (the admin list only).
+	Projects  *int       `json:"projects,omitempty"`
+	RetiresAt *time.Time `json:"retires_at,omitempty"`
+
+	// Status A deprecated major past its retirement date is retired.
+	Status PgVersionInfoStatus `json:"status"`
+}
+
+// PgVersionInfoStatus A deprecated major past its retirement date is retired.
+type PgVersionInfoStatus string
+
+// PgVersionUpdate defines model for PgVersionUpdate.
+type PgVersionUpdate struct {
+	Notes *string `json:"notes,omitempty"`
+
+	// RetiresAt Required to deprecate, at least 180 days ahead.
+	RetiresAt *time.Time            `json:"retires_at,omitempty"`
+	Status    PgVersionUpdateStatus `json:"status"`
+}
+
+// PgVersionUpdateStatus defines model for PgVersionUpdate.Status.
+type PgVersionUpdateStatus string
 
 // PitrRequest defines model for PitrRequest.
 type PitrRequest struct {
@@ -7259,7 +7724,10 @@ type ProfileList struct {
 	DefaultVolumeGb  int       `json:"default_volume_gb"`
 	Items            []Profile `json:"items"`
 
-	// PgVersions Supported Postgres major versions, oldest first (V3 §2.4).
+	// PgVersionLifecycle Where each major is in its life (V4.1 §6.1).
+	PgVersionLifecycle *[]PgVersionInfo `json:"pg_version_lifecycle,omitempty"`
+
+	// PgVersions Postgres majors open for new projects, oldest first (V3 §2.4); a preview needs `preview` on the create request.
 	PgVersions []int `json:"pg_versions"`
 }
 
@@ -7360,6 +7828,8 @@ type ProjectBackupStorage struct {
 
 // ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
 type ProjectCredentials struct {
+	// Api A branch's own backend services API (V4.1 §9.5), when its parent has them: a new ref and keys, shown once. The parent's keys and tokens don't work on it.
+	Api        *BranchApi     `json:"api,omitempty"`
 	Connection ConnectionInfo `json:"connection"`
 	Operation  Operation      `json:"operation"`
 	Password   string         `json:"password"`
@@ -7740,9 +8210,50 @@ type RegionDedicated struct {
 	Region    string  `json:"region"`
 }
 
+// RegionEtcdMember defines model for RegionEtcdMember.
+type RegionEtcdMember struct {
+	FailureDomain *string            `json:"failure_domain,omitempty"`
+	NodeId        openapi_types.UUID `json:"node_id"`
+	NodeName      string             `json:"node_name"`
+	Status        string             `json:"status"`
+}
+
+// RegionHAElsewhere defines model for RegionHAElsewhere.
+type RegionHAElsewhere struct {
+	EtcdRegion string             `json:"etcd_region"`
+	Name       string             `json:"name"`
+	ProjectId  openapi_types.UUID `json:"project_id"`
+}
+
 // RegionList defines model for RegionList.
 type RegionList struct {
 	Items []Region `json:"items"`
+}
+
+// RegionOverview defines model for RegionOverview.
+type RegionOverview struct {
+	EtcdMembers []RegionEtcdMember `json:"etcd_members"`
+
+	// EtcdProblem Why the region's cluster can't take projects yet, when it can't.
+	EtcdProblem *string `json:"etcd_problem,omitempty"`
+	EtcdReady   bool    `json:"etcd_ready"`
+
+	// HaElsewhere The region's HA projects whose Patroni state is in another region's etcd cluster.
+	HaElsewhere []RegionHAElsewhere `json:"ha_elsewhere"`
+	MoveAll     *Operation          `json:"move_all,omitempty"`
+	PoolerHosts []RegionPoolerHost  `json:"pooler_hosts"`
+
+	// PoolerPairProblem Set when the pair shares a failure domain (or one isn't set).
+	PoolerPairProblem *string `json:"pooler_pair_problem,omitempty"`
+	Region            string  `json:"region"`
+}
+
+// RegionPoolerHost defines model for RegionPoolerHost.
+type RegionPoolerHost struct {
+	FailureDomain *string            `json:"failure_domain,omitempty"`
+	Id            openapi_types.UUID `json:"id"`
+	Name          string             `json:"name"`
+	Status        string             `json:"status"`
 }
 
 // RegionReadiness defines model for RegionReadiness.
@@ -7810,6 +8321,18 @@ type ReplicaList struct {
 	// ReadUrl The read-only route's connection string, without a password.
 	ReadUrl  *string       `json:"read_url,omitempty"`
 	Replicas []ReadReplica `json:"replicas"`
+}
+
+// ResizePlan defines model for ResizePlan.
+type ResizePlan struct {
+	From InstanceSize `json:"from"`
+
+	// MoveTo The node the project moves to, when its own can't hold the new size.
+	MoveTo *string `json:"move_to,omitempty"`
+
+	// Restart The containers restart (a CPU or memory change); a disk change alone doesn't.
+	Restart bool         `json:"restart"`
+	To      InstanceSize `json:"to"`
 }
 
 // RestoreRequest defines model for RestoreRequest.
@@ -8134,6 +8657,29 @@ type ServerPriceList struct {
 	Provider string        `json:"provider"`
 }
 
+// ServiceCharge defines model for ServiceCharge.
+type ServiceCharge struct {
+	AmountMinor int64                `json:"amount_minor"`
+	Service     ServiceChargeService `json:"service"`
+}
+
+// ServiceChargeService defines model for ServiceCharge.Service.
+type ServiceChargeService string
+
+// ServiceMargin defines model for ServiceMargin.
+type ServiceMargin struct {
+	CostMinor    int64    `json:"cost_minor"`
+	MarginMinor  int64    `json:"margin_minor"`
+	MarginPct    *float32 `json:"margin_pct,omitempty"`
+	RevenueMinor int64    `json:"revenue_minor"`
+
+	// Service database: plans, hosting, backups and replicas; api: the data API, auth and realtime (the edges); files: storage; messages: platform SMS and WhatsApp.
+	Service ServiceMarginService `json:"service"`
+}
+
+// ServiceMarginService database: plans, hosting, backups and replicas; api: the data API, auth and realtime (the edges); files: storage; messages: platform SMS and WhatsApp.
+type ServiceMarginService string
+
 // ServiceSpend defines model for ServiceSpend.
 type ServiceSpend struct {
 	// ProjectedMinor The whole month's, projected from usage so far.
@@ -8146,6 +8692,47 @@ type ServiceSpend struct {
 
 // ServiceSpendService defines model for ServiceSpend.Service.
 type ServiceSpendService string
+
+// ServicesCatalog defines model for ServicesCatalog.
+type ServicesCatalog struct {
+	ApiUrl    *string           `json:"api_url,omitempty"`
+	Functions []CatalogFunction `json:"functions"`
+
+	// Ref The project's API ref (its URL's host), when services are on.
+	Ref     *string        `json:"ref,omitempty"`
+	Schemas []string       `json:"schemas"`
+	Tables  []CatalogTable `json:"tables"`
+}
+
+// ServicesUsage defines model for ServicesUsage.
+type ServicesUsage struct {
+	// Charges The month's charges so far, before VAT, that fall to the project: its own lines, and of an allowance's overage the share its usage is of the organisation's. Absent without billing, or to a caller who can't see the organisation's billing.
+	Charges *[]ServiceCharge      `json:"charges,omitempty"`
+	Metrics []ServicesUsageMetric `json:"metrics"`
+
+	// Month The month (UTC), as 2006-01.
+	Month string `json:"month"`
+}
+
+// ServicesUsageMetric defines model for ServicesUsageMetric.
+type ServicesUsageMetric struct {
+	// Included The plan's allowance this month, above which usage is charged.
+	Included *float32 `json:"included,omitempty"`
+
+	// Limit The plan's hard limit this month, at which the service stops.
+	Limit  *float32 `json:"limit,omitempty"`
+	Metric string   `json:"metric"`
+
+	// OrgQuantity The organisation's, this month (allowances and limits are shared by its projects).
+	OrgQuantity float32 `json:"org_quantity"`
+
+	// Quantity The project's, this month.
+	Quantity float32                    `json:"quantity"`
+	Service  ServicesUsageMetricService `json:"service"`
+}
+
+// ServicesUsageMetricService defines model for ServicesUsageMetric.Service.
+type ServicesUsageMetricService string
 
 // SessionInfo defines model for SessionInfo.
 type SessionInfo struct {
@@ -8848,14 +9435,17 @@ type TicketUpdateStatus string
 
 // TierSettings defines model for TierSettings.
 type TierSettings struct {
-	ClusterMemoryMb *int     `json:"cluster_memory_mb,omitempty"`
-	DiskThreshold   *float32 `json:"disk_threshold,omitempty"`
-	Enabled         bool     `json:"enabled"`
-	HorizonDays     *int     `json:"horizon_days,omitempty"`
-	MinCpus         *int     `json:"min_cpus,omitempty"`
-	MinDiskGb       *int     `json:"min_disk_gb,omitempty"`
-	MinMemoryGb     *float32 `json:"min_memory_gb,omitempty"`
-	ServerType      *string  `json:"server_type,omitempty"`
+	ClusterMemoryMb *int `json:"cluster_memory_mb,omitempty"`
+
+	// CpuThreshold Edge: propose an edge node when a region's edges average above this percentage of their hosts' CPUs for an hour (70).
+	CpuThreshold  *float32 `json:"cpu_threshold,omitempty"`
+	DiskThreshold *float32 `json:"disk_threshold,omitempty"`
+	Enabled       bool     `json:"enabled"`
+	HorizonDays   *int     `json:"horizon_days,omitempty"`
+	MinCpus       *int     `json:"min_cpus,omitempty"`
+	MinDiskGb     *int     `json:"min_disk_gb,omitempty"`
+	MinMemoryGb   *float32 `json:"min_memory_gb,omitempty"`
+	ServerType    *string  `json:"server_type,omitempty"`
 }
 
 // TlsStatus defines model for TlsStatus.
@@ -9640,6 +10230,11 @@ type StartCheckoutJSONBodyChannel string
 // StartCheckoutJSONBodyPurpose defines parameters for StartCheckout.
 type StartCheckoutJSONBodyPurpose string
 
+// UpdateBillingContactJSONBody defines parameters for UpdateBillingContact.
+type UpdateBillingContactJSONBody struct {
+	StatusEmails bool `json:"status_emails"`
+}
+
 // EstimateOrgCostJSONBody defines parameters for EstimateOrgCost.
 type EstimateOrgCostJSONBody struct {
 	// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
@@ -9837,7 +10432,19 @@ type SetRealtimeTableJSONBody struct {
 type ListAPIRequestLogsParams struct {
 	// Before A log id from the previous page.
 	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
-	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// After Follow from this log id.
+	After *int64 `form:"after,omitempty" json:"after,omitempty"`
+
+	// Wait With after, seconds to wait for a new log (at most 25).
+	Wait *int `form:"wait,omitempty" json:"wait,omitempty"`
+
+	// Status A status (404) or class (5xx, 4xx).
+	Status *string `form:"status,omitempty" json:"status,omitempty"`
+
+	// Path Only requests whose path starts with this.
+	Path  *string `form:"path,omitempty" json:"path,omitempty"`
+	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // GetServiceTypesParams defines parameters for GetServiceTypes.
@@ -9997,6 +10604,9 @@ type AdminPublishLegalJSONRequestBody = LegalPublish
 // AnnounceMaintenanceJSONRequestBody defines body for AnnounceMaintenance for application/json ContentType.
 type AnnounceMaintenanceJSONRequestBody = MaintenanceAnnouncementRequest
 
+// PreviewMaintenanceAnnouncementJSONRequestBody defines body for PreviewMaintenanceAnnouncement for application/json ContentType.
+type PreviewMaintenanceAnnouncementJSONRequestBody = MaintenancePreviewRequest
+
 // PutMaintenanceWindowJSONRequestBody defines body for PutMaintenanceWindow for application/json ContentType.
 type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
 
@@ -10032,6 +10642,9 @@ type AdminRecordPaymentJSONRequestBody AdminRecordPaymentJSONBody
 
 // AdminRefundPaymentJSONRequestBody defines body for AdminRefundPayment for application/json ContentType.
 type AdminRefundPaymentJSONRequestBody AdminRefundPaymentJSONBody
+
+// UpdatePgVersionJSONRequestBody defines body for UpdatePgVersion for application/json ContentType.
+type UpdatePgVersionJSONRequestBody = PgVersionUpdate
 
 // CreatePlanJSONRequestBody defines body for CreatePlan for application/json ContentType.
 type CreatePlanJSONRequestBody = PlanRequest
@@ -10203,6 +10816,9 @@ type StartCheckoutJSONRequestBody StartCheckoutJSONBody
 
 // AddBillingContactJSONRequestBody defines body for AddBillingContact for application/json ContentType.
 type AddBillingContactJSONRequestBody = BillingContact
+
+// UpdateBillingContactJSONRequestBody defines body for UpdateBillingContact for application/json ContentType.
+type UpdateBillingContactJSONRequestBody UpdateBillingContactJSONBody
 
 // EstimateOrgCostJSONRequestBody defines body for EstimateOrgCost for application/json ContentType.
 type EstimateOrgCostJSONRequestBody EstimateOrgCostJSONBody
@@ -10887,10 +11503,40 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
 	AnnounceMaintenance(ctx context.Context, body AnnounceMaintenanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PreviewMaintenanceAnnouncementWithBody The email an announcement would send, and how many it reaches
+	//
+	// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+	PreviewMaintenanceAnnouncementWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewMaintenanceAnnouncement The email an announcement would send, and how many it reaches
+	//
+	// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+	PreviewMaintenanceAnnouncement(ctx context.Context, body PreviewMaintenanceAnnouncementJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CancelMaintenance Cancel an announced maintenance window
 	//
 	// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
 	CancelMaintenance(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+	//
+	// Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm (the `ConfirmMaintenanceDraft` operationId).
+	ConfirmMaintenanceDraft(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DiscardMaintenanceDraft Discard a maintenance draft; the work it was for keeps waiting
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/discard (the `DiscardMaintenanceDraft` operationId).
+	DiscardMaintenanceDraft(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutMaintenanceWindowWithBody Change the weekly maintenance window (UTC)
 	//
@@ -11103,6 +11749,37 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/admin/payments/{payment_id}/refund (the `AdminRefundPayment` operationId).
 	AdminRefundPayment(ctx context.Context, paymentId PaymentID, body AdminRefundPaymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListPgVersions Postgres majors and where each is in its life (V4.1 §6.1)
+	//
+	// Corresponds with GET /api/v1/admin/pg-versions (the `ListPgVersions` operationId).
+	ListPgVersions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdatePgVersionWithBody Promote, deprecate or retire a Postgres major
+	//
+	// Deprecating sets a retirement date at least 180 days ahead and emails
+	// the owners and admins of every organisation with a project on it
+	// (again at 90, 30 and 7 days). Retiring early is refused while
+	// projects are on it. Retired: no new projects; existing ones keep
+	// running, unsupported.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+	UpdatePgVersionWithBody(ctx context.Context, major int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdatePgVersion Promote, deprecate or retire a Postgres major
+	//
+	// Deprecating sets a retirement date at least 180 days ahead and emails
+	// the owners and admins of every organisation with a project on it
+	// (again at 90, 30 and 7 days). Retiring early is refused while
+	// projects are on it. Retired: no new projects; existing ones keep
+	// running, unsupported.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+	UpdatePgVersion(ctx context.Context, major int, body UpdatePgVersionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListPlans Quota plan templates (platform admin)
 	//
 	// Corresponds with GET /api/v1/admin/plans (the `ListPlans` operationId).
@@ -11267,6 +11944,18 @@ type ClientInterface interface {
 	//
 	// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
 	PutAdminRegion(ctx context.Context, regionId string, body PutAdminRegionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// MoveAllToRegionEtcd Move every HA project on another region's etcd onto this region's, one at a time
+	//
+	// Queues one operation that runs the per-project etcd moves in turn (each pauses its own project for a few seconds); never two at once in the region.
+	//
+	// Corresponds with POST /api/v1/admin/regions/{region_id}/etcd-move-all (the `MoveAllToRegionEtcd` operationId).
+	MoveAllToRegionEtcd(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAdminRegionOverview A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1)
+	//
+	// Corresponds with GET /api/v1/admin/regions/{region_id}/overview (the `GetAdminRegionOverview` operationId).
+	GetAdminRegionOverview(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetAdminRegionReadiness A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
 	//
@@ -12315,6 +13004,24 @@ type ClientInterface interface {
 	// Corresponds with DELETE /api/v1/orgs/{org}/billing/contacts/{email} (the `RemoveBillingContact` operationId).
 	RemoveBillingContact(ctx context.Context, org OrgID, email string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// UpdateBillingContactWithBody Turn a billing contact's status page emails on or off
+	//
+	// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+	UpdateBillingContactWithBody(ctx context.Context, org OrgID, email string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateBillingContact Turn a billing contact's status page emails on or off
+	//
+	// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+	UpdateBillingContact(ctx context.Context, org OrgID, email string, body UpdateBillingContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// EstimateOrgCostWithBody What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	//
 	// Takes any type of body and a specified content type.
@@ -12414,6 +13121,13 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/orgs/{org}/dedicated-requests (the `ListOrgDedicatedRequests` operationId).
 	ListOrgDedicatedRequests(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListOrgIncidents Open incidents affecting the organisation's projects
+	//
+	// Open status page incidents whose components and region match one of the organisation's projects, or that name one of its projects or the nodes they run on (V4.1 §7.3). Public fields only.
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/incidents (the `ListOrgIncidents` operationId).
+	ListOrgIncidents(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListOrgInvitations Pending invitations
 	//
@@ -13203,22 +13917,34 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/projects/{id}/insights/slow (the `ListSlowQueries` operationId).
 	ListSlowQueries(ctx context.Context, id ProjectID, params *ListSlowQueriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateProjectInstanceWithBody Change a dedicated project's instance settings
+	// UpdateProjectInstanceWithBody Change a dedicated project's instance (size, disk, recovery window)
 	//
 	// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 	// as billed add-ons on Pro and Team. A longer window grows day by day
 	// from now; a shorter one drops the older base backups at the next one.
+	//
+	// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+	// the instance restarts in a few seconds with the poolers holding
+	// clients, or with HA a standby is resized and switched to. When its
+	// node can't hold the new size, a `logical_move` to one that can is
+	// queued instead (`plan.move_to`). The dedicated allowance applies.
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with PATCH /api/v1/projects/{id}/instance (the `UpdateProjectInstance` operationId).
 	UpdateProjectInstanceWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateProjectInstance Change a dedicated project's instance settings
+	// UpdateProjectInstance Change a dedicated project's instance (size, disk, recovery window)
 	//
 	// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 	// as billed add-ons on Pro and Team. A longer window grows day by day
 	// from now; a shorter one drops the older base backups at the next one.
+	//
+	// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+	// the instance restarts in a few seconds with the poolers holding
+	// clients, or with HA a standby is resized and switched to. When its
+	// node can't hold the new size, a `logical_move` to one that can is
+	// queued instead (`plan.move_to`). The dedicated allowance applies.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -13771,6 +14497,11 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/projects/{id}/services/advisor (the `GetSecurityAdvisor` operationId).
 	GetSecurityAdvisor(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetServicesCatalog What the data API exposes, with row-level security, policies and access per table (the API docs)
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/catalog (the `GetServicesCatalog` operationId).
+	GetServicesCatalog(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ExploreDataAPIWithBody Run a data API request as anon, a user or service (the request explorer)
 	//
 	// Takes any type of body and a specified content type.
@@ -13804,7 +14535,9 @@ type ClientInterface interface {
 	// Corresponds with DELETE /api/v1/projects/{id}/services/keys/{key_id} (the `RevokeAPIKey` operationId).
 	RevokeAPIKey(ctx context.Context, id ProjectID, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListAPIRequestLogs The API's request logs (7 days), newest first
+	// ListAPIRequestLogs The API's request logs (7 days), newest first; with after, newer ones oldest first
+	//
+	// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
 	//
 	// Corresponds with GET /api/v1/projects/{id}/services/logs (the `ListAPIRequestLogs` operationId).
 	ListAPIRequestLogs(ctx context.Context, id ProjectID, params *ListAPIRequestLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -13813,6 +14546,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/projects/{id}/services/types (the `GetServiceTypes` operationId).
 	GetServiceTypes(ctx context.Context, id ProjectID, params *GetServiceTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetServicesUsage This month's backend-services usage, against the plan, and the charges that fall to the project
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/usage (the `GetServicesUsage` operationId).
+	GetServicesUsage(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateProjectWithBody Update a project's name, description, or guardrails
 	//
@@ -15475,11 +16213,81 @@ func (c *Client) AnnounceMaintenance(ctx context.Context, body AnnounceMaintenan
 	return c.Client.Do(req)
 }
 
+// PreviewMaintenanceAnnouncementWithBody The email an announcement would send, and how many it reaches
+//
+// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+func (c *Client) PreviewMaintenanceAnnouncementWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewMaintenanceAnnouncementRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewMaintenanceAnnouncement The email an announcement would send, and how many it reaches
+//
+// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+func (c *Client) PreviewMaintenanceAnnouncement(ctx context.Context, body PreviewMaintenanceAnnouncementJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewMaintenanceAnnouncementRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // CancelMaintenance Cancel an announced maintenance window
 //
 // Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
 func (c *Client) CancelMaintenance(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCancelMaintenanceRequest(c.Server, incidentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+//
+// Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm (the `ConfirmMaintenanceDraft` operationId).
+func (c *Client) ConfirmMaintenanceDraft(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewConfirmMaintenanceDraftRequest(c.Server, incidentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DiscardMaintenanceDraft Discard a maintenance draft; the work it was for keeps waiting
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/discard (the `DiscardMaintenanceDraft` operationId).
+func (c *Client) DiscardMaintenanceDraft(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDiscardMaintenanceDraftRequest(c.Server, incidentId)
 	if err != nil {
 		return nil, err
 	}
@@ -16011,6 +16819,67 @@ func (c *Client) AdminRefundPayment(ctx context.Context, paymentId PaymentID, bo
 	return c.Client.Do(req)
 }
 
+// ListPgVersions Postgres majors and where each is in its life (V4.1 §6.1)
+//
+// Corresponds with GET /api/v1/admin/pg-versions (the `ListPgVersions` operationId).
+func (c *Client) ListPgVersions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPgVersionsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdatePgVersionWithBody Promote, deprecate or retire a Postgres major
+//
+// Deprecating sets a retirement date at least 180 days ahead and emails
+// the owners and admins of every organisation with a project on it
+// (again at 90, 30 and 7 days). Retiring early is refused while
+// projects are on it. Retired: no new projects; existing ones keep
+// running, unsupported.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+func (c *Client) UpdatePgVersionWithBody(ctx context.Context, major int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePgVersionRequestWithBody(c.Server, major, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdatePgVersion Promote, deprecate or retire a Postgres major
+//
+// Deprecating sets a retirement date at least 180 days ahead and emails
+// the owners and admins of every organisation with a project on it
+// (again at 90, 30 and 7 days). Retiring early is refused while
+// projects are on it. Retired: no new projects; existing ones keep
+// running, unsupported.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+func (c *Client) UpdatePgVersion(ctx context.Context, major int, body UpdatePgVersionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePgVersionRequest(c.Server, major, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListPlans Quota plan templates (platform admin)
 //
 // Corresponds with GET /api/v1/admin/plans (the `ListPlans` operationId).
@@ -16396,6 +17265,38 @@ func (c *Client) PutAdminRegionWithBody(ctx context.Context, regionId string, co
 // Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
 func (c *Client) PutAdminRegion(ctx context.Context, regionId string, body PutAdminRegionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutAdminRegionRequest(c.Server, regionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// MoveAllToRegionEtcd Move every HA project on another region's etcd onto this region's, one at a time
+//
+// Queues one operation that runs the per-project etcd moves in turn (each pauses its own project for a few seconds); never two at once in the region.
+//
+// Corresponds with POST /api/v1/admin/regions/{region_id}/etcd-move-all (the `MoveAllToRegionEtcd` operationId).
+func (c *Client) MoveAllToRegionEtcd(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMoveAllToRegionEtcdRequest(c.Server, regionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAdminRegionOverview A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1)
+//
+// Corresponds with GET /api/v1/admin/regions/{region_id}/overview (the `GetAdminRegionOverview` operationId).
+func (c *Client) GetAdminRegionOverview(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAdminRegionOverviewRequest(c.Server, regionId)
 	if err != nil {
 		return nil, err
 	}
@@ -18933,6 +19834,44 @@ func (c *Client) RemoveBillingContact(ctx context.Context, org OrgID, email stri
 	return c.Client.Do(req)
 }
 
+// UpdateBillingContactWithBody Turn a billing contact's status page emails on or off
+//
+// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+func (c *Client) UpdateBillingContactWithBody(ctx context.Context, org OrgID, email string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateBillingContactRequestWithBody(c.Server, org, email, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateBillingContact Turn a billing contact's status page emails on or off
+//
+// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+func (c *Client) UpdateBillingContact(ctx context.Context, org OrgID, email string, body UpdateBillingContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateBillingContactRequest(c.Server, org, email, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // EstimateOrgCostWithBody What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 //
 // Takes any type of body and a specified content type.
@@ -19203,6 +20142,23 @@ func (c *Client) CancelOrgDeletion(ctx context.Context, org OrgID, reqEditors ..
 // Corresponds with GET /api/v1/orgs/{org}/dedicated-requests (the `ListOrgDedicatedRequests` operationId).
 func (c *Client) ListOrgDedicatedRequests(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListOrgDedicatedRequestsRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListOrgIncidents Open incidents affecting the organisation's projects
+//
+// Open status page incidents whose components and region match one of the organisation's projects, or that name one of its projects or the nodes they run on (V4.1 §7.3). Public fields only.
+//
+// Corresponds with GET /api/v1/orgs/{org}/incidents (the `ListOrgIncidents` operationId).
+func (c *Client) ListOrgIncidents(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOrgIncidentsRequest(c.Server, org)
 	if err != nil {
 		return nil, err
 	}
@@ -21101,11 +22057,17 @@ func (c *Client) ListSlowQueries(ctx context.Context, id ProjectID, params *List
 	return c.Client.Do(req)
 }
 
-// UpdateProjectInstanceWithBody Change a dedicated project's instance settings
+// UpdateProjectInstanceWithBody Change a dedicated project's instance (size, disk, recovery window)
 //
 // The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 // as billed add-ons on Pro and Team. A longer window grows day by day
 // from now; a shorter one drops the older base backups at the next one.
+//
+// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+// the instance restarts in a few seconds with the poolers holding
+// clients, or with HA a standby is resized and switched to. When its
+// node can't hold the new size, a `logical_move` to one that can is
+// queued instead (`plan.move_to`). The dedicated allowance applies.
 //
 // Takes any type of body and a specified content type.
 //
@@ -21122,11 +22084,17 @@ func (c *Client) UpdateProjectInstanceWithBody(ctx context.Context, id ProjectID
 	return c.Client.Do(req)
 }
 
-// UpdateProjectInstance Change a dedicated project's instance settings
+// UpdateProjectInstance Change a dedicated project's instance (size, disk, recovery window)
 //
 // The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 // as billed add-ons on Pro and Team. A longer window grows day by day
 // from now; a shorter one drops the older base backups at the next one.
+//
+// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+// the instance restarts in a few seconds with the poolers holding
+// clients, or with HA a standby is resized and switched to. When its
+// node can't hold the new size, a `logical_move` to one that can is
+// queued instead (`plan.move_to`). The dedicated allowance applies.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -22369,6 +23337,21 @@ func (c *Client) GetSecurityAdvisor(ctx context.Context, id ProjectID, reqEditor
 	return c.Client.Do(req)
 }
 
+// GetServicesCatalog What the data API exposes, with row-level security, policies and access per table (the API docs)
+//
+// Corresponds with GET /api/v1/projects/{id}/services/catalog (the `GetServicesCatalog` operationId).
+func (c *Client) GetServicesCatalog(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetServicesCatalogRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ExploreDataAPIWithBody Run a data API request as anon, a user or service (the request explorer)
 //
 // Takes any type of body and a specified content type.
@@ -22452,7 +23435,9 @@ func (c *Client) RevokeAPIKey(ctx context.Context, id ProjectID, keyId openapi_t
 	return c.Client.Do(req)
 }
 
-// ListAPIRequestLogs The API's request logs (7 days), newest first
+// ListAPIRequestLogs The API's request logs (7 days), newest first; with after, newer ones oldest first
+//
+// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
 //
 // Corresponds with GET /api/v1/projects/{id}/services/logs (the `ListAPIRequestLogs` operationId).
 func (c *Client) ListAPIRequestLogs(ctx context.Context, id ProjectID, params *ListAPIRequestLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -22472,6 +23457,21 @@ func (c *Client) ListAPIRequestLogs(ctx context.Context, id ProjectID, params *L
 // Corresponds with GET /api/v1/projects/{id}/services/types (the `GetServiceTypes` operationId).
 func (c *Client) GetServiceTypes(ctx context.Context, id ProjectID, params *GetServiceTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetServiceTypesRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetServicesUsage This month's backend-services usage, against the plan, and the charges that fall to the project
+//
+// Corresponds with GET /api/v1/projects/{id}/services/usage (the `GetServicesUsage` operationId).
+func (c *Client) GetServicesUsage(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetServicesUsageRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -25766,6 +26766,46 @@ func NewAnnounceMaintenanceRequestWithBody(server string, contentType string, bo
 	return req, nil
 }
 
+// NewPreviewMaintenanceAnnouncementRequest calls the generic PreviewMaintenanceAnnouncement builder with application/json body
+func NewPreviewMaintenanceAnnouncementRequest(server string, body PreviewMaintenanceAnnouncementJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreviewMaintenanceAnnouncementRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPreviewMaintenanceAnnouncementRequestWithBody constructs an http.Request for the PreviewMaintenanceAnnouncement method, with any body, and a specified content type
+func NewPreviewMaintenanceAnnouncementRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/maintenance/announcements/preview")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewCancelMaintenanceRequest constructs an http.Request for the CancelMaintenance method
 func NewCancelMaintenanceRequest(server string, incidentId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -25793,6 +26833,74 @@ func NewCancelMaintenanceRequest(server string, incidentId openapi_types.UUID) (
 	}
 
 	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewConfirmMaintenanceDraftRequest constructs an http.Request for the ConfirmMaintenanceDraft method
+func NewConfirmMaintenanceDraftRequest(server string, incidentId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "incident_id", incidentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/maintenance/announcements/%s/confirm", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDiscardMaintenanceDraftRequest constructs an http.Request for the DiscardMaintenanceDraft method
+func NewDiscardMaintenanceDraftRequest(server string, incidentId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "incident_id", incidentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/maintenance/announcements/%s/discard", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -26672,6 +27780,80 @@ func NewAdminRefundPaymentRequestWithBody(server string, paymentId PaymentID, co
 	return req, nil
 }
 
+// NewListPgVersionsRequest constructs an http.Request for the ListPgVersions method
+func NewListPgVersionsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/pg-versions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdatePgVersionRequest calls the generic UpdatePgVersion builder with application/json body
+func NewUpdatePgVersionRequest(server string, major int, body UpdatePgVersionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdatePgVersionRequestWithBody(server, major, "application/json", bodyReader)
+}
+
+// NewUpdatePgVersionRequestWithBody constructs an http.Request for the UpdatePgVersion method, with any body, and a specified content type
+func NewUpdatePgVersionRequestWithBody(server string, major int, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "major", major, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/pg-versions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListPlansRequest constructs an http.Request for the ListPlans method
 func NewListPlansRequest(server string) (*http.Request, error) {
 	var err error
@@ -27233,6 +28415,74 @@ func NewPutAdminRegionRequestWithBody(server string, regionId string, contentTyp
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewMoveAllToRegionEtcdRequest constructs an http.Request for the MoveAllToRegionEtcd method
+func NewMoveAllToRegionEtcdRequest(server string, regionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "region_id", regionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/regions/%s/etcd-move-all", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAdminRegionOverviewRequest constructs an http.Request for the GetAdminRegionOverview method
+func NewGetAdminRegionOverviewRequest(server string, regionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "region_id", regionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/regions/%s/overview", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -31437,6 +32687,60 @@ func NewRemoveBillingContactRequest(server string, org OrgID, email string) (*ht
 	return req, nil
 }
 
+// NewUpdateBillingContactRequest calls the generic UpdateBillingContact builder with application/json body
+func NewUpdateBillingContactRequest(server string, org OrgID, email string, body UpdateBillingContactJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateBillingContactRequestWithBody(server, org, email, "application/json", bodyReader)
+}
+
+// NewUpdateBillingContactRequestWithBody constructs an http.Request for the UpdateBillingContact method, with any body, and a specified content type
+func NewUpdateBillingContactRequestWithBody(server string, org OrgID, email string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "email", email, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/contacts/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewEstimateOrgCostRequest calls the generic EstimateOrgCost builder with application/json body
 func NewEstimateOrgCostRequest(server string, org OrgID, body EstimateOrgCostJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -32064,6 +33368,40 @@ func NewListOrgDedicatedRequestsRequest(server string, org OrgID) (*http.Request
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/orgs/%s/dedicated-requests", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListOrgIncidentsRequest constructs an http.Request for the ListOrgIncidents method
+func NewListOrgIncidentsRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/incidents", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -37981,6 +39319,40 @@ func NewGetSecurityAdvisorRequest(server string, id ProjectID) (*http.Request, e
 	return req, nil
 }
 
+// NewGetServicesCatalogRequest constructs an http.Request for the GetServicesCatalog method
+func NewGetServicesCatalogRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services/catalog", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewExploreDataAPIRequest calls the generic ExploreDataAPI builder with application/json body
 func NewExploreDataAPIRequest(server string, id ProjectID, body ExploreDataAPIJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -38163,6 +39535,54 @@ func NewListAPIRequestLogsRequest(server string, id ProjectID, params *ListAPIRe
 
 		}
 
+		if params.After != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "after", *params.After, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Wait != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "wait", *params.Wait, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Path != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "path", *params.Path, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.Limit != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
@@ -38248,6 +39668,40 @@ func NewGetServiceTypesRequest(server string, id ProjectID, params *GetServiceTy
 			rawQueryFragments = append(rawQueryFragments, encoded)
 		}
 		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetServicesUsageRequest constructs an http.Request for the GetServicesUsage method
+func NewGetServicesUsageRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services/usage", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -41320,12 +42774,46 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
 	AnnounceMaintenanceWithResponse(ctx context.Context, body AnnounceMaintenanceJSONRequestBody, reqEditors ...RequestEditorFn) (*AnnounceMaintenanceResponse, error)
 
+	// PreviewMaintenanceAnnouncementWithBodyWithResponse The email an announcement would send, and how many it reaches
+	//
+	// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+	PreviewMaintenanceAnnouncementWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewMaintenanceAnnouncementResponse, error)
+
+	// PreviewMaintenanceAnnouncementWithResponse The email an announcement would send, and how many it reaches
+	//
+	// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+	PreviewMaintenanceAnnouncementWithResponse(ctx context.Context, body PreviewMaintenanceAnnouncementJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewMaintenanceAnnouncementResponse, error)
+
 	// CancelMaintenanceWithResponse Cancel an announced maintenance window
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
 	CancelMaintenanceWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelMaintenanceResponse, error)
+
+	// ConfirmMaintenanceDraftWithResponse Announce a maintenance draft PGDock proposed
+	//
+	// Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm (the `ConfirmMaintenanceDraft` operationId).
+	ConfirmMaintenanceDraftWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ConfirmMaintenanceDraftResponse, error)
+
+	// DiscardMaintenanceDraftWithResponse Discard a maintenance draft; the work it was for keeps waiting
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/discard (the `DiscardMaintenanceDraft` operationId).
+	DiscardMaintenanceDraftWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DiscardMaintenanceDraftResponse, error)
 
 	// PutMaintenanceWindowWithBodyWithResponse Change the weekly maintenance window (UTC)
 	//
@@ -41552,6 +43040,39 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/admin/payments/{payment_id}/refund (the `AdminRefundPayment` operationId).
 	AdminRefundPaymentWithResponse(ctx context.Context, paymentId PaymentID, body AdminRefundPaymentJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRefundPaymentResponse, error)
 
+	// ListPgVersionsWithResponse Postgres majors and where each is in its life (V4.1 §6.1)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/pg-versions (the `ListPgVersions` operationId).
+	ListPgVersionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPgVersionsResponse, error)
+
+	// UpdatePgVersionWithBodyWithResponse Promote, deprecate or retire a Postgres major
+	//
+	// Deprecating sets a retirement date at least 180 days ahead and emails
+	// the owners and admins of every organisation with a project on it
+	// (again at 90, 30 and 7 days). Retiring early is refused while
+	// projects are on it. Retired: no new projects; existing ones keep
+	// running, unsupported.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+	UpdatePgVersionWithBodyWithResponse(ctx context.Context, major int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePgVersionResponse, error)
+
+	// UpdatePgVersionWithResponse Promote, deprecate or retire a Postgres major
+	//
+	// Deprecating sets a retirement date at least 180 days ahead and emails
+	// the owners and admins of every organisation with a project on it
+	// (again at 90, 30 and 7 days). Retiring early is refused while
+	// projects are on it. Retired: no new projects; existing ones keep
+	// running, unsupported.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+	UpdatePgVersionWithResponse(ctx context.Context, major int, body UpdatePgVersionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePgVersionResponse, error)
+
 	// ListPlansWithResponse Quota plan templates (platform admin)
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -41730,6 +43251,22 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
 	PutAdminRegionWithResponse(ctx context.Context, regionId string, body PutAdminRegionJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAdminRegionResponse, error)
+
+	// MoveAllToRegionEtcdWithResponse Move every HA project on another region's etcd onto this region's, one at a time
+	//
+	// Queues one operation that runs the per-project etcd moves in turn (each pauses its own project for a few seconds); never two at once in the region.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/regions/{region_id}/etcd-move-all (the `MoveAllToRegionEtcd` operationId).
+	MoveAllToRegionEtcdWithResponse(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*MoveAllToRegionEtcdResponse, error)
+
+	// GetAdminRegionOverviewWithResponse A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/regions/{region_id}/overview (the `GetAdminRegionOverview` operationId).
+	GetAdminRegionOverviewWithResponse(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*GetAdminRegionOverviewResponse, error)
 
 	// GetAdminRegionReadinessWithResponse A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
 	//
@@ -42878,6 +44415,24 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /api/v1/orgs/{org}/billing/contacts/{email} (the `RemoveBillingContact` operationId).
 	RemoveBillingContactWithResponse(ctx context.Context, org OrgID, email string, reqEditors ...RequestEditorFn) (*RemoveBillingContactResponse, error)
 
+	// UpdateBillingContactWithBodyWithResponse Turn a billing contact's status page emails on or off
+	//
+	// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+	UpdateBillingContactWithBodyWithResponse(ctx context.Context, org OrgID, email string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateBillingContactResponse, error)
+
+	// UpdateBillingContactWithResponse Turn a billing contact's status page emails on or off
+	//
+	// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+	UpdateBillingContactWithResponse(ctx context.Context, org OrgID, email string, body UpdateBillingContactJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBillingContactResponse, error)
+
 	// EstimateOrgCostWithBodyWithResponse What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -43003,6 +44558,15 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/orgs/{org}/dedicated-requests (the `ListOrgDedicatedRequests` operationId).
 	ListOrgDedicatedRequestsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListOrgDedicatedRequestsResponse, error)
+
+	// ListOrgIncidentsWithResponse Open incidents affecting the organisation's projects
+	//
+	// Open status page incidents whose components and region match one of the organisation's projects, or that name one of its projects or the nodes they run on (V4.1 §7.3). Public fields only.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/incidents (the `ListOrgIncidents` operationId).
+	ListOrgIncidentsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListOrgIncidentsResponse, error)
 
 	// ListOrgInvitationsWithResponse Pending invitations
 	//
@@ -43902,22 +45466,34 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/projects/{id}/insights/slow (the `ListSlowQueries` operationId).
 	ListSlowQueriesWithResponse(ctx context.Context, id ProjectID, params *ListSlowQueriesParams, reqEditors ...RequestEditorFn) (*ListSlowQueriesResponse, error)
 
-	// UpdateProjectInstanceWithBodyWithResponse Change a dedicated project's instance settings
+	// UpdateProjectInstanceWithBodyWithResponse Change a dedicated project's instance (size, disk, recovery window)
 	//
 	// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 	// as billed add-ons on Pro and Team. A longer window grows day by day
 	// from now; a shorter one drops the older base backups at the next one.
+	//
+	// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+	// the instance restarts in a few seconds with the poolers holding
+	// clients, or with HA a standby is resized and switched to. When its
+	// node can't hold the new size, a `logical_move` to one that can is
+	// queued instead (`plan.move_to`). The dedicated allowance applies.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PATCH /api/v1/projects/{id}/instance (the `UpdateProjectInstance` operationId).
 	UpdateProjectInstanceWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectInstanceResponse, error)
 
-	// UpdateProjectInstanceWithResponse Change a dedicated project's instance settings
+	// UpdateProjectInstanceWithResponse Change a dedicated project's instance (size, disk, recovery window)
 	//
 	// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 	// as billed add-ons on Pro and Team. A longer window grows day by day
 	// from now; a shorter one drops the older base backups at the next one.
+	//
+	// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+	// the instance restarts in a few seconds with the poolers holding
+	// clients, or with HA a standby is resized and switched to. When its
+	// node can't hold the new size, a `logical_move` to one that can is
+	// queued instead (`plan.move_to`). The dedicated allowance applies.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -44518,6 +46094,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/projects/{id}/services/advisor (the `GetSecurityAdvisor` operationId).
 	GetSecurityAdvisorWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetSecurityAdvisorResponse, error)
 
+	// GetServicesCatalogWithResponse What the data API exposes, with row-level security, policies and access per table (the API docs)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/catalog (the `GetServicesCatalog` operationId).
+	GetServicesCatalogWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetServicesCatalogResponse, error)
+
 	// ExploreDataAPIWithBodyWithResponse Run a data API request as anon, a user or service (the request explorer)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -44553,7 +46136,9 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /api/v1/projects/{id}/services/keys/{key_id} (the `RevokeAPIKey` operationId).
 	RevokeAPIKeyWithResponse(ctx context.Context, id ProjectID, keyId openapi_types.UUID, reqEditors ...RequestEditorFn) (*RevokeAPIKeyResponse, error)
 
-	// ListAPIRequestLogsWithResponse The API's request logs (7 days), newest first
+	// ListAPIRequestLogsWithResponse The API's request logs (7 days), newest first; with after, newer ones oldest first
+	//
+	// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -44566,6 +46151,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/projects/{id}/services/types (the `GetServiceTypes` operationId).
 	GetServiceTypesWithResponse(ctx context.Context, id ProjectID, params *GetServiceTypesParams, reqEditors ...RequestEditorFn) (*GetServiceTypesResponse, error)
+
+	// GetServicesUsageWithResponse This month's backend-services usage, against the plan, and the charges that fall to the project
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/usage (the `GetServicesUsage` operationId).
+	GetServicesUsageWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetServicesUsageResponse, error)
 
 	// UpdateProjectWithBodyWithResponse Update a project's name, description, or guardrails
 	//
@@ -47414,6 +49006,54 @@ func (r AnnounceMaintenanceResponse) ContentType() string {
 	return ""
 }
 
+type PreviewMaintenanceAnnouncementResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MaintenancePreview
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewMaintenanceAnnouncementResponse) GetJSON200() *MaintenancePreview {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r PreviewMaintenanceAnnouncementResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PreviewMaintenanceAnnouncementResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewMaintenanceAnnouncementResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewMaintenanceAnnouncementResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewMaintenanceAnnouncementResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type CancelMaintenanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -47456,6 +49096,102 @@ func (r CancelMaintenanceResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r CancelMaintenanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ConfirmMaintenanceDraftResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MaintenanceAnnouncement
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ConfirmMaintenanceDraftResponse) GetJSON200() *MaintenanceAnnouncement {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ConfirmMaintenanceDraftResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ConfirmMaintenanceDraftResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ConfirmMaintenanceDraftResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ConfirmMaintenanceDraftResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ConfirmMaintenanceDraftResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DiscardMaintenanceDraftResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MaintenanceAnnouncement
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DiscardMaintenanceDraftResponse) GetJSON200() *MaintenanceAnnouncement {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DiscardMaintenanceDraftResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DiscardMaintenanceDraftResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DiscardMaintenanceDraftResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DiscardMaintenanceDraftResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DiscardMaintenanceDraftResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -48365,6 +50101,106 @@ func (r AdminRefundPaymentResponse) ContentType() string {
 	return ""
 }
 
+type ListPgVersionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Items []PgVersionInfo `json:"items"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPgVersionsResponse) GetJSON200() *struct {
+	Items []PgVersionInfo `json:"items"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListPgVersionsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPgVersionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPgVersionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPgVersionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPgVersionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdatePgVersionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PgVersionInfo
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdatePgVersionResponse) GetJSON200() *PgVersionInfo {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdatePgVersionResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdatePgVersionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdatePgVersionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdatePgVersionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdatePgVersionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListPlansResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -49116,6 +50952,102 @@ func (r PutAdminRegionResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PutAdminRegionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type MoveAllToRegionEtcdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r MoveAllToRegionEtcdResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r MoveAllToRegionEtcdResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r MoveAllToRegionEtcdResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r MoveAllToRegionEtcdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r MoveAllToRegionEtcdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r MoveAllToRegionEtcdResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAdminRegionOverviewResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RegionOverview
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAdminRegionOverviewResponse) GetJSON200() *RegionOverview {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetAdminRegionOverviewResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAdminRegionOverviewResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAdminRegionOverviewResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAdminRegionOverviewResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAdminRegionOverviewResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -53767,6 +55699,54 @@ func (r RemoveBillingContactResponse) ContentType() string {
 	return ""
 }
 
+type UpdateBillingContactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BillingContact
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateBillingContactResponse) GetJSON200() *BillingContact {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdateBillingContactResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateBillingContactResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateBillingContactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateBillingContactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateBillingContactResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type EstimateOrgCostResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -54496,6 +56476,54 @@ func (r ListOrgDedicatedRequestsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListOrgDedicatedRequestsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListOrgIncidentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *OrgIncidentList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListOrgIncidentsResponse) GetJSON200() *OrgIncidentList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListOrgIncidentsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListOrgIncidentsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListOrgIncidentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListOrgIncidentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListOrgIncidentsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -58410,13 +60438,13 @@ type UpdateProjectInstanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
-	JSON200 *InstanceSummary
+	JSON200 *InstanceUpdated
 	// JSONDefault the response for an HTTP default `application/json` response
 	JSONDefault *Error
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
-func (r UpdateProjectInstanceResponse) GetJSON200() *InstanceSummary {
+func (r UpdateProjectInstanceResponse) GetJSON200() *InstanceUpdated {
 	return r.JSON200
 }
 
@@ -60627,6 +62655,54 @@ func (r GetSecurityAdvisorResponse) ContentType() string {
 	return ""
 }
 
+type GetServicesCatalogResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ServicesCatalog
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetServicesCatalogResponse) GetJSON200() *ServicesCatalog {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetServicesCatalogResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetServicesCatalogResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetServicesCatalogResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetServicesCatalogResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetServicesCatalogResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ExploreDataAPIResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -60854,6 +62930,54 @@ func (r GetServiceTypesResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetServiceTypesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetServicesUsageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ServicesUsage
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetServicesUsageResponse) GetJSON200() *ServicesUsage {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetServicesUsageResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetServicesUsageResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetServicesUsageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetServicesUsageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetServicesUsageResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -64372,6 +66496,36 @@ func (c *ClientWithResponses) AnnounceMaintenanceWithResponse(ctx context.Contex
 	return ParseAnnounceMaintenanceResponse(rsp)
 }
 
+// PreviewMaintenanceAnnouncementWithBodyWithResponse The email an announcement would send, and how many it reaches
+//
+// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+func (c *ClientWithResponses) PreviewMaintenanceAnnouncementWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewMaintenanceAnnouncementResponse, error) {
+	rsp, err := c.PreviewMaintenanceAnnouncementWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewMaintenanceAnnouncementResponse(rsp)
+}
+
+// PreviewMaintenanceAnnouncementWithResponse The email an announcement would send, and how many it reaches
+//
+// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+func (c *ClientWithResponses) PreviewMaintenanceAnnouncementWithResponse(ctx context.Context, body PreviewMaintenanceAnnouncementJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewMaintenanceAnnouncementResponse, error) {
+	rsp, err := c.PreviewMaintenanceAnnouncement(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewMaintenanceAnnouncementResponse(rsp)
+}
+
 // CancelMaintenanceWithResponse Cancel an announced maintenance window
 //
 // Returns a wrapper object for the known response body format(s).
@@ -64383,6 +66537,34 @@ func (c *ClientWithResponses) CancelMaintenanceWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseCancelMaintenanceResponse(rsp)
+}
+
+// ConfirmMaintenanceDraftWithResponse Announce a maintenance draft PGDock proposed
+//
+// Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm (the `ConfirmMaintenanceDraft` operationId).
+func (c *ClientWithResponses) ConfirmMaintenanceDraftWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ConfirmMaintenanceDraftResponse, error) {
+	rsp, err := c.ConfirmMaintenanceDraft(ctx, incidentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseConfirmMaintenanceDraftResponse(rsp)
+}
+
+// DiscardMaintenanceDraftWithResponse Discard a maintenance draft; the work it was for keeps waiting
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/discard (the `DiscardMaintenanceDraft` operationId).
+func (c *ClientWithResponses) DiscardMaintenanceDraftWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DiscardMaintenanceDraftResponse, error) {
+	rsp, err := c.DiscardMaintenanceDraft(ctx, incidentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDiscardMaintenanceDraftResponse(rsp)
 }
 
 // PutMaintenanceWindowWithBodyWithResponse Change the weekly maintenance window (UTC)
@@ -64796,6 +66978,57 @@ func (c *ClientWithResponses) AdminRefundPaymentWithResponse(ctx context.Context
 	return ParseAdminRefundPaymentResponse(rsp)
 }
 
+// ListPgVersionsWithResponse Postgres majors and where each is in its life (V4.1 §6.1)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/pg-versions (the `ListPgVersions` operationId).
+func (c *ClientWithResponses) ListPgVersionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPgVersionsResponse, error) {
+	rsp, err := c.ListPgVersions(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPgVersionsResponse(rsp)
+}
+
+// UpdatePgVersionWithBodyWithResponse Promote, deprecate or retire a Postgres major
+//
+// Deprecating sets a retirement date at least 180 days ahead and emails
+// the owners and admins of every organisation with a project on it
+// (again at 90, 30 and 7 days). Retiring early is refused while
+// projects are on it. Retired: no new projects; existing ones keep
+// running, unsupported.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+func (c *ClientWithResponses) UpdatePgVersionWithBodyWithResponse(ctx context.Context, major int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePgVersionResponse, error) {
+	rsp, err := c.UpdatePgVersionWithBody(ctx, major, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdatePgVersionResponse(rsp)
+}
+
+// UpdatePgVersionWithResponse Promote, deprecate or retire a Postgres major
+//
+// Deprecating sets a retirement date at least 180 days ahead and emails
+// the owners and admins of every organisation with a project on it
+// (again at 90, 30 and 7 days). Retiring early is refused while
+// projects are on it. Retired: no new projects; existing ones keep
+// running, unsupported.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+func (c *ClientWithResponses) UpdatePgVersionWithResponse(ctx context.Context, major int, body UpdatePgVersionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePgVersionResponse, error) {
+	rsp, err := c.UpdatePgVersion(ctx, major, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdatePgVersionResponse(rsp)
+}
+
 // ListPlansWithResponse Quota plan templates (platform admin)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -65111,6 +67344,34 @@ func (c *ClientWithResponses) PutAdminRegionWithResponse(ctx context.Context, re
 		return nil, err
 	}
 	return ParsePutAdminRegionResponse(rsp)
+}
+
+// MoveAllToRegionEtcdWithResponse Move every HA project on another region's etcd onto this region's, one at a time
+//
+// Queues one operation that runs the per-project etcd moves in turn (each pauses its own project for a few seconds); never two at once in the region.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/regions/{region_id}/etcd-move-all (the `MoveAllToRegionEtcd` operationId).
+func (c *ClientWithResponses) MoveAllToRegionEtcdWithResponse(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*MoveAllToRegionEtcdResponse, error) {
+	rsp, err := c.MoveAllToRegionEtcd(ctx, regionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMoveAllToRegionEtcdResponse(rsp)
+}
+
+// GetAdminRegionOverviewWithResponse A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/regions/{region_id}/overview (the `GetAdminRegionOverview` operationId).
+func (c *ClientWithResponses) GetAdminRegionOverviewWithResponse(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*GetAdminRegionOverviewResponse, error) {
+	rsp, err := c.GetAdminRegionOverview(ctx, regionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAdminRegionOverviewResponse(rsp)
 }
 
 // GetAdminRegionReadinessWithResponse A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
@@ -67148,6 +69409,36 @@ func (c *ClientWithResponses) RemoveBillingContactWithResponse(ctx context.Conte
 	return ParseRemoveBillingContactResponse(rsp)
 }
 
+// UpdateBillingContactWithBodyWithResponse Turn a billing contact's status page emails on or off
+//
+// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+func (c *ClientWithResponses) UpdateBillingContactWithBodyWithResponse(ctx context.Context, org OrgID, email string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateBillingContactResponse, error) {
+	rsp, err := c.UpdateBillingContactWithBody(ctx, org, email, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateBillingContactResponse(rsp)
+}
+
+// UpdateBillingContactWithResponse Turn a billing contact's status page emails on or off
+//
+// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+func (c *ClientWithResponses) UpdateBillingContactWithResponse(ctx context.Context, org OrgID, email string, body UpdateBillingContactJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBillingContactResponse, error) {
+	rsp, err := c.UpdateBillingContact(ctx, org, email, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateBillingContactResponse(rsp)
+}
+
 // EstimateOrgCostWithBodyWithResponse What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -67380,6 +69671,21 @@ func (c *ClientWithResponses) ListOrgDedicatedRequestsWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseListOrgDedicatedRequestsResponse(rsp)
+}
+
+// ListOrgIncidentsWithResponse Open incidents affecting the organisation's projects
+//
+// Open status page incidents whose components and region match one of the organisation's projects, or that name one of its projects or the nodes they run on (V4.1 §7.3). Public fields only.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/incidents (the `ListOrgIncidents` operationId).
+func (c *ClientWithResponses) ListOrgIncidentsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListOrgIncidentsResponse, error) {
+	rsp, err := c.ListOrgIncidents(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListOrgIncidentsResponse(rsp)
 }
 
 // ListOrgInvitationsWithResponse Pending invitations
@@ -68940,11 +71246,17 @@ func (c *ClientWithResponses) ListSlowQueriesWithResponse(ctx context.Context, i
 	return ParseListSlowQueriesResponse(rsp)
 }
 
-// UpdateProjectInstanceWithBodyWithResponse Change a dedicated project's instance settings
+// UpdateProjectInstanceWithBodyWithResponse Change a dedicated project's instance (size, disk, recovery window)
 //
 // The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 // as billed add-ons on Pro and Team. A longer window grows day by day
 // from now; a shorter one drops the older base backups at the next one.
+//
+// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+// the instance restarts in a few seconds with the poolers holding
+// clients, or with HA a standby is resized and switched to. When its
+// node can't hold the new size, a `logical_move` to one that can is
+// queued instead (`plan.move_to`). The dedicated allowance applies.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68957,11 +71269,17 @@ func (c *ClientWithResponses) UpdateProjectInstanceWithBodyWithResponse(ctx cont
 	return ParseUpdateProjectInstanceResponse(rsp)
 }
 
-// UpdateProjectInstanceWithResponse Change a dedicated project's instance settings
+// UpdateProjectInstanceWithResponse Change a dedicated project's instance (size, disk, recovery window)
 //
 // The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 // as billed add-ons on Pro and Team. A longer window grows day by day
 // from now; a shorter one drops the older base backups at the next one.
+//
+// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+// the instance restarts in a few seconds with the poolers holding
+// clients, or with HA a standby is resized and switched to. When its
+// node can't hold the new size, a `logical_move` to one that can is
+// queued instead (`plan.move_to`). The dedicated allowance applies.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -69976,6 +72294,19 @@ func (c *ClientWithResponses) GetSecurityAdvisorWithResponse(ctx context.Context
 	return ParseGetSecurityAdvisorResponse(rsp)
 }
 
+// GetServicesCatalogWithResponse What the data API exposes, with row-level security, policies and access per table (the API docs)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/services/catalog (the `GetServicesCatalog` operationId).
+func (c *ClientWithResponses) GetServicesCatalogWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetServicesCatalogResponse, error) {
+	rsp, err := c.GetServicesCatalog(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetServicesCatalogResponse(rsp)
+}
+
 // ExploreDataAPIWithBodyWithResponse Run a data API request as anon, a user or service (the request explorer)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -70041,7 +72372,9 @@ func (c *ClientWithResponses) RevokeAPIKeyWithResponse(ctx context.Context, id P
 	return ParseRevokeAPIKeyResponse(rsp)
 }
 
-// ListAPIRequestLogsWithResponse The API's request logs (7 days), newest first
+// ListAPIRequestLogsWithResponse The API's request logs (7 days), newest first; with after, newer ones oldest first
+//
+// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -70065,6 +72398,19 @@ func (c *ClientWithResponses) GetServiceTypesWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseGetServiceTypesResponse(rsp)
+}
+
+// GetServicesUsageWithResponse This month's backend-services usage, against the plan, and the charges that fall to the project
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/services/usage (the `GetServicesUsage` operationId).
+func (c *ClientWithResponses) GetServicesUsageWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetServicesUsageResponse, error) {
+	rsp, err := c.GetServicesUsage(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetServicesUsageResponse(rsp)
 }
 
 // UpdateProjectWithBodyWithResponse Update a project's name, description, or guardrails
@@ -72759,6 +75105,39 @@ func ParseAnnounceMaintenanceResponse(rsp *http.Response) (*AnnounceMaintenanceR
 	return response, nil
 }
 
+// ParsePreviewMaintenanceAnnouncementResponse parses an HTTP response from a PreviewMaintenanceAnnouncementWithResponse call
+func ParsePreviewMaintenanceAnnouncementResponse(rsp *http.Response) (*PreviewMaintenanceAnnouncementResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewMaintenanceAnnouncementResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MaintenancePreview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseCancelMaintenanceResponse parses an HTTP response from a CancelMaintenanceWithResponse call
 func ParseCancelMaintenanceResponse(rsp *http.Response) (*CancelMaintenanceResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -72768,6 +75147,72 @@ func ParseCancelMaintenanceResponse(rsp *http.Response) (*CancelMaintenanceRespo
 	}
 
 	response := &CancelMaintenanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MaintenanceAnnouncement
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseConfirmMaintenanceDraftResponse parses an HTTP response from a ConfirmMaintenanceDraftWithResponse call
+func ParseConfirmMaintenanceDraftResponse(rsp *http.Response) (*ConfirmMaintenanceDraftResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ConfirmMaintenanceDraftResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MaintenanceAnnouncement
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDiscardMaintenanceDraftResponse parses an HTTP response from a DiscardMaintenanceDraftWithResponse call
+func ParseDiscardMaintenanceDraftResponse(rsp *http.Response) (*DiscardMaintenanceDraftResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DiscardMaintenanceDraftResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -73413,6 +75858,74 @@ func ParseAdminRefundPaymentResponse(rsp *http.Response) (*AdminRefundPaymentRes
 	return response, nil
 }
 
+// ParseListPgVersionsResponse parses an HTTP response from a ListPgVersionsWithResponse call
+func ParseListPgVersionsResponse(rsp *http.Response) (*ListPgVersionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPgVersionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Items []PgVersionInfo `json:"items"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdatePgVersionResponse parses an HTTP response from a UpdatePgVersionWithResponse call
+func ParseUpdatePgVersionResponse(rsp *http.Response) (*UpdatePgVersionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdatePgVersionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PgVersionInfo
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListPlansResponse parses an HTTP response from a ListPlansWithResponse call
 func ParseListPlansResponse(rsp *http.Response) (*ListPlansResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -73909,6 +76422,72 @@ func ParsePutAdminRegionResponse(rsp *http.Response) (*PutAdminRegionResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AdminRegion
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseMoveAllToRegionEtcdResponse parses an HTTP response from a MoveAllToRegionEtcdWithResponse call
+func ParseMoveAllToRegionEtcdResponse(rsp *http.Response) (*MoveAllToRegionEtcdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &MoveAllToRegionEtcdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAdminRegionOverviewResponse parses an HTTP response from a GetAdminRegionOverviewWithResponse call
+func ParseGetAdminRegionOverviewResponse(rsp *http.Response) (*GetAdminRegionOverviewResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAdminRegionOverviewResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RegionOverview
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -77135,6 +79714,39 @@ func ParseRemoveBillingContactResponse(rsp *http.Response) (*RemoveBillingContac
 	return response, nil
 }
 
+// ParseUpdateBillingContactResponse parses an HTTP response from a UpdateBillingContactWithResponse call
+func ParseUpdateBillingContactResponse(rsp *http.Response) (*UpdateBillingContactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateBillingContactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BillingContact
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseEstimateOrgCostResponse parses an HTTP response from a EstimateOrgCostWithResponse call
 func ParseEstimateOrgCostResponse(rsp *http.Response) (*EstimateOrgCostResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -77620,6 +80232,39 @@ func ParseListOrgDedicatedRequestsResponse(rsp *http.Response) (*ListOrgDedicate
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest DedicatedRequestList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListOrgIncidentsResponse parses an HTTP response from a ListOrgIncidentsWithResponse call
+func ParseListOrgIncidentsResponse(rsp *http.Response) (*ListOrgIncidentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListOrgIncidentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OrgIncidentList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -80347,7 +82992,7 @@ func ParseUpdateProjectInstanceResponse(rsp *http.Response) (*UpdateProjectInsta
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest InstanceSummary
+		var dest InstanceUpdated
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -81866,6 +84511,39 @@ func ParseGetSecurityAdvisorResponse(rsp *http.Response) (*GetSecurityAdvisorRes
 	return response, nil
 }
 
+// ParseGetServicesCatalogResponse parses an HTTP response from a GetServicesCatalogWithResponse call
+func ParseGetServicesCatalogResponse(rsp *http.Response) (*GetServicesCatalogResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetServicesCatalogResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServicesCatalog
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseExploreDataAPIResponse parses an HTTP response from a ExploreDataAPIWithResponse call
 func ParseExploreDataAPIResponse(rsp *http.Response) (*ExploreDataAPIResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -82012,6 +84690,39 @@ func ParseGetServiceTypesResponse(rsp *http.Response) (*GetServiceTypesResponse,
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetServicesUsageResponse parses an HTTP response from a GetServicesUsageWithResponse call
+func ParseGetServicesUsageResponse(rsp *http.Response) (*GetServicesUsageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetServicesUsageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServicesUsage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

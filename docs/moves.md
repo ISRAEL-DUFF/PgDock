@@ -92,6 +92,32 @@ Compute → Moves, `pgdock move <p> --node <id>`, or
 target node's shared cluster, which must run the same Postgres version. A
 dedicated project gets a new instance of the same size there.
 
+## Resizing and growing the disk
+
+A dedicated project's owner or admin resizes its instance from Project
+Settings → **Size and disk**, `pgdock instance resize <p> --profile large`
+(or `--cpus 4 --memory 8192`), `pgdock instance disk <p> --gb 160`, or
+`PATCH /api/v1/projects/{id}/instance`. **Check** (`--dry-run`) says what
+will happen and what it costs before anything is queued.
+
+- **Without HA** the instance restarts with the new limits (and the
+  Postgres settings derived from memory) in a few seconds, with the
+  poolers holding clients meanwhile. Read replicas follow, one at a time.
+- **With HA** the standby (and any read replica) is resized first, the
+  project switches over to it, then the old primary is resized: the pause
+  is a switchover's.
+- **The disk** only grows; it needs no restart. Volumes are Docker
+  volumes, so the size is the allowance, what is billed and where the
+  disk warning sits (80% of it, unless you set your own). To shrink, move
+  the project into a smaller instance.
+- **When the node can't hold the new size** (its agent's reported CPUs,
+  memory and disk, minus what its instances are allocated), the resize
+  becomes a node move into an instance of the new size on a node in the
+  region that can. With HA or read replicas the members can't move, so
+  the resize is refused with `409 no_capacity` instead.
+- The dedicated allowance and the spend cap apply; usage is recorded at
+  the new size from the next hour.
+
 ## Postgres versions
 
 `PGDOCK_PG_VERSIONS` (default `17,18`) lists the majors PGDock offers; the
@@ -101,6 +127,30 @@ newest is the default for new projects. Each needs its image on every node
 one per version you offer (Nodes → a node → **Run a shared cluster here**,
 choosing the version).
 
+### Version lifecycle
+
+Each major has a status, kept in the `pg_versions` table (seeded from
+`PGDOCK_PG_VERSIONS`) and set under Admin → Platform → **Postgres
+versions** (`GET /api/v1/admin/pg-versions`, `PATCH …/{major}`):
+
+| Status | New projects | Upgrade target | Default |
+| --- | --- | --- | --- |
+| preview | only with **Preview** ticked on the create form | no | never |
+| supported | yes | yes | the newest one |
+| deprecated | yes | no | only if nothing is supported |
+| retired | no | no | no |
+
+- **Deprecating** needs a retirement date at least **180 days** ahead.
+  Owners and admins of every organisation with a project on that major
+  are emailed at once, with their projects and the link to each one's
+  upgrade, and again at 90, 30 and 7 days before the date (once per step).
+  Those projects show a banner on their overview and Compute pages.
+- **Retired:** a deprecated major is retired once its date passes (or
+  when an admin retires it, which is refused while projects still run on
+  it). Existing projects keep running, marked unsupported; they are never
+  upgraded automatically, since a new major can break an application.
+  Shared clusters of the major can still be created for them.
+
 ### Major upgrades
 
 Project Settings → Compute → **Postgres version → Upgrade…** (or
@@ -109,10 +159,15 @@ Project Settings → Compute → **Postgres version → Upgrade…** (or
 - checks the version is newer and supported, and where the project would
   go: the least-loaded shared cluster of the new version, or a new
   dedicated instance of the same size on the same node;
-- for a shared target, **restores the schema into a scratch database on
-  the new version** as an ordinary user, and reports anything that fails
-  (removed functions, changed syntax, missing extensions). Nothing is
-  changed;
+- **restores the schema on the new version** as an ordinary user, and
+  reports anything that fails (removed functions, changed syntax, missing
+  extensions): into a scratch database on the target cluster for a shared
+  target; into a temporary instance of the new major (0.5 vCPU, 512 MB,
+  no WAL archiving) started on the project's node for a dedicated one,
+  removed afterwards. Nothing is changed. A failure blocks the upgrade;
+- **scans for features removed in the new major** (functions, views and
+  database settings that use them; the list is in
+  `internal/logical/deprecated.go`) and warns;
 - estimates the pause, and says whether logical replication can be used.
 
 The upgrade is then a move as above. Test the application against the new

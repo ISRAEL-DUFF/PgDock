@@ -36,8 +36,11 @@ export function noticeGiven(start: Date, now = new Date()): number {
 
 function state(a: Announcement): {
   label: string;
-  tone: "accent" | "muted" | "ok";
+  tone: "accent" | "muted" | "ok" | "warn";
 } {
+  if (a.draft) return { label: "proposed", tone: "warn" };
+  if (a.cancelled_at && !a.announced_at)
+    return { label: "discarded", tone: "muted" };
   if (a.cancelled_at) return { label: "cancelled", tone: "muted" };
   if (a.incident.resolved_at) return { label: "done", tone: "ok" };
   return { label: "upcoming", tone: "accent" };
@@ -53,7 +56,17 @@ export function MaintenancePanel() {
     refetchInterval: 30_000,
   });
   const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState<Announcement | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const discard = async (id: string) => {
+    setErr(null);
+    try {
+      await api.discardMaintenanceDraft(id);
+      await qc.invalidateQueries({ queryKey: ["maintenance-announcements"] });
+    } catch (e) {
+      setErr(errorMessage(e));
+    }
+  };
   const cancel = async (id: string) => {
     setErr(null);
     try {
@@ -126,6 +139,26 @@ export function MaintenancePanel() {
                   )}
                 </td>
                 <td className="px-3 py-2 text-right">
+                  {a.draft && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        className="text-xs"
+                        onClick={() => setConfirming(a)}
+                        data-testid="confirm-draft"
+                      >
+                        Confirm…
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="text-xs"
+                        onClick={() => void discard(a.incident.id)}
+                        data-testid="discard-draft"
+                      >
+                        Discard
+                      </Button>
+                    </>
+                  )}
                   {st.label === "upcoming" && (
                     <Button
                       variant="ghost"
@@ -142,7 +175,100 @@ export function MaintenancePanel() {
         </Table>
       )}
       <ScheduleMaintenance open={open} onOpenChange={setOpen} />
+      <ConfirmDraft draft={confirming} onClose={() => setConfirming(null)} />
     </Panel>
+  );
+}
+
+/** The email an announcement sends, as the server renders it (V4.1 §8.3). */
+function EmailPreview({
+  preview,
+}: {
+  preview: components["schemas"]["MaintenancePreview"] | undefined;
+}) {
+  if (!preview) return null;
+  return (
+    <div
+      className="flex flex-col gap-1 text-[13px]"
+      data-testid="email-preview"
+    >
+      <div className="text-muted">
+        Emailed to {preview.addresses} people in {preview.organisations}{" "}
+        organisations.
+      </div>
+      <div className="font-medium">{preview.subject}</div>
+      <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-line bg-surface-2 p-2.5 text-xs">
+        {preview.body}
+      </pre>
+    </div>
+  );
+}
+
+/** Confirm a draft PGDock proposed: announce it, emailing what's shown. */
+function ConfirmDraft({
+  draft,
+  onClose,
+}: {
+  draft: Announcement | null;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const preview = useQuery({
+    queryKey: ["maintenance-preview", draft?.incident.id],
+    queryFn: () => api.previewMaintenance({ incident_id: draft!.incident.id }),
+    enabled: !!draft,
+  });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const confirm = async () => {
+    if (!draft) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.confirmMaintenanceDraft(draft.incident.id);
+      await qc.invalidateQueries({ queryKey: ["maintenance-announcements"] });
+      await qc.invalidateQueries({ queryKey: ["incidents"] });
+      onClose();
+    } catch (e) {
+      setErr(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog
+      open={!!draft}
+      onOpenChange={(o) => !o && onClose()}
+      title="Confirm proposed maintenance"
+      description={`Announces it now: the status page shows it as upcoming, and the window is excluded from the SLA from ${noticeHours} hours after now.`}
+      testId="confirm-draft-dialog"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" busy={busy} onClick={() => void confirm()}>
+            Announce and email
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        {draft && (
+          <p className="text-[13px]">
+            {formatDate(draft.scheduled_start)} –{" "}
+            {formatDate(draft.scheduled_end)}, {draft.scope_projects.length}{" "}
+            projects
+            {draft.proposed_for === "minor_upgrade" &&
+              " behind on their Postgres minor release"}
+            .
+          </p>
+        )}
+        {preview.isError && <Alert>{errorMessage(preview.error)}</Alert>}
+        <EmailPreview preview={preview.data} />
+        {err && <Alert>{err}</Alert>}
+      </div>
+    </Dialog>
   );
 }
 
@@ -170,6 +296,26 @@ function ScheduleMaintenance({
   const [done, setDone] = useState<Announcement | null>(null);
   const from = utc(start);
   const notice = from ? noticeGiven(from) : null;
+  const ids = projects
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const previewReq = from
+    ? {
+        title: name,
+        body: body || undefined,
+        region: region || undefined,
+        start: from.toISOString(),
+        end: new Date(from.getTime() + hours * 3_600_000).toISOString(),
+        project_ids: ids.length ? ids : undefined,
+      }
+    : null;
+  const preview = useQuery({
+    queryKey: ["maintenance-preview", previewReq],
+    queryFn: () => api.previewMaintenance(previewReq!),
+    enabled: open && !!previewReq && !done,
+    retry: false,
+  });
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!from) return;
@@ -344,6 +490,7 @@ function ScheduleMaintenance({
               />
             )}
           </Field>
+          <EmailPreview preview={preview.data} />
           {err && <Alert>{err}</Alert>}
         </form>
       )}

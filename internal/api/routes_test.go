@@ -482,7 +482,7 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/projects/{id}/queries/{query_id}", "PATCH /api/v1/projects/{id}/queries/{query_id}",
 		"DELETE /api/v1/projects/{id}/queries/{query_id}", "PUT /api/v1/projects/{id}/queries/{query_id}/favorite",
 		// V4 §3.6, §3.7: generated types and the security advisor read the schema
-		"GET /api/v1/projects/{id}/services/types", "GET /api/v1/projects/{id}/services/advisor",
+		"GET /api/v1/projects/{id}/services/catalog", "GET /api/v1/projects/{id}/services/usage", "GET /api/v1/projects/{id}/services/types", "GET /api/v1/projects/{id}/services/advisor",
 	},
 	// V4 §8.3 the request explorer runs requests as service, too: a write to the data
 	authz.ConsoleWrite: {"POST /api/v1/projects/{id}/services/explore"},
@@ -546,7 +546,7 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/orgs/{org}/support/phones",
 		// V3 §7.3: members read the documents in effect
 		"GET /api/v1/orgs/{org}/legal",
-		"GET /api/v1/orgs/{org}", "GET /api/v1/orgs/{org}/members", "POST /api/v1/orgs/{org}/leave",
+		"GET /api/v1/orgs/{org}", "GET /api/v1/orgs/{org}/members", "GET /api/v1/orgs/{org}/incidents", "POST /api/v1/orgs/{org}/leave",
 		"GET /api/v1/projects", "GET /api/v1/operations", "GET /api/v1/backups", "GET /api/v1/backups/overview",
 		// §13 "projects list ... with quota usage bars": every member sees the limits
 		"GET /api/v1/orgs/{org}/quotas",
@@ -582,7 +582,7 @@ var specMatrix = map[authz.Action][]string{
 	authz.OrgBillingManage: {
 		"GET /api/v1/orgs/{org}/billing", "PATCH /api/v1/orgs/{org}/billing", "POST /api/v1/orgs/{org}/billing/plan",
 		"GET /api/v1/orgs/{org}/billing/contacts", "POST /api/v1/orgs/{org}/billing/contacts",
-		"DELETE /api/v1/orgs/{org}/billing/contacts/{email}", "GET /api/v1/orgs/{org}/billing/invoices",
+		"DELETE /api/v1/orgs/{org}/billing/contacts/{email}", "PATCH /api/v1/orgs/{org}/billing/contacts/{email}", "GET /api/v1/orgs/{org}/billing/invoices",
 		"GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}", "GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf",
 		"GET /api/v1/orgs/{org}/billing/forecast",
 		// V3 §3.4: paying, methods, receipts, WHT credit notes
@@ -624,7 +624,7 @@ var specMatrix = map[authz.Action][]string{
 		"POST /api/v1/nodes", "GET /api/v1/nodes/{id}", "PATCH /api/v1/nodes/{id}", "DELETE /api/v1/nodes/{id}",
 		// V3 §5 capacity automation, §5.4 and §7.2 costs and margins
 		// V3 §6.1 regions
-		"GET /api/v1/admin/regions", "PUT /api/v1/admin/regions/{region_id}", "GET /api/v1/admin/regions/{region_id}/readiness",
+		"GET /api/v1/admin/pg-versions", "PATCH /api/v1/admin/pg-versions/{major}", "GET /api/v1/admin/regions", "PUT /api/v1/admin/regions/{region_id}", "GET /api/v1/admin/regions/{region_id}/readiness",
 		"GET /api/v1/admin/capacity", "PUT /api/v1/admin/capacity/settings", "POST /api/v1/admin/capacity/evaluate", "POST /api/v1/admin/capacity/proposals/{proposal_id}/approve", "POST /api/v1/admin/capacity/proposals/{proposal_id}/reject", "POST /api/v1/admin/capacity/rebalance", "POST /api/v1/admin/capacity/batches/{batch_id}", "GET /api/v1/admin/cloud/catalog", "POST /api/v1/nodes/{id}/drain", "DELETE /api/v1/nodes/{id}/drain", "PUT /api/v1/nodes/{id}/cost", "GET /api/v1/admin/costs", "POST /api/v1/admin/costs/attribute", "GET /api/v1/admin/costs/settings", "PUT /api/v1/admin/costs/settings", "GET /api/v1/admin/fx-rates", "POST /api/v1/admin/fx-rates",
 		"POST /api/v1/nodes/{id}/shared-cluster", "POST /api/v1/nodes/{id}/registration-token", "GET /api/v1/nodes/{id}/metrics",
 		"GET /api/v1/security/isolation-checks", "POST /api/v1/security/isolation-checks", "GET /api/v1/alerts",
@@ -647,7 +647,9 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/admin/failure-domains",
 		// V3.1 §4 announced maintenance
 		"GET /api/v1/admin/maintenance/announcements", "POST /api/v1/admin/maintenance/announcements",
-		"DELETE /api/v1/admin/maintenance/announcements/{incident_id}",
+		"GET /api/v1/admin/regions/{region_id}/overview", "POST /api/v1/admin/regions/{region_id}/etcd-move-all",
+		"DELETE /api/v1/admin/maintenance/announcements/{incident_id}", "POST /api/v1/admin/maintenance/announcements/preview",
+		"POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm", "POST /api/v1/admin/maintenance/announcements/{incident_id}/discard",
 		// V3.1 §3.2 replacing an etcd member
 		"POST /api/v1/admin/etcd/members/{node_id}/replace",
 		// V3 §2.4 "Minor upgrades ... automated in a weekly maintenance window"

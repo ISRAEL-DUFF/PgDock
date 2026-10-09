@@ -2,11 +2,20 @@ package incidents
 
 import (
 	"context"
+	"time"
 
 	"github.com/israel-duff/pgdock/internal/alerts"
 	"github.com/israel-duff/pgdock/internal/statusapi"
 	"github.com/israel-duff/pgdock/internal/store"
 )
+
+// edgeSilentAfter: an edge that hasn't reported for this long (it reports
+// every 30 seconds at least) counts as stopped.
+const edgeSilentAfter = 2 * time.Minute
+
+// SetEdgeSilentAfter changes how long an edge may go without a report
+// (tests).
+func (s *Service) SetEdgeSilentAfter(d time.Duration) { s.edgeSilent = d }
 
 // States is what pgdock-server knows about the components pgdock-status
 // can't probe. That a heartbeat arrives at all also says pgdock-server's
@@ -47,8 +56,34 @@ func (s *Service) States(ctx context.Context) ([]statusapi.ComponentState, error
 		automation.Status, automation.Detail = statusapi.Degraded, "Scheduled jobs are running late."
 	}
 
+	states := []statusapi.ComponentState{dedicated, backups, automation}
+	if s.Billing != nil {
+		b, err := s.Billing(ctx, time.Now())
+		if err != nil {
+			return nil, err
+		}
+		states = append(states, b)
+	}
+	silent := edgeSilentAfter
+	if s.edgeSilent > 0 {
+		silent = s.edgeSilent
+	}
+	edges, err := q.EdgeHealth(ctx, time.Now().Add(-silent))
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range edges {
+		st := statusapi.ComponentState{ID: ComponentBackendServices, Status: statusapi.Operational, Region: e.Region}
+		switch {
+		case e.Silent == e.Edges:
+			st.Status, st.Detail = statusapi.Down, "The backend services gateway isn't responding."
+		case e.Silent > 0:
+			st.Status, st.Detail = statusapi.Degraded, "Some backend services gateways aren't responding."
+		}
+		states = append(states, st)
+	}
 	var out []statusapi.ComponentState
-	for _, c := range []statusapi.ComponentState{dedicated, backups, automation} {
+	for _, c := range states {
 		for _, id := range s.cfg.Components {
 			if id == c.ID {
 				out = append(out, c)

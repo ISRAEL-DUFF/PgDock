@@ -234,6 +234,7 @@ export type AlertSettingsRequest = S["AlertSettingsRequest"];
 export type IsolationCheck = S["IsolationCheck"];
 export type User = S["User"];
 export type Org = S["Org"];
+export type OrgIncident = S["OrgIncident"];
 export type OrgRole = S["OrgRole"];
 export type ProjectRole = S["ProjectRole"];
 export type OrgMember = S["OrgMember"];
@@ -875,8 +876,16 @@ export const api = {
     request<S["InstanceState"]>("POST", `/api/v1/projects/${id}/instance`, {
       action,
     }),
+  adminPgVersions: () =>
+    getJSON<{ items: S["PgVersionInfo"][] }>("/api/v1/admin/pg-versions"),
+  updatePgVersion: (major: number, b: S["PgVersionUpdate"]) =>
+    request<S["PgVersionInfo"]>(
+      "PATCH",
+      `/api/v1/admin/pg-versions/${major}`,
+      b,
+    ),
   updateProjectInstance: (id: string, b: S["InstanceUpdate"]) =>
-    request<S["InstanceSummary"]>(
+    request<S["InstanceUpdated"]>(
       "PATCH",
       `/api/v1/projects/${id}/instance`,
       b,
@@ -1152,6 +1161,12 @@ export const api = {
     getJSON<S["ApiRequestLogList"]>(
       `/api/v1/projects/${id}/services/logs${qs({ before, limit: 100 })}`,
     ),
+  /** What the data API exposes, for the API docs (V4.1 §9.2). */
+  servicesCatalog: (id: string) =>
+    getJSON<S["ServicesCatalog"]>(`/api/v1/projects/${id}/services/catalog`),
+  /** This month's usage and charges (V4.1 §9.3). */
+  servicesUsage: (id: string) =>
+    getJSON<S["ServicesUsage"]>(`/api/v1/projects/${id}/services/usage`),
   /** Typed definitions of the exposed tables, views and functions. */
   serviceTypes: async (
     id: string,
@@ -1301,6 +1316,22 @@ export const api = {
       "/api/v1/admin/maintenance/announcements",
       b,
     ),
+  confirmMaintenanceDraft: (id: string) =>
+    request<S["MaintenanceAnnouncement"]>(
+      "POST",
+      `/api/v1/admin/maintenance/announcements/${id}/confirm`,
+    ),
+  discardMaintenanceDraft: (id: string) =>
+    request<S["MaintenanceAnnouncement"]>(
+      "POST",
+      `/api/v1/admin/maintenance/announcements/${id}/discard`,
+    ),
+  previewMaintenance: (b: S["MaintenancePreviewRequest"]) =>
+    request<S["MaintenancePreview"]>(
+      "POST",
+      "/api/v1/admin/maintenance/announcements/preview",
+      b,
+    ),
   cancelMaintenance: (id: string) =>
     request<S["MaintenanceAnnouncement"]>(
       "DELETE",
@@ -1325,6 +1356,14 @@ export const api = {
     ),
   addBillingContact: (org: string, b: BillingContact) =>
     request<BillingContact>("POST", `/api/v1/orgs/${org}/billing/contacts`, b),
+  updateBillingContact: (org: string, email: string, statusEmails: boolean) =>
+    request<BillingContact>(
+      "PATCH",
+      `/api/v1/orgs/${org}/billing/contacts/${encodeURIComponent(email)}`,
+      { status_emails: statusEmails },
+    ),
+  orgIncidents: (org: string) =>
+    getJSON<S["OrgIncidentList"]>(`/api/v1/orgs/${org}/incidents`),
   removeBillingContact: (org: string, email: string) =>
     request<void>(
       "DELETE",
@@ -1574,6 +1613,15 @@ export const api = {
   // Regions and data residency (V3 §6).
   regions: () => getJSON<{ items: Region[] }>("/api/v1/regions"),
   adminRegions: () => getJSON<AdminRegionList>("/api/v1/admin/regions"),
+  regionOverview: (id: string) =>
+    getJSON<S["RegionOverview"]>(
+      `/api/v1/admin/regions/${encodeURIComponent(id)}/overview`,
+    ),
+  moveAllToRegionEtcd: (id: string) =>
+    request<Operation>(
+      "POST",
+      `/api/v1/admin/regions/${encodeURIComponent(id)}/etcd-move-all`,
+    ),
   regionReadiness: (id: string) =>
     getJSON<RegionReadiness>(
       `/api/v1/admin/regions/${encodeURIComponent(id)}/readiness`,

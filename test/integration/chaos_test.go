@@ -433,8 +433,16 @@ func TestChaosEtcdMemberLoss(t *testing.T) {
 
 	// 1. One etcd member is lost: quorum holds, writes go on.
 	docker("stop", "-t", "0", etcd(ns[2]))
-	if ready, down := cluster(); !ready || down != 1 {
-		t.Fatalf("etcd with a member down: ready %v, %d down", ready, down)
+	// The others report unhealthy until they elect a new leader, if the
+	// stopped member was the leader.
+	for deadline := time.Now().Add(20 * time.Second); ; time.Sleep(time.Second) {
+		if ready, down := cluster(); ready && down == 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			ready, down := cluster()
+			t.Fatalf("etcd with a member down: ready %v, %d down", ready, down)
+		}
 	}
 	errsBefore := w.errs.Load()
 	keepsWriting("one etcd member down", 50, 20*time.Second)

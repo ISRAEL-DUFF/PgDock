@@ -43,6 +43,9 @@ type MoveParams struct {
 	ProjectID uuid.UUID
 	NodeID    uuid.UUID
 	CreatedBy *uuid.UUID
+	// Size, for a dedicated project, is the new instance's size when the
+	// move is a resize that didn't fit its node (V4.1 §5.1); nil keeps it.
+	Size *Size
 }
 
 type moveParams struct {
@@ -51,6 +54,9 @@ type moveParams struct {
 	// NewInstance: the target was created for this move (a dedicated
 	// project), so a rollback destroys it.
 	NewInstance bool `json:"new_instance"`
+	// Resized: the target is a new size; the disk warning follows its
+	// volume when the move finishes.
+	Resized bool `json:"resized,omitempty"`
 }
 
 func opMove(op store.Operation) (moveParams, error) {
@@ -105,27 +111,28 @@ func (s *Service) Move(ctx context.Context, mp MoveParams) (store.Operation, err
 				}
 				return moveParams{TargetInstance: target.ID, SourceInstance: src.ID}, nil
 			}
-			cp := provision.CreateParams{NodeID: &mp.NodeID, VolumeGB: DefaultVolumeGB}
-			if src.Profile != nil {
-				cp.Profile = *src.Profile
+			// The same size there (a custom one included), or the new one.
+			size := SizeOf(src)
+			if mp.Size != nil {
+				size = *mp.Size
 			}
-			if src.VolumeGb != nil {
-				cp.VolumeGB = int(*src.VolumeGb)
-			}
-			prof, err := s.Validate(ctx, &cp)
-			if err != nil {
+			cp := provision.CreateParams{NodeID: &mp.NodeID, Profile: DefaultProfile, VolumeGB: size.DiskGB}
+			if _, err := s.Validate(ctx, &cp); err != nil {
 				return nil, err
 			}
 			target := uuid.New()
 			prefix := "instances/" + target.String() + "/wal-g"
-			mem, vol := int32(prof.MemoryMB), int32(cp.VolumeGB)
+			mem, vol, name := int32(size.MemoryMB), int32(size.DiskGB), profileName(size)
 			if _, err := q.InsertInstance(ctx, store.InsertInstanceParams{
-				ID: target, NodeID: mp.NodeID, Kind: provision.TierDedicated, PgVersion: src.PgVersion, CpuLimit: numeric(prof.CPUs),
-				MemLimitMb: &mem, VolumeGb: &vol, Profile: &prof.Name, WalgPrefix: &prefix,
+				ID: target, NodeID: mp.NodeID, Kind: provision.TierDedicated, PgVersion: src.PgVersion, CpuLimit: numeric(size.CPUs),
+				MemLimitMb: &mem, VolumeGb: &vol, Profile: &name, WalgPrefix: &prefix,
 			}); err != nil {
 				return nil, err
 			}
-			return moveParams{TargetInstance: target, SourceInstance: src.ID, NewInstance: true}, nil
+			if err := q.SetInstancePITRDays(ctx, store.SetInstancePITRDaysParams{ID: target, PitrDays: src.PitrDays}); err != nil {
+				return nil, err
+			}
+			return moveParams{TargetInstance: target, SourceInstance: src.ID, NewInstance: true, Resized: mp.Size != nil}, nil
 		})
 }
 
@@ -481,6 +488,18 @@ func (s *Service) finishMove(ctx context.Context, op store.Operation, p store.Pr
 	}
 	if err := s.retireSource(ctx, p, log); err != nil {
 		return err
+	}
+	if params, err := opMove(op); err == nil && params.Resized {
+		var from, to int32
+		if err := s.db.QueryRow(ctx, `SELECT coalesce((SELECT volume_gb FROM instances WHERE id = $1), 0), coalesce((SELECT volume_gb FROM instances WHERE id = $2), 0)`,
+			source, p.InstanceID).Scan(&from, &to); err == nil && from != to {
+			if err := s.followDiskWarn(ctx, p.ID, int(from), int(to)); err != nil {
+				return err
+			}
+		}
+		if err := log.Info(ctx, "resize", "the project runs at its new size on the new node"); err != nil {
+			return err
+		}
 	}
 	if p.Tier == provision.TierDedicated {
 		s.projects.Provisioned(ctx, p, log)

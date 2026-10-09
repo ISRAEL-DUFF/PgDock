@@ -16,7 +16,7 @@ import (
 
 const addBillingContact = `-- name: AddBillingContact :one
 INSERT INTO billing_contacts (org_id, email, name) VALUES ($1, $2, $3)
-ON CONFLICT (org_id, email) DO UPDATE SET name = EXCLUDED.name RETURNING org_id, email, name, created_at
+ON CONFLICT (org_id, email) DO UPDATE SET name = EXCLUDED.name RETURNING org_id, email, name, created_at, status_emails
 `
 
 type AddBillingContactParams struct {
@@ -34,6 +34,7 @@ func (q *Queries) AddBillingContact(ctx context.Context, arg AddBillingContactPa
 		&i.Email,
 		&i.Name,
 		&i.CreatedAt,
+		&i.StatusEmails,
 	)
 	return i, err
 }
@@ -1196,7 +1197,7 @@ func (q *Queries) ListBillingAccounts(ctx context.Context) ([]ListBillingAccount
 
 const listBillingContacts = `-- name: ListBillingContacts :many
 
-SELECT org_id, email, name, created_at FROM billing_contacts WHERE org_id = $1 ORDER BY email
+SELECT org_id, email, name, created_at, status_emails FROM billing_contacts WHERE org_id = $1 ORDER BY email
 `
 
 // ---- Contacts -------------------------------------------------------------
@@ -1215,6 +1216,7 @@ func (q *Queries) ListBillingContacts(ctx context.Context, orgID uuid.UUID) ([]B
 			&i.Email,
 			&i.Name,
 			&i.CreatedAt,
+			&i.StatusEmails,
 		); err != nil {
 			return nil, err
 		}

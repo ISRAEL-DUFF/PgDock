@@ -77,19 +77,7 @@ func (s *Service) Announce(ctx context.Context, in Maintenance) (Announced, erro
 	case in.End.Sub(in.Start) > 24*time.Hour:
 		return Announced{}, fmt.Errorf("%w: a maintenance window is at most 24 hours", ErrInvalid)
 	}
-	title := strings.TrimSpace(in.Title)
-	if title == "" {
-		title = "Scheduled maintenance"
-	}
-	where := "all regions"
-	if in.Region != "" {
-		where = in.Region
-	}
-	body := strings.TrimSpace(in.Body)
-	if body == "" {
-		body = "Planned maintenance; affected databases may pause briefly while it runs."
-	}
-	body = fmt.Sprintf("Scheduled for %s to %s UTC (%s). %s", in.Start.Format("Mon 2 Jan 15:04"), in.End.Format("15:04"), where, body)
+	title, body := announcementText(in)
 	components := []string{ComponentDedicated}
 	if err := s.check(title, components, "maintenance", "identified"); err != nil {
 		return Announced{}, err
@@ -153,6 +141,38 @@ func (s *Service) Announce(ctx context.Context, in Maintenance) (Announced, erro
 	return out, nil
 }
 
+// announcementText is an announcement's title and first update: the
+// window and region, then what will happen.
+func announcementText(in Maintenance) (title, body string) {
+	title = strings.TrimSpace(in.Title)
+	if title == "" {
+		title = "Scheduled maintenance"
+	}
+	where := "all regions"
+	if in.Region != "" {
+		where = in.Region
+	}
+	body = strings.TrimSpace(in.Body)
+	if body == "" {
+		body = "Planned maintenance; affected databases may pause briefly while it runs."
+	}
+	body = fmt.Sprintf("Scheduled for %s to %s UTC (%s). %s", in.Start.UTC().Format("Mon 2 Jan 15:04"), in.End.UTC().Format("15:04"), where, body)
+	return title, body
+}
+
+// maintenanceEmail is the email an owner gets for an announcement: the
+// one template for sending and for the preview (V4.1 §8.3).
+func (s *Service) maintenanceEmail(title string, start time.Time, body string) (subject, text string) {
+	text = body + "\n\nYour databases keep their data and connection strings. HA projects switch over to their standby instead of restarting.\n"
+	if s.cfg.URL != "" {
+		text += "\nStatus: " + s.cfg.URL + "\n"
+	}
+	if s.publicURL != "" {
+		text += "Dashboard: " + strings.TrimRight(s.publicURL, "/") + "\n"
+	}
+	return "[PGDock] " + title + ": " + start.UTC().Format("Mon 2 Jan 15:04") + " UTC", text
+}
+
 func (s *Service) emailMaintenance(ctx context.Context, a Announced, body string) int {
 	if s.mailer == nil {
 		return 0
@@ -164,17 +184,11 @@ func (s *Service) emailMaintenance(ctx context.Context, a Announced, body string
 		}
 		return 0
 	}
-	text := body + "\n\nYour databases keep their data and connection strings. HA projects switch over to their standby instead of restarting.\n"
-	if s.cfg.URL != "" {
-		text += "\nStatus: " + s.cfg.URL + "\n"
-	}
-	if s.publicURL != "" {
-		text += "Dashboard: " + strings.TrimRight(s.publicURL, "/") + "\n"
-	}
+	subject, text := s.maintenanceEmail(a.Title, *a.ScheduledStart, body)
 	// One message per recipient: organisations don't see each other.
 	sent := 0
 	for _, addr := range to {
-		if err := s.mailer.Send(ctx, mail.Message{To: []string{addr}, Subject: "[PGDock] " + a.Title + ": " + a.ScheduledStart.UTC().Format("Mon 2 Jan 15:04") + " UTC",
+		if err := s.mailer.Send(ctx, mail.Message{To: []string{addr}, Subject: subject,
 			Body: text, Headers: map[string]string{"X-PGDock-Event": "maintenance"}}); err != nil {
 			s.log.Warn("maintenance email", "incident", a.ID, "err", err)
 			continue
@@ -221,9 +235,14 @@ func (s *Service) ListMaintenance(ctx context.Context, since time.Time) ([]Incid
 }
 
 // EndMaintenance resolves announcements whose window has passed, with an
-// update, so the status page moves them to the past.
+// update, so the status page moves them to the past, and lets drafts
+// whose window has started lapse.
 func (s *Service) EndMaintenance(ctx context.Context, now time.Time) error {
 	q := store.New(s.db)
+	// Drafts whose window started unconfirmed lapse (V4.1 §8.2).
+	if _, err := q.ExpireDrafts(ctx, now); err != nil {
+		return err
+	}
 	done, err := q.MaintenanceDone(ctx, now)
 	if err != nil {
 		return err

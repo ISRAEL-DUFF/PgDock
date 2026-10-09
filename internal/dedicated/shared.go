@@ -24,18 +24,20 @@ const KindSharedCluster = "shared_cluster"
 // Kinds returns the operation kinds this service runs.
 func (s *Service) Kinds() map[string]jobs.Kind {
 	return map[string]jobs.Kind{
-		KindSharedCluster: {Handler: s.runSharedCluster, OnFail: s.failSharedCluster, MaxAttempts: 3},
-		KindPromote:       {Handler: s.runPromote, OnFail: s.failPromote, MaxAttempts: 2, Timeout: 12 * time.Hour},
-		KindDemote:        {Handler: s.runDemote, OnFail: s.failDemote, MaxAttempts: 2, Timeout: 12 * time.Hour},
-		KindMove:          {Handler: s.runMove, OnFail: s.failMove, MaxAttempts: 2, Timeout: 48 * time.Hour},
-		KindUpgrade:       {Handler: s.runMove, OnFail: s.failMove, MaxAttempts: 2, Timeout: 48 * time.Hour},
-		KindHAEnable:      {Handler: s.runHAEnable, OnFail: s.failHAEnable, MaxAttempts: 2, Timeout: 24 * time.Hour},
-		KindHADisable:     {Handler: s.runHADisable, MaxAttempts: 3},
-		KindHASwitchover:  {Handler: s.runSwitchover, MaxAttempts: 1, Timeout: 5 * time.Minute},
-		KindHAEtcdMove:    {Handler: s.runHAEtcdMove, MaxAttempts: 2, Timeout: 24 * time.Hour},
-		KindCreateReplica: {Handler: s.runCreateReplica, OnFail: s.failCreateReplica, MaxAttempts: 2, Timeout: 24 * time.Hour},
-		KindDeleteReplica: {Handler: s.runDeleteReplica, MaxAttempts: 3},
-		KindDetachReplica: {Handler: s.runDetachReplica, OnFail: s.failDetachReplica, MaxAttempts: 2, Timeout: 6 * time.Hour},
+		KindSharedCluster:     {Handler: s.runSharedCluster, OnFail: s.failSharedCluster, MaxAttempts: 3},
+		KindPromote:           {Handler: s.runPromote, OnFail: s.failPromote, MaxAttempts: 2, Timeout: 12 * time.Hour},
+		KindDemote:            {Handler: s.runDemote, OnFail: s.failDemote, MaxAttempts: 2, Timeout: 12 * time.Hour},
+		KindMove:              {Handler: s.runMove, OnFail: s.failMove, MaxAttempts: 2, Timeout: 48 * time.Hour},
+		KindUpgrade:           {Handler: s.runMove, OnFail: s.failMove, MaxAttempts: 2, Timeout: 48 * time.Hour},
+		KindHAEnable:          {Handler: s.runHAEnable, OnFail: s.failHAEnable, MaxAttempts: 2, Timeout: 24 * time.Hour},
+		KindHADisable:         {Handler: s.runHADisable, MaxAttempts: 3},
+		KindHASwitchover:      {Handler: s.runSwitchover, MaxAttempts: 1, Timeout: 5 * time.Minute},
+		KindHAEtcdMove:        {Handler: s.runHAEtcdMove, MaxAttempts: 2, Timeout: 24 * time.Hour},
+		KindRegionEtcdMoveAll: {Handler: s.runRegionEtcdMoveAll, MaxAttempts: 1, Timeout: 7 * 24 * time.Hour},
+		KindCreateReplica:     {Handler: s.runCreateReplica, OnFail: s.failCreateReplica, MaxAttempts: 2, Timeout: 24 * time.Hour},
+		KindDeleteReplica:     {Handler: s.runDeleteReplica, MaxAttempts: 3},
+		KindDetachReplica:     {Handler: s.runDetachReplica, OnFail: s.failDetachReplica, MaxAttempts: 2, Timeout: 6 * time.Hour},
+		KindResize:            {Handler: s.runResize, OnFail: s.failResize, MaxAttempts: 2, Timeout: 2 * time.Hour},
 	}
 }
 
@@ -74,11 +76,11 @@ func sharedSpec(inst store.Instance, secret provision.AdminSecret) agentapi.Inst
 
 // checkPGVersion resolves a requested major against the supported ones
 // (without a projects service, as in unit tests, it takes v as given).
-func (s *Service) checkPGVersion(v int) (int, error) {
+func (s *Service) checkPGVersion(ctx context.Context, v int) (int, error) {
 	if s.projects == nil {
 		return v, nil
 	}
-	return s.projects.CheckPGVersion(v)
+	return s.projects.CheckVersion(ctx, v, provision.ForCluster)
 }
 
 // AddSharedCluster records a shared cluster on node and queues its
@@ -112,7 +114,7 @@ func (s *Service) AddSharedCluster(ctx context.Context, nodeID uuid.UUID, memory
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		if pgVersion, err = s.checkPGVersion(pgVersion); err != nil {
+		if pgVersion, err = s.checkPGVersion(ctx, pgVersion); err != nil {
 			return err
 		}
 		mem := int32(memoryMB)

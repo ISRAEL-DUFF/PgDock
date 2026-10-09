@@ -90,3 +90,25 @@ id = "webhooks-jobs"
 name = "Webhooks & jobs"
 region = "eu-central"
 heartbeat = true
+
+# Billing (V4.1): degraded while a payment provider is unreachable, or
+# when last month's invoices haven't issued by the 2nd.
+[[component]]
+id = "billing"
+name = "Billing & payments"
+heartbeat = true
+
+# Backend services, one line per region (V4.1): pgdock-server reports each
+# region's edges (degraded when some stop reporting, down when all do);
+# the probe checks the region's edge from outside. The worse of the two
+# is shown. Add one block per region, with that region's edge address.
+[[component]]
+id = "backend-services-eu-central"
+name = "Backend services"
+region = "eu-central"
+heartbeat = true
+heartbeat_id = "backend-services"
+  [[component.probe]]
+  name = "edge"
+  kind = "http"
+  url = "https://healthz.api.example.com/healthz"

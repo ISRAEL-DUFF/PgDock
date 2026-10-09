@@ -235,6 +235,47 @@ func (q *Queries) GetEtcdMember(ctx context.Context, nodeID uuid.UUID) (GetEtcdM
 	return i, err
 }
 
+const hAOnOtherEtcd = `-- name: HAOnOtherEtcd :many
+SELECT p.id, p.name, p.org_id, coalesce(nullif(i.etcd_region, ''), n.region)::text AS etcd_region
+FROM projects p JOIN instances i ON i.id = p.instance_id JOIN nodes n ON n.id = i.node_id
+WHERE p.region = $1 AND p.deleted_at IS NULL AND i.deleted_at IS NULL AND i.patroni
+  AND coalesce(nullif(i.etcd_region, ''), n.region) <> $1
+ORDER BY p.created_at
+`
+
+type HAOnOtherEtcdRow struct {
+	ID         uuid.UUID
+	Name       string
+	OrgID      uuid.UUID
+	EtcdRegion string
+}
+
+// tenant: system - a region's projects under Patroni whose state is in another region's etcd cluster (V3.1 §3.3).
+func (q *Queries) HAOnOtherEtcd(ctx context.Context, region string) ([]HAOnOtherEtcdRow, error) {
+	rows, err := q.db.Query(ctx, hAOnOtherEtcd, region)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []HAOnOtherEtcdRow
+	for rows.Next() {
+		var i HAOnOtherEtcdRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.OrgID,
+			&i.EtcdRegion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertEtcdMember = `-- name: InsertEtcdMember :exec
 INSERT INTO etcd_members (node_id, name, client_url, peer_url, region) VALUES ($1, $2, $3, $4, $5)
 `
@@ -342,6 +383,39 @@ func (q *Queries) InsertInstanceMember(ctx context.Context, arg InsertInstanceMe
 		&i.CreatedAt,
 		&i.DeletedAt,
 		&i.Replica,
+	)
+	return i, err
+}
+
+const latestRegionOperation = `-- name: LatestRegionOperation :one
+SELECT id, kind, project_id, params, status, attempts, run_after, locked_by, locked_at, log, error, created_by, created_at, finished_at FROM operations WHERE kind = $1 AND project_id IS NULL AND params->>'region' = $2::text
+ORDER BY created_at DESC LIMIT 1
+`
+
+type LatestRegionOperationParams struct {
+	Kind   string
+	Region string
+}
+
+// tenant: system - the newest platform operation of a kind for a region.
+func (q *Queries) LatestRegionOperation(ctx context.Context, arg LatestRegionOperationParams) (Operation, error) {
+	row := q.db.QueryRow(ctx, latestRegionOperation, arg.Kind, arg.Region)
+	var i Operation
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.ProjectID,
+		&i.Params,
+		&i.Status,
+		&i.Attempts,
+		&i.RunAfter,
+		&i.LockedBy,
+		&i.LockedAt,
+		&i.Log,
+		&i.Error,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.FinishedAt,
 	)
 	return i, err
 }
@@ -801,6 +875,64 @@ func (q *Queries) RecordAvailability(ctx context.Context, arg RecordAvailability
 		arg.Excluded,
 	)
 	return err
+}
+
+const regionPoolerHosts = `-- name: RegionPoolerHosts :many
+SELECT id, name, private_addr, agent_port, role, agent_cert_fp, pg_admin_secret, capacity, status, last_heartbeat, created_at, agent_host, agent_version, registration_token, registration_expires_at, last_reachable_at, provider_server_id, pooler_generation, pooler_hash, pooler_vrrp_state, pooler_ready, pooler_checked_at, provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle, empty_since, keep, failure_domain, placement_group FROM nodes WHERE role = 'pooler' AND status <> 'removed' AND region = $1 ORDER BY name
+`
+
+// tenant: system - platform infrastructure (a region's pooler hosts).
+func (q *Queries) RegionPoolerHosts(ctx context.Context, region string) ([]Node, error) {
+	rows, err := q.db.Query(ctx, regionPoolerHosts, region)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Node
+	for rows.Next() {
+		var i Node
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.PrivateAddr,
+			&i.AgentPort,
+			&i.Role,
+			&i.AgentCertFp,
+			&i.PgAdminSecret,
+			&i.Capacity,
+			&i.Status,
+			&i.LastHeartbeat,
+			&i.CreatedAt,
+			&i.AgentHost,
+			&i.AgentVersion,
+			&i.RegistrationToken,
+			&i.RegistrationExpiresAt,
+			&i.LastReachableAt,
+			&i.ProviderServerID,
+			&i.PoolerGeneration,
+			&i.PoolerHash,
+			&i.PoolerVrrpState,
+			&i.PoolerReady,
+			&i.PoolerCheckedAt,
+			&i.Provider,
+			&i.Region,
+			&i.ServerType,
+			&i.MonthlyCostMinor,
+			&i.CostCurrency,
+			&i.Lifecycle,
+			&i.EmptySince,
+			&i.Keep,
+			&i.FailureDomain,
+			&i.PlacementGroup,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const sLAProbeTargets = `-- name: SLAProbeTargets :many

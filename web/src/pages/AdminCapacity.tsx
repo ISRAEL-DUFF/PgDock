@@ -447,6 +447,7 @@ function SettingsPanel({
     }
   };
   const num = (v: string) => (v === "" ? 0 : Number(v));
+  const edge = s.edge ?? { enabled: true, cpu_threshold: 70 };
   return (
     <SidePanel
       open={open}
@@ -621,6 +622,51 @@ function SettingsPanel({
             />
           )}
         </Field>
+        <h3 className="text-[14px]">Edge tier</h3>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={edge.enabled}
+            onChange={(e) =>
+              setS({ ...s, edge: { ...edge, enabled: e.target.checked } })
+            }
+          />{" "}
+          Propose an edge node when a region's edges stay busy for an hour
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <Field
+            label="Edge CPU threshold (%)"
+            hint="The edges' average share of their hosts' CPUs."
+          >
+            {(id) => (
+              <Input
+                id={id}
+                inputMode="numeric"
+                value={String(edge.cpu_threshold ?? 70)}
+                onChange={(e) =>
+                  setS({
+                    ...s,
+                    edge: { ...edge, cpu_threshold: num(e.target.value) },
+                  })
+                }
+              />
+            )}
+          </Field>
+          <Field label="Server type">
+            {(id) => (
+              <Input
+                id={id}
+                value={edge.server_type ?? ""}
+                onChange={(e) =>
+                  setS({
+                    ...s,
+                    edge: { ...edge, server_type: e.target.value },
+                  })
+                }
+              />
+            )}
+          </Field>
+        </div>
         <h3 className="text-[14px]">Rebalancing and empty nodes</h3>
         <label className="flex items-center gap-2 text-sm">
           <input

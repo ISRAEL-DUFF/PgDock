@@ -717,7 +717,7 @@ function ContactsPanel({ org }: { org: string }) {
   return (
     <Panel
       title="Billing contacts"
-      description="Invoices and payment emails go here. With none, they go to the owners and billing members."
+      description="Invoices and payment emails go here. With none, they go to the owners and billing members. On a paid plan, contacts with status page emails on (and the owners) are emailed about incidents affecting the organisation's projects; each email has an unsubscribe link."
       testId="billing-contacts"
     >
       <div className="flex flex-col gap-3">
@@ -728,15 +728,38 @@ function ContactsPanel({ org }: { org: string }) {
             data-testid="billing-contact"
           >
             <span>{c.email}</span>
-            <Button
-              size="small"
-              onClick={async () => {
-                await api.removeBillingContact(org, c.email);
-                await refresh();
-              }}
-            >
-              Remove
-            </Button>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-xs text-fg-muted">
+                <input
+                  type="checkbox"
+                  checked={c.status_emails ?? true}
+                  onChange={async (e) => {
+                    setErr(null);
+                    try {
+                      await api.updateBillingContact(
+                        org,
+                        c.email,
+                        e.target.checked,
+                      );
+                      await refresh();
+                    } catch (x) {
+                      setErr(errorMessage(x));
+                    }
+                  }}
+                  data-testid="status-emails"
+                />
+                Status page emails
+              </label>
+              <Button
+                size="small"
+                onClick={async () => {
+                  await api.removeBillingContact(org, c.email);
+                  await refresh();
+                }}
+              >
+                Remove
+              </Button>
+            </div>
           </div>
         ))}
         <form

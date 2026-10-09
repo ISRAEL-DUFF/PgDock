@@ -36,7 +36,7 @@ func (q *Queries) AnnouncedMaintenanceFor(ctx context.Context, arg AnnouncedMain
 const cancelMaintenance = `-- name: CancelMaintenance :one
 UPDATE incidents SET cancelled_at = now(), status = 'resolved', resolved_at = now(), updated_at = now()
 WHERE id = $1 AND severity = 'maintenance' AND announced_at IS NOT NULL AND cancelled_at IS NULL AND resolved_at IS NULL
-RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces
+RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces, proposed_for
 `
 
 // tenant: system - a maintenance announcement called off.
@@ -61,6 +61,40 @@ func (q *Queries) CancelMaintenance(ctx context.Context, id uuid.UUID) (Incident
 		&i.AnnouncedAt,
 		&i.CancelledAt,
 		&i.Replaces,
+		&i.ProposedFor,
+	)
+	return i, err
+}
+
+const confirmDraft = `-- name: ConfirmDraft :one
+UPDATE incidents SET status = 'identified', announced_at = now(), pushed_at = NULL, updated_at = now()
+WHERE id = $1 AND status = 'draft' AND scheduled_start > now()
+RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces, proposed_for
+`
+
+// tenant: system - a draft announced: from now its notice counts.
+func (q *Queries) ConfirmDraft(ctx context.Context, id uuid.UUID) (Incident, error) {
+	row := q.db.QueryRow(ctx, confirmDraft, id)
+	var i Incident
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Components,
+		&i.RegionID,
+		&i.Severity,
+		&i.Status,
+		&i.StartedAt,
+		&i.ResolvedAt,
+		&i.CreatedBy,
+		&i.PushedAt,
+		&i.PushError,
+		&i.UpdatedAt,
+		&i.ScheduledStart,
+		&i.ScheduledEnd,
+		&i.AnnouncedAt,
+		&i.CancelledAt,
+		&i.Replaces,
+		&i.ProposedFor,
 	)
 	return i, err
 }
@@ -88,8 +122,55 @@ func (q *Queries) DedicatedNodeHealth(ctx context.Context) (DedicatedNodeHealthR
 	return i, err
 }
 
+const discardDraft = `-- name: DiscardDraft :one
+UPDATE incidents SET status = 'resolved', resolved_at = now(), cancelled_at = now(), updated_at = now()
+WHERE id = $1 AND status = 'draft'
+RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces, proposed_for
+`
+
+// tenant: system - a draft thrown away; the work it was for keeps waiting.
+func (q *Queries) DiscardDraft(ctx context.Context, id uuid.UUID) (Incident, error) {
+	row := q.db.QueryRow(ctx, discardDraft, id)
+	var i Incident
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Components,
+		&i.RegionID,
+		&i.Severity,
+		&i.Status,
+		&i.StartedAt,
+		&i.ResolvedAt,
+		&i.CreatedBy,
+		&i.PushedAt,
+		&i.PushError,
+		&i.UpdatedAt,
+		&i.ScheduledStart,
+		&i.ScheduledEnd,
+		&i.AnnouncedAt,
+		&i.CancelledAt,
+		&i.Replaces,
+		&i.ProposedFor,
+	)
+	return i, err
+}
+
+const expireDrafts = `-- name: ExpireDrafts :execrows
+UPDATE incidents SET status = 'resolved', resolved_at = now(), cancelled_at = now(), updated_at = now()
+WHERE status = 'draft' AND scheduled_start <= $1::timestamptz
+`
+
+// tenant: system - drafts whose window started unconfirmed.
+func (q *Queries) ExpireDrafts(ctx context.Context, at time.Time) (int64, error) {
+	result, err := q.db.Exec(ctx, expireDrafts, at)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getIncident = `-- name: GetIncident :one
-SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces FROM incidents WHERE id = $1
+SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces, proposed_for FROM incidents WHERE id = $1
 `
 
 func (q *Queries) GetIncident(ctx context.Context, id uuid.UUID) (Incident, error) {
@@ -113,6 +194,7 @@ func (q *Queries) GetIncident(ctx context.Context, id uuid.UUID) (Incident, erro
 		&i.AnnouncedAt,
 		&i.CancelledAt,
 		&i.Replaces,
+		&i.ProposedFor,
 	)
 	return i, err
 }
@@ -191,7 +273,7 @@ const insertIncident = `-- name: InsertIncident :one
 
 INSERT INTO incidents (title, components, region_id, severity, status, created_by)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces
+RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces, proposed_for
 `
 
 type InsertIncidentParams struct {
@@ -232,6 +314,7 @@ func (q *Queries) InsertIncident(ctx context.Context, arg InsertIncidentParams) 
 		&i.AnnouncedAt,
 		&i.CancelledAt,
 		&i.Replaces,
+		&i.ProposedFor,
 	)
 	return i, err
 }
@@ -288,7 +371,7 @@ const insertMaintenance = `-- name: InsertMaintenance :one
 
 INSERT INTO incidents (title, components, region_id, severity, status, created_by, started_at, scheduled_start, scheduled_end, announced_at, replaces)
 VALUES ($1, $2, $3, 'maintenance', 'identified', $4, $5, $5, $6, now(), $7)
-RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces
+RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces, proposed_for
 `
 
 type InsertMaintenanceParams struct {
@@ -332,12 +415,61 @@ func (q *Queries) InsertMaintenance(ctx context.Context, arg InsertMaintenancePa
 		&i.AnnouncedAt,
 		&i.CancelledAt,
 		&i.Replaces,
+		&i.ProposedFor,
+	)
+	return i, err
+}
+
+const insertMaintenanceDraft = `-- name: InsertMaintenanceDraft :one
+INSERT INTO incidents (title, components, region_id, severity, status, started_at, scheduled_start, scheduled_end, proposed_for)
+VALUES ($1, $2, NULL, 'maintenance', 'draft', $3, $3, $4, $5)
+RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces, proposed_for
+`
+
+type InsertMaintenanceDraftParams struct {
+	Title          string
+	Components     []string
+	ScheduledStart time.Time
+	ScheduledEnd   *time.Time
+	ProposedFor    *string
+}
+
+// tenant: system - maintenance PGDock proposes; not announced until confirmed.
+func (q *Queries) InsertMaintenanceDraft(ctx context.Context, arg InsertMaintenanceDraftParams) (Incident, error) {
+	row := q.db.QueryRow(ctx, insertMaintenanceDraft,
+		arg.Title,
+		arg.Components,
+		arg.ScheduledStart,
+		arg.ScheduledEnd,
+		arg.ProposedFor,
+	)
+	var i Incident
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Components,
+		&i.RegionID,
+		&i.Severity,
+		&i.Status,
+		&i.StartedAt,
+		&i.ResolvedAt,
+		&i.CreatedBy,
+		&i.PushedAt,
+		&i.PushError,
+		&i.UpdatedAt,
+		&i.ScheduledStart,
+		&i.ScheduledEnd,
+		&i.AnnouncedAt,
+		&i.CancelledAt,
+		&i.Replaces,
+		&i.ProposedFor,
 	)
 	return i, err
 }
 
 const listIncidents = `-- name: ListIncidents :many
-SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces FROM incidents ORDER BY (resolved_at IS NULL) DESC, started_at DESC LIMIT $1
+SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces, proposed_for FROM incidents WHERE NOT (severity = 'maintenance' AND announced_at IS NULL)
+ORDER BY (resolved_at IS NULL) DESC, started_at DESC LIMIT $1
 `
 
 func (q *Queries) ListIncidents(ctx context.Context, lim int32) ([]Incident, error) {
@@ -367,6 +499,7 @@ func (q *Queries) ListIncidents(ctx context.Context, lim int32) ([]Incident, err
 			&i.AnnouncedAt,
 			&i.CancelledAt,
 			&i.Replaces,
+			&i.ProposedFor,
 		); err != nil {
 			return nil, err
 		}
@@ -379,7 +512,7 @@ func (q *Queries) ListIncidents(ctx context.Context, lim int32) ([]Incident, err
 }
 
 const listMaintenance = `-- name: ListMaintenance :many
-SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces FROM incidents WHERE announced_at IS NOT NULL AND scheduled_end >= $1::timestamptz
+SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces, proposed_for FROM incidents WHERE (announced_at IS NOT NULL OR proposed_for IS NOT NULL) AND scheduled_end >= $1::timestamptz
 ORDER BY scheduled_start DESC LIMIT $2
 `
 
@@ -416,6 +549,7 @@ func (q *Queries) ListMaintenance(ctx context.Context, arg ListMaintenanceParams
 			&i.AnnouncedAt,
 			&i.CancelledAt,
 			&i.Replaces,
+			&i.ProposedFor,
 		); err != nil {
 			return nil, err
 		}
@@ -430,7 +564,7 @@ func (q *Queries) ListMaintenance(ctx context.Context, arg ListMaintenanceParams
 const maintenanceDone = `-- name: MaintenanceDone :many
 UPDATE incidents SET status = 'resolved', resolved_at = scheduled_end, updated_at = now()
 WHERE severity = 'maintenance' AND announced_at IS NOT NULL AND resolved_at IS NULL AND scheduled_end <= $1::timestamptz
-RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces
+RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces, proposed_for
 `
 
 // tenant: system - announced maintenance whose window has ended.
@@ -461,6 +595,7 @@ func (q *Queries) MaintenanceDone(ctx context.Context, at time.Time) ([]Incident
 			&i.AnnouncedAt,
 			&i.CancelledAt,
 			&i.Replaces,
+			&i.ProposedFor,
 		); err != nil {
 			return nil, err
 		}
@@ -502,6 +637,74 @@ func (q *Queries) MaintenanceOrgEmails(ctx context.Context, incidentID uuid.UUID
 	return items, nil
 }
 
+const maintenancePlannedFor = `-- name: MaintenancePlannedFor :one
+SELECT EXISTS (
+  SELECT 1 FROM incidents i, projects p
+  WHERE p.id = $1 AND i.severity = 'maintenance' AND i.scheduled_end > $2::timestamptz
+    AND (i.announced_at IS NOT NULL OR i.status = 'draft' OR i.proposed_for IS NOT NULL)
+    AND (i.cancelled_at IS NULL OR (i.announced_at IS NULL AND i.scheduled_start = $3::timestamptz))
+    AND maintenance_covers(i, p))::bool
+`
+
+type MaintenancePlannedForParams struct {
+	ProjectID   uuid.UUID
+	Now         time.Time
+	WindowStart time.Time
+}
+
+// tenant: system - whether a project already has maintenance ahead (announced, or a draft), or had a draft for that window discarded.
+func (q *Queries) MaintenancePlannedFor(ctx context.Context, arg MaintenancePlannedForParams) (bool, error) {
+	row := q.db.QueryRow(ctx, maintenancePlannedFor, arg.ProjectID, arg.Now, arg.WindowStart)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const maintenanceRecipients = `-- name: MaintenanceRecipients :many
+SELECT DISTINCT m.org_id, u.email::text AS email FROM users u
+JOIN org_members m ON m.user_id = u.id AND m.role IN ('owner', 'admin')
+JOIN projects p ON p.org_id = m.org_id AND p.deleted_at IS NULL
+WHERE u.disabled_at IS NULL AND (
+  CASE WHEN cardinality($1::uuid[]) + cardinality($2::uuid[]) > 0 THEN
+    p.id = ANY($1::uuid[])
+    OR EXISTS (SELECT 1 FROM instance_members im WHERE im.instance_id = p.instance_id AND im.deleted_at IS NULL AND im.node_id = ANY($2::uuid[]))
+    OR (SELECT n.node_id FROM instances n WHERE n.id = p.instance_id) = ANY($2::uuid[])
+  ELSE $3::text IS NULL OR p.region = $3::text END)
+ORDER BY email
+`
+
+type MaintenanceRecipientsParams struct {
+	ProjectIds []uuid.UUID
+	NodeIds    []uuid.UUID
+	Region     *string
+}
+
+type MaintenanceRecipientsRow struct {
+	OrgID uuid.UUID
+	Email string
+}
+
+// tenant: system - who an announcement of this scope would reach: owners and admins of organisations with live projects it covers (as maintenance_covers).
+func (q *Queries) MaintenanceRecipients(ctx context.Context, arg MaintenanceRecipientsParams) ([]MaintenanceRecipientsRow, error) {
+	rows, err := q.db.Query(ctx, maintenanceRecipients, arg.ProjectIds, arg.NodeIds, arg.Region)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MaintenanceRecipientsRow
+	for rows.Next() {
+		var i MaintenanceRecipientsRow
+		if err := rows.Scan(&i.OrgID, &i.Email); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markIncidentPushFailed = `-- name: MarkIncidentPushFailed :exec
 UPDATE incidents SET push_error = $1 WHERE id = $2
 `
@@ -531,6 +734,43 @@ func (q *Queries) MarkIncidentPushed(ctx context.Context, arg MarkIncidentPushed
 	return err
 }
 
+const openDraftFor = `-- name: OpenDraftFor :one
+SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces, proposed_for FROM incidents WHERE status = 'draft' AND proposed_for = $1 AND scheduled_start = $2
+ORDER BY started_at, id LIMIT 1
+`
+
+type OpenDraftForParams struct {
+	ProposedFor    *string
+	ScheduledStart *time.Time
+}
+
+// tenant: system - the open draft proposed for a window and a reason, to add projects to.
+func (q *Queries) OpenDraftFor(ctx context.Context, arg OpenDraftForParams) (Incident, error) {
+	row := q.db.QueryRow(ctx, openDraftFor, arg.ProposedFor, arg.ScheduledStart)
+	var i Incident
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Components,
+		&i.RegionID,
+		&i.Severity,
+		&i.Status,
+		&i.StartedAt,
+		&i.ResolvedAt,
+		&i.CreatedBy,
+		&i.PushedAt,
+		&i.PushError,
+		&i.UpdatedAt,
+		&i.ScheduledStart,
+		&i.ScheduledEnd,
+		&i.AnnouncedAt,
+		&i.CancelledAt,
+		&i.Replaces,
+		&i.ProposedFor,
+	)
+	return i, err
+}
+
 const overdueJobs = `-- name: OverdueJobs :one
 SELECT count(*) FROM scheduled_jobs j JOIN projects p ON p.id = j.project_id
 WHERE j.enabled AND j.next_run_at < now() - interval '5 minutes' AND p.deleted_at IS NULL
@@ -546,10 +786,12 @@ func (q *Queries) OverdueJobs(ctx context.Context) (int64, error) {
 }
 
 const unpushedIncidents = `-- name: UnpushedIncidents :many
-SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces FROM incidents WHERE pushed_at IS NULL ORDER BY updated_at LIMIT 20
+SELECT id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces, proposed_for FROM incidents WHERE pushed_at IS NULL AND NOT (severity = 'maintenance' AND announced_at IS NULL)
+ORDER BY updated_at LIMIT 20
 `
 
 // Changed since the last push (or never pushed), oldest change first.
+// Maintenance drafts (never announced) stay off the status page.
 func (q *Queries) UnpushedIncidents(ctx context.Context) ([]Incident, error) {
 	rows, err := q.db.Query(ctx, unpushedIncidents)
 	if err != nil {
@@ -577,6 +819,7 @@ func (q *Queries) UnpushedIncidents(ctx context.Context) ([]Incident, error) {
 			&i.AnnouncedAt,
 			&i.CancelledAt,
 			&i.Replaces,
+			&i.ProposedFor,
 		); err != nil {
 			return nil, err
 		}
@@ -592,7 +835,7 @@ const updateIncident = `-- name: UpdateIncident :one
 UPDATE incidents SET title = $1, components = $2, region_id = $3, severity = $4,
   status = $5, resolved_at = $6, pushed_at = NULL, updated_at = now()
 WHERE id = $7
-RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces
+RETURNING id, title, components, region_id, severity, status, started_at, resolved_at, created_by, pushed_at, push_error, updated_at, scheduled_start, scheduled_end, announced_at, cancelled_at, replaces, proposed_for
 `
 
 type UpdateIncidentParams struct {
@@ -635,6 +878,7 @@ func (q *Queries) UpdateIncident(ctx context.Context, arg UpdateIncidentParams) 
 		&i.AnnouncedAt,
 		&i.CancelledAt,
 		&i.Replaces,
+		&i.ProposedFor,
 	)
 	return i, err
 }

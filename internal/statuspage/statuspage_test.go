@@ -165,7 +165,8 @@ heartbeat = true
 	for name, bad := range map[string]string{
 		"unknown key":   good + "\nbogus = 1\n",
 		"short secret":  strings.Replace(good, "0123456789abcdef0123456789abcdef", "short", 1),
-		"both":          good + "\n[[component.probe]]\nkind = \"tcp\"\naddr = \"x:1\"\n",
+		"neither":       good + "\n[[component]]\nid = \"nothing\"\n",
+		"heartbeat_id":  good + "\n[[component]]\nid = \"x\"\nheartbeat_id = \"y\"\n  [[component.probe]]\n  kind = \"tcp\"\n  addr = \"x:1\"\n",
 		"no public url": strings.Replace(good, `public_url = "https://status.example.com/"`, "", 1),
 		"bad kind":      strings.Replace(good, `kind = "postgres"`, `kind = "ping"`, 1),
 		"duplicate id":  strings.Replace(good, `id = "backups"`, `id = "edge-pooler"`, 1),
@@ -565,4 +566,44 @@ func getBody(t *testing.T, u string) string {
 	defer func() { _ = resp.Body.Close() }()
 	b, _ := io.ReadAll(resp.Body)
 	return string(b)
+}
+
+func TestHeartbeatStatesByRegion(t *testing.T) {
+	s := &Service{cfg: &Config{Components: []Component{
+		{ID: "backups", Region: "eu-central", Heartbeat: true, HeartbeatID: "backups"},
+		{ID: "api-eu", Region: "eu-central", Heartbeat: true, HeartbeatID: "backend-services"},
+		{ID: "api-lagos", Region: "lagos", Heartbeat: true, HeartbeatID: "backend-services"},
+		{ID: "api-acc", Region: "accra", Heartbeat: true, HeartbeatID: "backend-services"},
+	}}}
+	got := s.heartbeatStates(statusapi.Heartbeat{Components: []statusapi.ComponentState{
+		{ID: "backups", Status: statusapi.Degraded},
+		{ID: "backend-services", Region: "eu-central", Status: statusapi.Operational},
+		{ID: "backend-services", Region: "lagos", Status: statusapi.Down},
+	}})
+	if got["backups"].Status != statusapi.Degraded || got["api-eu"].Status != statusapi.Operational || got["api-lagos"].Status != statusapi.Down {
+		t.Fatalf("states: %+v", got)
+	}
+	if _, ok := got["api-acc"]; ok {
+		t.Fatalf("a region with no report got one: %+v", got["api-acc"])
+	}
+}
+
+func TestConcerns(t *testing.T) {
+	in := statusapi.Incident{Components: []string{"shared-tier"}, Region: "lagos"}
+	for _, c := range []struct {
+		comps, regions []string
+		want           bool
+	}{
+		{[]string{"shared-tier"}, []string{"lagos"}, true},
+		{[]string{"shared-tier"}, nil, true},
+		{[]string{"shared-tier"}, []string{"eu-central"}, false},
+		{[]string{"dedicated"}, []string{"lagos"}, false},
+	} {
+		if got := concerns(in, c.comps, c.regions); got != c.want {
+			t.Errorf("concerns(%v, %v) = %v", c.comps, c.regions, got)
+		}
+	}
+	if !concerns(statusapi.Incident{Components: []string{"dedicated"}}, []string{"dedicated"}, []string{"eu-central"}) {
+		t.Error("an incident with no region concerns every region")
+	}
 }

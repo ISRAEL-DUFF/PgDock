@@ -1476,11 +1476,17 @@ paths:
           $ref: "#/components/responses/Error"
     patch:
       operationId: updateProjectInstance
-      summary: Change a dedicated project's instance settings
+      summary: Change a dedicated project's instance (size, disk, recovery window)
       description: |
         The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
         as billed add-ons on Pro and Team. A longer window grows day by day
         from now; a shorter one drops the older base backups at the next one.
+
+        A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+        the instance restarts in a few seconds with the poolers holding
+        clients, or with HA a standby is resized and switched to. When its
+        node can't hold the new size, a `logical_move` to one that can is
+        queued instead (`plan.move_to`). The dedicated allowance applies.
       tags: [projects]
       parameters:
         - $ref: "#/components/parameters/ProjectID"
@@ -1492,11 +1498,11 @@ paths:
               $ref: "#/components/schemas/InstanceUpdate"
       responses:
         "200":
-          description: The instance.
+          description: The instance, with the queued resize or move if any.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InstanceSummary"
+                $ref: "#/components/schemas/InstanceUpdated"
         default:
           $ref: "#/components/responses/Error"
   /api/v1/profiles:
@@ -3337,6 +3343,26 @@ paths:
                 $ref: "#/components/schemas/OrgDeletion"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/incidents:
+    get:
+      operationId: listOrgIncidents
+      summary: Open incidents affecting the organisation's projects
+      description: >-
+        Open status page incidents whose components and region match one of
+        the organisation's projects, or that name one of its projects or the
+        nodes they run on (V4.1 §7.3). Public fields only.
+      tags: [orgs]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Matching incidents, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgIncidentList"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/orgs/{org}/members:
     get:
       operationId: listOrgMembers
@@ -3698,7 +3724,12 @@ paths:
   /api/v1/projects/{id}/services/logs:
     get:
       operationId: listAPIRequestLogs
-      summary: The API's request logs (7 days), newest first
+      summary: The API's request logs (7 days), newest first; with after, newer ones oldest first
+      description: >-
+        With after (a log id; 0 for "from now", which answers with no logs
+        and the cursor to follow from), returns the logs after it, oldest
+        first, waiting up to wait seconds for one (`pgdock logs api
+        --follow`). next is the cursor for the next call.
       tags: [services]
       parameters:
         - $ref: "#/components/parameters/ProjectID"
@@ -3708,6 +3739,31 @@ paths:
           schema:
             type: integer
             format: int64
+        - name: after
+          in: query
+          description: Follow from this log id.
+          schema:
+            type: integer
+            format: int64
+        - name: wait
+          in: query
+          description: With after, seconds to wait for a new log (at most 25).
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 25
+        - name: status
+          in: query
+          description: A status (404) or class (5xx, 4xx).
+          schema:
+            type: string
+            pattern: "^([1-5]xx|[1-5][0-9][0-9])$"
+        - name: path
+          in: query
+          description: Only requests whose path starts with this.
+          schema:
+            type: string
+            maxLength: 500
         - name: limit
           in: query
           schema:
@@ -3721,6 +3777,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiRequestLogList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/services/catalog:
+    get:
+      operationId: getServicesCatalog
+      summary: What the data API exposes, with row-level security, policies and access per table (the API docs)
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The catalog.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServicesCatalog"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/services/usage:
+    get:
+      operationId: getServicesUsage
+      summary: This month's backend-services usage, against the plan, and the charges that fall to the project
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The month so far.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServicesUsage"
         default:
           $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/services/types:
@@ -4862,6 +4950,41 @@ paths:
         default:
           $ref: "#/components/responses/Error"
   /api/v1/orgs/{org}/billing/contacts/{email}:
+    patch:
+      operationId: updateBillingContact
+      summary: Turn a billing contact's status page emails on or off
+      description: >-
+        Paying organisations' owners and billing contacts get the status page's
+        incident emails for the components and regions their projects use
+        (V4.1 §7.1). Turning them off removes the contact at the next hourly
+        sync.
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status_emails]
+              properties:
+                status_emails:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingContact"
+        default:
+          $ref: "#/components/responses/Error"
     delete:
       operationId: removeBillingContact
       summary: Remove a billing contact
@@ -7082,6 +7205,58 @@ paths:
                 $ref: "#/components/schemas/RegionList"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/pg-versions:
+    get:
+      operationId: listPgVersions
+      summary: Postgres majors and where each is in its life (V4.1 §6.1)
+      tags: [admin]
+      responses:
+        "200":
+          description: The majors.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PgVersionInfo"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/pg-versions/{major}:
+    patch:
+      operationId: updatePgVersion
+      summary: Promote, deprecate or retire a Postgres major
+      description: |
+        Deprecating sets a retirement date at least 180 days ahead and emails
+        the owners and admins of every organisation with a project on it
+        (again at 90, 30 and 7 days). Retiring early is refused while
+        projects are on it. Retired: no new projects; existing ones keep
+        running, unsupported.
+      tags: [admin]
+      parameters:
+        - name: major
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PgVersionUpdate"
+      responses:
+        "200":
+          description: The major.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PgVersionInfo"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/regions:
     get:
       operationId: listAdminRegions
@@ -7140,6 +7315,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RegionReadiness"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/regions/{region_id}/overview:
+    get:
+      operationId: getAdminRegionOverview
+      summary: A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1)
+      tags: [regions]
+      parameters:
+        - name: region_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The region.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegionOverview"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/regions/{region_id}/etcd-move-all:
+    post:
+      operationId: moveAllToRegionEtcd
+      summary: Move every HA project on another region's etcd onto this region's, one at a time
+      description: >-
+        Queues one operation that runs the per-project etcd moves in turn
+        (each pauses its own project for a few seconds); never two at once
+        in the region.
+      tags: [regions]
+      parameters:
+        - name: region_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
         default:
           $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/residency:
@@ -7865,6 +8084,73 @@ paths:
                 $ref: "#/components/schemas/MaintenanceAnnouncement"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/maintenance/announcements/preview:
+    post:
+      operationId: previewMaintenanceAnnouncement
+      summary: The email an announcement would send, and how many it reaches
+      description: >-
+        Rendered from the template the announcement uses (V4.1 §8.3): for a
+        draft (incident_id), the email confirming it sends; otherwise the
+        email announcing the given window and scope would send.
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MaintenancePreviewRequest"
+      responses:
+        "200":
+          description: The email.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenancePreview"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/maintenance/announcements/{incident_id}/confirm:
+    post:
+      operationId: confirmMaintenanceDraft
+      summary: Announce a maintenance draft PGDock proposed
+      description: Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
+      tags: [admin]
+      parameters:
+        - name: incident_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Announced.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceAnnouncement"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/maintenance/announcements/{incident_id}/discard:
+    post:
+      operationId: discardMaintenanceDraft
+      summary: Discard a maintenance draft; the work it was for keeps waiting
+      tags: [admin]
+      parameters:
+        - name: incident_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Discarded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceAnnouncement"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/maintenance/announcements/{incident_id}:
     delete:
       operationId: cancelMaintenance
@@ -8387,6 +8673,76 @@ components:
           enum: [info, warn, error]
         msg:
           type: string
+    RegionOverview:
+      type: object
+      required: [region, pooler_hosts, etcd_members, etcd_ready, ha_elsewhere]
+      properties:
+        region:
+          type: string
+        pooler_hosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegionPoolerHost"
+        pooler_pair_problem:
+          type: string
+          nullable: true
+          description: Set when the pair shares a failure domain (or one isn't set).
+        etcd_members:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegionEtcdMember"
+        etcd_ready:
+          type: boolean
+        etcd_problem:
+          type: string
+          nullable: true
+          description: Why the region's cluster can't take projects yet, when it can't.
+        ha_elsewhere:
+          type: array
+          description: The region's HA projects whose Patroni state is in another region's etcd cluster.
+          items:
+            $ref: "#/components/schemas/RegionHAElsewhere"
+        move_all:
+          $ref: "#/components/schemas/Operation"
+    RegionPoolerHost:
+      type: object
+      required: [id, name, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+        failure_domain:
+          type: string
+          nullable: true
+    RegionEtcdMember:
+      type: object
+      required: [node_id, node_name, status]
+      properties:
+        node_id:
+          type: string
+          format: uuid
+        node_name:
+          type: string
+        status:
+          type: string
+        failure_domain:
+          type: string
+          nullable: true
+    RegionHAElsewhere:
+      type: object
+      required: [project_id, name, etcd_region]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        etcd_region:
+          type: string
     Operation:
       type: object
       required: [id, kind, params, status, attempts, run_after, log, created_at]
@@ -8814,6 +9170,9 @@ components:
       type: object
       required: [name]
       properties:
+        preview:
+          type: boolean
+          description: Allow a Postgres major in preview (V4.1 §6.1).
         org_id:
           type: string
           format: uuid
@@ -8862,6 +9221,25 @@ components:
           type: string
         connection:
           $ref: "#/components/schemas/ConnectionInfo"
+        api:
+          $ref: "#/components/schemas/BranchApi"
+    BranchApi:
+      type: object
+      description: >-
+        A branch's own backend services API (V4.1 §9.5), when its parent has
+        them: a new ref and keys, shown once. The parent's keys and tokens
+        don't work on it.
+      required: [ref, publishable_key, secret_key]
+      properties:
+        ref:
+          type: string
+        url:
+          type: string
+          nullable: true
+        publishable_key:
+          type: string
+        secret_key:
+          type: string
     SessionState:
       type: object
       required: [authenticated, setup_required, csrf_token]
@@ -9094,6 +9472,12 @@ components:
           minimum: 0
           maximum: 720
           description: Hours until the branch deletes itself (1 to 720; 0 keeps it). Default 168.
+        copy_files:
+          type: boolean
+          description: >-
+            With backend services: copy the parent's stored files into the
+            branch, in the background (counted against the organisation's file
+            storage). Without it, the copied file records have no bytes.
     BranchResetRequest:
       type: object
       properties:
@@ -10220,6 +10604,13 @@ components:
           description: Announced less than 72 hours ahead, so minutes before excluded_from count.
         emailed:
           type: integer
+        draft:
+          type: boolean
+          description: Proposed by PGDock and not announced yet; confirm or discard it.
+        proposed_for:
+          type: string
+          nullable: true
+          description: What PGDock proposed it for (minor_upgrade).
         scope_projects:
           type: array
           items:
@@ -10230,6 +10621,47 @@ components:
           items:
             type: string
             format: uuid
+    MaintenancePreviewRequest:
+      type: object
+      properties:
+        incident_id:
+          type: string
+          format: uuid
+          description: A draft to preview; the other fields are then ignored.
+        title:
+          type: string
+        body:
+          type: string
+        region:
+          type: string
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        project_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        node_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+    MaintenancePreview:
+      type: object
+      required: [subject, body, organisations, addresses]
+      properties:
+        subject:
+          type: string
+        body:
+          type: string
+        organisations:
+          type: integer
+        addresses:
+          type: integer
     MaintenanceAnnouncementList:
       type: object
       required: [items]
@@ -10340,6 +10772,17 @@ components:
         replica_reads:
           type: boolean
           description: Send publishable-key data API GETs to the read replicas without a Read-Replica header (V4 §7). Off by default.
+        cache_ttl_seconds:
+          type: object
+          additionalProperties:
+            type: integer
+          description: >-
+            Cache anonymous reads (publishable key, no user token) of these
+            tables ("schema.table") and stable functions ("rpc.name" or
+            "rpc.schema.name") on the edge for up to that many seconds, 1 to
+            3,600 (V4.1 §10). A TTL is a staleness budget: writes made
+            outside this edge's data API show within it. Sent whole: {}
+            turns caching off.
     AuthSettings:
       type: object
       properties:
@@ -11277,6 +11720,227 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ApiRequestLog"
+        next:
+          type: integer
+          format: int64
+          description: With after, the cursor to follow from next.
+    ServicesUsage:
+      type: object
+      required: [month, metrics]
+      properties:
+        month:
+          type: string
+          description: The month (UTC), as 2006-01.
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServicesUsageMetric"
+        charges:
+          type: array
+          nullable: true
+          description: >-
+            The month's charges so far, before VAT, that fall to the project:
+            its own lines, and of an allowance's overage the share its usage
+            is of the organisation's. Absent without billing, or to a caller
+            who can't see the organisation's billing.
+          items:
+            $ref: "#/components/schemas/ServiceCharge"
+    ServicesUsageMetric:
+      type: object
+      required: [metric, service, quantity, org_quantity]
+      properties:
+        metric:
+          type: string
+        service:
+          type: string
+          enum: [data_api, auth, messages, storage, realtime]
+        quantity:
+          type: number
+          description: The project's, this month.
+        org_quantity:
+          type: number
+          description: The organisation's, this month (allowances and limits are shared by its projects).
+        included:
+          type: number
+          nullable: true
+          description: The plan's allowance this month, above which usage is charged.
+        limit:
+          type: number
+          nullable: true
+          description: The plan's hard limit this month, at which the service stops.
+    ServiceCharge:
+      type: object
+      required: [service, amount_minor]
+      properties:
+        service:
+          type: string
+          enum: [plan, database, data_api, auth, messages, storage, realtime, read_replicas]
+        amount_minor:
+          type: integer
+          format: int64
+    ServicesCatalog:
+      type: object
+      required: [schemas, tables, functions]
+      properties:
+        ref:
+          type: string
+          description: The project's API ref (its URL's host), when services are on.
+        api_url:
+          type: string
+          nullable: true
+        schemas:
+          type: array
+          items:
+            type: string
+        tables:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogTable"
+        functions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogFunction"
+    CatalogTable:
+      type: object
+      required: [schema, name, kind, rls, public, columns, primary_key, foreign_keys, referenced_by, policies, access]
+      properties:
+        schema:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [table, view, materialized_view, foreign_table]
+        rls:
+          type: boolean
+        public:
+          type: boolean
+          description: Marked public; anyone with the publishable key reads every row.
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogColumn"
+        primary_key:
+          type: array
+          items:
+            type: string
+        foreign_keys:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogForeignKey"
+        referenced_by:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogForeignKey"
+        policies:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogPolicy"
+        access:
+          type: object
+          description: The request roles' privileges (anon, user); row-level security then decides which rows.
+          additionalProperties:
+            $ref: "#/components/schemas/CatalogAccess"
+    CatalogColumn:
+      type: object
+      required: [name, type, nullable, identity, generated]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        nullable:
+          type: boolean
+        default:
+          type: string
+        identity:
+          type: boolean
+        generated:
+          type: boolean
+        enum:
+          type: array
+          items:
+            type: string
+    CatalogForeignKey:
+      type: object
+      required: [name, columns, table, ref_columns, embed, multiple]
+      properties:
+        name:
+          type: string
+        columns:
+          type: array
+          items:
+            type: string
+        table:
+          type: string
+        ref_columns:
+          type: array
+          items:
+            type: string
+        embed:
+          type: string
+          description: The name to embed the other side with in a select.
+        multiple:
+          type: boolean
+    CatalogPolicy:
+      type: object
+      required: [name, command, permissive, roles]
+      properties:
+        name:
+          type: string
+        command:
+          type: string
+        permissive:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+          description: anon, user, service, everyone, or a database role.
+        using:
+          type: string
+        check:
+          type: string
+    CatalogAccess:
+      type: object
+      required: [select, insert, update, delete]
+      properties:
+        select:
+          type: boolean
+        insert:
+          type: boolean
+        update:
+          type: boolean
+        delete:
+          type: boolean
+    CatalogFunction:
+      type: object
+      required: [schema, name, args, returns, returns_set, volatility, security_definer]
+      properties:
+        schema:
+          type: string
+        name:
+          type: string
+        args:
+          type: array
+          items:
+            type: object
+            required: [name, type, optional]
+            properties:
+              name:
+                type: string
+              type:
+                type: string
+              optional:
+                type: boolean
+        returns:
+          type: string
+        returns_set:
+          type: boolean
+        volatility:
+          type: string
+        security_definer:
+          type: boolean
     OutageMinute:
       type: object
       required: [minute]
@@ -11321,6 +11985,58 @@ components:
         pitr_days:
           type: integer
           enum: [7, 14, 30]
+        profile:
+          type: string
+          description: A size from GET /profiles, in place of cpus and memory_mb.
+        cpus:
+          type: number
+          minimum: 0.25
+          maximum: 64
+        memory_mb:
+          type: integer
+          minimum: 512
+          maximum: 262144
+        disk_gb:
+          type: integer
+          maximum: 16384
+          description: Up only; to shrink, move into a smaller instance.
+        dry_run:
+          type: boolean
+          description: Only say what a resize would do (in place, or a move to which node).
+    InstanceUpdated:
+      type: object
+      required: [instance]
+      properties:
+        instance:
+          $ref: "#/components/schemas/InstanceSummary"
+        operation:
+          $ref: "#/components/schemas/Operation"
+        plan:
+          $ref: "#/components/schemas/ResizePlan"
+    ResizePlan:
+      type: object
+      required: [from, to, restart]
+      properties:
+        from:
+          $ref: "#/components/schemas/InstanceSize"
+        to:
+          $ref: "#/components/schemas/InstanceSize"
+        restart:
+          type: boolean
+          description: The containers restart (a CPU or memory change); a disk change alone doesn't.
+        move_to:
+          type: string
+          description: The node the project moves to, when its own can't hold the new size.
+    InstanceSize:
+      type: object
+      required: [cpus, memory_mb, disk_gb]
+      properties:
+        cpus:
+          type: number
+        memory_mb:
+          type: integer
+        disk_gb:
+          type: integer
     InstanceSummary:
       type: object
       required: [id, kind, status, node_id, node_name, pg_version]
@@ -11334,6 +12050,14 @@ components:
         pitr_days:
           type: integer
           description: Dedicated only. The point-in-time recovery window in days (7, 14 or 30).
+        pg_version_status:
+          type: string
+          enum: [preview, supported, deprecated, retired]
+          description: Where its Postgres major is in its life (V4.1 §6.1).
+        pg_version_retires_at:
+          type: string
+          format: date-time
+          description: When its deprecated major retires.
         pg_release:
           type: string
           nullable: true
@@ -11434,11 +12158,54 @@ components:
           type: integer
         pg_versions:
           type: array
-          description: Supported Postgres major versions, oldest first (V3 §2.4).
+          description: Postgres majors open for new projects, oldest first (V3 §2.4); a preview needs `preview` on the create request.
           items:
             type: integer
         default_pg_version:
           type: integer
+        pg_version_lifecycle:
+          type: array
+          description: Where each major is in its life (V4.1 §6.1).
+          items:
+            $ref: "#/components/schemas/PgVersionInfo"
+    PgVersionInfo:
+      type: object
+      required: [major, status, notes, installed]
+      properties:
+        major:
+          type: integer
+        status:
+          type: string
+          enum: [preview, supported, deprecated, retired]
+          description: A deprecated major past its retirement date is retired.
+        deprecated_at:
+          type: string
+          format: date-time
+        retires_at:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        installed:
+          type: boolean
+          description: The server has an image for it (PGDOCK_PG_VERSIONS).
+        projects:
+          type: integer
+          description: Live projects on it (the admin list only).
+    PgVersionUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [preview, supported, deprecated, retired]
+        retires_at:
+          type: string
+          format: date-time
+          description: Required to deprecate, at least 180 days ahead.
+        notes:
+          type: string
+          maxLength: 2000
     CreateNodeRequest:
       type: object
       required: [name, private_addr, role]
@@ -11452,8 +12219,8 @@ components:
           example: 10.0.0.12
         role:
           type: string
-          enum: [shared, dedicated, both, pooler]
-          description: "pooler: an edge pooler host (both PgBouncers and keepalived), never given a database."
+          enum: [shared, dedicated, both, pooler, edge]
+          description: "pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11)."
         region:
           type: string
           description: The region the node is in (default the home region). A pooler host serves that region's projects.
@@ -11592,7 +12359,7 @@ components:
       properties:
         name:
           type: string
-          enum: [version, target, replication, schema, extensions]
+          enum: [version, target, replication, schema, extensions, deprecated]
         status:
           type: string
           enum: [ok, warning, blocked]
@@ -13108,7 +13875,8 @@ components:
       enum: [minor, major, critical, maintenance]
     IncidentStatus:
       type: string
-      enum: [investigating, identified, monitoring, resolved]
+      description: draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+      enum: [draft, investigating, identified, monitoring, resolved]
     Incident:
       type: object
       required: [id, title, components, severity, status, started_at, updated_at, updates]
@@ -13147,6 +13915,45 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/IncidentUpdate"
+    OrgIncidentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrgIncident"
+    OrgIncident:
+      type: object
+      required: [id, title, components, severity, status, started_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        components:
+          type: array
+          items:
+            type: string
+        region:
+          type: string
+          nullable: true
+        severity:
+          $ref: "#/components/schemas/IncidentSeverity"
+        status:
+          $ref: "#/components/schemas/IncidentStatus"
+        started_at:
+          type: string
+          format: date-time
+        latest_update:
+          type: string
+          nullable: true
+          description: The newest update's text.
+        url:
+          type: string
+          nullable: true
+          description: The incident on the status page, when one is configured.
     IncidentUpdate:
       type: object
       required: [id, status, body, posted_at]
@@ -13809,6 +14616,20 @@ components:
           format: date-time
           nullable: true
           description: Set while the organisation is being deleted.
+        billing_state:
+          type: string
+          nullable: true
+          enum: [overdue, restricted, suspended, payment_failed, null]
+          description: >-
+            The organisation's billing standing when it needs attention (V4.1
+            §7.3), shown to every member; amounts are on the billing page, for
+            owners and billing members.
+        budget_alert_percent:
+          type: integer
+          nullable: true
+          description: >-
+            The highest budget threshold (80 or 100) this month's spend has
+            reached; only for owners and billing members.
         break_glass:
           type: array
           description: Open break-glass sessions (V2 §2.4), shown to everyone in the organisation.
@@ -14993,6 +15814,9 @@ components:
         name:
           type: string
           nullable: true
+        status_emails:
+          type: boolean
+          description: Gets the status page's incident emails while the organisation is on a paid plan (default true).
     LegalDocument:
       type: object
       required: [id, kind, version, title, body_md, published_at]
@@ -15137,6 +15961,9 @@ components:
           type: integer
         cluster_memory_mb:
           type: integer
+        cpu_threshold:
+          type: number
+          description: "Edge: propose an edge node when a region's edges average above this percentage of their hosts' CPUs for an hour (70)."
     CapacitySettings:
       type: object
       required: [auto_apply, monthly_budget_minor, budget_currency, shared, dedicated, auto_rebalance, rebalance_spread, delete_empty_after_hours]
@@ -15151,6 +15978,8 @@ components:
         shared:
           $ref: "#/components/schemas/TierSettings"
         dedicated:
+          $ref: "#/components/schemas/TierSettings"
+        edge:
           $ref: "#/components/schemas/TierSettings"
         auto_rebalance:
           type: boolean
@@ -15169,7 +15998,7 @@ components:
           type: string
         tier:
           type: string
-          enum: [shared, dedicated]
+          enum: [shared, dedicated, edge]
         reason:
           type: string
         provider:
@@ -15525,6 +16354,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/UnitCost"
+        services:
+          type: array
+          description: Margins per service (V4.1 §11).
+          items:
+            $ref: "#/components/schemas/ServiceMargin"
         revenue_minor:
           type: integer
           format: int64
@@ -15544,6 +16378,25 @@ components:
           type: integer
           format: int64
         fx_erosion_minor:
+          type: integer
+          format: int64
+        margin_pct:
+          type: number
+    ServiceMargin:
+      type: object
+      required: [service, revenue_minor, cost_minor, margin_minor]
+      properties:
+        service:
+          type: string
+          enum: [database, api, files, messages]
+          description: "database: plans, hosting, backups and replicas; api: the data API, auth and realtime (the edges); files: storage; messages: platform SMS and WhatsApp."
+        revenue_minor:
+          type: integer
+          format: int64
+        cost_minor:
+          type: integer
+          format: int64
+        margin_minor:
           type: integer
           format: int64
         margin_pct:
@@ -15595,6 +16448,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Overhead"
+        edge_share_percent:
+          type: number
+          description: The share of shared nodes' cost moved to the edge category, where pgdock-edge runs on them (0 to 100, default 0).
     FXRate:
       type: object
       required: [id, currency, ngn_per_unit, effective_at, source]

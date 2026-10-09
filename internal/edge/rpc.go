@@ -125,15 +125,30 @@ func (e *Edge) rpc(c *call, req Request, name string) {
 		c.apiFail(asAPIError(err))
 		return
 	}
+	// The cache (V4.1 §10), for stable functions called with GET.
+	caching := len(c.p.cfg.Settings.CacheTTLSeconds) > 0 && c.r.Method == http.MethodGet
+	var gen uint64
+	if caching {
+		gen = e.cache.generation(c.p.cfg.Ref)
+		if fp := c.p.catalog.fingerprint(); fp != "" {
+			if f := c.p.catalog.function(name); f != nil && c.cacheable(req, cacheName(f.Schema, f.Name, true)) > 0 &&
+				e.serveCached(c, cacheKey(c.p.cfg.Ref, c.p.cfg.Version, fp, c.r.URL.Path, q)) {
+				return
+			}
+		}
+	}
 	ctx, cancel := context.WithTimeout(c.r.Context(), req.Timeout+3*time.Second)
 	defer cancel()
 	var out []byte
 	var failed *apiError
+	var fn *datacat.Function
+	var fp string
 	err = e.WithRequest(ctx, c.p, req, func(tx pgx.Tx) error {
 		cat, _, err := e.catalog(ctx, c.p, tx)
 		if err != nil {
 			return err
 		}
+		fp = cat.Fingerprint
 		fs := cat.FindFunction(name)
 		if len(fs) == 0 {
 			failed = &apiError{Status: http.StatusNotFound, Code: "unknown_function",
@@ -145,6 +160,7 @@ func (e *Edge) rpc(c *call, req Request, name string) {
 			failed = asAPIError(err)
 			return nil
 		}
+		fn = f
 		if c.r.Method == http.MethodGet && f.Volatile == 'v' {
 			failed = &apiError{Status: http.StatusMethodNotAllowed, Code: "volatile_function",
 				Message: fmt.Sprintf("%s may change data (it isn't STABLE or IMMUTABLE): call it with POST", f.Name)}
@@ -211,9 +227,17 @@ func (e *Edge) rpc(c *call, req Request, name string) {
 		c.apiFail(failed)
 		return
 	}
+	if c.r.Method == http.MethodPost {
+		e.dropWritten(c, nil, true) // it may have written anything
+	}
 	h := c.w.Header()
 	h.Set("Content-Type", "application/json")
 	h.Set("Cache-Control", "no-store")
+	if caching && fn != nil {
+		if ttl := c.cacheable(req, cacheName(fn.Schema, fn.Name, true)); ttl > 0 {
+			e.cacheStore(c, cacheKey(c.p.cfg.Ref, c.p.cfg.Version, fp, c.r.URL.Path, q), out, ttl, []string{rpcTag}, gen)
+		}
+	}
 	c.w.WriteHeader(http.StatusOK)
 	_, _ = c.w.Write(out)
 }

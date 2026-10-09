@@ -68,6 +68,16 @@ region's etcd** on its HA card once its region has a ready cluster (`POST
 
 The project has no standby until step 3 finishes.
 
+For a whole region at once, Platform → Regions → the region shows its
+pooler pair (with a warning when the two share a failure domain), its etcd
+cluster's health (manage it on Nodes), and the HA projects still on
+another region's cluster, with **Move all** (`POST
+/api/v1/admin/regions/{id}/etcd-move-all`). That queues one operation that
+runs the projects' moves one after the other, never two at once in the
+region; a project that can't be moved (busy, deleted, moved meanwhile) is
+noted in its log and skipped, and the operation fails at the end if any
+were.
+
 The standby always goes on a node in another [failure
 domain](failure-domains.md) from the primary, and the etcd cluster's three
 members must be in three different ones (V3.1-M1).
@@ -222,6 +232,29 @@ weekly window's minor-upgrade sweep only switches over an HA project
 inside an announcement covering it, made 72 hours ahead. Without one, the
 upgrade waits for a window that has one. Non-HA projects aren't covered by
 the SLA and are upgraded in every window, as before.
+
+#### Proposed announcements
+
+So that the gate doesn't hold upgrades back forever, PGDock **drafts** the
+announcement they need: when an HA instance is behind on its minor
+release, the sweep proposes a window, the first weekly window at least
+**96 hours** away (72 for the SLA, plus a day for you to confirm), scoped
+to the projects waiting. Drafts are listed under Scheduled maintenance as
+**proposed** with:
+
+- **Confirm…**: shows the exact email (rendered by the server, with how
+  many organisations and addresses it reaches), then announces it: the
+  notice counts from that moment, it goes to the status page as upcoming,
+  and the email goes out.
+- **Discard**: the work keeps waiting, and the same window isn't proposed
+  again; the next week's is.
+
+A draft never emails, never appears on the status page or in customers'
+banners, and never excludes a minute: only confirming sets the
+announcement time. A draft whose window starts unconfirmed lapses.
+
+The schedule form shows the same preview for the window you are about to
+announce (`POST /api/v1/admin/maintenance/announcements/preview`).
 
 ## Not yet
 
