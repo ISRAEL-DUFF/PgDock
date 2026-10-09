@@ -417,7 +417,7 @@ export class AuthClient {
   async signOut(p: { scope?: "local" | "others" | "global" } = {}): Promise<Result<null>> {
     const s = await this.getSession();
     if (s) {
-      const r = await send(this.bare(), "/auth/v1/signout", { query: { scope: p.scope ?? "local" }, token: s.access_token });
+      const r = await send(this.bare(), "/auth/v1/signout", { method: "POST", query: { scope: p.scope ?? "local" }, token: s.access_token });
       if (r.error && r.error.status !== 401) return r;
     }
     if ((p.scope ?? "local") !== "others") await this.save(null, "SIGNED_OUT");

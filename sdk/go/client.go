@@ -68,6 +68,8 @@ func New(projectURL, key string, opts ...Option) (*Client, error) {
 
 // WithToken is a copy of c that acts as the user whose access token this
 // is (verify it first with Auth.VerifyToken when it came from a request).
+// Make c with the publishable key: with the secret key, requests act as
+// the service role whatever token they carry.
 func (c *Client) WithToken(accessToken string) *Client {
 	cc := *c
 	cc.token = accessToken

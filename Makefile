@@ -29,7 +29,7 @@ DEV_ENV := deploy/dev/server.env
 # Loads $(DEV_ENV); PGDOCK_* variables already set by the caller win.
 LOAD_DEV_ENV := saved="$$(export -p | grep ' PGDOCK_' || true)"; set -a; . ./$(DEV_ENV); set +a; eval "$$saved"
 
-.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-move test-agent-bin pg-image pooler-host-images status-image edge-image test-acme test-e2e test-docs test-load e2e-images generate check-generated build build-ui build-go test test-go test-web lint release-check release clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-move test-agent-bin pg-image pooler-host-images status-image edge-image test-acme test-e2e test-docs test-load e2e-images generate check-generated build build-ui build-go test test-go test-web test-sdk lint release-check release clean clean-ui
 
 all: build
 
@@ -259,6 +259,14 @@ test-agent-bin:
 
 test-web:
 	cd web && npm run typecheck && npm test
+
+## test-sdk: the SDKs' unit tests (TypeScript, Go, and Dart when dart is
+## installed); their live tests run in TestSDKs (make test-integration).
+test-sdk:
+	cd sdk/js && npm ci --no-audit --no-fund && npm run typecheck && npm test
+	cd sdk/go && go vet ./... && go test -race ./...
+	@if command -v dart >/dev/null; then cd sdk/dart && dart pub get && dart analyze && dart test test/unit_test.dart; \
+	else echo "dart not installed: skipping the Dart SDK"; fi
 
 lint:
 	golangci-lint run ./...
