@@ -27,6 +27,9 @@ database, the shared PostgreSQL 18 cluster, the two PgBouncers on
 | [Incident process](docs/incidents.md) | Detect, contain, notify, recover, follow up |
 | [Terms template](docs/terms-template.md) | Terms of use and privacy notice to adapt |
 | [CLI and API tokens](docs/cli.md) | `pgdock` from a terminal or CI |
+| [Backend services](docs/backend-services.md) | A project's data API, auth, storage and realtime |
+| SDKs: [JavaScript](docs/sdk/javascript.md), [Dart/Flutter](docs/sdk/dart.md), [Go](docs/sdk/go.md) | Clients for apps and servers; guides for [Next.js](docs/guides/nextjs.md), [React Native](docs/guides/react-native.md), [Flutter](docs/guides/flutter.md) |
+| [Migrating from Supabase](docs/migrate-from-supabase.md) | Data, users with their passwords, files and policies; the [client mapping](docs/supabase-client-mapping.md) |
 | [Webhooks and scheduled jobs](docs/webhooks.md) | Table changes to a URL, signed; SQL or HTTP on a schedule |
 | [Standby edge pooler](docs/edge-poolers.md) | Two pooler hosts behind a floating IP, with keepalived |
 | [Status page](docs/status-page.md) | pgdock-status on separate infrastructure, incidents, subscriptions |
@@ -59,6 +62,8 @@ database, the shared PostgreSQL 18 cluster, the two PgBouncers on
 | `make pg-image` | Builds `pgdock-postgres:18-walg3.0.9`, the image dedicated instances run. |
 | `make test-acme` | Obtains a real certificate over HTTP-01 from Pebble (Let's Encrypt's test CA). |
 | `make test-e2e` | Installs the compose bundle from scratch and drives a browser from a fresh install to a working database, then backs up, deletes data, restores and verifies, imports a Supabase-shaped project and serves its app, creates a dedicated project and restores it to a point in time, promotes a hobby project while a writer runs, checking the URL is unchanged and no commits are lost, and queries, browses, and charts a project from the SQL console, table browser, and metrics pages (Playwright). |
+| `make test-sdk` | The SDKs' unit tests (TypeScript, Go, and Dart when installed); `TestSDKs` runs them live in `make test-integration`. |
+| `make docs-site` | Renders docs/ into `dist/docs` (navigation, search) and fails on broken links. |
 | `make test-docs` | Follows `docs/install.md` in a scratch clone (its marked commands, as written), then drives a browser from the fresh install to a working database. |
 | `make test-load` | 150 shared projects, pgbench on 10: create latency, pooler overhead, noisy neighbour; writes `tmp/load-report.md` (needs `pgbench`). |
 | `make release` | linux/amd64 and arm64 binaries, the source bundle, and checksums in `dist/` (CI does it on `v*` tags). |

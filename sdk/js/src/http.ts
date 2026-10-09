@@ -24,7 +24,11 @@ export interface RequestOptions {
   signal?: AbortSignal;
 }
 
-export function buildURL(base: string, path: string, query?: RequestOptions["query"]): string {
+export function buildURL(
+  base: string,
+  path: string,
+  query?: RequestOptions["query"],
+): string {
   const u = new URL(base.replace(/\/+$/, "") + path);
   for (const [k, v] of Object.entries(query ?? {})) {
     if (v === undefined) continue;
@@ -63,8 +67,16 @@ export async function apiError(res: Response): Promise<PgdockError> {
 }
 
 /** send makes a request and returns the response, or the API's error. */
-export async function send(t: Transport, path: string, o: RequestOptions = {}): Promise<Result<Response>> {
-  const headers: Record<string, string> = { apikey: t.key, ...t.headers, ...o.headers };
+export async function send(
+  t: Transport,
+  path: string,
+  o: RequestOptions = {},
+): Promise<Result<Response>> {
+  const headers: Record<string, string> = {
+    apikey: t.key,
+    ...t.headers,
+    ...o.headers,
+  };
   try {
     const token = o.token !== undefined ? o.token : await t.token();
     if (token) headers["Authorization"] = "Bearer " + token;
@@ -87,13 +99,23 @@ export async function send(t: Transport, path: string, o: RequestOptions = {}): 
 }
 
 /** json makes a request and decodes the JSON answer. */
-export async function json<T>(t: Transport, path: string, o: RequestOptions = {}): Promise<Result<T>> {
+export async function json<T>(
+  t: Transport,
+  path: string,
+  o: RequestOptions = {},
+): Promise<Result<T>> {
   const r = await send(t, path, o);
   if (r.error) return r;
   try {
     const text = await r.data.text();
     return ok((text ? JSON.parse(text) : null) as T);
   } catch (e) {
-    return fail(new PgdockError(r.data.status, "invalid_response", "the answer isn't JSON: " + toError(e).message));
+    return fail(
+      new PgdockError(
+        r.data.status,
+        "invalid_response",
+        "the answer isn't JSON: " + toError(e).message,
+      ),
+    );
   }
 }

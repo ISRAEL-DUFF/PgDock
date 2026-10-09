@@ -54,7 +54,11 @@ await until("SUBSCRIBED", () => status === "SUBSCRIBED");
 
 // A live query follows the table.
 const live = [];
-const stop = pgd.data.from("notes").select("body").order("id").live((r) => live.push(r));
+const stop = pgd.data
+  .from("notes")
+  .select("body")
+  .order("id")
+  .live((r) => live.push(r));
 await until("the live query's first result", () => live.length > 0);
 assert.deepEqual(live.at(-1).data, []);
 
@@ -62,17 +66,25 @@ assert.deepEqual(live.at(-1).data, []);
 const ins = await pgd.data.from("notes").insert({ body: "js 1" });
 assert.equal(ins.error, null, ins.error?.message);
 assert.equal(ins.data[0].owner_id, uid);
-await until("the INSERT change", () => changes.some((c) => c.record.body === "js 1"));
+await until("the INSERT change", () =>
+  changes.some((c) => c.record.body === "js 1"),
+);
 await until("the live query to update", () => live.at(-1).data?.length === 1);
 
 // Reads under RLS: only our rows.
 const all = await pgd.data.from("notes").select("id,body").count();
 assert.equal(all.error, null);
-assert.deepEqual(all.data.map((r) => r.body), ["js 1"]);
+assert.deepEqual(
+  all.data.map((r) => r.body),
+  ["js 1"],
+);
 assert.equal(all.count, 1);
 const none = await pgd.data.from("notes").select().eq("body", "not yours");
 assert.deepEqual(none.data, []);
-const upd = await pgd.data.from("notes").update({ body: "js 1b" }).eq("body", "js 1");
+const upd = await pgd.data
+  .from("notes")
+  .update({ body: "js 1b" })
+  .eq("body", "js 1");
 assert.equal(upd.affected, 1);
 
 // A refresh gives new tokens that work.
@@ -84,16 +96,26 @@ assert.equal((await pgd.data.from("notes").select()).data.length, 1);
 
 // Files.
 const bucket = pgd.storage.bucket("files");
-const up = await bucket.upload(`${uid}/hello.txt`, "hello from js", { contentType: "text/plain" });
+const up = await bucket.upload(`${uid}/hello.txt`, "hello from js", {
+  contentType: "text/plain",
+});
 assert.equal(up.error, null, up.error?.message);
 const down = await bucket.download(`${uid}/hello.txt`);
 assert.equal(await down.data.text(), "hello from js");
 const listed = await bucket.list({ prefix: `${uid}/` });
-assert.deepEqual(listed.data.items.map((i) => i.name), ["hello.txt"]);
+assert.deepEqual(
+  listed.data.items.map((i) => i.name),
+  ["hello.txt"],
+);
 const signed = await bucket.signedUrl(`${uid}/hello.txt`, { expiresIn: 60 });
 assert.equal(signed.error, null);
-assert.equal(await (await fetch(sameOrigin(signed.data))).text(), "hello from js");
-const denied = await bucket.upload(`someone-else/x.txt`, "no", { contentType: "text/plain" });
+assert.equal(
+  await (await fetch(sameOrigin(signed.data))).text(),
+  "hello from js",
+);
+const denied = await bucket.upload(`someone-else/x.txt`, "no", {
+  contentType: "text/plain",
+});
 assert.equal(denied.error?.status, 403);
 
 // Errors.

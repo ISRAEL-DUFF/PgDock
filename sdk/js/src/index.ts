@@ -1,4 +1,4 @@
-import { AuthClient, type AuthOptions } from "./auth.js";
+import { AuthClient, memoryStorage, type AuthOptions } from "./auth.js";
 import { DataClient, type AnyDatabase } from "./data.js";
 import type { Fetch, Transport } from "./http.js";
 import { RealtimeClient, type RealtimeOptions } from "./realtime.js";
@@ -19,6 +19,16 @@ export interface ClientOptions {
   headers?: Record<string, string>;
   /** The exposed schema data.from() reads (public by default). */
   schema?: string;
+  /**
+   * Act as the user with this access token instead of a stored session:
+   * on a server, the token from the request's cookie or header (verify it
+   * first). The client then neither stores nor refreshes a session.
+   */
+  accessToken?: () =>
+    | string
+    | null
+    | undefined
+    | Promise<string | null | undefined>;
 }
 
 /** A project's client: data, auth, storage and realtime. */
@@ -33,17 +43,50 @@ export class PgdockClient<DB extends AnyDatabase = AnyDatabase> {
     readonly key: string,
     opts: ClientOptions = {},
   ) {
-    if (!/^https?:\/\//.test(url)) throw new TypeError("the project URL is https://<ref>.<domain>");
+    if (!/^https?:\/\//.test(url))
+      throw new TypeError("the project URL is https://<ref>.<domain>");
     if (!key) throw new TypeError("the project's publishable key is required");
     const f = opts.fetch ?? globalThis.fetch.bind(globalThis);
-    const base: Omit<Transport, "token"> = { url, key, fetch: f, headers: { "X-Client-Info": "pgdock-js/0.1.0", ...opts.headers } };
+    const base: Omit<Transport, "token"> = {
+      url,
+      key,
+      fetch: f,
+      headers: { "X-Client-Info": "pgdock-js/0.1.0", ...opts.headers },
+    };
     // A secret key acts as the service role: no user session.
     const secret = key.startsWith("pgd_sec_");
-    this.auth = new AuthClient(base, secret ? { persistSession: false, autoRefresh: false, detectSessionInUrl: false, ...opts.auth } : opts.auth);
-    const t = secret ? { ...base, token: async () => null } : this.auth.transport();
-    this.realtime = new RealtimeClient(url, key, () => t.token(), opts.realtime);
+    const external = opts.accessToken;
+    const sessionless = secret || !!external;
+    this.auth = new AuthClient(
+      base,
+      sessionless
+        ? {
+            storage: memoryStorage(),
+            persistSession: false,
+            autoRefresh: false,
+            detectSessionInUrl: false,
+            ...opts.auth,
+          }
+        : opts.auth,
+    );
+    const t: Transport = external
+      ? { ...base, token: async () => (await external()) ?? null }
+      : secret
+        ? { ...base, token: async () => null }
+        : this.auth.transport();
+    this.realtime = new RealtimeClient(
+      url,
+      key,
+      () => t.token(),
+      opts.realtime,
+    );
     this.auth.onAuthStateChange((event, session) => {
-      if (event === "TOKEN_REFRESHED" || event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "MFA_VERIFIED") {
+      if (
+        event === "TOKEN_REFRESHED" ||
+        event === "SIGNED_IN" ||
+        event === "SIGNED_OUT" ||
+        event === "MFA_VERIFIED"
+      ) {
         void this.realtime.setToken(session?.access_token ?? null);
       }
     });
@@ -72,6 +115,10 @@ export class PgdockClient<DB extends AnyDatabase = AnyDatabase> {
  * key (or, on servers only, its secret key). Pass the generated Database
  * type for typed rows: createClient<Database>(url, key).
  */
-export function createClient<DB extends AnyDatabase = AnyDatabase>(url: string, key: string, opts: ClientOptions = {}): PgdockClient<DB> {
+export function createClient<DB extends AnyDatabase = AnyDatabase>(
+  url: string,
+  key: string,
+  opts: ClientOptions = {},
+): PgdockClient<DB> {
   return new PgdockClient<DB>(url, key, opts);
 }

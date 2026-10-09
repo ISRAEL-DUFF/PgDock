@@ -1,7 +1,7 @@
 name: pgdock
 description: PGDock's client for Dart and Flutter apps — data, auth (email, phone, WhatsApp codes, OAuth), storage and realtime.
 version: 0.1.0
-repository: https://github.com/israel-duff/pgdock/tree/main/sdk/dart
+repository: https://github.com/ISRAEL-DUFF/PgDock/tree/main/sdk/dart
 
 environment:
   sdk: ">=3.4.0 <4.0.0"

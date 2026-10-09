@@ -29,7 +29,7 @@ DEV_ENV := deploy/dev/server.env
 # Loads $(DEV_ENV); PGDOCK_* variables already set by the caller win.
 LOAD_DEV_ENV := saved="$$(export -p | grep ' PGDOCK_' || true)"; set -a; . ./$(DEV_ENV); set +a; eval "$$saved"
 
-.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-move test-agent-bin pg-image pooler-host-images status-image edge-image test-acme test-e2e test-docs test-load e2e-images generate check-generated build build-ui build-go test test-go test-web test-sdk lint release-check release clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-move test-agent-bin pg-image pooler-host-images status-image edge-image test-acme test-e2e test-docs test-load e2e-images generate check-generated build build-ui build-go test test-go test-web test-sdk docs-site lint release-check release clean clean-ui
 
 all: build
 
@@ -259,6 +259,11 @@ test-agent-bin:
 
 test-web:
 	cd web && npm run typecheck && npm test
+
+## docs-site: the documentation site from docs/ into dist/docs (fails on
+## broken links between pages).
+docs-site:
+	go run ./cmd/docsite -src docs -out dist/docs
 
 ## test-sdk: the SDKs' unit tests (TypeScript, Go, and Dart when dart is
 ## installed); their live tests run in TestSDKs (make test-integration).

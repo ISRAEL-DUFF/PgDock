@@ -21,9 +21,16 @@ export interface ChangeFilter {
   filter?: string;
 }
 
-export type PresenceState<T = Record<string, unknown>> = Record<string, (T & { phx_ref: string })[]>;
+export type PresenceState<T = Record<string, unknown>> = Record<
+  string,
+  (T & { phx_ref: string })[]
+>;
 
-export type ChannelStatus = "SUBSCRIBED" | "CLOSED" | "CHANNEL_ERROR" | "TIMED_OUT";
+export type ChannelStatus =
+  | "SUBSCRIBED"
+  | "CLOSED"
+  | "CHANNEL_ERROR"
+  | "TIMED_OUT";
 
 interface Msg {
   topic: string;
@@ -56,8 +63,15 @@ export interface RealtimeOptions {
 
 /** One channel: database changes, broadcast and presence on a topic. */
 export class Channel {
-  private changeSubs: { f: ChangeFilter; cb: (c: Change<any>) => void; id?: number }[] = [];
-  private bcSubs: { event: string; cb: (payload: any, event: string) => void }[] = [];
+  private changeSubs: {
+    f: ChangeFilter;
+    cb: (c: Change<any>) => void;
+    id?: number;
+  }[] = [];
+  private bcSubs: {
+    event: string;
+    cb: (payload: any, event: string) => void;
+  }[] = [];
   private presenceSyncs: ((state: PresenceState) => void)[] = [];
   private presenceJoins: ((key: string, joined: any[]) => void)[] = [];
   private presenceLeaves: ((key: string, left: any[]) => void)[] = [];
@@ -74,7 +88,11 @@ export class Channel {
   constructor(
     private rt: RealtimeClient,
     readonly name: string,
-    private opts: { private?: boolean; broadcast?: { self?: boolean; ack?: boolean }; presenceKey?: string },
+    private opts: {
+      private?: boolean;
+      broadcast?: { self?: boolean; ack?: boolean };
+      presenceKey?: string;
+    },
   ) {}
 
   get topic(): string {
@@ -82,12 +100,18 @@ export class Channel {
   }
 
   /** Database changes on a table (turn realtime on for it first). */
-  onChange<Row = Record<string, unknown>>(f: ChangeFilter, cb: (change: Change<Row>) => void): this {
+  onChange<Row = Record<string, unknown>>(
+    f: ChangeFilter,
+    cb: (change: Change<Row>) => void,
+  ): this {
     this.changeSubs.push({ f, cb });
     return this;
   }
   /** Broadcast messages with this event ("*" for all). */
-  onBroadcast<T = unknown>(event: string, cb: (payload: T, event: string) => void): this {
+  onBroadcast<T = unknown>(
+    event: string,
+    cb: (payload: T, event: string) => void,
+  ): this {
     this.bcSubs.push({ event, cb });
     return this;
   }
@@ -130,19 +154,31 @@ export class Channel {
 
   /** Sends a broadcast to the channel's other members. */
   send(event: string, payload: unknown): Promise<void> {
-    const p = this.push("broadcast", { type: "broadcast", event, payload }, !!this.opts.broadcast?.ack);
+    const p = this.push(
+      "broadcast",
+      { type: "broadcast", event, payload },
+      !!this.opts.broadcast?.ack,
+    );
     return p.then(() => undefined);
   }
 
   /** Shares this client's state with the channel. */
   track(state: Record<string, unknown>): Promise<void> {
     this.tracked = state;
-    return this.push("presence", { type: "presence", event: "track", payload: state }, false).then(() => undefined);
+    return this.push(
+      "presence",
+      { type: "presence", event: "track", payload: state },
+      false,
+    ).then(() => undefined);
   }
 
   untrack(): Promise<void> {
     this.tracked = null;
-    return this.push("presence", { type: "presence", event: "untrack" }, false).then(() => undefined);
+    return this.push(
+      "presence",
+      { type: "presence", event: "untrack" },
+      false,
+    ).then(() => undefined);
   }
 
   // ---- The protocol ---------------------------------------------------------------
@@ -150,7 +186,13 @@ export class Channel {
   /** push sends an event; with wait, resolves on its reply. */
   push(event: string, payload: unknown, wait = true): Promise<any> {
     const ref = this.rt.nextRef();
-    const msg: Msg = { topic: this.topic, event, payload, ref, join_ref: this.joinRef };
+    const msg: Msg = {
+      topic: this.topic,
+      event,
+      payload,
+      ref,
+      join_ref: this.joinRef,
+    };
     if (!wait) {
       this.rt.sendMsg(msg);
       return Promise.resolve(null);
@@ -158,12 +200,27 @@ export class Channel {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(ref);
-        reject(new PgdockError(0, "timeout", `${event} on ${this.name} got no reply`));
+        reject(
+          new PgdockError(
+            0,
+            "timeout",
+            `${event} on ${this.name} got no reply`,
+          ),
+        );
       }, 15_000);
       this.pending.set(ref, (status, response) => {
         clearTimeout(timer);
         if (status === "ok") resolve(response);
-        else reject(new PgdockError(0, "realtime_error", typeof response?.reason === "string" ? response.reason : JSON.stringify(response)));
+        else
+          reject(
+            new PgdockError(
+              0,
+              "realtime_error",
+              typeof response?.reason === "string"
+                ? response.reason
+                : JSON.stringify(response),
+            ),
+          );
       });
       this.rt.sendMsg(msg);
     });
@@ -174,9 +231,17 @@ export class Channel {
     if (!this.wanted) return;
     this.joinRef = this.rt.nextRef();
     const config = {
-      broadcast: { self: !!this.opts.broadcast?.self, ack: !!this.opts.broadcast?.ack },
+      broadcast: {
+        self: !!this.opts.broadcast?.self,
+        ack: !!this.opts.broadcast?.ack,
+      },
       presence: { key: this.opts.presenceKey ?? "" },
-      postgres_changes: this.changeSubs.map((s) => ({ event: s.f.event ?? "*", schema: s.f.schema ?? "public", table: s.f.table, filter: s.f.filter })),
+      postgres_changes: this.changeSubs.map((s) => ({
+        event: s.f.event ?? "*",
+        schema: s.f.schema ?? "public",
+        table: s.f.table,
+        filter: s.f.filter,
+      })),
       private: !!this.opts.private,
     };
     const ref = this.joinRef;
@@ -184,16 +249,43 @@ export class Channel {
       const resp = await new Promise<any>((resolve, reject) => {
         const timer = setTimeout(() => {
           this.pending.delete(ref);
-          reject(new PgdockError(0, "timeout", "joining " + this.name + " timed out"));
+          reject(
+            new PgdockError(
+              0,
+              "timeout",
+              "joining " + this.name + " timed out",
+            ),
+          );
         }, 15_000);
         this.pending.set(ref, (status, response) => {
           clearTimeout(timer);
           if (status === "ok") resolve(response);
-          else reject(new PgdockError(0, "join_refused", typeof response?.reason === "string" ? response.reason : "the join was refused"));
+          else
+            reject(
+              new PgdockError(
+                0,
+                "join_refused",
+                typeof response?.reason === "string"
+                  ? response.reason
+                  : "the join was refused",
+              ),
+            );
         });
-        this.rt.sendMsg({ topic: this.topic, event: "phx_join", payload: { config, access_token: token ?? undefined }, ref, join_ref: ref });
+        this.rt.sendMsg({
+          topic: this.topic,
+          event: "phx_join",
+          payload: { config, access_token: token ?? undefined },
+          ref,
+          join_ref: ref,
+        });
       });
-      const bound: { id: number; table: string; schema: string; event: string; filter?: string }[] = resp?.postgres_changes ?? [];
+      const bound: {
+        id: number;
+        table: string;
+        schema: string;
+        event: string;
+        filter?: string;
+      }[] = resp?.postgres_changes ?? [];
       bound.forEach((b, i) => {
         const s = this.changeSubs[i];
         if (s) s.id = b.id;
@@ -203,8 +295,14 @@ export class Channel {
       this.statusCb?.("SUBSCRIBED");
     } catch (e) {
       this.joined = false;
-      const err = e instanceof PgdockError ? e : new PgdockError(0, "join_refused", String(e));
-      this.statusCb?.(err.code === "timeout" ? "TIMED_OUT" : "CHANNEL_ERROR", err);
+      const err =
+        e instanceof PgdockError
+          ? e
+          : new PgdockError(0, "join_refused", String(e));
+      this.statusCb?.(
+        err.code === "timeout" ? "TIMED_OUT" : "CHANNEL_ERROR",
+        err,
+      );
     }
   }
 
@@ -229,12 +327,14 @@ export class Channel {
       }
       case "broadcast": {
         const ev = m.payload?.event as string;
-        for (const s of this.bcSubs) if (s.event === "*" || s.event === ev) s.cb(m.payload?.payload, ev);
+        for (const s of this.bcSubs)
+          if (s.event === "*" || s.event === ev) s.cb(m.payload?.payload, ev);
         return;
       }
       case "presence_state": {
         this.presence = {};
-        for (const [k, v] of Object.entries(m.payload ?? {})) this.presence[k] = ((v as any).metas ?? []) as any[];
+        for (const [k, v] of Object.entries(m.payload ?? {}))
+          this.presence[k] = ((v as any).metas ?? []) as any[];
         for (const cb of this.presenceSyncs) cb(this.presence);
         return;
       }
@@ -247,7 +347,9 @@ export class Channel {
         for (const [k, v] of Object.entries(m.payload?.leaves ?? {})) {
           const metas = ((v as any).metas ?? []) as any[];
           const gone = new Set(metas.map((x) => x.phx_ref));
-          const rest = (this.presence[k] ?? []).filter((x) => !gone.has(x.phx_ref));
+          const rest = (this.presence[k] ?? []).filter(
+            (x) => !gone.has(x.phx_ref),
+          );
           if (rest.length) this.presence[k] = rest;
           else delete this.presence[k];
           for (const cb of this.presenceLeaves) cb(k, metas);
@@ -257,7 +359,11 @@ export class Channel {
       }
       case "system": {
         if (m.payload?.message === "resync") this.resync();
-        else if (m.payload?.status === "error") this.statusCb?.("CHANNEL_ERROR", new PgdockError(0, "realtime_error", String(m.payload?.message)));
+        else if (m.payload?.status === "error")
+          this.statusCb?.(
+            "CHANNEL_ERROR",
+            new PgdockError(0, "realtime_error", String(m.payload?.message)),
+          );
         return;
       }
       case "phx_close":
@@ -266,7 +372,10 @@ export class Channel {
         return;
       case "phx_error":
         this.joined = false;
-        this.statusCb?.("CHANNEL_ERROR", new PgdockError(0, "realtime_error", "the channel failed"));
+        this.statusCb?.(
+          "CHANNEL_ERROR",
+          new PgdockError(0, "realtime_error", "the channel failed"),
+        );
         return;
     }
   }
@@ -283,7 +392,8 @@ export class Channel {
 
   /** Forget replies we'll never get (the socket closed). */
   dropPending() {
-    for (const cb of this.pending.values()) cb("error", { reason: "the connection closed" });
+    for (const cb of this.pending.values())
+      cb("error", { reason: "the connection closed" });
     this.pending.clear();
     this.joined = false;
   }
@@ -308,11 +418,22 @@ export class RealtimeClient {
     private token: () => Promise<string | null>,
     private opts: RealtimeOptions = {},
   ) {
-    this.WS = opts.WebSocket ?? ((globalThis as { WebSocket?: WebSocketCtor }).WebSocket as WebSocketCtor | undefined);
+    this.WS =
+      opts.WebSocket ??
+      ((globalThis as { WebSocket?: WebSocketCtor }).WebSocket as
+        | WebSocketCtor
+        | undefined);
   }
 
   /** A channel; call subscribe() on it. */
-  channel(name: string, opts: { private?: boolean; broadcast?: { self?: boolean; ack?: boolean }; presenceKey?: string } = {}): Channel {
+  channel(
+    name: string,
+    opts: {
+      private?: boolean;
+      broadcast?: { self?: boolean; ack?: boolean };
+      presenceKey?: string;
+    } = {},
+  ): Channel {
     return new Channel(this, name, opts);
   }
 
@@ -344,13 +465,23 @@ export class RealtimeClient {
   /** Tells every channel about a new access token (after a refresh or sign-in). */
   async setToken(token: string | null) {
     for (const ch of this.channels) {
-      if (ch.joined) ch.push("access_token", { access_token: token ?? this.key }, false).catch(() => undefined);
+      if (ch.joined)
+        ch.push(
+          "access_token",
+          { access_token: token ?? this.key },
+          false,
+        ).catch(() => undefined);
     }
   }
 
   private connect() {
     if (this.ws || this.closedByUs || this.reconnectTimer) return;
-    if (!this.WS) throw new PgdockError(0, "realtime_unavailable", "no WebSocket implementation; pass realtime.WebSocket");
+    if (!this.WS)
+      throw new PgdockError(
+        0,
+        "realtime_unavailable",
+        "no WebSocket implementation; pass realtime.WebSocket",
+      );
     const u = new URL(this.url.replace(/\/+$/, "") + "/realtime/v1/websocket");
     u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
     u.searchParams.set("apikey", this.key);
@@ -362,7 +493,12 @@ export class RealtimeClient {
       const again = this.everConnected;
       this.everConnected = true;
       this.heartbeat = setInterval(() => {
-        this.sendMsg({ topic: "phoenix", event: "heartbeat", payload: {}, ref: this.nextRef() });
+        this.sendMsg({
+          topic: "phoenix",
+          event: "heartbeat",
+          payload: {},
+          ref: this.nextRef(),
+        });
       }, this.opts.heartbeatMs ?? 25_000);
       (this.heartbeat as { unref?: () => void }).unref?.();
       void this.token().then(async (t) => {

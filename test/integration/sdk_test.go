@@ -94,13 +94,11 @@ func TestSDKs(t *testing.T) {
 
 	// The edge under the project's host name, at a local address the SDKs reach.
 	target, _ := url.Parse(ed.URL)
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	director := proxy.Director
-	proxy.Director = func(r *http.Request) {
-		director(r)
-		r.Host = ref + "." + testenv.EdgeDomain
-		r.Header.Set("X-Forwarded-Proto", "http")
-	}
+	proxy := &httputil.ReverseProxy{Rewrite: func(r *httputil.ProxyRequest) {
+		r.SetURL(target)
+		r.Out.Host = ref + "." + testenv.EdgeDomain
+		r.Out.Header.Set("X-Forwarded-Proto", "http")
+	}}
 	srv := httptest.NewServer(proxy)
 	defer srv.Close()
 

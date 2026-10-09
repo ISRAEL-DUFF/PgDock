@@ -14,7 +14,10 @@ export interface GenericTable {
 export interface GenericSchema {
   Tables: Record<string, GenericTable>;
   Views: Record<string, { Row: Record<string, unknown> }>;
-  Functions: Record<string, { Args: Record<string, unknown>; Returns: unknown }>;
+  Functions: Record<
+    string,
+    { Args: Record<string, unknown>; Returns: unknown }
+  >;
 }
 
 /** Any database: rows are plain objects. */
@@ -22,19 +25,31 @@ export interface AnyDatabase {
   [schema: string]: GenericSchema;
 }
 
-type TableNames<S extends GenericSchema> = Extract<keyof S["Tables"] | keyof S["Views"], string>;
+type TableNames<S extends GenericSchema> = Extract<
+  keyof S["Tables"] | keyof S["Views"],
+  string
+>;
 
-export type RowOf<S extends GenericSchema, T extends string> = T extends keyof S["Tables"]
+export type RowOf<
+  S extends GenericSchema,
+  T extends string,
+> = T extends keyof S["Tables"]
   ? S["Tables"][T]["Row"]
   : T extends keyof S["Views"]
     ? S["Views"][T]["Row"]
     : Record<string, unknown>;
 
-export type InsertOf<S extends GenericSchema, T extends string> = T extends keyof S["Tables"]
+export type InsertOf<
+  S extends GenericSchema,
+  T extends string,
+> = T extends keyof S["Tables"]
   ? S["Tables"][T]["Insert"]
   : Record<string, unknown>;
 
-export type UpdateOf<S extends GenericSchema, T extends string> = T extends keyof S["Tables"]
+export type UpdateOf<
+  S extends GenericSchema,
+  T extends string,
+> = T extends keyof S["Tables"]
   ? S["Tables"][T]["Update"]
   : Record<string, unknown>;
 
@@ -76,11 +91,17 @@ function scalar(v: unknown): string {
 
 function listItem(v: unknown): string {
   const s = scalar(v);
-  return /[",\\]/.test(s) ? '"' + s.replace(/[\\"]/g, (c) => "\\" + c) + '"' : s;
+  return /[",\\]/.test(s)
+    ? '"' + s.replace(/[\\"]/g, (c) => "\\" + c) + '"'
+    : s;
 }
 
 /** The URL form of a condition: column:op:value. */
-export function encodeCondition(column: string, op: Operator, value: unknown): string {
+export function encodeCondition(
+  column: string,
+  op: Operator,
+  value: unknown,
+): string {
   if (op === "in") {
     const items = Array.isArray(value) ? value : [value];
     return `${column}:in:${items.map(listItem).join(",")}`;
@@ -89,7 +110,10 @@ export function encodeCondition(column: string, op: Operator, value: unknown): s
 }
 
 function jsonValue(op: Operator, v: unknown): unknown {
-  if (op === "in") return (Array.isArray(v) ? v : [v]).map((x) => (x instanceof Date ? x.toISOString() : x));
+  if (op === "in")
+    return (Array.isArray(v) ? v : [v]).map((x) =>
+      x instanceof Date ? x.toISOString() : x,
+    );
   if (v instanceof Date) return v.toISOString();
   return v;
 }
@@ -105,7 +129,12 @@ function jsonFilter(f: Filter): unknown {
 
 /** A page of rows. */
 export type ListResult<Row> =
-  | { data: Row[]; error: null; count: number | null; nextCursor: string | null }
+  | {
+      data: Row[];
+      error: null;
+      count: number | null;
+      nextCursor: string | null;
+    }
   | { data: null; error: PgdockError; count: null; nextCursor: null };
 
 /** Written rows (none with returning: "minimal"). */
@@ -187,25 +216,40 @@ abstract class Filtered<Self> {
 
   /** Whether the URL form can say it (no not(), no nesting in or()). */
   protected simple(): boolean {
-    return this.groups.every((g) => "or" in g && g.or.every((x) => "column" in x && !/,/.test(scalar(x.value))));
+    return this.groups.every(
+      (g) =>
+        "or" in g &&
+        g.or.every((x) => "column" in x && !/,/.test(scalar(x.value))),
+    );
   }
   protected urlFilters(): { where?: string[]; or?: string[] } {
-    const where = this.conds.map((c) => encodeCondition(c.column, c.op, c.value));
+    const where = this.conds.map((c) =>
+      encodeCondition(c.column, c.op, c.value),
+    );
     const or = this.groups.map((g) =>
       (g as { or: { column: string; op: Operator; value: unknown }[] }).or
         .map((c) => encodeCondition(c.column, c.op, c.value))
         .join(","),
     );
-    return { where: where.length ? where : undefined, or: or.length ? or : undefined };
+    return {
+      where: where.length ? where : undefined,
+      or: or.length ? or : undefined,
+    };
   }
   protected jsonWhere(): unknown {
-    const all: Filter[] = [...this.conds.map((c) => cond(c.column, c.op, c.value)), ...this.groups];
+    const all: Filter[] = [
+      ...this.conds.map((c) => cond(c.column, c.op, c.value)),
+      ...this.groups,
+    ];
     return all.length ? jsonFilter({ and: all }) : undefined;
   }
 }
 
 /** A read: data.from("todos").select("id,title").eq("done", false). */
-export class SelectQuery<Row> extends Filtered<SelectQuery<Row>> implements PromiseLike<ListResult<Row>> {
+export class SelectQuery<Row>
+  extends Filtered<SelectQuery<Row>>
+  implements PromiseLike<ListResult<Row>>
+{
   private orders: string[] = [];
   private lim?: number;
   private off?: number;
@@ -253,11 +297,18 @@ export class SelectQuery<Row> extends Filtered<SelectQuery<Row>> implements Prom
   }
 
   private path(): string {
-    return "/data/v1/" + encodeURIComponent(this.schema === "public" ? this.table : `${this.schema}.${this.table}`);
+    return (
+      "/data/v1/" +
+      encodeURIComponent(
+        this.schema === "public" ? this.table : `${this.schema}.${this.table}`,
+      )
+    );
   }
 
   async run(signal?: AbortSignal): Promise<ListResult<Row>> {
-    const headers: Record<string, string> = this.replicaOK ? { "Read-Replica": "allowed" } : {};
+    const headers: Record<string, string> = this.replicaOK
+      ? { "Read-Replica": "allowed" }
+      : {};
     let r: Result<Page<Row>>;
     if (this.simple()) {
       r = await json<Page<Row>>(this.ctx.t, this.path(), {
@@ -288,8 +339,14 @@ export class SelectQuery<Row> extends Filtered<SelectQuery<Row>> implements Prom
         signal,
       });
     }
-    if (r.error) return { data: null, error: r.error, count: null, nextCursor: null };
-    return { data: r.data.data, error: null, count: r.data.count ?? null, nextCursor: r.data.next_cursor ?? null };
+    if (r.error)
+      return { data: null, error: r.error, count: null, nextCursor: null };
+    return {
+      data: r.data.data,
+      error: null,
+      count: r.data.count ?? null,
+      nextCursor: r.data.next_cursor ?? null,
+    };
   }
 
   then<A = ListResult<Row>, B = never>(
@@ -305,8 +362,16 @@ export class SelectQuery<Row> extends Filtered<SelectQuery<Row>> implements Prom
    * reconnect. Turn realtime on for the table first. Returns the stop
    * function.
    */
-  live(onResult: (r: ListResult<Row>) => void, opts: { debounceMs?: number } = {}): () => void {
-    if (!this.ctx.watch) throw new PgdockError(0, "realtime_unavailable", "live() needs realtime (a WebSocket)");
+  live(
+    onResult: (r: ListResult<Row>) => void,
+    opts: { debounceMs?: number } = {},
+  ): () => void {
+    if (!this.ctx.watch)
+      throw new PgdockError(
+        0,
+        "realtime_unavailable",
+        "live() needs realtime (a WebSocket)",
+      );
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stopped = false;
     let seq = 0;
@@ -339,7 +404,9 @@ export class RowQuery<Row> implements PromiseLike<Result<Row>> {
   ) {}
 
   async run(): Promise<Result<Row>> {
-    const r = await json<{ data: Row }>(this.ctx.t, this.path, { query: { select: this.columns } });
+    const r = await json<{ data: Row }>(this.ctx.t, this.path, {
+      query: { select: this.columns },
+    });
     return r.error ? r : ok(r.data.data);
   }
 
@@ -359,7 +426,10 @@ export interface WriteOptions {
 }
 
 /** An insert, update or delete. */
-export class WriteQuery<Row> extends Filtered<WriteQuery<Row>> implements PromiseLike<WriteResult<Row>> {
+export class WriteQuery<Row>
+  extends Filtered<WriteQuery<Row>>
+  implements PromiseLike<WriteResult<Row>>
+{
   private maxAffected?: number;
   private key?: string | number;
 
@@ -368,7 +438,10 @@ export class WriteQuery<Row> extends Filtered<WriteQuery<Row>> implements Promis
     private method: "POST" | "PATCH" | "DELETE",
     private base: string,
     private body: unknown,
-    private opts: WriteOptions & { onConflict?: string[]; ignore?: boolean } = {},
+    private opts: WriteOptions & {
+      onConflict?: string[];
+      ignore?: boolean;
+    } = {},
   ) {
     super();
   }
@@ -388,11 +461,18 @@ export class WriteQuery<Row> extends Filtered<WriteQuery<Row>> implements Promis
     if (!this.simple()) {
       return {
         data: null,
-        error: new PgdockError(0, "invalid_filter", "updates and deletes take where() and or() groups of conditions; use data.batch for more"),
+        error: new PgdockError(
+          0,
+          "invalid_filter",
+          "updates and deletes take where() and or() groups of conditions; use data.batch for more",
+        ),
         affected: null,
       };
     }
-    const path = this.key !== undefined ? `${this.base}/${encodeURIComponent(String(this.key))}` : this.base;
+    const path =
+      this.key !== undefined
+        ? `${this.base}/${encodeURIComponent(String(this.key))}`
+        : this.base;
     const r = await json<{ affected: number; data?: Row[] }>(this.ctx.t, path, {
       method: this.method,
       body: this.body,
@@ -426,7 +506,12 @@ export class Table<Row, Ins, Upd> {
   ) {}
 
   private get base(): string {
-    return "/data/v1/" + encodeURIComponent(this.schema === "public" ? this.table : `${this.schema}.${this.table}`);
+    return (
+      "/data/v1/" +
+      encodeURIComponent(
+        this.schema === "public" ? this.table : `${this.schema}.${this.table}`,
+      )
+    );
   }
 
   /** Read rows: columns, related rows (author(name)), JSON paths. */
@@ -435,14 +520,21 @@ export class Table<Row, Ins, Upd> {
   }
   /** One row by its (single-column) primary key; 404 not_found when hidden or absent. */
   get(key: string | number, columns = "*"): RowQuery<Row> {
-    return new RowQuery<Row>(this.ctx, `${this.base}/${encodeURIComponent(String(key))}`, columns);
+    return new RowQuery<Row>(
+      this.ctx,
+      `${this.base}/${encodeURIComponent(String(key))}`,
+      columns,
+    );
   }
   /** Insert one row or a list (up to 1,000); the new rows come back. */
   insert(rows: Ins | Ins[], opts: WriteOptions = {}): WriteQuery<Row> {
     return new WriteQuery<Row>(this.ctx, "POST", this.base, rows, opts);
   }
   /** Insert, or update the rows that conflict on onConflict's columns (or leave them, with ignore). */
-  upsert(rows: Ins | Ins[], opts: WriteOptions & { onConflict: string[]; ignore?: boolean }): WriteQuery<Row> {
+  upsert(
+    rows: Ins | Ins[],
+    opts: WriteOptions & { onConflict: string[]; ignore?: boolean },
+  ): WriteQuery<Row> {
     return new WriteQuery<Row>(this.ctx, "POST", this.base, rows, opts);
   }
   /** Change the rows a filter (or byKey) picks. */
@@ -457,13 +549,40 @@ export class Table<Row, Ins, Upd> {
 
 /** One write of a batch. */
 export type BatchOp =
-  | { op: "insert"; table: string; rows: unknown; return?: "representation" | "minimal" }
-  | { op: "upsert"; table: string; rows: unknown; on_conflict: string[]; return?: "representation" | "minimal" }
-  | { op: "update"; table: string; set: Record<string, unknown>; where?: Filter; key?: string | number }
-  | { op: "delete"; table: string; where?: Filter; key?: string | number; return?: "representation" | "minimal" };
+  | {
+      op: "insert";
+      table: string;
+      rows: unknown;
+      return?: "representation" | "minimal";
+    }
+  | {
+      op: "upsert";
+      table: string;
+      rows: unknown;
+      on_conflict: string[];
+      return?: "representation" | "minimal";
+    }
+  | {
+      op: "update";
+      table: string;
+      set: Record<string, unknown>;
+      where?: Filter;
+      key?: string | number;
+    }
+  | {
+      op: "delete";
+      table: string;
+      where?: Filter;
+      key?: string | number;
+      return?: "representation" | "minimal";
+    };
 
 /** client.data: tables, functions and batches. */
-export class DataClient<DB extends AnyDatabase = AnyDatabase, SchemaName extends Extract<keyof DB, string> = "public" & Extract<keyof DB, string>> {
+export class DataClient<
+  DB extends AnyDatabase = AnyDatabase,
+  SchemaName extends Extract<keyof DB, string> = "public" &
+    Extract<keyof DB, string>,
+> {
   constructor(
     private ctx: DataContext,
     private schemaName: string = "public",
@@ -472,7 +591,11 @@ export class DataClient<DB extends AnyDatabase = AnyDatabase, SchemaName extends
   /** A table or view (another exposed schema: from("api.items"), or schema()). */
   from<T extends TableNames<DB[SchemaName]> | (string & {})>(
     table: T,
-  ): Table<RowOf<DB[SchemaName], T>, InsertOf<DB[SchemaName], T>, UpdateOf<DB[SchemaName], T>> {
+  ): Table<
+    RowOf<DB[SchemaName], T>,
+    InsertOf<DB[SchemaName], T>,
+    UpdateOf<DB[SchemaName], T>
+  > {
     let schema = this.schemaName;
     let name: string = table;
     const dot = name.indexOf(".");
@@ -492,17 +615,31 @@ export class DataClient<DB extends AnyDatabase = AnyDatabase, SchemaName extends
    * Calls a function as the caller. STABLE and IMMUTABLE functions may be
    * called with { get: true } (cacheable, and replicas can serve them).
    */
-  async rpc<F extends Extract<keyof DB[SchemaName]["Functions"], string> | (string & {})>(
+  async rpc<
+    F extends
+      | Extract<keyof DB[SchemaName]["Functions"], string>
+      | (string & {}),
+  >(
     fn: F,
-    args: F extends keyof DB[SchemaName]["Functions"] ? DB[SchemaName]["Functions"][F]["Args"] : Record<string, unknown> = {} as never,
+    args: F extends keyof DB[SchemaName]["Functions"]
+      ? DB[SchemaName]["Functions"][F]["Args"]
+      : Record<string, unknown> = {} as never,
     opts: { get?: boolean } = {},
-  ): Promise<Result<F extends keyof DB[SchemaName]["Functions"] ? DB[SchemaName]["Functions"][F]["Returns"] : unknown>> {
+  ): Promise<
+    Result<
+      F extends keyof DB[SchemaName]["Functions"]
+        ? DB[SchemaName]["Functions"][F]["Returns"]
+        : unknown
+    >
+  > {
     const name = this.schemaName === "public" ? fn : `${this.schemaName}.${fn}`;
     const path = "/data/v1/rpc/" + encodeURIComponent(name);
     const a = args as Record<string, unknown>;
     const r = opts.get
       ? await json<{ data: never }>(this.ctx.t, path, {
-          query: Object.fromEntries(Object.entries(a).map(([k, v]) => [k, scalar(v)])),
+          query: Object.fromEntries(
+            Object.entries(a).map(([k, v]) => [k, scalar(v)]),
+          ),
         })
       : await json<{ data: never }>(this.ctx.t, path, { body: a });
     return r.error ? r : ok(r.data.data);
@@ -510,13 +647,25 @@ export class DataClient<DB extends AnyDatabase = AnyDatabase, SchemaName extends
 
   /** Up to 50 writes in one transaction: all happen or none do. */
   async batch(operations: BatchOp[]): Promise<Result<unknown[]>> {
-    const ops = operations.map((o) => ("where" in o && o.where ? { ...o, where: jsonFilter(o.where) } : o));
-    const r = await json<{ results: unknown[] }>(this.ctx.t, "/data/v1/batch", { body: { operations: ops } });
+    const ops = operations.map((o) =>
+      "where" in o && o.where ? { ...o, where: jsonFilter(o.where) } : o,
+    );
+    const r = await json<{ results: unknown[] }>(this.ctx.t, "/data/v1/batch", {
+      body: { operations: ops },
+    });
     return r.error ? r : ok(r.data.results);
   }
 
   /** Whether the API answers, and as whom. */
-  async health(): Promise<Result<{ status: string; project: string; role: string; region: string; replica?: boolean }>> {
+  async health(): Promise<
+    Result<{
+      status: string;
+      project: string;
+      role: string;
+      region: string;
+      replica?: boolean;
+    }>
+  > {
     const r = await send(this.ctx.t, "/data/v1/health");
     if (r.error) return fail(r.error);
     return ok(await r.data.json());
