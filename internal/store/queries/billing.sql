@@ -219,7 +219,8 @@ GROUP BY project_id, metric, day ORDER BY day, project_id, metric;
 
 -- name: ProjectNamesByID :many
 -- tenant: system - names for invoice lines (deleted projects included).
-SELECT id, name FROM projects WHERE id = ANY(@ids::uuid[]);
+SELECT p.id, p.name, p.region, COALESCE(r.name, p.region)::text AS region_name
+FROM projects p LEFT JOIN regions r ON r.id = p.region WHERE p.id = ANY(@ids::uuid[]);
 
 -- name: PlanChangesFrom :many
 -- tenant: system - an org's applied changes from @from_ts on.

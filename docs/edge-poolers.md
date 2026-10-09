@@ -175,5 +175,20 @@ Not provable there:
 - placement groups;
 - probing from another provider.
 
-Before V3 ships, run the rehearsal above on two real servers and record the
-time it took.
+Before the paid launch, run the rehearsal on the two real servers with
+`scripts/rehearse-pooler-failover.sh`, which times the outage from a
+client's side and fails above 10 seconds:
+
+```sh
+DATABASE_URL='postgresql://<user>:<password>@db.eu.<domain>:6543/<db>?sslmode=require' \
+KILL_CMD='ssh edge-a docker kill pgdock-edge-pooler-host-1' \
+scripts/rehearse-pooler-failover.sh
+```
+
+Leave `KILL_CMD` empty to cut the host yourself (power it off from
+Hetzner's console, or detach its network) when the script says so. Record
+the result here:
+
+| Date | Region | How the host was cut | Gap | By |
+| --- | --- | --- | --- | --- |
+| | | | | |

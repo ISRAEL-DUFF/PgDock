@@ -509,6 +509,27 @@ func (e BackupKind) Valid() bool {
 	}
 }
 
+// Defines values for BackupRetention.
+const (
+	Extended BackupRetention = "extended"
+	Long     BackupRetention = "long"
+	Standard BackupRetention = "standard"
+)
+
+// Valid indicates whether the value is a known member of the BackupRetention enum.
+func (e BackupRetention) Valid() bool {
+	switch e {
+	case Extended:
+		return true
+	case Long:
+		return true
+	case Standard:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BillingAccountMode.
 const (
 	BillingAccountModePostpaid BillingAccountMode = "postpaid"
@@ -1226,6 +1247,27 @@ func (e InstanceSummaryKind) Valid() bool {
 	case InstanceSummaryKindDedicated:
 		return true
 	case InstanceSummaryKindShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceUpdatePitrDays.
+const (
+	InstanceUpdatePitrDaysN14 InstanceUpdatePitrDays = 14
+	InstanceUpdatePitrDaysN30 InstanceUpdatePitrDays = 30
+	InstanceUpdatePitrDaysN7  InstanceUpdatePitrDays = 7
+)
+
+// Valid indicates whether the value is a known member of the InstanceUpdatePitrDays enum.
+func (e InstanceUpdatePitrDays) Valid() bool {
+	switch e {
+	case InstanceUpdatePitrDaysN14:
+		return true
+	case InstanceUpdatePitrDaysN30:
+		return true
+	case InstanceUpdatePitrDaysN7:
 		return true
 	default:
 		return false
@@ -3521,6 +3563,27 @@ func (e StartCheckoutJSONBodyPurpose) Valid() bool {
 	}
 }
 
+// Defines values for EstimateOrgCostJSONBodyPitrDays.
+const (
+	EstimateOrgCostJSONBodyPitrDaysN14 EstimateOrgCostJSONBodyPitrDays = 14
+	EstimateOrgCostJSONBodyPitrDaysN30 EstimateOrgCostJSONBodyPitrDays = 30
+	EstimateOrgCostJSONBodyPitrDaysN7  EstimateOrgCostJSONBodyPitrDays = 7
+)
+
+// Valid indicates whether the value is a known member of the EstimateOrgCostJSONBodyPitrDays enum.
+func (e EstimateOrgCostJSONBodyPitrDays) Valid() bool {
+	switch e {
+	case EstimateOrgCostJSONBodyPitrDaysN14:
+		return true
+	case EstimateOrgCostJSONBodyPitrDaysN30:
+		return true
+	case EstimateOrgCostJSONBodyPitrDaysN7:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetOrgUsageParamsFormat.
 const (
 	GetOrgUsageParamsFormatCsv  GetOrgUsageParamsFormat = "csv"
@@ -4513,9 +4576,12 @@ type AvailabilityExclusion struct {
 // BackendServices defines model for BackendServices.
 type BackendServices struct {
 	// CorsOrigins Origins browsers may call from; empty allows any.
-	CorsOrigins []string   `json:"cors_origins"`
-	Enabled     bool       `json:"enabled"`
-	EnabledAt   *time.Time `json:"enabled_at,omitempty"`
+	CorsOrigins []string `json:"cors_origins"`
+
+	// Effective What the edge applies (V4.1 §3) - the project's settings within its plan's ceilings, and the plan's monthly limits.
+	Effective *BackendServicesEffective `json:"effective,omitempty"`
+	Enabled   bool                      `json:"enabled"`
+	EnabledAt *time.Time                `json:"enabled_at,omitempty"`
 
 	// ExposedSchemas The schemas the data API serves (default public).
 	ExposedSchemas []string `json:"exposed_schemas"`
@@ -4542,6 +4608,26 @@ type BackendServices struct {
 
 	// Url The API base URL (https://<ref>.<domain>); empty when no API domain is configured.
 	Url *string `json:"url,omitempty"`
+}
+
+// BackendServicesEffective What the edge applies (V4.1 §3) - the project's settings within its plan's ceilings, and the plan's monthly limits.
+type BackendServicesEffective struct {
+	// LimitsFrom When the plan limits start applying.
+	LimitsFrom *time.Time `json:"limits_from,omitempty"`
+
+	// MauBlocked The plan's monthly active users are reached (new users get 429 mau_limit_reached).
+	MauBlocked     bool `json:"mau_blocked"`
+	PlanRatePerIp  *int `json:"plan_rate_per_ip,omitempty"`
+	PlanRatePerKey *int `json:"plan_rate_per_key,omitempty"`
+
+	// PlanTimeoutMs The plan's ceiling on the timeout, if it has one.
+	PlanTimeoutMs *int `json:"plan_timeout_ms,omitempty"`
+	RatePerIp     int  `json:"rate_per_ip"`
+	RatePerKey    int  `json:"rate_per_key"`
+
+	// RequestsBlocked The plan's monthly data API requests are used up (429 plan_limit_reached until the month ends).
+	RequestsBlocked    bool `json:"requests_blocked"`
+	StatementTimeoutMs int  `json:"statement_timeout_ms"`
 }
 
 // BackendServicesEnabled defines model for BackendServicesEnabled.
@@ -4654,6 +4740,11 @@ type BackupOverview struct {
 	StorageConfigured  bool          `json:"storage_configured"`
 	WindowHourUtc      int           `json:"window_hour_utc"`
 }
+
+// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
+// extended (30 daily, 12 weekly) or long (30 daily, 52 weekly). The
+// longer two are billed add-ons on Pro and Team (V4.1 §4.2).
+type BackupRetention string
 
 // BatchDecision defines model for BatchDecision.
 type BatchDecision struct {
@@ -5907,14 +5998,25 @@ type InstanceSummary struct {
 	PgReleaseAvailable *string `json:"pg_release_available,omitempty"`
 
 	// PgVersion Postgres major version.
-	PgVersion int     `json:"pg_version"`
-	Profile   *string `json:"profile,omitempty"`
-	Status    string  `json:"status"`
-	VolumeGb  *int    `json:"volume_gb,omitempty"`
+	PgVersion int `json:"pg_version"`
+
+	// PitrDays Dedicated only. The point-in-time recovery window in days (7, 14 or 30).
+	PitrDays *int    `json:"pitr_days,omitempty"`
+	Profile  *string `json:"profile,omitempty"`
+	Status   string  `json:"status"`
+	VolumeGb *int    `json:"volume_gb,omitempty"`
 }
 
 // InstanceSummaryKind defines model for InstanceSummary.Kind.
 type InstanceSummaryKind string
+
+// InstanceUpdate defines model for InstanceUpdate.
+type InstanceUpdate struct {
+	PitrDays *InstanceUpdatePitrDays `json:"pitr_days,omitempty"`
+}
+
+// InstanceUpdatePitrDays defines model for InstanceUpdate.PitrDays.
+type InstanceUpdatePitrDays int
 
 // Invitation defines model for Invitation.
 type Invitation struct {
@@ -7061,10 +7163,38 @@ type PricePlan struct {
 // Prices defines model for Prices.
 type Prices struct {
 	Addons struct {
+		// BackupRetentionExtendedHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		BackupRetentionExtendedHour *Decimal `json:"backup_retention_extended_hour,omitempty"`
+
+		// BackupRetentionLongHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		BackupRetentionLongHour *Decimal `json:"backup_retention_long_hour,omitempty"`
+
 		// HaPremiumPercent An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 		//
 		// Example: 34.25
 		HaPremiumPercent Decimal `json:"ha_premium_percent"`
+
+		// MessageMarginPercent An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		MessageMarginPercent *Decimal `json:"message_margin_percent,omitempty"`
+
+		// Pitr14Hour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		Pitr14Hour *Decimal `json:"pitr_14_hour,omitempty"`
+
+		// Pitr30Hour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		Pitr30Hour *Decimal `json:"pitr_30_hour,omitempty"`
+
+		// RegionPremiumPercent A percentage added to a project's dedicated, HA, read replica and synchronous replication lines, by region ID.
+		RegionPremiumPercent *map[string]Decimal `json:"region_premium_percent,omitempty"`
 
 		// SyncReplicationHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 		//
@@ -7298,21 +7428,29 @@ type ProjectRoleRequest struct {
 
 // ProjectSettings defines model for ProjectSettings.
 type ProjectSettings struct {
-	ConnectionLimit                 int    `json:"connection_limit"`
-	ConsoleReadOnly                 bool   `json:"console_read_only"`
-	DiskWarnBytes                   int64  `json:"disk_warn_bytes"`
-	IdleInTransactionSessionTimeout string `json:"idle_in_transaction_session_timeout"`
-	PoolSize                        int    `json:"pool_size"`
-	StatementTimeout                string `json:"statement_timeout"`
+	// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
+	// extended (30 daily, 12 weekly) or long (30 daily, 52 weekly). The
+	// longer two are billed add-ons on Pro and Team (V4.1 §4.2).
+	BackupRetention                 *BackupRetention `json:"backup_retention,omitempty"`
+	ConnectionLimit                 int              `json:"connection_limit"`
+	ConsoleReadOnly                 bool             `json:"console_read_only"`
+	DiskWarnBytes                   int64            `json:"disk_warn_bytes"`
+	IdleInTransactionSessionTimeout string           `json:"idle_in_transaction_session_timeout"`
+	PoolSize                        int              `json:"pool_size"`
+	StatementTimeout                string           `json:"statement_timeout"`
 }
 
 // ProjectSettingsPatch defines model for ProjectSettingsPatch.
 type ProjectSettingsPatch struct {
-	ConnectionLimit                 *int    `json:"connection_limit,omitempty"`
-	ConsoleReadOnly                 *bool   `json:"console_read_only,omitempty"`
-	DiskWarnBytes                   *int64  `json:"disk_warn_bytes,omitempty"`
-	IdleInTransactionSessionTimeout *string `json:"idle_in_transaction_session_timeout,omitempty"`
-	PoolSize                        *int    `json:"pool_size,omitempty"`
+	// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
+	// extended (30 daily, 12 weekly) or long (30 daily, 52 weekly). The
+	// longer two are billed add-ons on Pro and Team (V4.1 §4.2).
+	BackupRetention                 *BackupRetention `json:"backup_retention,omitempty"`
+	ConnectionLimit                 *int             `json:"connection_limit,omitempty"`
+	ConsoleReadOnly                 *bool            `json:"console_read_only,omitempty"`
+	DiskWarnBytes                   *int64           `json:"disk_warn_bytes,omitempty"`
+	IdleInTransactionSessionTimeout *string          `json:"idle_in_transaction_session_timeout,omitempty"`
+	PoolSize                        *int             `json:"pool_size,omitempty"`
 
 	// StatementTimeout Postgres duration such as `60s`; empty to unset.
 	StatementTimeout *string `json:"statement_timeout,omitempty"`
@@ -7579,6 +7717,15 @@ type Region struct {
 	Residency bool `json:"residency"`
 }
 
+// RegionCheck defines model for RegionCheck.
+type RegionCheck struct {
+	// Blocking Failing, and keeps a hidden region hidden.
+	Blocking bool   `json:"blocking"`
+	Detail   string `json:"detail"`
+	Name     string `json:"name"`
+	Ok       bool   `json:"ok"`
+}
+
 // RegionDedicated defines model for RegionDedicated.
 type RegionDedicated struct {
 	FitsOn    *string `json:"fits_on,omitempty"`
@@ -7592,6 +7739,14 @@ type RegionDedicated struct {
 // RegionList defines model for RegionList.
 type RegionList struct {
 	Items []Region `json:"items"`
+}
+
+// RegionReadiness defines model for RegionReadiness.
+type RegionReadiness struct {
+	Checks []RegionCheck `json:"checks"`
+
+	// Ready No blocking check fails, so the region can be opened.
+	Ready bool `json:"ready"`
 }
 
 // RegionShared defines model for RegionShared.
@@ -9483,15 +9638,28 @@ type StartCheckoutJSONBodyPurpose string
 
 // EstimateOrgCostJSONBody defines parameters for EstimateOrgCost.
 type EstimateOrgCostJSONBody struct {
-	Cpus     *float32 `json:"cpus,omitempty"`
-	DiskGb   *int64   `json:"disk_gb,omitempty"`
-	Ha       *bool    `json:"ha,omitempty"`
-	MemoryMb *int64   `json:"memory_mb,omitempty"`
+	// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
+	// extended (30 daily, 12 weekly) or long (30 daily, 52 weekly). The
+	// longer two are billed add-ons on Pro and Team (V4.1 §4.2).
+	BackupRetention *BackupRetention `json:"backup_retention,omitempty"`
+	Cpus            *float32         `json:"cpus,omitempty"`
+	DiskGb          *int64           `json:"disk_gb,omitempty"`
+	Ha              *bool            `json:"ha,omitempty"`
+	MemoryMb        *int64           `json:"memory_mb,omitempty"`
+
+	// PitrDays A dedicated instance's point-in-time recovery window (14 and 30 are add-ons).
+	PitrDays *EstimateOrgCostJSONBodyPitrDays `json:"pitr_days,omitempty"`
+
+	// Region The region, for its premium if the price book has one.
+	Region *string `json:"region,omitempty"`
 
 	// StandbyOnly Price only what enabling HA adds to a running instance.
 	StandbyOnly *bool `json:"standby_only,omitempty"`
 	Synchronous *bool `json:"synchronous,omitempty"`
 }
+
+// EstimateOrgCostJSONBodyPitrDays defines parameters for EstimateOrgCost.
+type EstimateOrgCostJSONBodyPitrDays int
 
 // UploadWhtCertificateParams defines parameters for UploadWhtCertificate.
 type UploadWhtCertificateParams struct {
@@ -10119,6 +10287,9 @@ type EnableProjectHAJSONRequestBody = HAEnableRequest
 // ExplainInsightQueryJSONRequestBody defines body for ExplainInsightQuery for application/json ContentType.
 type ExplainInsightQueryJSONRequestBody = InsightExplainRequest
 
+// UpdateProjectInstanceJSONRequestBody defines body for UpdateProjectInstance for application/json ContentType.
+type UpdateProjectInstanceJSONRequestBody = InstanceUpdate
+
 // ProjectInstanceActionJSONRequestBody defines body for ProjectInstanceAction for application/json ContentType.
 type ProjectInstanceActionJSONRequestBody = InstanceActionRequest
 
@@ -10505,6 +10676,9 @@ type ServerInterface interface {
 	// PutAdminRegion Create or change a region
 	// (PUT /api/v1/admin/regions/{region_id})
 	PutAdminRegion(w http.ResponseWriter, r *http.Request, regionId string)
+	// GetAdminRegionReadiness A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
+	// (GET /api/v1/admin/regions/{region_id}/readiness)
+	GetAdminRegionReadiness(w http.ResponseWriter, r *http.Request, regionId string)
 	// AdminRevenue The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
 	// (GET /api/v1/admin/revenue)
 	AdminRevenue(w http.ResponseWriter, r *http.Request, params AdminRevenueParams)
@@ -10799,7 +10973,7 @@ type ServerInterface interface {
 	// RemoveBillingContact Remove a billing contact
 	// (DELETE /api/v1/orgs/{org}/billing/contacts/{email})
 	RemoveBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string)
-	// EstimateOrgCost What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+	// EstimateOrgCost What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	// (POST /api/v1/orgs/{org}/billing/estimate)
 	EstimateOrgCost(w http.ResponseWriter, r *http.Request, org OrgID)
 	// GetOrgForecast The current month so far and its forecast (V3 §3.10)
@@ -11096,6 +11270,9 @@ type ServerInterface interface {
 	// ListSlowQueries Statements over the slow-query threshold
 	// (GET /api/v1/projects/{id}/insights/slow)
 	ListSlowQueries(w http.ResponseWriter, r *http.Request, id ProjectID, params ListSlowQueriesParams)
+	// UpdateProjectInstance Change a dedicated project's instance settings
+	// (PATCH /api/v1/projects/{id}/instance)
+	UpdateProjectInstance(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ProjectInstanceAction Start, stop, or restart a dedicated project's instance
 	// (POST /api/v1/projects/{id}/instance)
 	ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -11903,6 +12080,12 @@ func (_ Unimplemented) PutAdminRegion(w http.ResponseWriter, r *http.Request, re
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetAdminRegionReadiness A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
+// (GET /api/v1/admin/regions/{region_id}/readiness)
+func (_ Unimplemented) GetAdminRegionReadiness(w http.ResponseWriter, r *http.Request, regionId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // AdminRevenue The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
 // (GET /api/v1/admin/revenue)
 func (_ Unimplemented) AdminRevenue(w http.ResponseWriter, r *http.Request, params AdminRevenueParams) {
@@ -12491,7 +12674,7 @@ func (_ Unimplemented) RemoveBillingContact(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// EstimateOrgCost What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+// EstimateOrgCost What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 // (POST /api/v1/orgs/{org}/billing/estimate)
 func (_ Unimplemented) EstimateOrgCost(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -13082,6 +13265,12 @@ func (_ Unimplemented) GetInsightQuery(w http.ResponseWriter, r *http.Request, i
 // ListSlowQueries Statements over the slow-query threshold
 // (GET /api/v1/projects/{id}/insights/slow)
 func (_ Unimplemented) ListSlowQueries(w http.ResponseWriter, r *http.Request, id ProjectID, params ListSlowQueriesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateProjectInstance Change a dedicated project's instance settings
+// (PATCH /api/v1/projects/{id}/instance)
+func (_ Unimplemented) UpdateProjectInstance(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -15605,6 +15794,32 @@ func (siw *ServerInterfaceWrapper) PutAdminRegion(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutAdminRegion(w, r, regionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminRegionReadiness operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminRegionReadiness(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "region_id" -------------
+	var regionId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "region_id", chi.URLParam(r, "region_id"), &regionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "region_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminRegionReadiness(w, r, regionId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -21193,6 +21408,32 @@ func (siw *ServerInterfaceWrapper) ListSlowQueries(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// UpdateProjectInstance operation middleware
+func (siw *ServerInterfaceWrapper) UpdateProjectInstance(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateProjectInstance(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ProjectInstanceAction operation middleware
 func (siw *ServerInterfaceWrapper) ProjectInstanceAction(w http.ResponseWriter, r *http.Request) {
 
@@ -24720,6 +24961,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/demote", wrapper.DemoteProject)
 	})
 	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/instance", wrapper.UpdateProjectInstance)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/instance", wrapper.ProjectInstanceAction)
 	})
 	r.Group(func(r chi.Router) {
@@ -25549,6 +25793,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/v1/admin/regions/{region_id}", wrapper.PutAdminRegion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/regions/{region_id}/readiness", wrapper.GetAdminRegionReadiness)
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/v1/projects/{id}/residency", wrapper.SetProjectResidency)

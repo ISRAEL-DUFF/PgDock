@@ -422,3 +422,9 @@ func (f *Failover) Send(ctx context.Context, m Message) (Sent, error) {
 	}
 	return Sent{}, errors.Join(errs...)
 }
+
+// PlatformProviders are the providers PGDock can hold its own accounts
+// with (cmd/server builds them from PGDOCK_TERMII_*, PGDOCK_AFRICASTALKING_*
+// and PGDOCK_WHATSAPP_*). Each is a sub-processor in the default DPA
+// (legal.SubProcessors); a test fails when one is missing there.
+var PlatformProviders = []Provider{Termii{}, AfricasTalking{}, WhatsAppCloud{}}

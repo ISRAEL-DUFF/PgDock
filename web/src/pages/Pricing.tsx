@@ -261,6 +261,40 @@ export function PricingPage() {
               {naira(num(p.prices.addons.sync_replication_hour) * MONTH_HOURS)}
             </td>
           </tr>
+          {(
+            [
+              ["14-day point-in-time recovery", p.prices.addons.pitr_14_hour],
+              ["30-day point-in-time recovery", p.prices.addons.pitr_30_hour],
+              [
+                "Extended backup retention (30 daily, 12 weekly)",
+                p.prices.addons.backup_retention_extended_hour,
+              ],
+              [
+                "Long backup retention (30 daily, 52 weekly)",
+                p.prices.addons.backup_retention_long_hour,
+              ],
+            ] as [string, string | undefined][]
+          )
+            .filter(([, v]) => num(v) > 0)
+            .map(([label, v]) => (
+              <tr key={label}>
+                <td className="px-3 py-2">{label}</td>
+                <td className="px-3 py-2 tabular-nums">{naira(num(v))}</td>
+                <td className="px-3 py-2 tabular-nums">
+                  {naira(num(v) * MONTH_HOURS)}
+                </td>
+              </tr>
+            ))}
+          {Object.entries(p.prices.addons.region_premium_percent ?? {})
+            .filter(([, v]) => num(v) > 0)
+            .map(([region, v]) => (
+              <tr key={region}>
+                <td className="px-3 py-2">Region premium: {region}</td>
+                <td className="px-3 py-2" colSpan={2}>
+                  {num(v)}% on dedicated, HA and read replica prices there
+                </td>
+              </tr>
+            ))}
         </Table>
       </Panel>
       <Calculator prices={p.prices} vat={vat} />

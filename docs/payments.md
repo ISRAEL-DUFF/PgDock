@@ -41,8 +41,56 @@ The API iSpend implements for PGDock is in
 **Testing without the sandboxes.** The test suite runs both providers
 against fakes of their sandboxes (`internal/billing/flutterwave/fake.go`
 and `internal/billing/ispend/fake.go`), which send real signed webhooks to
-the API. Running against the real sandboxes only takes the variables
-above, set to sandbox credentials.
+the API. The done-when test drives the fakes directly (it "pays" their
+hosted pages), so against the real sandboxes it is replaced by the
+rehearsal below.
+
+## Sandbox rehearsal
+
+Before the paid launch, run PGDock's provider clients against the real
+sandboxes, then do the steps that need a person.
+
+**1. The clients on their own** (a few seconds, no server needed):
+
+```sh
+PGDOCK_FLW_SECRET_KEY=FLWSECK_TEST-… PGDOCK_FLW_BVN=… \
+PGDOCK_ISPEND_BASE_URL=https://sandbox.… PGDOCK_ISPEND_API_KEY=… \
+make test-payments-sandbox
+```
+
+It creates a customer, starts a checkout (and prints its hosted page),
+checks an unpaid checkout doesn't verify as paid, issues a virtual account
+(printed), and lists the last day's transactions, for each provider whose
+keys are set. It refuses a Flutterwave key that isn't a test key. The same
+checks run against the fakes in CI (`TestChecksAgainstFakes`).
+
+**2. With a person**, on a staging PGDock reachable from the internet
+(the providers must reach its webhook URLs; a tunnel is enough), with
+both providers' sandbox webhooks pointed at it:
+
+| Step | Expect |
+| --- | --- |
+| Pay an invoice by card on Flutterwave's hosted page with one of [Flutterwave's test cards](https://developer.flutterwave.com/docs/integration-guides/testing-helpers) | The invoice is paid and the card is saved (Org → Billing) |
+| Issue the next invoice | The saved card is charged on issue |
+| Pay with a test card that declines | The payment fails; the card retry schedule starts; nothing is posted |
+| Transfer into the org's iSpend virtual account (the sandbox's simulated transfer): the full amount, then on another invoice the amount less exactly its WHT, then less, then more | Paid; paid (WHT pending evidence); partially paid; paid with the rest as credit |
+| The same into a Flutterwave virtual account (turn iSpend's off, or use an org issued one by the fallback) | The same four results |
+| Pay with iSpend's wallet, once with a mandate; then revoke the mandate in iSpend | Paid; the mandate is saved, charged on the next invoice, then retired with an email asking for another method |
+| Redeliver a webhook from each dashboard | Nothing changes (one payment) |
+| Stop the staging server for ten minutes during a payment, then start it | Within the hour, the hourly re-query records the payment once |
+| Admin → Billing → Reconciliation → Run now | No differences for either provider |
+| Admin → Billing → Ledger | No findings |
+
+Then rerun step 1 with `PGDOCK_SANDBOX_FLW_PAID_REF` and
+`PGDOCK_SANDBOX_ISPEND_PAID_REF` set to a paid reference from step 2: each
+must verify as a succeeded NGN payment with its fee.
+
+Record the date, who ran it and any differences in the table below; the
+paid launch waits on a run with none.
+
+| Date | By | Flutterwave | iSpend | Notes |
+| --- | --- | --- | --- | --- |
+| | | | | |
 
 ## How a payment is recorded
 

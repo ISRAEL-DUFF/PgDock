@@ -828,6 +828,51 @@ new image transforms answer `429 spend_cap_reached` (cached ones still
 serve), and new realtime connections are refused with `429
 spend_cap_reached` while open ones stay. Auth endpoints are unaffected.
 
+## Plan limits
+
+Each quota plan ([quotas](operations.md#quotas-storage-locks-and-usage))
+can set monthly hard limits and ceilings on a project's own settings. A key the plan leaves out has no
+limit; an organisation's overrides (Admin → Organisations) win over the
+plan.
+
+| Limit | Key | Personal | Pro | Team |
+| --- | --- | --- | --- | --- |
+| Data API requests a month | `api_requests_per_month` | 500,000 | — | — |
+| Monthly active users | `auth_mau_per_month` | 10,000 | — | — |
+| Statement timeout ceiling (ms) | `api_timeout_ms` | 5,000 | 8,000 | 15,000 |
+| Requests per minute per IP, ceiling | `api_rate_per_ip_per_min` | 300 | 600 | 1,200 |
+| Requests per minute per key, ceiling | `api_rate_per_key_per_min` | 3,000 | 12,000 | 30,000 |
+| SMS codes a day (platform sender) | `sms_codes_per_day` | — | 1,000 | 5,000 |
+
+- **Monthly requests.** Once an organisation's data API requests this
+  month reach the limit, the data API, storage and realtime answer
+  `429 plan_limit_reached` with a `Retry-After` up to the start of next
+  month. Auth and `GET /data/v1/health` keep working, so users can still
+  sign in and an app can say why. Paid plans have no request limit: they
+  are billed past what the plan includes.
+- **Monthly active users.** At the limit, users who already signed in
+  this month keep signing in and refreshing their sessions; a new user
+  gets `429 mau_limit_reached`. The edge gets a compact filter of the
+  users counted this month (about 12 KB for 10,000 users), so it can
+  answer without asking pgdock-server; about one new user in a hundred
+  can still slip through until the next count.
+- **Ceilings.** A project's timeout and rate limits are capped at the
+  plan's: asking for 15 s on a 5 s plan gets 5 s. The API page (Access
+  and limits) and `pgdock services status` show what is in effect.
+- **SMS codes.** Codes sent with PGDock's own sender are capped per
+  project and day at the lower of the project's cap and the plan's; a
+  project's own provider has only its own cap. Free plans send codes only
+  when the operator allows it (`PGDOCK_PHONE_AUTH_FREE`).
+
+pgdock-server works the limits out every five minutes, so a limit
+reached or lifted (an upgrade, an override) reaches the edges within
+about five minutes. Owners and admins get an email at 80% and at 100% of
+each monthly limit, once a month each.
+
+On an install upgrading from an earlier version, the limits apply from
+the first full month after the upgrade (the `plan_limits_from` setting);
+notices before then say when they start.
+
 ## Running pgdock-edge
 
 Run one pgdock-edge per region, on the region's nodes. It keeps no state.

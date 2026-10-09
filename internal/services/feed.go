@@ -157,10 +157,14 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 		} else {
 			p.Auth = AuthSettings{}.Resolve()
 		}
-		p.Settings = edgeapi.Settings{StatementTimeoutMs: or(st.StatementTimeoutMs, DefaultStatementTimeoutMs),
-			RatePerIP: or(st.RatePerIP, DefaultRatePerIP), RatePerKey: or(st.RatePerKey, DefaultRatePerKey),
+		timeout, perIP, perKey := EffectiveSettings(st, PlanCeilings{TimeoutMs: r.PlanTimeoutMs, RatePerIP: r.PlanRatePerIp, RatePerKey: r.PlanRatePerKey})
+		p.Settings = edgeapi.Settings{StatementTimeoutMs: timeout, RatePerIP: perIP, RatePerKey: perKey,
 			AllowSecretInBrowser: st.AllowSecretInBrowser, MaxQueryCost: float64(or(st.MaxQueryCost, DefaultMaxQueryCost)),
 			ReplicaReads: st.ReplicaReads}
+		p.RequestsBlocked, p.MAUBlocked = r.ApiRequestsBlocked, r.MauBlocked
+		if r.MauBlocked {
+			p.MAUCounted = r.MauCounted
+		}
 		if r.HasReplicas {
 			p.ReadDatabase = r.DbName + pooler.ReadOnlySuffix
 		}

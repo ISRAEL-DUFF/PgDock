@@ -28,6 +28,19 @@ const (
 	// Realtime (V4 §10.1): concurrent connections, and the free plan's messages.
 	LimitRealtimeConnections = "realtime_connections"
 	LimitRealtimeMessagesMo  = "realtime_messages_per_month"
+	// The data API and auth (V4 §10, V4.1 §3): monthly hard limits (Free),
+	// and ceilings on what a project's own settings may ask for.
+	LimitAPIRequestsMo  = "api_requests_per_month"
+	LimitAuthMAUMo      = "auth_mau_per_month"
+	LimitAPITimeoutMs   = "api_timeout_ms"
+	LimitAPIRatePerIP   = "api_rate_per_ip_per_min"
+	LimitAPIRatePerKey  = "api_rate_per_key_per_min"
+	LimitSMSCodesPerDay = "sms_codes_per_day"
+	// Billing add-ons (V4.1 §4): the longest point-in-time recovery window
+	// in days, and the longest backup retention (0 standard, 1 extended,
+	// 2 long; see BackupRetentionLevel).
+	LimitPITRDaysMax        = "pitr_days_max"
+	LimitBackupRetentionMax = "backup_retention_max"
 )
 
 // LimitKeys are the known limits, in display order.
@@ -37,6 +50,8 @@ var LimitKeys = []string{
 	LimitHTTPJobRunsPerHour, LimitConsoleQueries, LimitOperationsInFlight,
 	LimitFileStorageMB, LimitStorageEgressMBMo, LimitImageTransformsMo, LimitUploadMaxMB,
 	LimitRealtimeConnections, LimitRealtimeMessagesMo,
+	LimitAPIRequestsMo, LimitAuthMAUMo, LimitAPITimeoutMs, LimitAPIRatePerIP, LimitAPIRatePerKey, LimitSMSCodesPerDay,
+	LimitPITRDaysMax, LimitBackupRetentionMax,
 }
 
 // Limits are an organisation's effective quotas: its plan's limits with its

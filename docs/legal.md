@@ -25,6 +25,17 @@ The first start publishes the following as version 1:
 Have a lawyer review all of them, then publish the company's own versions
 before charging anyone (see the launch gate in the [admin runbook](admin-runbook.md)).
 
+**Sub-processors added in V4.1.** The DPA template now lists the SMS and
+WhatsApp providers PGDock holds accounts with for apps' sign-in codes
+(Termii, Africa's Talking, Meta's WhatsApp Business Platform) and
+Cloudflare's CDN for public files. A new install publishes it as version
+1. An install already running publishes nothing by itself, because a new
+version makes every owner accept again: if you use platform SMS or
+WhatsApp codes, tell organisations about the new sub-processors 30 days
+ahead (the DPA promises that notice), then publish a new DPA version from
+Platform → Legal documents with the new rows (the template is in
+`internal/legal/defaults.go`).
+
 ## Publishing
 
 - **SLA and DPA:** Platform → Legal documents → **Publish a new version**.

@@ -402,6 +402,60 @@ func (q *Queries) GetPlan(ctx context.Context, id uuid.UUID) (QuotaPlan, error) 
 	return i, err
 }
 
+const hourlyBackupRetention = `-- name: HourlyBackupRetention :many
+SELECT p.id AS project_id, p.org_id, o.plan_id, g.h::timestamptz AS period_start, (p.settings->>'backup_retention')::text AS retention,
+       (extract(epoch FROM LEAST(g.h + '1 hour'::interval, COALESCE(p.deleted_at, 'infinity'::timestamptz)) - GREATEST(g.h, p.created_at)) / 3600)::float8 AS fraction
+FROM projects p
+JOIN organizations o ON o.id = p.org_id
+CROSS JOIN generate_series($1::timestamptz, $2::timestamptz, '1 hour'::interval) AS g(h)
+WHERE p.settings->>'backup_retention' IN ('extended', 'long')
+  AND p.created_at < g.h + '1 hour'::interval AND (p.deleted_at IS NULL OR p.deleted_at > g.h)
+`
+
+type HourlyBackupRetentionParams struct {
+	FromTs   time.Time
+	LastHour time.Time
+}
+
+type HourlyBackupRetentionRow struct {
+	ProjectID   uuid.UUID
+	OrgID       uuid.UUID
+	PlanID      uuid.UUID
+	PeriodStart time.Time
+	Retention   string
+	Fraction    float64
+}
+
+// tenant: system - usage recording; rows carry org_id.
+// Projects on a longer backup retention (V4.1 §4.2), for each hour from
+// @from_ts to @last_hour they existed, with the fraction of the hour.
+func (q *Queries) HourlyBackupRetention(ctx context.Context, arg HourlyBackupRetentionParams) ([]HourlyBackupRetentionRow, error) {
+	rows, err := q.db.Query(ctx, hourlyBackupRetention, arg.FromTs, arg.LastHour)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []HourlyBackupRetentionRow
+	for rows.Next() {
+		var i HourlyBackupRetentionRow
+		if err := rows.Scan(
+			&i.ProjectID,
+			&i.OrgID,
+			&i.PlanID,
+			&i.PeriodStart,
+			&i.Retention,
+			&i.Fraction,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const hourlyDedicated = `-- name: HourlyDedicated :many
 SELECT p.id AS project_id, p.org_id, o.plan_id, g.h::timestamptz AS period_start,
        COALESCE(i.cpu_limit, 0)::float8 AS cpus, COALESCE(i.mem_limit_mb, 0)::int AS mem_mb, COALESCE(i.volume_gb, 0)::int AS disk_gb,
@@ -409,6 +463,7 @@ SELECT p.id AS project_id, p.org_id, o.plan_id, g.h::timestamptz AS period_start
        -- (read replicas are recorded on their own, V4 §7).
        (CASE WHEN i.ha_enabled THEN GREATEST((SELECT count(*) FROM instance_members m WHERE m.instance_id = i.id AND m.deleted_at IS NULL AND NOT m.replica) - 1, 0) ELSE 0 END)::int AS standbys,
        (i.ha_enabled AND i.sync_replication)::bool AS sync_replication,
+       i.pitr_days,
        (extract(epoch FROM LEAST(g.h + '1 hour'::interval, COALESCE(p.deleted_at, 'infinity'::timestamptz)) - GREATEST(g.h, p.created_at)) / 3600)::float8 AS fraction
 FROM projects p
 JOIN instances i ON i.id = p.instance_id
@@ -433,6 +488,7 @@ type HourlyDedicatedRow struct {
 	DiskGb          int32
 	Standbys        int32
 	SyncReplication bool
+	PitrDays        int32
 	Fraction        float64
 }
 
@@ -458,6 +514,7 @@ func (q *Queries) HourlyDedicated(ctx context.Context, arg HourlyDedicatedParams
 			&i.DiskGb,
 			&i.Standbys,
 			&i.SyncReplication,
+			&i.PitrDays,
 			&i.Fraction,
 		); err != nil {
 			return nil, err

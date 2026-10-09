@@ -68,6 +68,15 @@ func (s *Server) backendServicesOut(r *http.Request, p store.Project, svc *store
 	out.Settings = gen.BackendServicesSettings{StatementTimeoutMs: &st.StatementTimeoutMs, RatePerIp: &st.RatePerIP,
 		RatePerKey: &st.RatePerKey, AllowSecretInBrowser: &st.AllowSecretInBrowser, MaxQueryCost: &st.MaxQueryCost,
 		ReplicaReads: &st.ReplicaReads}
+	timeout, perIP, perKey := services.EffectiveSettings(st, services.PlanCeilings{TimeoutMs: svc.PlanTimeoutMs,
+		RatePerIP: svc.PlanRatePerIp, RatePerKey: svc.PlanRatePerKey})
+	eff := gen.BackendServicesEffective{StatementTimeoutMs: timeout, RatePerIp: perIP, RatePerKey: perKey,
+		RequestsBlocked: svc.ApiRequestsBlocked, MauBlocked: svc.MauBlocked,
+		PlanTimeoutMs: intPtr32(svc.PlanTimeoutMs), PlanRatePerIp: intPtr32(svc.PlanRatePerIp), PlanRatePerKey: intPtr32(svc.PlanRatePerKey)}
+	if from, err := s.services.PlanLimitsFrom(r.Context()); err == nil && !from.IsZero() {
+		eff.LimitsFrom = &from
+	}
+	out.Effective = &eff
 	keys, err := store.New(s.db).ListAPIKeys(r.Context(), p.ID)
 	if err != nil {
 		return out, err
@@ -471,4 +480,12 @@ func (s *Server) MigrateSupabase(w http.ResponseWriter, r *http.Request, id gen.
 		return
 	}
 	s.writeOperation(w, "supabase migration", op)
+}
+
+func intPtr32(v *int32) *int {
+	if v == nil {
+		return nil
+	}
+	n := int(*v)
+	return &n
 }

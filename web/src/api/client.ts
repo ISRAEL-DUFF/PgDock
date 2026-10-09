@@ -92,6 +92,9 @@ export type EstimateRequest = {
   ha?: boolean;
   synchronous?: boolean;
   standby_only?: boolean;
+  pitr_days?: 7 | 14 | 30;
+  backup_retention?: S["BackupRetention"];
+  region?: string;
 };
 export type PaymentMethod = S["PaymentMethod"];
 export type Payment = S["Payment"];
@@ -161,6 +164,7 @@ export type InsightSort = "total" | "mean" | "calls" | "rows";
 export type AdminRegion = S["AdminRegion"];
 export type AdminRegionList = S["AdminRegionList"];
 export type AdminRegionRequest = S["AdminRegionRequest"];
+export type RegionReadiness = S["RegionReadiness"];
 export type ProjectResidencyResult = S["ProjectResidencyResult"];
 export type RebalanceMove = S["RebalanceMove"];
 export type Margins = S["Margins"];
@@ -871,6 +875,12 @@ export const api = {
     request<S["InstanceState"]>("POST", `/api/v1/projects/${id}/instance`, {
       action,
     }),
+  updateProjectInstance: (id: string, b: S["InstanceUpdate"]) =>
+    request<S["InstanceSummary"]>(
+      "PATCH",
+      `/api/v1/projects/${id}/instance`,
+      b,
+    ),
   updateProject: (id: string, b: S["UpdateProjectRequest"]) =>
     request<ProjectUpdated>("PATCH", `/api/v1/projects/${id}/settings`, b),
   resumeProject: (id: string) =>
@@ -1564,6 +1574,10 @@ export const api = {
   // Regions and data residency (V3 §6).
   regions: () => getJSON<{ items: Region[] }>("/api/v1/regions"),
   adminRegions: () => getJSON<AdminRegionList>("/api/v1/admin/regions"),
+  regionReadiness: (id: string) =>
+    getJSON<RegionReadiness>(
+      `/api/v1/admin/regions/${encodeURIComponent(id)}/readiness`,
+    ),
   saveRegion: (id: string, b: AdminRegionRequest) =>
     request<AdminRegion>(
       "PUT",

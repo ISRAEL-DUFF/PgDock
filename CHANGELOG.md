@@ -5,6 +5,31 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### V4.1 (on feature/pgdock4)
+- The DPA template lists the SMS and WhatsApp providers used for apps'
+  sign-in codes (Termii, Africa's Talking, Meta) and Cloudflare's CDN as
+  sub-processors. Existing installs: see docs/legal.md before publishing
+  it as a new version.
+- Docs: the Lagos launch checklist uses the region's own etcd cluster
+  (V3.1); the status page's limits are up to date.
+- Per-plan limits for backend services (V4.1-M2): plans set monthly data
+  API requests and monthly active users (Personal: 500,000 and 10,000),
+  past which requests get `429 plan_limit_reached` and new users `429
+  mau_limit_reached` until the month ends (sign-in keeps working), and
+  ceilings on a project's statement timeout, rate limits and daily SMS
+  codes. Owners are emailed at 80% and 100%. The API page and `pgdock
+  services status` show what is in effect. On upgrading installs the
+  limits start with the first full month. New migration 00044.
+- Fixed: the data API couldn't call functions in a schema with no tables.
+- Billing add-ons (V4.1-M3): 14- and 30-day point-in-time recovery for
+  dedicated projects and extended (30 daily, 12 weekly) or long (30
+  daily, 52 weekly) backup retention, on Pro and Team, billed by the hour
+  (Backups page, `pgdock pitr window`, `pgdock backup retention`); a price
+  book can set a per-region premium on dedicated, HA and read replica
+  lines. New migration 00045. Price books published before this have no
+  add-on prices until a new one is published.
+- Fixed: a price book saved through the API dropped its message margin.
+
 ### V4 (on feature/pgdock4)
 - Backend services' edge foundation (V4-M28): a project can turn on backend
   services (Project → Settings → API, `pgdock services enable`) and gets an

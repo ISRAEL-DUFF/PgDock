@@ -24,6 +24,22 @@ func printServices(w io.Writer, name string, s *client.BackendServices) {
 		url = *s.Url
 	}
 	fmt.Fprintf(w, "Backend services for %s: on\nAPI URL: %s\n", name, url)
+	if e := s.Effective; e != nil {
+		capped := func(n int, plan *int) string {
+			if plan != nil && *plan <= n {
+				return fmt.Sprintf("%d (the plan's most)", n)
+			}
+			return fmt.Sprint(n)
+		}
+		fmt.Fprintf(w, "In effect: statement timeout %s ms, %s requests/min per IP, %s per key\n",
+			capped(e.StatementTimeoutMs, e.PlanTimeoutMs), capped(e.RatePerIp, e.PlanRatePerIp), capped(e.RatePerKey, e.PlanRatePerKey))
+		if e.RequestsBlocked {
+			fmt.Fprintln(w, "This month's data API requests are used up: data, storage and realtime answer 429 until the month ends")
+		}
+		if e.MauBlocked {
+			fmt.Fprintln(w, "Monthly active users reached: new users can't sign in until the month ends")
+		}
+	}
 	printKeys(w, s.Keys)
 }
 

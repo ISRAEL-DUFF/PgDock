@@ -147,6 +147,15 @@ type Project struct {
 	// by SpendCapRateDivisor, pauses new image transforms and refuses new
 	// realtime connections. Sign-in and existing connections carry on.
 	SpendCapped bool `json:"spend_capped,omitempty"`
+	// RequestsBlocked says the organisation's plan's monthly data API
+	// requests are used up (V4.1 §3): data, storage and realtime answer
+	// 429 plan_limit_reached until the month ends; sign-in carries on.
+	RequestsBlocked bool `json:"requests_blocked,omitempty"`
+	// MAUBlocked says the plan's monthly active users are used up: users in
+	// MAUCounted (a bloom filter of this month's counted users) still sign
+	// in and refresh, others get 429 mau_limit_reached.
+	MAUBlocked bool   `json:"mau_blocked,omitempty"`
+	MAUCounted []byte `json:"mau_counted,omitempty"`
 }
 
 // SpendCapRateDivisor is how much a spend cap tightens the per-IP and

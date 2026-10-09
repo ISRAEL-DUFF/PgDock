@@ -465,6 +465,7 @@ type Instance struct {
 	LeaderMember       *uuid.UUID
 	PatroniSecret      []byte
 	EtcdRegion         *string
+	PitrDays           int32
 }
 
 type InstanceMember struct {
@@ -827,6 +828,14 @@ type PaymentMethod struct {
 	CreatedAt    time.Time
 }
 
+type PlanLimitNotice struct {
+	OrgID    uuid.UUID
+	LimitKey string
+	Month    pgtype.Date
+	Level    int32
+	SentAt   time.Time
+}
+
 type PoolerConfig struct {
 	ID         int32
 	Generation int64
@@ -990,6 +999,12 @@ type ProjectService struct {
 	TransformsBlocked       bool
 	RealtimeMaxConnections  *int32
 	RealtimeMessagesBlocked bool
+	PlanTimeoutMs           *int32
+	PlanRatePerIp           *int32
+	PlanRatePerKey          *int32
+	ApiRequestsBlocked      bool
+	MauBlocked              bool
+	MauCounted              []byte
 }
 
 type ProjectStorage struct {

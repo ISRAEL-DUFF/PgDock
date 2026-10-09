@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"strconv"
 	"strings"
 	"time"
 
@@ -137,6 +138,12 @@ func (e *Edge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		e.wake(p.cfg.Ref)
 		c.w.Header().Set("Retry-After", "10")
 		c.fail(http.StatusServiceUnavailable, "project_resuming", "the project is paused and is resuming; retry shortly")
+		return
+	}
+	if p.cfg.RequestsBlocked && planLimited(r.URL.Path) {
+		c.w.Header().Set("Retry-After", strconv.Itoa(untilNextMonth(time.Now())))
+		c.fail(http.StatusTooManyRequests, "plan_limit_reached",
+			"this project's organisation has used its plan's data API requests for the month; upgrade the plan for more (sign-in keeps working)")
 		return
 	}
 	if e.keylessAuth(c) || e.keylessStorage(c) {
@@ -433,4 +440,17 @@ func (c *call) replicaRead() bool {
 		return c.publishable && c.p.cfg.Settings.ReplicaReads
 	}
 	return false // "primary", or anything else
+}
+
+// planLimited: what a plan's monthly request limit stops (V4.1 §3). Sign-in
+// and the health check carry on.
+func planLimited(path string) bool {
+	return !strings.HasPrefix(path, "/auth/") && path != "/data/v1/health"
+}
+
+// untilNextMonth is the seconds to the start of the next month (UTC).
+func untilNextMonth(now time.Time) int {
+	now = now.UTC()
+	next := time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+	return max(int(next.Sub(now).Seconds()), 1)
 }

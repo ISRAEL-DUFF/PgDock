@@ -92,6 +92,17 @@ type AddOns struct {
 	// MessageMarginPercent is added to the provider cost of SMS and
 	// WhatsApp codes sent through the platform's accounts (V4 §12).
 	MessageMarginPercent Dec `json:"message_margin_percent"`
+	// Longer point-in-time recovery for a dedicated instance and longer
+	// backup retention, per hour while set (V4.1 §4). The extra backups
+	// are metered as backup storage too; these are the service premium.
+	PITR14Hour            Dec `json:"pitr_14_hour"`
+	PITR30Hour            Dec `json:"pitr_30_hour"`
+	RetentionExtendedHour Dec `json:"backup_retention_extended_hour"`
+	RetentionLongHour     Dec `json:"backup_retention_long_hour"`
+	// RegionPremiumPercent adds a percentage of a project's dedicated, HA,
+	// read replica and synchronous replication lines in that region
+	// (V4.1 §4.3), by region ID.
+	RegionPremiumPercent map[string]Dec `json:"region_premium_percent,omitempty"`
 }
 
 // Monthly is the plan's monthly fee on term (an annual fee spread over 12).
@@ -163,6 +174,8 @@ func (p Prices) Validate() error {
 		"dedicated.vcpu_hour": p.Dedicated.VCPUHour, "dedicated.ram_gb_hour": p.Dedicated.RAMGBHour,
 		"dedicated.disk_gb_hour": p.Dedicated.DiskGBHour, "addons.ha_premium_percent": p.AddOns.HAPremiumPercent,
 		"addons.sync_replication_hour": p.AddOns.SyncReplicationHour, "addons.message_margin_percent": p.AddOns.MessageMarginPercent,
+		"addons.pitr_14_hour": p.AddOns.PITR14Hour, "addons.pitr_30_hour": p.AddOns.PITR30Hour,
+		"addons.backup_retention_extended_hour": p.AddOns.RetentionExtendedHour, "addons.backup_retention_long_hour": p.AddOns.RetentionLongHour,
 	} {
 		if v.Sign() < 0 {
 			return invalidf("%s can't be negative", name)
@@ -173,6 +186,15 @@ func (p Prices) Validate() error {
 	}
 	if p.AddOns.MessageMarginPercent.Cmp(DecInt(500)) > 0 {
 		return invalidf("the message margin is a percentage (0 to 500)")
+	}
+	for _, region := range sortedKeys(p.AddOns.RegionPremiumPercent) {
+		v := p.AddOns.RegionPremiumPercent[region]
+		if region == "" || region != strings.ToLower(region) || strings.ContainsAny(region, " \t") {
+			return invalidf("region premium: %q is not a region ID", region)
+		}
+		if v.Sign() < 0 || v.Cmp(DecInt(500)) > 0 {
+			return invalidf("the %s region premium is a percentage (0 to 500)", region)
+		}
 	}
 	return nil
 }
@@ -245,6 +267,9 @@ func DefaultPrices() Prices {
 		},
 		// ₦20,000 per vCPU-month, ₦5,000 per GB of RAM, ₦250 per GB of disk.
 		Dedicated: Dedicated{VCPUHour: D("2740"), RAMGBHour: D("685"), DiskGBHour: D("34.25")},
-		AddOns:    AddOns{HAPremiumPercent: D("20"), SyncReplicationHour: D("1370"), MessageMarginPercent: D("20")},
+		// ₦5,000 a month for 14-day PITR, ₦12,000 for 30 days; ₦1,500 for extended
+		// backup retention, ₦3,000 for long. No region premium until an admin sets one.
+		AddOns: AddOns{HAPremiumPercent: D("20"), SyncReplicationHour: D("1370"), MessageMarginPercent: D("20"),
+			PITR14Hour: D("685"), PITR30Hour: D("1644"), RetentionExtendedHour: D("205.5"), RetentionLongHour: D("411")},
 	}
 }

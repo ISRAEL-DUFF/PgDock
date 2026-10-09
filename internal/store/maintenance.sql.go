@@ -87,7 +87,7 @@ func (q *Queries) InstanceBusy(ctx context.Context, instanceID uuid.UUID) (bool,
 }
 
 const instancesBehind = `-- name: InstancesBehind :many
-SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id, pg_release, pg_release_available, release_checked_at, ha_enabled, sync_replication, patroni, leader_member, patroni_secret, etcd_region FROM instances
+SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id, pg_release, pg_release_available, release_checked_at, ha_enabled, sync_replication, patroni, leader_member, patroni_secret, etcd_region, pitr_days FROM instances
 WHERE deleted_at IS NULL AND status = 'running'
   AND pg_release IS NOT NULL AND pg_release_available IS NOT NULL AND pg_release <> pg_release_available
 ORDER BY kind = 'shared', created_at
@@ -138,6 +138,7 @@ func (q *Queries) InstancesBehind(ctx context.Context) ([]Instance, error) {
 			&i.LeaderMember,
 			&i.PatroniSecret,
 			&i.EtcdRegion,
+			&i.PitrDays,
 		); err != nil {
 			return nil, err
 		}
@@ -150,7 +151,7 @@ func (q *Queries) InstancesBehind(ctx context.Context) ([]Instance, error) {
 }
 
 const instancesToCheckRelease = `-- name: InstancesToCheckRelease :many
-SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id, pg_release, pg_release_available, release_checked_at, ha_enabled, sync_replication, patroni, leader_member, patroni_secret, etcd_region FROM instances
+SELECT id, node_id, kind, pg_version, port, container_id, cpu_limit, mem_limit_mb, volume_gb, status, created_at, admin_host, admin_port, host, admin_secret, profile, walg_prefix, error, deleted_at, org_id, walg_target_id, walg_key_id, pg_release, pg_release_available, release_checked_at, ha_enabled, sync_replication, patroni, leader_member, patroni_secret, etcd_region, pitr_days FROM instances
 WHERE deleted_at IS NULL AND status = 'running'
   AND (release_checked_at IS NULL OR release_checked_at < $1::timestamptz)
 ORDER BY release_checked_at NULLS FIRST, created_at
@@ -198,6 +199,7 @@ func (q *Queries) InstancesToCheckRelease(ctx context.Context, before time.Time)
 			&i.LeaderMember,
 			&i.PatroniSecret,
 			&i.EtcdRegion,
+			&i.PitrDays,
 		); err != nil {
 			return nil, err
 		}

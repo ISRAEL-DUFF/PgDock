@@ -424,8 +424,53 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
       setBusy(false);
     }
   };
+  const eff = svc.effective;
+  const capped = (n: number, plan?: number) =>
+    plan !== undefined && plan <= n ? `${n} (the plan's most)` : `${n}`;
   return (
     <Panel title="Access and limits" testId="services-settings">
+      {eff && (
+        <div
+          className="mb-4 flex flex-col gap-3"
+          data-testid="services-effective"
+        >
+          {eff.requests_blocked && (
+            <Alert title="This month's data API requests are used up">
+              The data API, storage and realtime answer 429 plan_limit_reached
+              until the month ends; sign-in keeps working. Upgrade the plan for
+              more.
+            </Alert>
+          )}
+          {eff.mau_blocked && (
+            <Alert tone="warn" title="Monthly active users reached">
+              Users who already signed in this month can sign in again; new ones
+              get 429 mau_limit_reached until the month ends.
+            </Alert>
+          )}
+          <KeyValues
+            testId="services-effective-values"
+            items={[
+              [
+                "Statement timeout in effect",
+                `${capped(eff.statement_timeout_ms, eff.plan_timeout_ms)} ms`,
+              ],
+              [
+                "Requests per minute per IP",
+                capped(eff.rate_per_ip, eff.plan_rate_per_ip),
+              ],
+              [
+                "Requests per minute per key",
+                capped(eff.rate_per_key, eff.plan_rate_per_key),
+              ],
+              ...(eff.limits_from && new Date(eff.limits_from) > new Date()
+                ? ([
+                    ["Plan limits apply from", formatDate(eff.limits_from)],
+                  ] as [string, string][])
+                : []),
+            ]}
+          />
+        </div>
+      )}
       <form className="flex flex-col" onSubmit={save}>
         <FormRow
           label="Allowed origins"
@@ -461,7 +506,7 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
         </FormRow>
         <FormRow
           label="Statement timeout (ms)"
-          description="Each request's limit; 0 is the default (8000), at most 15000."
+          description="Each request's limit; 0 is the default (8000), at most 15000. Your plan may set a lower ceiling."
         >
           <Input
             type="number"

@@ -329,6 +329,7 @@ function RegionPanel({
             branches in the country. Needs an in-country backup target.
           </span>
         </label>
+        {r?.status === "hidden" && <Readiness id={r.id} />}
         <label className="flex items-start gap-2 text-[13px]">
           <input
             type="checkbox"
@@ -341,5 +342,48 @@ function RegionPanel({
         {err && <Alert>{err}</Alert>}
       </form>
     </SidePanel>
+  );
+}
+
+/** A hidden region's launch checks (V4.1 §13): it opens only when none of
+ * the blocking ones fail. */
+function Readiness({ id }: { id: string }) {
+  const q = useQuery({
+    queryKey: ["region-readiness", id],
+    queryFn: () => api.regionReadiness(id),
+  });
+  if (q.isPending) return null;
+  if (q.isError) return <Alert>{errorMessage(q.error)}</Alert>;
+  return (
+    <div className="space-y-1 text-[13px]" data-testid="region-readiness">
+      <div className="font-medium">
+        Launch checks{" "}
+        {q.data.ready ? (
+          <Badge tone="ok">Ready to open</Badge>
+        ) : (
+          <Badge tone="warn">Not ready</Badge>
+        )}
+      </div>
+      <ul className="space-y-1">
+        {q.data.checks.map((c) => (
+          <li key={c.name} className="flex gap-2">
+            <span
+              className={
+                c.ok
+                  ? "text-ok-text"
+                  : c.blocking
+                    ? "text-danger-text"
+                    : "text-warn-text"
+              }
+            >
+              {c.ok ? "✓" : c.blocking ? "✕" : "!"}
+            </span>
+            <span>
+              <strong>{c.name}</strong>: {c.detail}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

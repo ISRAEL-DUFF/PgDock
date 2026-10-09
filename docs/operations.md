@@ -32,9 +32,12 @@ Day-to-day running of a PGDock install. Commands run in `deploy/compose`.
 
 - Logical backups of every project run nightly (02:00 UTC plus up to 2 h of
   jitter); dedicated instances also take daily base backups and archive WAL
-  continuously (point-in-time recovery for 7 days).
-- Retention: 7 daily backups and 4 weekly ones; final backups of deleted
-  projects are kept 30 days.
+  continuously (point-in-time recovery for 7 days, or 14 or 30 as an
+  add-on).
+- Retention: 7 daily backups and 4 weekly ones, or longer as an add-on
+  (extended: 30 daily, 12 weekly; long: 30 daily, 52 weekly); final
+  backups of deleted projects are kept 30 days. See
+  [billing add-ons](billing.md#add-ons).
 - Weekly, a random project's latest backup is restored into a scratch
   database and verified (Settings → Backup checks).
 - The metadata database backs itself up nightly to `<prefix>/metadata/`.

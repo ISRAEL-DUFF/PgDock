@@ -177,6 +177,10 @@ func (a *App) commands() []command {
 			{name: "create", summary: "Back up now: create <p>", run: (*App).backupCreate},
 			{name: "download", summary: "Save as a pg_dump file (owners): download <p> [--backup <id>] [-o file]", run: (*App).backupDownload},
 			{name: "restore", summary: "Restore: restore <p> --backup <id> [--into <name>] | --in-place --confirm <name>", run: (*App).backupRestore},
+			{name: "retention", summary: "How long nightly backups are kept: retention <p> standard|extended|long", run: (*App).backupRetention},
+		}},
+		{name: "pitr", summary: "Point-in-time recovery of a dedicated project", sub: []command{
+			{name: "window", summary: "The recovery window: window <p> 7|14|30", run: (*App).pitrWindow},
 		}},
 		{name: "branch", summary: "Branches: throwaway copies of a project", sub: []command{
 			{name: "list", summary: "List a project's branches: list <p>", run: (*App).branchList},

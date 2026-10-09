@@ -513,6 +513,27 @@ func (e BackupKind) Valid() bool {
 	}
 }
 
+// Defines values for BackupRetention.
+const (
+	Extended BackupRetention = "extended"
+	Long     BackupRetention = "long"
+	Standard BackupRetention = "standard"
+)
+
+// Valid indicates whether the value is a known member of the BackupRetention enum.
+func (e BackupRetention) Valid() bool {
+	switch e {
+	case Extended:
+		return true
+	case Long:
+		return true
+	case Standard:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BillingAccountMode.
 const (
 	BillingAccountModePostpaid BillingAccountMode = "postpaid"
@@ -1230,6 +1251,27 @@ func (e InstanceSummaryKind) Valid() bool {
 	case InstanceSummaryKindDedicated:
 		return true
 	case InstanceSummaryKindShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceUpdatePitrDays.
+const (
+	InstanceUpdatePitrDaysN14 InstanceUpdatePitrDays = 14
+	InstanceUpdatePitrDaysN30 InstanceUpdatePitrDays = 30
+	InstanceUpdatePitrDaysN7  InstanceUpdatePitrDays = 7
+)
+
+// Valid indicates whether the value is a known member of the InstanceUpdatePitrDays enum.
+func (e InstanceUpdatePitrDays) Valid() bool {
+	switch e {
+	case InstanceUpdatePitrDaysN14:
+		return true
+	case InstanceUpdatePitrDaysN30:
+		return true
+	case InstanceUpdatePitrDaysN7:
 		return true
 	default:
 		return false
@@ -3525,6 +3567,27 @@ func (e StartCheckoutJSONBodyPurpose) Valid() bool {
 	}
 }
 
+// Defines values for EstimateOrgCostJSONBodyPitrDays.
+const (
+	EstimateOrgCostJSONBodyPitrDaysN14 EstimateOrgCostJSONBodyPitrDays = 14
+	EstimateOrgCostJSONBodyPitrDaysN30 EstimateOrgCostJSONBodyPitrDays = 30
+	EstimateOrgCostJSONBodyPitrDaysN7  EstimateOrgCostJSONBodyPitrDays = 7
+)
+
+// Valid indicates whether the value is a known member of the EstimateOrgCostJSONBodyPitrDays enum.
+func (e EstimateOrgCostJSONBodyPitrDays) Valid() bool {
+	switch e {
+	case EstimateOrgCostJSONBodyPitrDaysN14:
+		return true
+	case EstimateOrgCostJSONBodyPitrDaysN30:
+		return true
+	case EstimateOrgCostJSONBodyPitrDaysN7:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetOrgUsageParamsFormat.
 const (
 	GetOrgUsageParamsFormatCsv  GetOrgUsageParamsFormat = "csv"
@@ -4517,9 +4580,12 @@ type AvailabilityExclusion struct {
 // BackendServices defines model for BackendServices.
 type BackendServices struct {
 	// CorsOrigins Origins browsers may call from; empty allows any.
-	CorsOrigins []string   `json:"cors_origins"`
-	Enabled     bool       `json:"enabled"`
-	EnabledAt   *time.Time `json:"enabled_at,omitempty"`
+	CorsOrigins []string `json:"cors_origins"`
+
+	// Effective What the edge applies (V4.1 §3) - the project's settings within its plan's ceilings, and the plan's monthly limits.
+	Effective *BackendServicesEffective `json:"effective,omitempty"`
+	Enabled   bool                      `json:"enabled"`
+	EnabledAt *time.Time                `json:"enabled_at,omitempty"`
 
 	// ExposedSchemas The schemas the data API serves (default public).
 	ExposedSchemas []string `json:"exposed_schemas"`
@@ -4546,6 +4612,26 @@ type BackendServices struct {
 
 	// Url The API base URL (https://<ref>.<domain>); empty when no API domain is configured.
 	Url *string `json:"url,omitempty"`
+}
+
+// BackendServicesEffective What the edge applies (V4.1 §3) - the project's settings within its plan's ceilings, and the plan's monthly limits.
+type BackendServicesEffective struct {
+	// LimitsFrom When the plan limits start applying.
+	LimitsFrom *time.Time `json:"limits_from,omitempty"`
+
+	// MauBlocked The plan's monthly active users are reached (new users get 429 mau_limit_reached).
+	MauBlocked     bool `json:"mau_blocked"`
+	PlanRatePerIp  *int `json:"plan_rate_per_ip,omitempty"`
+	PlanRatePerKey *int `json:"plan_rate_per_key,omitempty"`
+
+	// PlanTimeoutMs The plan's ceiling on the timeout, if it has one.
+	PlanTimeoutMs *int `json:"plan_timeout_ms,omitempty"`
+	RatePerIp     int  `json:"rate_per_ip"`
+	RatePerKey    int  `json:"rate_per_key"`
+
+	// RequestsBlocked The plan's monthly data API requests are used up (429 plan_limit_reached until the month ends).
+	RequestsBlocked    bool `json:"requests_blocked"`
+	StatementTimeoutMs int  `json:"statement_timeout_ms"`
 }
 
 // BackendServicesEnabled defines model for BackendServicesEnabled.
@@ -4658,6 +4744,11 @@ type BackupOverview struct {
 	StorageConfigured  bool          `json:"storage_configured"`
 	WindowHourUtc      int           `json:"window_hour_utc"`
 }
+
+// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
+// extended (30 daily, 12 weekly) or long (30 daily, 52 weekly). The
+// longer two are billed add-ons on Pro and Team (V4.1 §4.2).
+type BackupRetention string
 
 // BatchDecision defines model for BatchDecision.
 type BatchDecision struct {
@@ -5911,14 +6002,25 @@ type InstanceSummary struct {
 	PgReleaseAvailable *string `json:"pg_release_available,omitempty"`
 
 	// PgVersion Postgres major version.
-	PgVersion int     `json:"pg_version"`
-	Profile   *string `json:"profile,omitempty"`
-	Status    string  `json:"status"`
-	VolumeGb  *int    `json:"volume_gb,omitempty"`
+	PgVersion int `json:"pg_version"`
+
+	// PitrDays Dedicated only. The point-in-time recovery window in days (7, 14 or 30).
+	PitrDays *int    `json:"pitr_days,omitempty"`
+	Profile  *string `json:"profile,omitempty"`
+	Status   string  `json:"status"`
+	VolumeGb *int    `json:"volume_gb,omitempty"`
 }
 
 // InstanceSummaryKind defines model for InstanceSummary.Kind.
 type InstanceSummaryKind string
+
+// InstanceUpdate defines model for InstanceUpdate.
+type InstanceUpdate struct {
+	PitrDays *InstanceUpdatePitrDays `json:"pitr_days,omitempty"`
+}
+
+// InstanceUpdatePitrDays defines model for InstanceUpdate.PitrDays.
+type InstanceUpdatePitrDays int
 
 // Invitation defines model for Invitation.
 type Invitation struct {
@@ -7065,10 +7167,38 @@ type PricePlan struct {
 // Prices defines model for Prices.
 type Prices struct {
 	Addons struct {
+		// BackupRetentionExtendedHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		BackupRetentionExtendedHour *Decimal `json:"backup_retention_extended_hour,omitempty"`
+
+		// BackupRetentionLongHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		BackupRetentionLongHour *Decimal `json:"backup_retention_long_hour,omitempty"`
+
 		// HaPremiumPercent An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 		//
 		// Example: 34.25
 		HaPremiumPercent Decimal `json:"ha_premium_percent"`
+
+		// MessageMarginPercent An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		MessageMarginPercent *Decimal `json:"message_margin_percent,omitempty"`
+
+		// Pitr14Hour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		Pitr14Hour *Decimal `json:"pitr_14_hour,omitempty"`
+
+		// Pitr30Hour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		Pitr30Hour *Decimal `json:"pitr_30_hour,omitempty"`
+
+		// RegionPremiumPercent A percentage added to a project's dedicated, HA, read replica and synchronous replication lines, by region ID.
+		RegionPremiumPercent *map[string]Decimal `json:"region_premium_percent,omitempty"`
 
 		// SyncReplicationHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 		//
@@ -7302,21 +7432,29 @@ type ProjectRoleRequest struct {
 
 // ProjectSettings defines model for ProjectSettings.
 type ProjectSettings struct {
-	ConnectionLimit                 int    `json:"connection_limit"`
-	ConsoleReadOnly                 bool   `json:"console_read_only"`
-	DiskWarnBytes                   int64  `json:"disk_warn_bytes"`
-	IdleInTransactionSessionTimeout string `json:"idle_in_transaction_session_timeout"`
-	PoolSize                        int    `json:"pool_size"`
-	StatementTimeout                string `json:"statement_timeout"`
+	// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
+	// extended (30 daily, 12 weekly) or long (30 daily, 52 weekly). The
+	// longer two are billed add-ons on Pro and Team (V4.1 §4.2).
+	BackupRetention                 *BackupRetention `json:"backup_retention,omitempty"`
+	ConnectionLimit                 int              `json:"connection_limit"`
+	ConsoleReadOnly                 bool             `json:"console_read_only"`
+	DiskWarnBytes                   int64            `json:"disk_warn_bytes"`
+	IdleInTransactionSessionTimeout string           `json:"idle_in_transaction_session_timeout"`
+	PoolSize                        int              `json:"pool_size"`
+	StatementTimeout                string           `json:"statement_timeout"`
 }
 
 // ProjectSettingsPatch defines model for ProjectSettingsPatch.
 type ProjectSettingsPatch struct {
-	ConnectionLimit                 *int    `json:"connection_limit,omitempty"`
-	ConsoleReadOnly                 *bool   `json:"console_read_only,omitempty"`
-	DiskWarnBytes                   *int64  `json:"disk_warn_bytes,omitempty"`
-	IdleInTransactionSessionTimeout *string `json:"idle_in_transaction_session_timeout,omitempty"`
-	PoolSize                        *int    `json:"pool_size,omitempty"`
+	// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
+	// extended (30 daily, 12 weekly) or long (30 daily, 52 weekly). The
+	// longer two are billed add-ons on Pro and Team (V4.1 §4.2).
+	BackupRetention                 *BackupRetention `json:"backup_retention,omitempty"`
+	ConnectionLimit                 *int             `json:"connection_limit,omitempty"`
+	ConsoleReadOnly                 *bool            `json:"console_read_only,omitempty"`
+	DiskWarnBytes                   *int64           `json:"disk_warn_bytes,omitempty"`
+	IdleInTransactionSessionTimeout *string          `json:"idle_in_transaction_session_timeout,omitempty"`
+	PoolSize                        *int             `json:"pool_size,omitempty"`
 
 	// StatementTimeout Postgres duration such as `60s`; empty to unset.
 	StatementTimeout *string `json:"statement_timeout,omitempty"`
@@ -7583,6 +7721,15 @@ type Region struct {
 	Residency bool `json:"residency"`
 }
 
+// RegionCheck defines model for RegionCheck.
+type RegionCheck struct {
+	// Blocking Failing, and keeps a hidden region hidden.
+	Blocking bool   `json:"blocking"`
+	Detail   string `json:"detail"`
+	Name     string `json:"name"`
+	Ok       bool   `json:"ok"`
+}
+
 // RegionDedicated defines model for RegionDedicated.
 type RegionDedicated struct {
 	FitsOn    *string `json:"fits_on,omitempty"`
@@ -7596,6 +7743,14 @@ type RegionDedicated struct {
 // RegionList defines model for RegionList.
 type RegionList struct {
 	Items []Region `json:"items"`
+}
+
+// RegionReadiness defines model for RegionReadiness.
+type RegionReadiness struct {
+	Checks []RegionCheck `json:"checks"`
+
+	// Ready No blocking check fails, so the region can be opened.
+	Ready bool `json:"ready"`
 }
 
 // RegionShared defines model for RegionShared.
@@ -9487,15 +9642,28 @@ type StartCheckoutJSONBodyPurpose string
 
 // EstimateOrgCostJSONBody defines parameters for EstimateOrgCost.
 type EstimateOrgCostJSONBody struct {
-	Cpus     *float32 `json:"cpus,omitempty"`
-	DiskGb   *int64   `json:"disk_gb,omitempty"`
-	Ha       *bool    `json:"ha,omitempty"`
-	MemoryMb *int64   `json:"memory_mb,omitempty"`
+	// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
+	// extended (30 daily, 12 weekly) or long (30 daily, 52 weekly). The
+	// longer two are billed add-ons on Pro and Team (V4.1 §4.2).
+	BackupRetention *BackupRetention `json:"backup_retention,omitempty"`
+	Cpus            *float32         `json:"cpus,omitempty"`
+	DiskGb          *int64           `json:"disk_gb,omitempty"`
+	Ha              *bool            `json:"ha,omitempty"`
+	MemoryMb        *int64           `json:"memory_mb,omitempty"`
+
+	// PitrDays A dedicated instance's point-in-time recovery window (14 and 30 are add-ons).
+	PitrDays *EstimateOrgCostJSONBodyPitrDays `json:"pitr_days,omitempty"`
+
+	// Region The region, for its premium if the price book has one.
+	Region *string `json:"region,omitempty"`
 
 	// StandbyOnly Price only what enabling HA adds to a running instance.
 	StandbyOnly *bool `json:"standby_only,omitempty"`
 	Synchronous *bool `json:"synchronous,omitempty"`
 }
+
+// EstimateOrgCostJSONBodyPitrDays defines parameters for EstimateOrgCost.
+type EstimateOrgCostJSONBodyPitrDays int
 
 // UploadWhtCertificateParams defines parameters for UploadWhtCertificate.
 type UploadWhtCertificateParams struct {
@@ -10122,6 +10290,9 @@ type EnableProjectHAJSONRequestBody = HAEnableRequest
 
 // ExplainInsightQueryJSONRequestBody defines body for ExplainInsightQuery for application/json ContentType.
 type ExplainInsightQueryJSONRequestBody = InsightExplainRequest
+
+// UpdateProjectInstanceJSONRequestBody defines body for UpdateProjectInstance for application/json ContentType.
+type UpdateProjectInstanceJSONRequestBody = InstanceUpdate
 
 // ProjectInstanceActionJSONRequestBody defines body for ProjectInstanceAction for application/json ContentType.
 type ProjectInstanceActionJSONRequestBody = InstanceActionRequest
@@ -11096,6 +11267,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
 	PutAdminRegion(ctx context.Context, regionId string, body PutAdminRegionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAdminRegionReadiness A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
+	//
+	// Corresponds with GET /api/v1/admin/regions/{region_id}/readiness (the `GetAdminRegionReadiness` operationId).
+	GetAdminRegionReadiness(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AdminRevenue The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
 	//
@@ -12139,14 +12315,14 @@ type ClientInterface interface {
 	// Corresponds with DELETE /api/v1/orgs/{org}/billing/contacts/{email} (the `RemoveBillingContact` operationId).
 	RemoveBillingContact(ctx context.Context, org OrgID, email string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EstimateOrgCostWithBody What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+	// EstimateOrgCostWithBody What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/billing/estimate (the `EstimateOrgCost` operationId).
 	EstimateOrgCostWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EstimateOrgCost What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+	// EstimateOrgCost What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -13026,6 +13202,28 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/projects/{id}/insights/slow (the `ListSlowQueries` operationId).
 	ListSlowQueries(ctx context.Context, id ProjectID, params *ListSlowQueriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateProjectInstanceWithBody Change a dedicated project's instance settings
+	//
+	// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
+	// as billed add-ons on Pro and Team. A longer window grows day by day
+	// from now; a shorter one drops the older base backups at the next one.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/instance (the `UpdateProjectInstance` operationId).
+	UpdateProjectInstanceWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateProjectInstance Change a dedicated project's instance settings
+	//
+	// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
+	// as billed add-ons on Pro and Team. A longer window grows day by day
+	// from now; a shorter one drops the older base backups at the next one.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/instance (the `UpdateProjectInstance` operationId).
+	UpdateProjectInstance(ctx context.Context, id ProjectID, body UpdateProjectInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ProjectInstanceActionWithBody Start, stop, or restart a dedicated project's instance
 	//
@@ -16208,6 +16406,21 @@ func (c *Client) PutAdminRegion(ctx context.Context, regionId string, body PutAd
 	return c.Client.Do(req)
 }
 
+// GetAdminRegionReadiness A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
+//
+// Corresponds with GET /api/v1/admin/regions/{region_id}/readiness (the `GetAdminRegionReadiness` operationId).
+func (c *Client) GetAdminRegionReadiness(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAdminRegionReadinessRequest(c.Server, regionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // AdminRevenue The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
 //
 // Corresponds with GET /api/v1/admin/revenue (the `AdminRevenue` operationId).
@@ -18720,7 +18933,7 @@ func (c *Client) RemoveBillingContact(ctx context.Context, org OrgID, email stri
 	return c.Client.Do(req)
 }
 
-// EstimateOrgCostWithBody What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+// EstimateOrgCostWithBody What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 //
 // Takes any type of body and a specified content type.
 //
@@ -18737,7 +18950,7 @@ func (c *Client) EstimateOrgCostWithBody(ctx context.Context, org OrgID, content
 	return c.Client.Do(req)
 }
 
-// EstimateOrgCost What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+// EstimateOrgCost What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 //
 // Takes a body of the `application/json` content type.
 //
@@ -20878,6 +21091,48 @@ func (c *Client) GetInsightQuery(ctx context.Context, id ProjectID, queryId Insi
 // Corresponds with GET /api/v1/projects/{id}/insights/slow (the `ListSlowQueries` operationId).
 func (c *Client) ListSlowQueries(ctx context.Context, id ProjectID, params *ListSlowQueriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListSlowQueriesRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateProjectInstanceWithBody Change a dedicated project's instance settings
+//
+// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
+// as billed add-ons on Pro and Team. A longer window grows day by day
+// from now; a shorter one drops the older base backups at the next one.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/instance (the `UpdateProjectInstance` operationId).
+func (c *Client) UpdateProjectInstanceWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProjectInstanceRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateProjectInstance Change a dedicated project's instance settings
+//
+// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
+// as billed add-ons on Pro and Team. A longer window grows day by day
+// from now; a shorter one drops the older base backups at the next one.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/projects/{id}/instance (the `UpdateProjectInstance` operationId).
+func (c *Client) UpdateProjectInstance(ctx context.Context, id ProjectID, body UpdateProjectInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProjectInstanceRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -26978,6 +27233,40 @@ func NewPutAdminRegionRequestWithBody(server string, regionId string, contentTyp
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetAdminRegionReadinessRequest constructs an http.Request for the GetAdminRegionReadiness method
+func NewGetAdminRegionReadinessRequest(server string, regionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "region_id", regionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/regions/%s/readiness", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -35624,6 +35913,53 @@ func NewListSlowQueriesRequest(server string, id ProjectID, params *ListSlowQuer
 	return req, nil
 }
 
+// NewUpdateProjectInstanceRequest calls the generic UpdateProjectInstance builder with application/json body
+func NewUpdateProjectInstanceRequest(server string, id ProjectID, body UpdateProjectInstanceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateProjectInstanceRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateProjectInstanceRequestWithBody constructs an http.Request for the UpdateProjectInstance method, with any body, and a specified content type
+func NewUpdateProjectInstanceRequestWithBody(server string, id ProjectID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/instance", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewProjectInstanceActionRequest calls the generic ProjectInstanceAction builder with application/json body
 func NewProjectInstanceActionRequest(server string, id ProjectID, body ProjectInstanceActionJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -41395,6 +41731,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
 	PutAdminRegionWithResponse(ctx context.Context, regionId string, body PutAdminRegionJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAdminRegionResponse, error)
 
+	// GetAdminRegionReadinessWithResponse A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/regions/{region_id}/readiness (the `GetAdminRegionReadiness` operationId).
+	GetAdminRegionReadinessWithResponse(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*GetAdminRegionReadinessResponse, error)
+
 	// AdminRevenueWithResponse The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -42535,14 +42878,14 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /api/v1/orgs/{org}/billing/contacts/{email} (the `RemoveBillingContact` operationId).
 	RemoveBillingContactWithResponse(ctx context.Context, org OrgID, email string, reqEditors ...RequestEditorFn) (*RemoveBillingContactResponse, error)
 
-	// EstimateOrgCostWithBodyWithResponse What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+	// EstimateOrgCostWithBodyWithResponse What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/billing/estimate (the `EstimateOrgCost` operationId).
 	EstimateOrgCostWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EstimateOrgCostResponse, error)
 
-	// EstimateOrgCostWithResponse What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+	// EstimateOrgCostWithResponse What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -43558,6 +43901,28 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/projects/{id}/insights/slow (the `ListSlowQueries` operationId).
 	ListSlowQueriesWithResponse(ctx context.Context, id ProjectID, params *ListSlowQueriesParams, reqEditors ...RequestEditorFn) (*ListSlowQueriesResponse, error)
+
+	// UpdateProjectInstanceWithBodyWithResponse Change a dedicated project's instance settings
+	//
+	// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
+	// as billed add-ons on Pro and Team. A longer window grows day by day
+	// from now; a shorter one drops the older base backups at the next one.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/instance (the `UpdateProjectInstance` operationId).
+	UpdateProjectInstanceWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectInstanceResponse, error)
+
+	// UpdateProjectInstanceWithResponse Change a dedicated project's instance settings
+	//
+	// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
+	// as billed add-ons on Pro and Team. A longer window grows day by day
+	// from now; a shorter one drops the older base backups at the next one.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/projects/{id}/instance (the `UpdateProjectInstance` operationId).
+	UpdateProjectInstanceWithResponse(ctx context.Context, id ProjectID, body UpdateProjectInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectInstanceResponse, error)
 
 	// ProjectInstanceActionWithBodyWithResponse Start, stop, or restart a dedicated project's instance
 	//
@@ -48751,6 +49116,54 @@ func (r PutAdminRegionResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PutAdminRegionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAdminRegionReadinessResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RegionReadiness
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAdminRegionReadinessResponse) GetJSON200() *RegionReadiness {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetAdminRegionReadinessResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAdminRegionReadinessResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAdminRegionReadinessResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAdminRegionReadinessResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAdminRegionReadinessResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -57993,6 +58406,54 @@ func (r ListSlowQueriesResponse) ContentType() string {
 	return ""
 }
 
+type UpdateProjectInstanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *InstanceSummary
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateProjectInstanceResponse) GetJSON200() *InstanceSummary {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdateProjectInstanceResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateProjectInstanceResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateProjectInstanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateProjectInstanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateProjectInstanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ProjectInstanceActionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -64652,6 +65113,19 @@ func (c *ClientWithResponses) PutAdminRegionWithResponse(ctx context.Context, re
 	return ParsePutAdminRegionResponse(rsp)
 }
 
+// GetAdminRegionReadinessWithResponse A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/regions/{region_id}/readiness (the `GetAdminRegionReadiness` operationId).
+func (c *ClientWithResponses) GetAdminRegionReadinessWithResponse(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*GetAdminRegionReadinessResponse, error) {
+	rsp, err := c.GetAdminRegionReadiness(ctx, regionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAdminRegionReadinessResponse(rsp)
+}
+
 // AdminRevenueWithResponse The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -66674,7 +67148,7 @@ func (c *ClientWithResponses) RemoveBillingContactWithResponse(ctx context.Conte
 	return ParseRemoveBillingContactResponse(rsp)
 }
 
-// EstimateOrgCostWithBodyWithResponse What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+// EstimateOrgCostWithBodyWithResponse What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -66687,7 +67161,7 @@ func (c *ClientWithResponses) EstimateOrgCostWithBodyWithResponse(ctx context.Co
 	return ParseEstimateOrgCostResponse(rsp)
 }
 
-// EstimateOrgCostWithResponse What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+// EstimateOrgCostWithResponse What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68464,6 +68938,40 @@ func (c *ClientWithResponses) ListSlowQueriesWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseListSlowQueriesResponse(rsp)
+}
+
+// UpdateProjectInstanceWithBodyWithResponse Change a dedicated project's instance settings
+//
+// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
+// as billed add-ons on Pro and Team. A longer window grows day by day
+// from now; a shorter one drops the older base backups at the next one.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/instance (the `UpdateProjectInstance` operationId).
+func (c *ClientWithResponses) UpdateProjectInstanceWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectInstanceResponse, error) {
+	rsp, err := c.UpdateProjectInstanceWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProjectInstanceResponse(rsp)
+}
+
+// UpdateProjectInstanceWithResponse Change a dedicated project's instance settings
+//
+// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
+// as billed add-ons on Pro and Team. A longer window grows day by day
+// from now; a shorter one drops the older base backups at the next one.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/projects/{id}/instance (the `UpdateProjectInstance` operationId).
+func (c *ClientWithResponses) UpdateProjectInstanceWithResponse(ctx context.Context, id ProjectID, body UpdateProjectInstanceJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectInstanceResponse, error) {
+	rsp, err := c.UpdateProjectInstance(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProjectInstanceResponse(rsp)
 }
 
 // ProjectInstanceActionWithBodyWithResponse Start, stop, or restart a dedicated project's instance
@@ -73401,6 +73909,39 @@ func ParsePutAdminRegionResponse(rsp *http.Response) (*PutAdminRegionResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AdminRegion
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAdminRegionReadinessResponse parses an HTTP response from a GetAdminRegionReadinessWithResponse call
+func ParseGetAdminRegionReadinessResponse(rsp *http.Response) (*GetAdminRegionReadinessResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAdminRegionReadinessResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RegionReadiness
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -79774,6 +80315,39 @@ func ParseListSlowQueriesResponse(rsp *http.Response) (*ListSlowQueriesResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest SlowQueryList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateProjectInstanceResponse parses an HTTP response from a UpdateProjectInstanceWithResponse call
+func ParseUpdateProjectInstanceResponse(rsp *http.Response) (*UpdateProjectInstanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateProjectInstanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InstanceSummary
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

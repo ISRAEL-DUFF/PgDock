@@ -41,6 +41,14 @@ Friday): Free, best effort; Pro, one business day; Team, four business hours;
 urgent issues on a paid plan, such as an HA project down, one hour at any time.
 `
 
+// SubProcessors names, for each message provider PGDock itself holds an
+// account with (messaging.PlatformProviders), how the DPA lists it.
+var SubProcessors = map[string]string{
+	"termii":         "Termii",
+	"africastalking": "Africa's Talking",
+	"whatsapp_cloud": "Meta (WhatsApp Business Platform)",
+}
+
 // DefaultDPA is the data processing agreement.
 const DefaultDPA = `# Data processing agreement
 
@@ -70,11 +78,17 @@ adding or replacing one:
 | Sub-processor | Purpose |
 | --- | --- |
 | Hetzner | Servers and storage (EU region) |
-| Cloudflare | DNS, edge protection and the signup challenge |
+| Cloudflare | DNS, edge protection, the CDN for public files, and the signup challenge |
 | Flutterwave | Card payments and bank transfers |
 | iSpend | Bank transfers, wallet payments and mandates |
-| The email provider | Account, billing and support email |
+| The email provider | Account, billing, support and app sign-in email |
+| Termii | SMS sign-in codes for apps' users (Nigeria) |
+| Africa's Talking | SMS sign-in codes for apps' users, when Termii is unavailable |
+| Meta (WhatsApp Business Platform) | WhatsApp sign-in codes for apps' users, and WhatsApp support |
 | The Lagos region's provider | Servers and storage (Lagos region) |
+
+A project that configures its own SMS, WhatsApp or email provider
+contracts with that provider directly; it isn't PGDock's sub-processor.
 
 ## Requests, incidents and audits
 

@@ -17,6 +17,9 @@ ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, country = EXCLUDED.country,
   copy_target_id = EXCLUDED.copy_target_id, floating_ip_id = EXCLUDED.floating_ip_id, residency = EXCLUDED.residency, status = EXCLUDED.status
 RETURNING *;
 
+-- name: SetRegionStatus :one
+UPDATE regions SET status = @status WHERE id = @id RETURNING *;
+
 -- name: RegionUsage :many
 -- tenant: system - each region's nodes and live projects, for the regions list.
 SELECT r.id,

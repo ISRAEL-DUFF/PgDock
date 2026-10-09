@@ -182,6 +182,13 @@ type EstimateRequest struct {
 	// StandbyOnly prices only what HA adds (enabling HA on a running
 	// instance).
 	StandbyOnly bool
+	// PITRDays (14 or 30) and Retention (extended or long) price those
+	// add-ons (V4.1 §4); with no size, only them.
+	PITRDays  int
+	Retention string
+	// Region adds its premium, if the price book has one, on the
+	// dedicated and HA lines.
+	Region string
 }
 
 // HoursPerMonth is what monthly estimates assume.
@@ -226,6 +233,27 @@ func (s *Service) EstimateDedicated(ctx context.Context, orgID uuid.UUID, r Esti
 	}
 	if r.Sync {
 		add("Synchronous replication hours", DecInt(1), p.AddOns.SyncReplicationHour)
+	}
+	if pct, ok := p.AddOns.RegionPremiumPercent[r.Region]; ok && pct.Sign() > 0 && hourly.Sign() > 0 {
+		add("Region premium", hourly, pct.Frac(1, 100))
+	}
+	switch r.PITRDays {
+	case 0, 7:
+	case 14:
+		add("14-day point-in-time recovery hours", DecInt(1), p.AddOns.PITR14Hour)
+	case 30:
+		add("30-day point-in-time recovery hours", DecInt(1), p.AddOns.PITR30Hour)
+	default:
+		return Estimate{}, invalid("the point-in-time recovery window is 7, 14 or 30 days")
+	}
+	switch r.Retention {
+	case "", "standard":
+	case "extended":
+		add("Extended backup retention hours", DecInt(1), p.AddOns.RetentionExtendedHour)
+	case "long":
+		add("Long backup retention hours", DecInt(1), p.AddOns.RetentionLongHour)
+	default:
+		return Estimate{}, invalid("backup retention is standard, extended or long")
 	}
 	e.HourlyMinor = hourly.Round()
 	e.MonthlyMinor = hourly.Frac(HoursPerMonth, 1).Round()

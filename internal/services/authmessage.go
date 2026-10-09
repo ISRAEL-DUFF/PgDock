@@ -202,6 +202,14 @@ func (s *Service) queuePhone(ctx context.Context, projectID uuid.UUID, m edgeapi
 	}
 	hash := recipientHash(projectID, to)
 	daily := st.DailyCap()
+	if via == "platform" {
+		// The plan caps what the platform's providers send (V4.1 §3.2).
+		if n, ok, err := s.planSMSCap(ctx, projectID); err != nil {
+			return err
+		} else if ok {
+			daily = min(daily, n)
+		}
+	}
 	// Alerts go out after the transaction (they use their own connection).
 	type alertMsg struct{ kind, body string }
 	var alerts []alertMsg
@@ -637,4 +645,24 @@ func sixDigits(c string) bool {
 		}
 	}
 	return true
+}
+
+// planSMSCap is the project's plan's ceiling on SMS and WhatsApp codes a
+// day through the platform's providers, if it has one.
+func (s *Service) planSMSCap(ctx context.Context, projectID uuid.UUID) (int, bool, error) {
+	q := store.New(s.db)
+	o, err := q.ProjectUsageOwner(ctx, []uuid.UUID{projectID})
+	if err != nil || len(o) != 1 {
+		return 0, false, err
+	}
+	org, err := q.OrgWithPlan(ctx, o[0].OrgID)
+	if err != nil {
+		return 0, false, err
+	}
+	l, err := store.EffectiveLimits(org.PlanLimits, org.LimitOverrides)
+	if err != nil {
+		return 0, false, err
+	}
+	n, ok := l.Get(store.LimitSMSCodesPerDay)
+	return int(min(n, MaxPhoneDailyCap)), ok, nil
 }

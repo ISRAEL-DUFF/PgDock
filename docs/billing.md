@@ -50,6 +50,36 @@ costs the same as its primary plus the HA premium (20%), and
 hours as `ha_vcpu_hours`, `ha_ram_gb_hours` and `ha_disk_gb_hours`, and
 `sync_replication_hours`.
 
+### Add-ons
+
+Besides HA and synchronous replication (V4.1 §4):
+
+| Add-on | Where | Default price | Set in |
+| --- | --- | --- | --- |
+| 14-day point-in-time recovery | dedicated, Pro and Team | ₦5,000 a month (`addons.pitr_14_hour`) | Backups → Recovery window, `pgdock pitr window <p> 14`, `PATCH /projects/{id}/instance` |
+| 30-day point-in-time recovery | dedicated, Pro and Team | ₦12,000 a month (`addons.pitr_30_hour`) | as above, `30` |
+| Extended backup retention (30 daily, 12 weekly) | any project, Pro and Team | ₦1,500 a month (`addons.backup_retention_extended_hour`) | Backups → Backup retention, `pgdock backup retention <p> extended`, `PATCH /projects/{id}/settings` |
+| Long backup retention (30 daily, 52 weekly) | any project, Pro and Team | ₦3,000 a month (`addons.backup_retention_long_hour`) | as above, `long` |
+| Region premium | dedicated projects in the region | none (`addons.region_premium_percent`, e.g. `{"ng-lagos": "25"}`) | the price book |
+
+- Each is billed by the hour while set (`pitr_14_hours`, `pitr_30_hours`,
+  `backup_retention_extended_hours`, `backup_retention_long_hours`). The
+  extra backups they keep are also metered as backup storage; the add-on
+  price is the service premium on top.
+- The plan limits `pitr_days_max` (Personal 7) and `backup_retention_max`
+  (Personal 0: standard; 1 extended, 2 long) gate them; Personal gets
+  `403 plan_required`. A spend cap refuses turning one on.
+- A longer recovery window grows day by day from when it's set; a
+  shorter one deletes the older base backups at the next base backup.
+- A **region premium** is a percentage of a project's dedicated, HA
+  standby, HA premium, read replica and synchronous replication lines in
+  that region, on its own invoice line ("Lagos region premium …"). The
+  cost estimate (`POST /orgs/{org}/billing/estimate` with `region`) shows
+  it too. At most 500%.
+- Price books published before V4.1 have no add-on prices, so the add-ons
+  cost nothing until a new book is published: start the draft from the
+  current book and add the `addons` fields above.
+
 ### Repricing
 
 Admin → Billing → **Price books**: start a draft from the current book,

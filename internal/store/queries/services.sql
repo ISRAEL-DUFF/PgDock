@@ -84,6 +84,7 @@ SELECT s.project_id, s.ref, s.enabled, s.cors_origins, s.settings, s.exposed_sch
   s.config_version, s.changed_seq, (s.edge_verifier IS NOT NULL)::boolean AS edge_ready,
   s.storage_quota_bytes, s.upload_max_bytes, s.storage_egress_blocked, s.transforms_blocked,
   s.realtime_max_connections, s.realtime_messages_blocked,
+  s.plan_timeout_ms, s.plan_rate_per_ip, s.plan_rate_per_key, s.api_requests_blocked, s.mau_blocked, s.mau_counted,
   EXISTS (SELECT 1 FROM read_replicas r WHERE r.project_id = p.id AND r.deleted_at IS NULL)::boolean AS has_replicas,
   p.db_name, p.region, p.data_residency, p.org_id, p.lifecycle, p.status, p.deleted_at, o.status AS org_status, o.plan_id,
   coalesce(b.capped, false)::boolean AS spend_capped
@@ -220,3 +221,28 @@ WHERE project_id = @project_id AND (realtime_max_connections IS DISTINCT FROM @m
 -- name: ProjectUsageSince :one
 -- tenant: system - a project the request already authorized: its use of a metric since a point (this month).
 SELECT coalesce(sum(quantity), 0)::numeric FROM usage_records WHERE project_id = @project_id AND metric = @metric AND period_start >= @since;
+
+-- name: PlanLimitProjects :many
+-- tenant: system - the plan-limits sweep (V4.1 §3): every project with backend services on.
+SELECT s.project_id, s.plan_timeout_ms, s.plan_rate_per_ip, s.plan_rate_per_key, s.api_requests_blocked, s.mau_blocked, s.mau_counted, p.org_id
+FROM project_services s JOIN projects p ON p.id = s.project_id
+WHERE s.enabled AND p.deleted_at IS NULL
+ORDER BY p.org_id, p.id;
+
+-- name: SetPlanLimits :execrows
+-- tenant: system - the plan-limits sweep: what the edge applies, changed only when it differs (a change moves the feed).
+UPDATE project_services SET plan_timeout_ms = sqlc.narg(timeout_ms), plan_rate_per_ip = sqlc.narg(rate_per_ip),
+  plan_rate_per_key = sqlc.narg(rate_per_key), api_requests_blocked = @api_requests_blocked, mau_blocked = @mau_blocked,
+  mau_counted = sqlc.narg(mau_counted)
+WHERE project_id = @project_id AND (plan_timeout_ms IS DISTINCT FROM sqlc.narg(timeout_ms)
+  OR plan_rate_per_ip IS DISTINCT FROM sqlc.narg(rate_per_ip) OR plan_rate_per_key IS DISTINCT FROM sqlc.narg(rate_per_key)
+  OR api_requests_blocked <> @api_requests_blocked OR mau_blocked <> @mau_blocked
+  OR mau_counted IS DISTINCT FROM sqlc.narg(mau_counted));
+
+-- name: ProjectMonthUsers :many
+-- tenant: system - the plan-limits sweep: a project's users counted as active this month.
+SELECT user_id FROM auth_mau WHERE project_id = @project_id AND month = @month;
+
+-- name: InsertPlanLimitNotice :execrows
+-- tenant: system - the plan-limits sweep: one notice per organisation, limit, month and level.
+INSERT INTO plan_limit_notices (org_id, limit_key, month, level) VALUES (@org_id, @limit_key, @month, @level) ON CONFLICT DO NOTHING;
