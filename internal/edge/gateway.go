@@ -50,6 +50,8 @@ type call struct {
 	// hooks are auth webhook events to send once the auth transaction
 	// commits.
 	hooks []edgeapi.AuthHook
+	// wrote are the relations a data API write changed, for the cache.
+	wrote []string
 }
 
 type recorder struct {

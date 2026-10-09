@@ -74,7 +74,9 @@ type Config struct {
 	// GarbageGrace is how long replaced and deleted objects' bytes stay, for
 	// downloads in flight (default a minute).
 	GarbageGrace time.Duration
-	Log          *slog.Logger
+	// CacheBytes bounds the anonymous-read cache (default 64 MB).
+	CacheBytes int
+	Log        *slog.Logger
 }
 
 func (c *Config) defaults() {
@@ -113,6 +115,7 @@ type Edge struct {
 	ready  bool
 	meter  *meter
 	limits *limiter
+	cache  *respCache
 	mau    mauSeen
 	waking sync.Map // ref -> time.Time of the last wake asked
 	// hashSlots bound concurrent password hashes, renderSlots image
@@ -186,6 +189,7 @@ func New(cfg Config) *Edge {
 		byRef:       map[string]*project{},
 		meter:       newMeter(),
 		limits:      newLimiter(),
+		cache:       newRespCache(cfg.CacheBytes),
 		hashSlots:   make(chan struct{}, max(2, runtime.GOMAXPROCS(0))),
 		renderSlots: make(chan struct{}, max(1, runtime.GOMAXPROCS(0)/2)),
 	}

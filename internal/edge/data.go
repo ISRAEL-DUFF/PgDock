@@ -352,6 +352,18 @@ func (e *Edge) cost(ctx context.Context, tx pgx.Tx, st *catalogState, sql string
 
 // read runs a read: a list, or one row by its key.
 func (e *Edge) read(c *call, req Request, name string, q Query, one bool) {
+	// The cache (V4.1 §10): a hit needs the catalog this edge last read.
+	caching := len(c.p.cfg.Settings.CacheTTLSeconds) > 0
+	var gen uint64
+	if caching {
+		gen = e.cache.generation(c.p.cfg.Ref)
+		if fp := c.p.catalog.fingerprint(); fp != "" {
+			if t := c.p.catalog.table(name); t != nil && c.cacheable(req, cacheName(t.Schema, t.Name, false)) > 0 &&
+				e.serveCached(c, cacheKey(c.p.cfg.Ref, c.p.cfg.Version, fp, c.r.URL.Path, c.r.URL.Query())) {
+				return
+			}
+		}
+	}
 	ctx, cancel := context.WithTimeout(c.r.Context(), req.Timeout+countTimeout+3*time.Second)
 	defer cancel()
 	var (
@@ -361,13 +373,17 @@ func (e *Edge) read(c *call, req Request, name string, q Query, one bool) {
 		stmt   statement
 		failed *apiError
 		size   int
+		tbl    *Table
+		fp     string
 	)
 	err := e.WithRequest(ctx, c.p, req, func(tx pgx.Tx) error {
 		cat, st, err := e.catalog(ctx, c.p, tx)
 		if err != nil {
 			return err
 		}
+		fp = cat.Fingerprint
 		t := cat.Find(name)
+		tbl = t
 		if t == nil {
 			failed = &apiError{Status: http.StatusNotFound, Code: "unknown_table",
 				Message: fmt.Sprintf("no table or view %q in the exposed schemas (%s)", name, strings.Join(cat.Schemas, ", "))}
@@ -510,6 +526,11 @@ func (e *Edge) read(c *call, req Request, name string, q Query, one bool) {
 	h := c.w.Header()
 	h.Set("Content-Type", "application/json")
 	h.Set("Cache-Control", "no-store")
+	if caching && tbl != nil {
+		if ttl := c.cacheable(req, cacheName(tbl.Schema, tbl.Name, false)); ttl > 0 {
+			e.cacheStore(c, cacheKey(c.p.cfg.Ref, c.p.cfg.Version, fp, c.r.URL.Path, c.r.URL.Query()), buf.Bytes(), ttl, stmt.Tables, gen)
+		}
+	}
 	c.w.WriteHeader(http.StatusOK)
 	_, _ = c.w.Write(buf.Bytes())
 }

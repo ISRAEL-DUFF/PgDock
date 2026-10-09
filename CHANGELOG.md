@@ -92,6 +92,14 @@ bundle share one version (spec §11.5).
   `pgdock branch create --env` give `PGDOCK_API_URL`,
   `PGDOCK_PUBLISHABLE_KEY` and `PGDOCK_SECRET_KEY`; `copy_files` (or
   `--copy-files`) copies the parent's stored files in the background.
+- Edge caching of anonymous reads (V4.1-M9): list tables and stable
+  functions with a TTL (Settings → API → **Cache anonymous reads**, or
+  `cache_ttl_seconds`, at most 3,600 seconds) and publishable-key GETs
+  without a user's token are served from each edge's cache (`X-Cache`,
+  `Age`, `Cache-Control: public`). Writes through the API drop what they
+  change at once; other changes show within the TTL. Cached answers are
+  still metered. Upgrade pgdock-edge with pgdock-server;
+  `PGDOCK_EDGE_CACHE_MB` sizes the cache (64 by default).
 
 ### V4 (on feature/pgdock4)
 - Backend services' edge foundation (V4-M28): a project can turn on backend

@@ -89,6 +89,9 @@ type Settings struct {
 	// ReplicaReads sends publishable-key GETs to the read replicas without
 	// a Read-Replica header (V4 §7).
 	ReplicaReads bool `json:"replica_reads,omitempty"`
+	// CacheTTLSeconds caches anonymous reads of the listed relations
+	// ("schema.table", "rpc.function") on the edge for that long (V4.1 §10).
+	CacheTTLSeconds map[string]int `json:"cache_ttl_seconds,omitempty"`
 }
 
 // Project is one project's configuration on the edge.

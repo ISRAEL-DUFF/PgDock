@@ -323,6 +323,9 @@ type builder struct {
 	args  []any
 	gate  gate
 	alias int
+	// tables are the relations a read reaches ("schema.table"), for the
+	// cache's invalidation.
+	tables []string
 }
 
 func (b *builder) param(v any) string {
@@ -467,6 +470,7 @@ func (b *builder) embed(t *Table, alias string, e *Embed, depth int) (string, st
 			return "", "", err
 		}
 	}
+	b.tables = append(b.tables, target.Schema+"."+target.Name)
 	ea := b.nextAlias()
 	cols, err := b.selectList(target, ea, e.Select, depth)
 	if err != nil {
@@ -678,6 +682,7 @@ type statement struct {
 	CountArgs []any
 	Keys      []Order
 	Limit     int
+	Tables    []string // every relation it reads
 }
 
 func (b *builder) read(t *Table, q Query) (statement, error) {
@@ -759,5 +764,6 @@ func (b *builder) read(t *Table, q Query) (statement, error) {
 	if countWhere != "" {
 		countSQL += " WHERE " + countWhere
 	}
-	return statement{SQL: sb.String(), Args: b.args, CountSQL: countSQL, CountArgs: countArgs, Keys: keys, Limit: limit}, nil
+	return statement{SQL: sb.String(), Args: b.args, CountSQL: countSQL, CountArgs: countArgs, Keys: keys, Limit: limit,
+		Tables: append(b.tables, t.Schema+"."+t.Name)}, nil
 }

@@ -160,7 +160,7 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 		timeout, perIP, perKey := EffectiveSettings(st, PlanCeilings{TimeoutMs: r.PlanTimeoutMs, RatePerIP: r.PlanRatePerIp, RatePerKey: r.PlanRatePerKey})
 		p.Settings = edgeapi.Settings{StatementTimeoutMs: timeout, RatePerIP: perIP, RatePerKey: perKey,
 			AllowSecretInBrowser: st.AllowSecretInBrowser, MaxQueryCost: float64(or(st.MaxQueryCost, DefaultMaxQueryCost)),
-			ReplicaReads: st.ReplicaReads}
+			ReplicaReads: st.ReplicaReads, CacheTTLSeconds: st.CacheTTLSeconds}
 		p.RequestsBlocked, p.MAUBlocked = r.ApiRequestsBlocked, r.MauBlocked
 		if r.MauBlocked {
 			p.MAUCounted = r.MauCounted

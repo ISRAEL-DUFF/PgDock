@@ -421,6 +421,9 @@ func (e *Edge) inTx(c *call, req Request, fn func(ctx context.Context, tx pgx.Tx
 		e.dataDBError(c, err)
 		return
 	}
+	// Committed: drop the cached reads it could have changed (V4.1 §10)
+	// before answering, so the caller's next read sees its write.
+	e.dropWritten(c, c.wrote, false)
 	c.json(status, out)
 }
 
@@ -462,6 +465,7 @@ func (e *Edge) write(c *call, req Request, name string, pk *string) {
 		if err != nil {
 			return nil, 0, err
 		}
+		c.wrote = append(c.wrote, t.Schema+"."+t.Name)
 		b := &builder{cat: cat, gate: c.p.gateFor(req.Role)}
 		var res writeResult
 		status := http.StatusOK
@@ -521,6 +525,9 @@ func (e *Edge) batch(c *call, req Request) {
 	e.inTx(c, req, func(ctx context.Context, tx pgx.Tx, cat *Catalog) (any, int, error) {
 		results := make([]writeResult, 0, len(in.Operations))
 		for i, op := range in.Operations {
+			if t := cat.Find(op.Table); t != nil {
+				c.wrote = append(c.wrote, t.Schema+"."+t.Name)
+			}
 			res, err := e.batchOne(ctx, tx, cat, c.p, req, op)
 			if err != nil {
 				var ae *apiError

@@ -214,6 +214,46 @@ happen or none do.
 The answer is `{"results":[…]}`, one per operation. When one fails, the error
 names it (`details.operation`, counted from 0) and says nothing was changed.
 
+## Caching anonymous reads
+
+Reads that every visitor makes the same way (a product list, a
+storefront's categories) can be served from the edge instead of the
+database. List the tables and functions, with how long a cached answer may
+be served, under Settings → API → **Cache anonymous reads**, or in the
+settings' `cache_ttl_seconds`:
+
+```json
+{"settings": {"cache_ttl_seconds": {"public.products": 60, "rpc.search_products": 30}}}
+```
+
+Tables are `schema.table`; functions are `rpc.name` (in `public`) or
+`rpc.schema.name`, and must be `STABLE` or `IMMUTABLE` (called with `GET`).
+At most 3,600 seconds and 100 entries.
+
+- **What is cached:** `GET`s with the publishable key and **no** user
+  token (so every caller is `anon` and the same policies apply), unless the
+  request sends `Read-Replica: primary`. Never a signed-in user's read, the
+  secret key, writes, storage, auth or realtime.
+- **The key** is the project, the path and its query with the parameters
+  sorted (the `apikey` parameter left out), the project's configuration
+  version and its schema's fingerprint, so changing the settings or the
+  schema starts afresh.
+- **Headers:** `X-Cache: HIT` or `MISS`, `Age`, and
+  `Cache-Control: public, max-age=<seconds left>` with
+  `Vary: Authorization, Read-Replica`, so a CDN in front may cache too
+  (and keeps signed-in users' requests apart).
+- **A TTL is a staleness budget.** A write through this edge's data API
+  (insert, update, delete, upsert, batch, or a function called with `POST`)
+  drops the entries it could have changed before it answers: those of the
+  table, of reads that embed it, and every function result. With realtime
+  capture on a table, its changes drop its entries on every edge listening
+  to the project. Anything else (SQL, scheduled jobs, a write through
+  another edge) shows within the TTL.
+- **Billing:** cached answers still count as requests and transfer.
+- Each edge process keeps its own cache, at most 64 MB by default
+  (`PGDOCK_EDGE_CACHE_MB`); the least recently used entries go first, and
+  one answer may take at most an eighth of it.
+
 ## Functions
 
 `/data/v1/rpc/<function>` calls a function in the exposed schemas as the
@@ -916,6 +956,7 @@ Run one pgdock-edge per region, on the region's nodes. It keeps no state.
 | `PGDOCK_EDGE_POOLER_ADDR` | Optional: the transaction pooler as the edge reaches it. |
 | `PGDOCK_EDGE_SESSION_ADDR` | Optional: the session-mode pooler as the edge reaches it (realtime's `LISTEN` connections). |
 | `PGDOCK_EDGE_TRUSTED_PROXIES` | Optional: CIDRs allowed to set `X-Forwarded-For`. |
+| `PGDOCK_EDGE_CACHE_MB` | Optional: the anonymous-read cache's size per edge process (default 64). |
 
 `deploy/edge/Dockerfile` builds the image, and `deploy/edge/edge.env.example`
 lists the settings.

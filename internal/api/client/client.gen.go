@@ -4842,6 +4842,9 @@ type BackendServicesSettings struct {
 	// AllowSecretInBrowser Accept the secret key from a page (a request with an Origin header). Off by default.
 	AllowSecretInBrowser *bool `json:"allow_secret_in_browser,omitempty"`
 
+	// CacheTtlSeconds Cache anonymous reads (publishable key, no user token) of these tables ("schema.table") and stable functions ("rpc.name" or "rpc.schema.name") on the edge for up to that many seconds, 1 to 3,600 (V4.1 §10). A TTL is a staleness budget: writes made outside this edge's data API show within it. Sent whole: {} turns caching off.
+	CacheTtlSeconds *map[string]int `json:"cache_ttl_seconds,omitempty"`
+
 	// MaxQueryCost Data API reads whose estimated cost (EXPLAIN) is higher are refused (0 for the default, 1000000).
 	MaxQueryCost *int `json:"max_query_cost,omitempty"`
 

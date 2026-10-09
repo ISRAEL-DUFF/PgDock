@@ -7090,6 +7090,10 @@ export interface components {
             max_query_cost?: number;
             /** @description Send publishable-key data API GETs to the read replicas without a Read-Replica header (V4 §7). Off by default. */
             replica_reads?: boolean;
+            /** @description Cache anonymous reads (publishable key, no user token) of these tables ("schema.table") and stable functions ("rpc.name" or "rpc.schema.name") on the edge for up to that many seconds, 1 to 3,600 (V4.1 §10). A TTL is a staleness budget: writes made outside this edge's data API show within it. Sent whole: {} turns caching off. */
+            cache_ttl_seconds?: {
+                [key: string]: number;
+            };
         };
         AuthSettings: {
             /** @description Where links go when a request names no redirect (and the base of allowed redirects). */

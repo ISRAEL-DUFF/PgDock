@@ -23,6 +23,7 @@ import { formatDate, relativeTime } from "../lib/format";
 import { useOperationStream } from "../lib/useOperationStream";
 import { MigrateSupabaseCard } from "../components/MigrateSupabaseCard";
 import type { ExplorePrefill } from "../lib/apiDocs";
+import { formatCacheTTLs, parseCacheTTLs } from "../lib/cacheTtl";
 import { DocsPanel, QuickStartPanel, UsagePanel } from "./ProjectAPIDocs";
 import { useProject } from "./ProjectOverview";
 
@@ -401,14 +402,22 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
   const [replicaReads, setReplicaReads] = useState(
     svc.settings.replica_reads ?? false,
   );
+  const [cacheTTLs, setCacheTTLs] = useState(
+    formatCacheTTLs(svc.settings.cache_ttl_seconds),
+  );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const save = async (e: FormEvent) => {
     e.preventDefault();
-    setBusy(true);
     setErr(null);
     setSaved(false);
+    const ttls = parseCacheTTLs(cacheTTLs);
+    if (!ttls.ok) {
+      setErr(ttls.error);
+      return;
+    }
+    setBusy(true);
     try {
       await api.updateBackendServices(p.id, {
         cors_origins: origins
@@ -428,6 +437,7 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
           rate_per_ip: perIP,
           allow_secret_in_browser: secretInBrowser,
           replica_reads: replicaReads,
+          cache_ttl_seconds: ttls.value,
         },
       });
       await qc.invalidateQueries({ queryKey: ["services", p.id] });
@@ -516,6 +526,18 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
             className="min-h-16 w-full rounded-md border border-line-strong bg-surface-2 p-2.5 font-mono text-xs"
             value={publicTables}
             onChange={(e) => setPublicTables(e.target.value)}
+          />
+        </FormRow>
+        <FormRow
+          label="Cache anonymous reads"
+          description="Tables (schema.table) and stable functions (rpc.name) whose reads with the publishable key and no signed-in user the edge may serve from its cache, with the seconds, up to 3600: one per line, like public.products 60. Writes through the API show at once; changes made any other way can take that long."
+        >
+          <textarea
+            aria-label="Cache anonymous reads"
+            className="min-h-16 w-full rounded-md border border-line-strong bg-surface-2 p-2.5 font-mono text-xs"
+            value={cacheTTLs}
+            onChange={(e) => setCacheTTLs(e.target.value)}
+            placeholder="public.products 60"
           />
         </FormRow>
         <FormRow

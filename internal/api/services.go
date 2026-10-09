@@ -69,7 +69,11 @@ func (s *Server) backendServicesOut(r *http.Request, p store.Project, svc *store
 	}{Anon: &anon, User: &user, Service: &service}
 	out.Settings = gen.BackendServicesSettings{StatementTimeoutMs: &st.StatementTimeoutMs, RatePerIp: &st.RatePerIP,
 		RatePerKey: &st.RatePerKey, AllowSecretInBrowser: &st.AllowSecretInBrowser, MaxQueryCost: &st.MaxQueryCost,
-		ReplicaReads: &st.ReplicaReads}
+		ReplicaReads: &st.ReplicaReads, CacheTtlSeconds: &st.CacheTTLSeconds}
+	if st.CacheTTLSeconds == nil {
+		empty := map[string]int{}
+		out.Settings.CacheTtlSeconds = &empty
+	}
 	timeout, perIP, perKey := services.EffectiveSettings(st, services.PlanCeilings{TimeoutMs: svc.PlanTimeoutMs,
 		RatePerIP: svc.PlanRatePerIp, RatePerKey: svc.PlanRatePerKey})
 	eff := gen.BackendServicesEffective{StatementTimeoutMs: timeout, RatePerIp: perIP, RatePerKey: perKey,
@@ -191,6 +195,12 @@ func (s *Server) UpdateBackendServices(w http.ResponseWriter, r *http.Request, i
 		}
 		if v.ReplicaReads != nil {
 			st.ReplicaReads = *v.ReplicaReads
+		}
+		if v.CacheTtlSeconds != nil {
+			st.CacheTTLSeconds = *v.CacheTtlSeconds
+			if len(st.CacheTTLSeconds) == 0 {
+				st.CacheTTLSeconds = nil
+			}
 		}
 	}
 	exposed, public := cur.ExposedSchemas, cur.PublicTables

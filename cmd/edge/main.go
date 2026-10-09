@@ -19,6 +19,7 @@ import (
 	"net/netip"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -67,6 +68,13 @@ func run(args []string) error {
 		PoolerAddr:    os.Getenv("PGDOCK_EDGE_POOLER_ADDR"),
 		SessionAddr:   os.Getenv("PGDOCK_EDGE_SESSION_ADDR"),
 		PoolerSSLMode: env("PGDOCK_EDGE_POOLER_SSLMODE", "require"),
+	}
+	if mb := os.Getenv("PGDOCK_EDGE_CACHE_MB"); mb != "" {
+		n, err := strconv.Atoi(mb)
+		if err != nil || n < 1 {
+			return errors.New("PGDOCK_EDGE_CACHE_MB is the anonymous-read cache's size in MB (default 64)")
+		}
+		cfg.CacheBytes = n << 20
 	}
 	switch {
 	case cfg.ControlURL == "":
