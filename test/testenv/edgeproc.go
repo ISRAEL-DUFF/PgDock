@@ -58,7 +58,7 @@ func (e *Env) StartEdgeProcess(name string) *EdgeProcess {
 		cmd.Dir = root
 		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 		if out, err := cmd.CombinedOutput(); err != nil {
-			edgeBinErr = fmt.Errorf("build pgdock-edge: %v\n%s", err, out)
+			edgeBinErr = fmt.Errorf("build pgdock-edge: %w\n%s", err, out)
 		}
 	})
 	if edgeBinErr != nil {
