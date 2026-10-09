@@ -40,7 +40,7 @@ func (q *Queries) ActiveJWTKey(ctx context.Context, projectID uuid.UUID) (Projec
 const createProjectServices = `-- name: CreateProjectServices :one
 INSERT INTO project_services (project_id, ref) VALUES ($1, $2)
 ON CONFLICT (project_id) DO NOTHING
-RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers, storage_quota_bytes, upload_max_bytes, storage_egress_blocked, transforms_blocked, realtime_max_connections, realtime_messages_blocked
+RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers, storage_quota_bytes, upload_max_bytes, storage_egress_blocked, transforms_blocked, realtime_max_connections, realtime_messages_blocked, plan_timeout_ms, plan_rate_per_ip, plan_rate_per_key, api_requests_blocked, mau_blocked, mau_counted
 `
 
 type CreateProjectServicesParams struct {
@@ -74,6 +74,12 @@ func (q *Queries) CreateProjectServices(ctx context.Context, arg CreateProjectSe
 		&i.TransformsBlocked,
 		&i.RealtimeMaxConnections,
 		&i.RealtimeMessagesBlocked,
+		&i.PlanTimeoutMs,
+		&i.PlanRatePerIp,
+		&i.PlanRatePerKey,
+		&i.ApiRequestsBlocked,
+		&i.MauBlocked,
+		&i.MauCounted,
 	)
 	return i, err
 }
@@ -156,6 +162,7 @@ SELECT s.project_id, s.ref, s.enabled, s.cors_origins, s.settings, s.exposed_sch
   s.config_version, s.changed_seq, (s.edge_verifier IS NOT NULL)::boolean AS edge_ready,
   s.storage_quota_bytes, s.upload_max_bytes, s.storage_egress_blocked, s.transforms_blocked,
   s.realtime_max_connections, s.realtime_messages_blocked,
+  s.plan_timeout_ms, s.plan_rate_per_ip, s.plan_rate_per_key, s.api_requests_blocked, s.mau_blocked, s.mau_counted,
   EXISTS (SELECT 1 FROM read_replicas r WHERE r.project_id = p.id AND r.deleted_at IS NULL)::boolean AS has_replicas,
   p.db_name, p.region, p.data_residency, p.org_id, p.lifecycle, p.status, p.deleted_at, o.status AS org_status, o.plan_id,
   coalesce(b.capped, false)::boolean AS spend_capped
@@ -188,6 +195,12 @@ type EdgeConfigChangesRow struct {
 	TransformsBlocked       bool
 	RealtimeMaxConnections  *int32
 	RealtimeMessagesBlocked bool
+	PlanTimeoutMs           *int32
+	PlanRatePerIp           *int32
+	PlanRatePerKey          *int32
+	ApiRequestsBlocked      bool
+	MauBlocked              bool
+	MauCounted              []byte
 	HasReplicas             bool
 	DbName                  string
 	Region                  string
@@ -228,6 +241,12 @@ func (q *Queries) EdgeConfigChanges(ctx context.Context, arg EdgeConfigChangesPa
 			&i.TransformsBlocked,
 			&i.RealtimeMaxConnections,
 			&i.RealtimeMessagesBlocked,
+			&i.PlanTimeoutMs,
+			&i.PlanRatePerIp,
+			&i.PlanRatePerKey,
+			&i.ApiRequestsBlocked,
+			&i.MauBlocked,
+			&i.MauCounted,
 			&i.HasReplicas,
 			&i.DbName,
 			&i.Region,
@@ -321,7 +340,7 @@ func (q *Queries) FinishStorageCleanup(ctx context.Context, id uuid.UUID) error 
 
 const getProjectServices = `-- name: GetProjectServices :one
 
-SELECT project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers, storage_quota_bytes, upload_max_bytes, storage_egress_blocked, transforms_blocked, realtime_max_connections, realtime_messages_blocked FROM project_services WHERE project_id = $1
+SELECT project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers, storage_quota_bytes, upload_max_bytes, storage_egress_blocked, transforms_blocked, realtime_max_connections, realtime_messages_blocked, plan_timeout_ms, plan_rate_per_ip, plan_rate_per_key, api_requests_blocked, mau_blocked, mau_counted FROM project_services WHERE project_id = $1
 `
 
 // Backend services (V4 §2): project refs, API keys, signing keys, and what
@@ -352,6 +371,12 @@ func (q *Queries) GetProjectServices(ctx context.Context, projectID uuid.UUID) (
 		&i.TransformsBlocked,
 		&i.RealtimeMaxConnections,
 		&i.RealtimeMessagesBlocked,
+		&i.PlanTimeoutMs,
+		&i.PlanRatePerIp,
+		&i.PlanRatePerKey,
+		&i.ApiRequestsBlocked,
+		&i.MauBlocked,
+		&i.MauCounted,
 	)
 	return i, err
 }
@@ -478,6 +503,31 @@ func (q *Queries) InsertJWTKey(ctx context.Context, arg InsertJWTKeyParams) (Pro
 	return i, err
 }
 
+const insertPlanLimitNotice = `-- name: InsertPlanLimitNotice :execrows
+INSERT INTO plan_limit_notices (org_id, limit_key, month, level) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING
+`
+
+type InsertPlanLimitNoticeParams struct {
+	OrgID    uuid.UUID
+	LimitKey string
+	Month    pgtype.Date
+	Level    int32
+}
+
+// tenant: system - the plan-limits sweep: one notice per organisation, limit, month and level.
+func (q *Queries) InsertPlanLimitNotice(ctx context.Context, arg InsertPlanLimitNoticeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertPlanLimitNotice,
+		arg.OrgID,
+		arg.LimitKey,
+		arg.Month,
+		arg.Level,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 type InsertRequestLogsParams struct {
 	ProjectID uuid.UUID
 	At        time.Time
@@ -579,6 +629,54 @@ func (q *Queries) OrgUsageSince(ctx context.Context, arg OrgUsageSinceParams) (p
 	return column_1, err
 }
 
+const planLimitProjects = `-- name: PlanLimitProjects :many
+SELECT s.project_id, s.plan_timeout_ms, s.plan_rate_per_ip, s.plan_rate_per_key, s.api_requests_blocked, s.mau_blocked, s.mau_counted, p.org_id
+FROM project_services s JOIN projects p ON p.id = s.project_id
+WHERE s.enabled AND p.deleted_at IS NULL
+ORDER BY p.org_id, p.id
+`
+
+type PlanLimitProjectsRow struct {
+	ProjectID          uuid.UUID
+	PlanTimeoutMs      *int32
+	PlanRatePerIp      *int32
+	PlanRatePerKey     *int32
+	ApiRequestsBlocked bool
+	MauBlocked         bool
+	MauCounted         []byte
+	OrgID              uuid.UUID
+}
+
+// tenant: system - the plan-limits sweep (V4.1 §3): every project with backend services on.
+func (q *Queries) PlanLimitProjects(ctx context.Context) ([]PlanLimitProjectsRow, error) {
+	rows, err := q.db.Query(ctx, planLimitProjects)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PlanLimitProjectsRow
+	for rows.Next() {
+		var i PlanLimitProjectsRow
+		if err := rows.Scan(
+			&i.ProjectID,
+			&i.PlanTimeoutMs,
+			&i.PlanRatePerIp,
+			&i.PlanRatePerKey,
+			&i.ApiRequestsBlocked,
+			&i.MauBlocked,
+			&i.MauCounted,
+			&i.OrgID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const poolerEdgeUsers = `-- name: PoolerEdgeUsers :many
 SELECT p.db_name, s.edge_verifier::text AS edge_verifier, s.login_verifiers, p.region, p.forward_region, p.forward_until
 FROM project_services s JOIN projects p ON p.id = s.project_id
@@ -659,6 +757,36 @@ func (q *Queries) ProjectJWTKeys(ctx context.Context, projectID uuid.UUID) ([]Pr
 	return items, nil
 }
 
+const projectMonthUsers = `-- name: ProjectMonthUsers :many
+SELECT user_id FROM auth_mau WHERE project_id = $1 AND month = $2
+`
+
+type ProjectMonthUsersParams struct {
+	ProjectID uuid.UUID
+	Month     pgtype.Date
+}
+
+// tenant: system - the plan-limits sweep: a project's users counted as active this month.
+func (q *Queries) ProjectMonthUsers(ctx context.Context, arg ProjectMonthUsersParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, projectMonthUsers, arg.ProjectID, arg.Month)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var user_id uuid.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const projectRequestLogs = `-- name: ProjectRequestLogs :many
 SELECT id, project_id, at, request_id, method, path, status, latency_ms, role, user_id, key_id, ip, bytes_out FROM api_request_logs
 WHERE project_id = $1 AND ($2::bigint IS NULL OR id < $2)
@@ -707,7 +835,7 @@ func (q *Queries) ProjectRequestLogs(ctx context.Context, arg ProjectRequestLogs
 }
 
 const projectServicesByRef = `-- name: ProjectServicesByRef :one
-SELECT s.project_id, s.ref, s.enabled, s.exposed_schemas, s.public_tables, s.cors_origins, s.settings, s.edge_verifier, s.schema_version, s.roles_instance, s.config_version, s.changed_seq, s.enabled_at, s.created_at, s.login_verifiers, s.storage_quota_bytes, s.upload_max_bytes, s.storage_egress_blocked, s.transforms_blocked, s.realtime_max_connections, s.realtime_messages_blocked, p.db_name FROM project_services s JOIN projects p ON p.id = s.project_id WHERE s.ref = $1
+SELECT s.project_id, s.ref, s.enabled, s.exposed_schemas, s.public_tables, s.cors_origins, s.settings, s.edge_verifier, s.schema_version, s.roles_instance, s.config_version, s.changed_seq, s.enabled_at, s.created_at, s.login_verifiers, s.storage_quota_bytes, s.upload_max_bytes, s.storage_egress_blocked, s.transforms_blocked, s.realtime_max_connections, s.realtime_messages_blocked, s.plan_timeout_ms, s.plan_rate_per_ip, s.plan_rate_per_key, s.api_requests_blocked, s.mau_blocked, s.mau_counted, p.db_name FROM project_services s JOIN projects p ON p.id = s.project_id WHERE s.ref = $1
 `
 
 type ProjectServicesByRefRow struct {
@@ -732,6 +860,12 @@ type ProjectServicesByRefRow struct {
 	TransformsBlocked       bool
 	RealtimeMaxConnections  *int32
 	RealtimeMessagesBlocked bool
+	PlanTimeoutMs           *int32
+	PlanRatePerIp           *int32
+	PlanRatePerKey          *int32
+	ApiRequestsBlocked      bool
+	MauBlocked              bool
+	MauCounted              []byte
 	DbName                  string
 }
 
@@ -761,6 +895,12 @@ func (q *Queries) ProjectServicesByRef(ctx context.Context, ref string) (Project
 		&i.TransformsBlocked,
 		&i.RealtimeMaxConnections,
 		&i.RealtimeMessagesBlocked,
+		&i.PlanTimeoutMs,
+		&i.PlanRatePerIp,
+		&i.PlanRatePerKey,
+		&i.ApiRequestsBlocked,
+		&i.MauBlocked,
+		&i.MauCounted,
 		&i.DbName,
 	)
 	return i, err
@@ -1050,6 +1190,43 @@ func (q *Queries) ServicesToReconcile(ctx context.Context, schemaVersion int32) 
 	return items, nil
 }
 
+const setPlanLimits = `-- name: SetPlanLimits :execrows
+UPDATE project_services SET plan_timeout_ms = $1, plan_rate_per_ip = $2,
+  plan_rate_per_key = $3, api_requests_blocked = $4, mau_blocked = $5,
+  mau_counted = $6
+WHERE project_id = $7 AND (plan_timeout_ms IS DISTINCT FROM $1
+  OR plan_rate_per_ip IS DISTINCT FROM $2 OR plan_rate_per_key IS DISTINCT FROM $3
+  OR api_requests_blocked <> $4 OR mau_blocked <> $5
+  OR mau_counted IS DISTINCT FROM $6)
+`
+
+type SetPlanLimitsParams struct {
+	TimeoutMs          *int32
+	RatePerIp          *int32
+	RatePerKey         *int32
+	ApiRequestsBlocked bool
+	MauBlocked         bool
+	MauCounted         []byte
+	ProjectID          uuid.UUID
+}
+
+// tenant: system - the plan-limits sweep: what the edge applies, changed only when it differs (a change moves the feed).
+func (q *Queries) SetPlanLimits(ctx context.Context, arg SetPlanLimitsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setPlanLimits,
+		arg.TimeoutMs,
+		arg.RatePerIp,
+		arg.RatePerKey,
+		arg.ApiRequestsBlocked,
+		arg.MauBlocked,
+		arg.MauCounted,
+		arg.ProjectID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const setRealtimeLimits = `-- name: SetRealtimeLimits :execrows
 UPDATE project_services SET realtime_max_connections = $1, realtime_messages_blocked = $2
 WHERE project_id = $3 AND (realtime_max_connections IS DISTINCT FROM $1
@@ -1075,7 +1252,7 @@ const setServicesEnabled = `-- name: SetServicesEnabled :one
 UPDATE project_services SET enabled = $1,
   enabled_at = CASE WHEN $1::boolean THEN now() ELSE enabled_at END
 WHERE project_id = $2
-RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers, storage_quota_bytes, upload_max_bytes, storage_egress_blocked, transforms_blocked, realtime_max_connections, realtime_messages_blocked
+RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers, storage_quota_bytes, upload_max_bytes, storage_egress_blocked, transforms_blocked, realtime_max_connections, realtime_messages_blocked, plan_timeout_ms, plan_rate_per_ip, plan_rate_per_key, api_requests_blocked, mau_blocked, mau_counted
 `
 
 type SetServicesEnabledParams struct {
@@ -1109,6 +1286,12 @@ func (q *Queries) SetServicesEnabled(ctx context.Context, arg SetServicesEnabled
 		&i.TransformsBlocked,
 		&i.RealtimeMaxConnections,
 		&i.RealtimeMessagesBlocked,
+		&i.PlanTimeoutMs,
+		&i.PlanRatePerIp,
+		&i.PlanRatePerKey,
+		&i.ApiRequestsBlocked,
+		&i.MauBlocked,
+		&i.MauCounted,
 	)
 	return i, err
 }
@@ -1300,7 +1483,7 @@ const updateServicesSettings = `-- name: UpdateServicesSettings :one
 UPDATE project_services SET cors_origins = $1, settings = $2,
   exposed_schemas = $3, public_tables = $4
 WHERE project_id = $5
-RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers, storage_quota_bytes, upload_max_bytes, storage_egress_blocked, transforms_blocked, realtime_max_connections, realtime_messages_blocked
+RETURNING project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, settings, edge_verifier, schema_version, roles_instance, config_version, changed_seq, enabled_at, created_at, login_verifiers, storage_quota_bytes, upload_max_bytes, storage_egress_blocked, transforms_blocked, realtime_max_connections, realtime_messages_blocked, plan_timeout_ms, plan_rate_per_ip, plan_rate_per_key, api_requests_blocked, mau_blocked, mau_counted
 `
 
 type UpdateServicesSettingsParams struct {
@@ -1343,6 +1526,12 @@ func (q *Queries) UpdateServicesSettings(ctx context.Context, arg UpdateServices
 		&i.TransformsBlocked,
 		&i.RealtimeMaxConnections,
 		&i.RealtimeMessagesBlocked,
+		&i.PlanTimeoutMs,
+		&i.PlanRatePerIp,
+		&i.PlanRatePerKey,
+		&i.ApiRequestsBlocked,
+		&i.MauBlocked,
+		&i.MauCounted,
 	)
 	return i, err
 }

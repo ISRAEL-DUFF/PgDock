@@ -189,8 +189,8 @@ func Introspect(ctx context.Context, tx Querier, schemas []string) (*Catalog, er
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	if len(oids) == 0 {
-		return cat, nil
+	if len(oids) == 0 { // no relations, but maybe functions
+		return cat, introspectFunctions(ctx, tx, cat, byOID)
 	}
 	rows, err = tx.Query(ctx, `SELECT a.attrelid, a.attname, format_type(a.atttypid, a.atttypmod), t.typcategory::text, t.typname,
 		  NOT a.attnotnull, a.attnum, a.atthasdef OR a.attidentity <> '', a.attgenerated <> '',

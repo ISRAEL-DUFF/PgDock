@@ -106,6 +106,7 @@ type Edge struct {
 	ready  bool
 	meter  *meter
 	limits *limiter
+	mau    mauSeen
 	waking sync.Map // ref -> time.Time of the last wake asked
 	// hashSlots bound concurrent password hashes, renderSlots image
 	// transforms.

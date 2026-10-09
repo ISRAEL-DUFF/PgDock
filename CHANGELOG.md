@@ -12,6 +12,15 @@ bundle share one version (spec §11.5).
   it as a new version.
 - Docs: the Lagos launch checklist uses the region's own etcd cluster
   (V3.1); the status page's limits are up to date.
+- Per-plan limits for backend services (V4.1-M2): plans set monthly data
+  API requests and monthly active users (Personal: 500,000 and 10,000),
+  past which requests get `429 plan_limit_reached` and new users `429
+  mau_limit_reached` until the month ends (sign-in keeps working), and
+  ceilings on a project's statement timeout, rate limits and daily SMS
+  codes. Owners are emailed at 80% and 100%. The API page and `pgdock
+  services status` show what is in effect. On upgrading installs the
+  limits start with the first full month. New migration 00044.
+- Fixed: the data API couldn't call functions in a schema with no tables.
 
 ### V4 (on feature/pgdock4)
 - Backend services' edge foundation (V4-M28): a project can turn on backend

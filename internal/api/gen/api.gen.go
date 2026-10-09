@@ -4513,9 +4513,12 @@ type AvailabilityExclusion struct {
 // BackendServices defines model for BackendServices.
 type BackendServices struct {
 	// CorsOrigins Origins browsers may call from; empty allows any.
-	CorsOrigins []string   `json:"cors_origins"`
-	Enabled     bool       `json:"enabled"`
-	EnabledAt   *time.Time `json:"enabled_at,omitempty"`
+	CorsOrigins []string `json:"cors_origins"`
+
+	// Effective What the edge applies (V4.1 §3) - the project's settings within its plan's ceilings, and the plan's monthly limits.
+	Effective *BackendServicesEffective `json:"effective,omitempty"`
+	Enabled   bool                      `json:"enabled"`
+	EnabledAt *time.Time                `json:"enabled_at,omitempty"`
 
 	// ExposedSchemas The schemas the data API serves (default public).
 	ExposedSchemas []string `json:"exposed_schemas"`
@@ -4542,6 +4545,26 @@ type BackendServices struct {
 
 	// Url The API base URL (https://<ref>.<domain>); empty when no API domain is configured.
 	Url *string `json:"url,omitempty"`
+}
+
+// BackendServicesEffective What the edge applies (V4.1 §3) - the project's settings within its plan's ceilings, and the plan's monthly limits.
+type BackendServicesEffective struct {
+	// LimitsFrom When the plan limits start applying.
+	LimitsFrom *time.Time `json:"limits_from,omitempty"`
+
+	// MauBlocked The plan's monthly active users are reached (new users get 429 mau_limit_reached).
+	MauBlocked     bool `json:"mau_blocked"`
+	PlanRatePerIp  *int `json:"plan_rate_per_ip,omitempty"`
+	PlanRatePerKey *int `json:"plan_rate_per_key,omitempty"`
+
+	// PlanTimeoutMs The plan's ceiling on the timeout, if it has one.
+	PlanTimeoutMs *int `json:"plan_timeout_ms,omitempty"`
+	RatePerIp     int  `json:"rate_per_ip"`
+	RatePerKey    int  `json:"rate_per_key"`
+
+	// RequestsBlocked The plan's monthly data API requests are used up (429 plan_limit_reached until the month ends).
+	RequestsBlocked    bool `json:"requests_blocked"`
+	StatementTimeoutMs int  `json:"statement_timeout_ms"`
 }
 
 // BackendServicesEnabled defines model for BackendServicesEnabled.

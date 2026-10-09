@@ -10197,6 +10197,8 @@ components:
       type: object
       required: [enabled, keys, cors_origins, exposed_schemas, public_tables, settings, feed_configured]
       properties:
+        effective:
+          $ref: "#/components/schemas/BackendServicesEffective"
         enabled:
           type: boolean
         ref:
@@ -10244,6 +10246,34 @@ components:
               type: string
             service:
               type: string
+    BackendServicesEffective:
+      type: object
+      description: What the edge applies (V4.1 §3) - the project's settings within its plan's ceilings, and the plan's monthly limits.
+      required: [statement_timeout_ms, rate_per_ip, rate_per_key, requests_blocked, mau_blocked]
+      properties:
+        statement_timeout_ms:
+          type: integer
+        rate_per_ip:
+          type: integer
+        rate_per_key:
+          type: integer
+        plan_timeout_ms:
+          type: integer
+          description: The plan's ceiling on the timeout, if it has one.
+        plan_rate_per_ip:
+          type: integer
+        plan_rate_per_key:
+          type: integer
+        requests_blocked:
+          type: boolean
+          description: The plan's monthly data API requests are used up (429 plan_limit_reached until the month ends).
+        mau_blocked:
+          type: boolean
+          description: The plan's monthly active users are reached (new users get 429 mau_limit_reached).
+        limits_from:
+          type: string
+          format: date-time
+          description: When the plan limits start applying.
     BackendServicesSettings:
       type: object
       properties:

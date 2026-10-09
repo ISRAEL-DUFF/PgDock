@@ -403,6 +403,9 @@ func (e *Edge) issue(ctx context.Context, p *project, u *projauth.User, s *proja
 // single-session setting), the sign-in recorded, tokens issued.
 func (e *Edge) startSession(ctx context.Context, c *call, tx pgx.Tx, u *projauth.User, method string) (tokenResponse, error) {
 	a := c.p.cfg.Auth
+	if err := e.mauAllowed(c, u.ID); err != nil {
+		return tokenResponse{}, err
+	}
 	if a.SingleSession {
 		if _, err := projauth.EndSessions(ctx, tx, u.ID, nil); err != nil {
 			return tokenResponse{}, err
@@ -1130,6 +1133,9 @@ func (e *Edge) refresh(c *call) {
 		case r.Banned:
 			fail = refuse(http.StatusForbidden, "user_banned", "this user is banned")
 			return nil
+		}
+		if err := e.mauAllowed(c, r.User.ID); err != nil {
+			return err
 		}
 		e.meter.activeUser(c.p.cfg.ProjectID, r.User.ID)
 		c.userID = &r.User.ID

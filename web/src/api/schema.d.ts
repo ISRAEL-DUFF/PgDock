@@ -6742,6 +6742,7 @@ export interface components {
             items: components["schemas"]["MaintenanceAnnouncement"][];
         };
         BackendServices: {
+            effective?: components["schemas"]["BackendServicesEffective"];
             enabled: boolean;
             /**
              * @description The project reference in the API hostname.
@@ -6768,6 +6769,25 @@ export interface components {
                 user?: string;
                 service?: string;
             };
+        };
+        /** @description What the edge applies (V4.1 §3) - the project's settings within its plan's ceilings, and the plan's monthly limits. */
+        BackendServicesEffective: {
+            statement_timeout_ms: number;
+            rate_per_ip: number;
+            rate_per_key: number;
+            /** @description The plan's ceiling on the timeout, if it has one. */
+            plan_timeout_ms?: number;
+            plan_rate_per_ip?: number;
+            plan_rate_per_key?: number;
+            /** @description The plan's monthly data API requests are used up (429 plan_limit_reached until the month ends). */
+            requests_blocked: boolean;
+            /** @description The plan's monthly active users are reached (new users get 429 mau_limit_reached). */
+            mau_blocked: boolean;
+            /**
+             * Format: date-time
+             * @description When the plan limits start applying.
+             */
+            limits_from?: string;
         };
         BackendServicesSettings: {
             /** @description Each request's statement timeout (0 for the default, 8000). */
