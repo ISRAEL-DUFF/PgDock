@@ -131,7 +131,7 @@ export function QuickStartPanel({ p, svc }: { p: Project; svc: Services }) {
             Typed rows come from{" "}
             <button
               type="button"
-              className="text-accent underline"
+              className="text-accent-text underline underline-offset-2 hover:no-underline"
               onClick={() =>
                 document
                   .querySelector('[data-testid="services-types"]')
