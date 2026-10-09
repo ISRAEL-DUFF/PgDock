@@ -271,6 +271,85 @@ services:
       timeout: 3s
       retries: 30
 
+  # A Supabase hobby project for the migration helper's done-when (V4-M36):
+  # Supabase's Postgres, its auth server (GoTrue) and its storage server
+  # (with the S3 protocol), wired as Supabase's self-hosted setup does.
+  supa-db:
+    image: mirror.gcr.io/supabase/postgres:17.6.1.003
+    profiles: [test]
+    environment:
+      POSTGRES_PASSWORD: supabase-hobby
+    volumes:
+      - ./supabase/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro
+    ports:
+      - "${PGDOCK_DEV_GATEWAY:-172.31.251.1}:${PGDOCK_TEST_SUPA_DB_PORT:-5452}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
+  supa-auth:
+    image: mirror.gcr.io/supabase/gotrue:v2.180.0
+    profiles: [test]
+    depends_on:
+      supa-db:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: "9999"
+      API_EXTERNAL_URL: http://localhost:9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:supabase-hobby@supa-db:5432/postgres
+      GOTRUE_SITE_URL: http://localhost:3000
+      GOTRUE_JWT_SECRET: pgdock-dev-supabase-jwt-secret-0123456789abcdef
+      GOTRUE_JWT_EXP: "3600"
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+    ports:
+      - "${PGDOCK_DEV_GATEWAY:-172.31.251.1}:${PGDOCK_TEST_SUPA_AUTH_PORT:-5453}:9999"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9999/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
+  supa-storage:
+    image: mirror.gcr.io/supabase/storage-api:v1.28.0
+    profiles: [test]
+    depends_on:
+      supa-db:
+        condition: service_healthy
+      supa-auth:
+        condition: service_healthy
+    environment:
+      ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzAwMDAwMDAwLCJleHAiOjIwMDAwMDAwMDB9.BQiPH0yV7vzWKM64tfeTZvmyDQ9D2di_K6r9Q-s5_jk
+      SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MjAwMDAwMDAwMH0._dKTsO2xm0IZae52aCMJnhBsvWs9nsSZi4cDQfWdDjQ
+      AUTH_JWT_SECRET: pgdock-dev-supabase-jwt-secret-0123456789abcdef
+      PGRST_JWT_SECRET: pgdock-dev-supabase-jwt-secret-0123456789abcdef
+      DATABASE_URL: postgres://supabase_storage_admin:supabase-hobby@supa-db:5432/postgres
+      FILE_SIZE_LIMIT: "52428800"
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: local
+      GLOBAL_S3_BUCKET: stub
+      ENABLE_IMAGE_TRANSFORMATION: "false"
+      S3_PROTOCOL_ACCESS_KEY_ID: pgdock-supabase-s3-key
+      S3_PROTOCOL_ACCESS_KEY_SECRET: pgdock-supabase-s3-secret-0123456789
+    ports:
+      - "${PGDOCK_DEV_GATEWAY:-172.31.251.1}:${PGDOCK_TEST_SUPA_STORAGE_PORT:-5454}:5000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5000/status"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
 networks:
   default:
     ipam:

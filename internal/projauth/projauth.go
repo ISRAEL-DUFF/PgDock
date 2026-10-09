@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/israel-duff/pgdock/internal/argonpw"
 )
@@ -83,14 +84,47 @@ var dummyHash = func() string {
 }()
 
 // CheckPassword reports whether pw is u's password (false for a user
-// without one), taking the same time either way.
+// without one), taking the same time either way. A bcrypt hash (a user
+// migrated from Supabase, V4 §9) is accepted as is; NeedsRehash says to
+// replace it once the password is known.
 func CheckPassword(u *User, pw string) bool {
 	h := dummyHash
 	if u != nil && u.passwordHash != nil {
 		h = *u.passwordHash
 	}
-	ok, err := argonpw.Verify(pw, h)
+	var ok bool
+	var err error
+	if isBcrypt(h) {
+		err = bcrypt.CompareHashAndPassword([]byte(h), []byte(pw))
+		ok = err == nil
+	} else {
+		ok, err = argonpw.Verify(pw, h)
+	}
 	return ok && err == nil && u != nil && u.passwordHash != nil
+}
+
+// isBcrypt reports whether h is a bcrypt hash ($2a$, $2b$ or $2y$).
+func isBcrypt(h string) bool {
+	return len(h) == 60 && (strings.HasPrefix(h, "$2a$") || strings.HasPrefix(h, "$2b$") || strings.HasPrefix(h, "$2y$"))
+}
+
+// NeedsRehash reports whether u's password hash is not this platform's
+// (argon2id): checked after a successful sign-in, which has the password.
+func NeedsRehash(u *User) bool { return u != nil && u.passwordHash != nil && isBcrypt(*u.passwordHash) }
+
+// Rehash replaces u's password hash with an argon2id hash of pw (the
+// password it was just checked against).
+func Rehash(ctx context.Context, q Querier, u *User, pw string) error {
+	h, err := HashPassword(pw)
+	if err != nil {
+		return err
+	}
+	if _, err := q.Exec(ctx, `UPDATE pgd_auth.users SET encrypted_password = $2, updated_at = now() WHERE id = $1 AND encrypted_password = $3`,
+		u.ID, h, *u.passwordHash); err != nil {
+		return err
+	}
+	u.passwordHash = &h
+	return nil
 }
 
 // NormalizeEmail lowercases and trims an address.
@@ -774,31 +808,32 @@ type AuditEntry struct {
 
 // Audit actions.
 const (
-	ActSignup         = "user_signedup"
-	ActSignIn         = "login"
-	ActSignInFailed   = "login_failed"
-	ActLocked         = "user_locked"
-	ActSignOut        = "logout"
-	ActTokenReused    = "token_reuse_detected"
-	ActRecovery       = "user_recovery_requested"
-	ActConfirmed      = "user_confirmed"
-	ActUpdated        = "user_modified"
-	ActInvited        = "user_invited"
-	ActDeleted        = "user_deleted"
-	ActBanned         = "user_banned"
-	ActUnbanned       = "user_unbanned"
-	ActAdminSignOut   = "admin_signout"
-	ActEmailChanged   = "user_email_changed"
-	ActPasswordChange = "user_password_changed"
-	ActPhoneChanged   = "user_phone_changed"
-	ActAnonymous      = "anonymous_signin"
-	ActLinked         = "identity_linked"
-	ActUnlinked       = "identity_unlinked"
-	ActMFAEnrolled    = "mfa_factor_enrolled"
-	ActMFAVerified    = "mfa_verified"
-	ActMFAFailed      = "mfa_failed"
-	ActMFAUnenrolled  = "mfa_factor_deleted"
-	ActHookRejected   = "signup_rejected_by_hook"
+	ActSignup           = "user_signedup"
+	ActSignIn           = "login"
+	ActSignInFailed     = "login_failed"
+	ActLocked           = "user_locked"
+	ActPasswordRehashed = "password_rehashed"
+	ActSignOut          = "logout"
+	ActTokenReused      = "token_reuse_detected"
+	ActRecovery         = "user_recovery_requested"
+	ActConfirmed        = "user_confirmed"
+	ActUpdated          = "user_modified"
+	ActInvited          = "user_invited"
+	ActDeleted          = "user_deleted"
+	ActBanned           = "user_banned"
+	ActUnbanned         = "user_unbanned"
+	ActAdminSignOut     = "admin_signout"
+	ActEmailChanged     = "user_email_changed"
+	ActPasswordChange   = "user_password_changed"
+	ActPhoneChanged     = "user_phone_changed"
+	ActAnonymous        = "anonymous_signin"
+	ActLinked           = "identity_linked"
+	ActUnlinked         = "identity_unlinked"
+	ActMFAEnrolled      = "mfa_factor_enrolled"
+	ActMFAVerified      = "mfa_verified"
+	ActMFAFailed        = "mfa_failed"
+	ActMFAUnenrolled    = "mfa_factor_deleted"
+	ActHookRejected     = "signup_rejected_by_hook"
 )
 
 // Audit records an event (details may be nil).
