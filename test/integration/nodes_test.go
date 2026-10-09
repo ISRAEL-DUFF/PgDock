@@ -33,7 +33,9 @@ func TestMultiNodeSharedPlacement(t *testing.T) {
 	tier := gen.ProjectTierDedicated
 	var apiErr gen.Error
 	e.ConfigureBackups()
-	if code := e.Do("POST", "/api/v1/projects", gen.CreateProjectRequest{Name: "Too early", Tier: &tier}, &apiErr); code != http.StatusServiceUnavailable || apiErr.Code != "no_capacity" {
+	// The harness can add hosts (a fake Hetzner, V4.1 §5.3), but with no
+	// infrastructure budget the host waits for the admin.
+	if code := e.Do("POST", "/api/v1/projects", gen.CreateProjectRequest{Name: "Too early", Tier: &tier}, &apiErr); code != http.StatusConflict || apiErr.Code != "capacity_pending_approval" {
 		t.Fatalf("dedicated without a dedicated node: %d %+v", code, apiErr)
 	}
 

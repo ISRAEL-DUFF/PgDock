@@ -55,6 +55,9 @@ type Config struct {
 	AdminVia string
 	// RetainFull is how many full base backups WAL-G keeps (spec §6.4).
 	RetainFull int
+	// HostPoll is how often a creation waiting for a new host checks it
+	// (5 s by default).
+	HostPoll time.Duration
 	// ReadyTimeout bounds waiting for a restored instance to promote.
 	ReadyTimeout time.Duration
 	// AfterFreeze, if set, runs during a promotion or demotion right after
@@ -97,6 +100,9 @@ type Service struct {
 	// ServiceRoles, when set, creates a project's backend services roles on
 	// another instance before its database is copied there (V4 §2.5).
 	ServiceRoles func(ctx context.Context, p store.Project, instance uuid.UUID) error
+	// Hosts, when set, provides a new dedicated host when no node has room
+	// (the capacity service, V4.1 §5.3).
+	Hosts HostFunc
 }
 
 // New returns a Service.
@@ -182,14 +188,11 @@ func (s *Service) Validate(ctx context.Context, p *provision.CreateParams) (prov
 	}
 	q := store.New(s.db)
 	if p.NodeID == nil {
-		n, err := q.PickDedicatedNode(ctx, p.Region)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return prof, fmt.Errorf("%w: no healthy node with an agent in %s accepts dedicated instances", provision.ErrNoCapacity, p.Region)
-		}
+		id, err := s.placeDedicated(ctx, q, p.Region, Size{CPUs: prof.CPUs, MemoryMB: prof.MemoryMB, DiskGB: p.VolumeGB})
 		if err != nil {
 			return prof, err
 		}
-		p.NodeID = &n.ID
+		p.NodeID = &id
 		return prof, nil
 	}
 	n, err := q.GetNode(ctx, *p.NodeID)
@@ -339,6 +342,11 @@ func (s *Service) Ensure(ctx context.Context, op store.Operation, p store.Projec
 		return err
 	} else if d != nil {
 		return s.ensureDetached(ctx, inst, p, d, log)
+	}
+	if inst.Status != "running" {
+		if err := s.waitForHost(ctx, inst.NodeID, log); err != nil {
+			return err
+		}
 	}
 	if inst.Status == "running" {
 		if err := s.adoptRestore(ctx, inst, p, pitr, log); err != nil {

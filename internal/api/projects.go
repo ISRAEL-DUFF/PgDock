@@ -10,6 +10,7 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/authz"
+	"github.com/israel-duff/pgdock/internal/dedicated"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
 )
@@ -345,6 +346,8 @@ func (s *Server) provisionError(w http.ResponseWriter, what string, err error) {
 			msg = "no shared cluster is available for new projects"
 		}
 		writeError(w, http.StatusServiceUnavailable, "no_capacity", msg)
+	case errors.Is(err, dedicated.ErrHostPending):
+		writeError(w, http.StatusConflict, "capacity_pending_approval", err.Error()+"; you'll be able to create the project once it is in service")
 	case errors.Is(err, provision.ErrNoDedicated), errors.Is(err, provision.ErrUnreachable):
 		writeError(w, http.StatusServiceUnavailable, "unavailable", err.Error())
 	default:

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/israel-duff/pgdock/internal/cloud"
 	"github.com/israel-duff/pgdock/internal/jobs"
@@ -55,34 +56,12 @@ func (s *Service) runProvision(ctx context.Context, op store.Operation, log *job
 	}
 
 	// 1. The node, named for its region.
-	var node store.Node
-	if p.NodeID != nil {
-		if node, err = q.GetNode(ctx, *p.NodeID); err != nil {
-			return err
-		}
-	} else {
-		prefix := "pgd-" + p.Region + "-"
-		n, err := q.NextNodeNumber(ctx, prefix)
-		if err != nil {
-			return err
-		}
-		role := "shared"
-		if p.Tier == TierDedicated {
-			role = "dedicated"
-		}
-		cost := p.MonthlyCostMinor
-		typ := p.ServerType
-		node, err = q.InsertProvisionedNode(ctx, store.InsertProvisionedNodeParams{
-			Name: fmt.Sprintf("%s%d", prefix, n), PrivateAddr: "pending", Role: role, Provider: p.Provider, Region: p.Region,
-			ServerType: &typ, MonthlyCostMinor: &cost, CostCurrency: p.Currency,
-		})
-		if err != nil {
-			return err
-		}
-		if err := q.SetCapacityProposalNode(ctx, store.SetCapacityProposalNodeParams{ID: p.ID, NodeID: &node.ID}); err != nil {
-			return err
-		}
-		_ = log.Info(ctx, "node", "node %s (%s, %s)", node.Name, role, p.Region)
+	node, made, err := s.proposalNode(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+	if made {
+		_ = log.Info(ctx, "node", "node %s (%s, %s)", node.Name, node.Role, p.Region)
 	}
 
 	// 2. The server, unless an earlier attempt created it.
@@ -185,6 +164,44 @@ func (s *Service) runProvision(ctx context.Context, op store.Operation, log *job
 	}
 	_ = log.Info(ctx, "done", "%s is in service", node.Name)
 	return nil
+}
+
+// proposalNode is the node a proposal provisions, created on first need
+// (the provisioning run, or a dedicated creation waiting for it, V4.1
+// §5.3); made says this call created it.
+func (s *Service) proposalNode(ctx context.Context, id uuid.UUID) (node store.Node, made bool, err error) {
+	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		q := store.New(tx)
+		p, err := q.LockCapacityProposal(ctx, id)
+		if err != nil {
+			return err
+		}
+		if p.NodeID != nil {
+			node, err = q.GetNode(ctx, *p.NodeID)
+			return err
+		}
+		prefix := "pgd-" + p.Region + "-"
+		n, err := q.NextNodeNumber(ctx, prefix)
+		if err != nil {
+			return err
+		}
+		role := "shared"
+		if p.Tier == TierDedicated {
+			role = "dedicated"
+		}
+		cost := p.MonthlyCostMinor
+		typ := p.ServerType
+		node, err = q.InsertProvisionedNode(ctx, store.InsertProvisionedNodeParams{
+			Name: fmt.Sprintf("%s%d", prefix, n), PrivateAddr: "pending", Role: role, Provider: p.Provider, Region: p.Region,
+			ServerType: &typ, MonthlyCostMinor: &cost, CostCurrency: p.Currency,
+		})
+		if err != nil {
+			return err
+		}
+		made = true
+		return q.SetCapacityProposalNode(ctx, store.SetCapacityProposalNodeParams{ID: p.ID, NodeID: &node.ID})
+	})
+	return node, made, err
 }
 
 func deref(s *string) string {

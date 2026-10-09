@@ -178,7 +178,8 @@ func NewService(db *pgxpool.Pool, keyring *crypto.Keyring, pm *pooler.Manager, c
 // Kinds returns the operation kinds this service handles.
 func (s *Service) Kinds() map[string]jobs.Kind {
 	kinds := map[string]jobs.Kind{
-		KindCreate: {Handler: s.runCreate, OnFail: s.rollbackCreate, MaxAttempts: 3},
+		// A dedicated create may wait up to 25 minutes for a host (V4.1 §5.3).
+		KindCreate: {Handler: s.runCreate, OnFail: s.rollbackCreate, MaxAttempts: 3, Timeout: 45 * time.Minute},
 		KindRotate: {Handler: s.runRotate, OnFail: s.rollbackRotate, MaxAttempts: 3},
 		KindDelete: {Handler: s.runDelete, OnFail: s.failDelete, MaxAttempts: 5},
 

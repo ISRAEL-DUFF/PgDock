@@ -268,6 +268,29 @@ func (s *Service) WithinAllowance(ctx context.Context, orgID uuid.UUID, d Dedica
 		int(u.DiskGb)+d.DiskGB <= a.DiskGB, nil
 }
 
+// WithinAllowanceChange reports whether orgID may resize one of its
+// dedicated instances from one size to another without asking.
+func (s *Service) WithinAllowanceChange(ctx context.Context, orgID uuid.UUID, from, to Dedicated) (bool, error) {
+	_, o, err := s.Limits(ctx, orgID)
+	if err != nil {
+		return false, err
+	}
+	if o.PlanName == UnlimitedPlan {
+		return true, nil
+	}
+	a, err := store.DecodeDedicatedAllowance(o.DedicatedAllowance)
+	if err != nil {
+		return false, err
+	}
+	u, err := store.New(s.db).OrgDedicatedUse(ctx, orgID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return false, err
+	}
+	return u.Cpus-from.CPUs+to.CPUs <= a.CPUs+1e-9 &&
+		int(u.MemMb)-from.MemoryMB+to.MemoryMB <= a.MemoryMB &&
+		int(u.DiskGb)-from.DiskGB+to.DiskGB <= a.DiskGB, nil
+}
+
 // Quota is one limit with its current use, for the Usage & quotas page.
 type Quota struct {
 	Limit string

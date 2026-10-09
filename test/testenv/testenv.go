@@ -319,7 +319,7 @@ func Start(t testing.TB, opts Options) *Env {
 	// The test server runs on the host: it reaches instances through the
 	// ports agents publish on 127.0.0.1.
 	ded := dedicated.New(db, keyring, nodeSvc, svc, backups, dedicated.Config{AdminVia: "published", ReadyTimeout: 3 * time.Minute, AfterFreeze: opts.AfterFreeze, ReplicaMaxLag: 3 * time.Second,
-		MoveWait: dedicated.MoveWait{StableFor: 2 * time.Second, Poll: 250 * time.Millisecond}}, log)
+		MoveWait: dedicated.MoveWait{StableFor: 2 * time.Second, Poll: 250 * time.Millisecond}, HostPoll: 300 * time.Millisecond}, log)
 	ded.Snapshot = backups.Snapshot
 	svc.Instances = ded
 	backups.Dedicated = ded
@@ -367,6 +367,7 @@ func Start(t testing.TB, opts Options) *Env {
 	for name, k := range capacitySvc.Kinds() {
 		kinds[name] = k
 	}
+	ded.Hosts = capacitySvc.HostFor
 	freeSvc := freetier.New(db, svc, backups, mailSvc, freetier.Config{PublicURL: "https://pgdock.test"}, log)
 	for name, k := range freeSvc.Kinds() {
 		kinds[name] = k

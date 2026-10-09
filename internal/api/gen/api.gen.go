@@ -5971,6 +5971,13 @@ type InstanceActionRequest struct {
 // InstanceActionRequestAction defines model for InstanceActionRequest.Action.
 type InstanceActionRequestAction string
 
+// InstanceSize defines model for InstanceSize.
+type InstanceSize struct {
+	Cpus     float32 `json:"cpus"`
+	DiskGb   int     `json:"disk_gb"`
+	MemoryMb int     `json:"memory_mb"`
+}
+
 // InstanceState defines model for InstanceState.
 type InstanceState struct {
 	Container *string `json:"container,omitempty"`
@@ -6012,11 +6019,29 @@ type InstanceSummaryKind string
 
 // InstanceUpdate defines model for InstanceUpdate.
 type InstanceUpdate struct {
+	Cpus *float32 `json:"cpus,omitempty"`
+
+	// DiskGb Up only; to shrink, move into a smaller instance.
+	DiskGb *int `json:"disk_gb,omitempty"`
+
+	// DryRun Only say what a resize would do (in place, or a move to which node).
+	DryRun   *bool                   `json:"dry_run,omitempty"`
+	MemoryMb *int                    `json:"memory_mb,omitempty"`
 	PitrDays *InstanceUpdatePitrDays `json:"pitr_days,omitempty"`
+
+	// Profile A size from GET /profiles, in place of cpus and memory_mb.
+	Profile *string `json:"profile,omitempty"`
 }
 
 // InstanceUpdatePitrDays defines model for InstanceUpdate.PitrDays.
 type InstanceUpdatePitrDays int
+
+// InstanceUpdated defines model for InstanceUpdated.
+type InstanceUpdated struct {
+	Instance  InstanceSummary `json:"instance"`
+	Operation *Operation      `json:"operation,omitempty"`
+	Plan      *ResizePlan     `json:"plan,omitempty"`
+}
 
 // Invitation defines model for Invitation.
 type Invitation struct {
@@ -7806,6 +7831,18 @@ type ReplicaList struct {
 	// ReadUrl The read-only route's connection string, without a password.
 	ReadUrl  *string       `json:"read_url,omitempty"`
 	Replicas []ReadReplica `json:"replicas"`
+}
+
+// ResizePlan defines model for ResizePlan.
+type ResizePlan struct {
+	From InstanceSize `json:"from"`
+
+	// MoveTo The node the project moves to, when its own can't hold the new size.
+	MoveTo *string `json:"move_to,omitempty"`
+
+	// Restart The containers restart (a CPU or memory change); a disk change alone doesn't.
+	Restart bool         `json:"restart"`
+	To      InstanceSize `json:"to"`
 }
 
 // RestoreRequest defines model for RestoreRequest.
@@ -11270,7 +11307,7 @@ type ServerInterface interface {
 	// ListSlowQueries Statements over the slow-query threshold
 	// (GET /api/v1/projects/{id}/insights/slow)
 	ListSlowQueries(w http.ResponseWriter, r *http.Request, id ProjectID, params ListSlowQueriesParams)
-	// UpdateProjectInstance Change a dedicated project's instance settings
+	// UpdateProjectInstance Change a dedicated project's instance (size, disk, recovery window)
 	// (PATCH /api/v1/projects/{id}/instance)
 	UpdateProjectInstance(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ProjectInstanceAction Start, stop, or restart a dedicated project's instance
@@ -13268,7 +13305,7 @@ func (_ Unimplemented) ListSlowQueries(w http.ResponseWriter, r *http.Request, i
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// UpdateProjectInstance Change a dedicated project's instance settings
+// UpdateProjectInstance Change a dedicated project's instance (size, disk, recovery window)
 // (PATCH /api/v1/projects/{id}/instance)
 func (_ Unimplemented) UpdateProjectInstance(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/dedicated"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/pgdock/internal/tenancy"
 )
 
 // Billing add-ons (V4.1 §4): a dedicated instance's point-in-time recovery
@@ -69,10 +71,101 @@ func (s *Server) UpdateProjectInstance(w http.ResponseWriter, r *http.Request, i
 			return
 		}
 	}
+	out := gen.InstanceUpdated{}
+	if req.Profile != nil || req.Cpus != nil || req.MemoryMb != nil || req.DiskGb != nil {
+		plan, op, ok := s.resizeInstance(w, r, p, req)
+		if !ok {
+			return
+		}
+		out.Plan = plan
+		out.Operation = op
+	}
 	sum, ok := s.instanceSummaries(r.Context())[p.InstanceID]
 	if !ok {
 		s.provisionError(w, "instance", provision.ErrNotFound)
 		return
 	}
-	writeJSON(w, http.StatusOK, sum)
+	out.Instance = sum
+	writeJSON(w, http.StatusOK, out)
+}
+
+// resizeInstance plans and (unless a dry run) queues a resize (V4.1 §5),
+// answering a refusal itself; ok false means it did.
+func (s *Server) resizeInstance(w http.ResponseWriter, r *http.Request, p store.Project, req gen.InstanceUpdate) (*gen.ResizePlan, *gen.Operation, bool) {
+	ds := s.dedicatedSvc(w)
+	if ds == nil {
+		return nil, nil, false
+	}
+	var want dedicated.Size
+	if req.Profile != nil {
+		prof, ok := dedicated.ProfileByName(*req.Profile)
+		if !ok {
+			writeError(w, http.StatusBadRequest, "bad_request", fmt.Sprintf("unknown profile %q", *req.Profile))
+			return nil, nil, false
+		}
+		want.CPUs, want.MemoryMB = prof.CPUs, prof.MemoryMB
+	}
+	if req.Cpus != nil {
+		want.CPUs = float64(*req.Cpus)
+	}
+	if req.MemoryMb != nil {
+		want.MemoryMB = *req.MemoryMb
+	}
+	if req.DiskGb != nil {
+		want.DiskGB = *req.DiskGb
+	}
+	a := auditFrom(r.Context())
+	a.set("size", want)
+	plan, err := ds.PlanResize(r.Context(), p, want)
+	if err != nil {
+		s.resizeError(w, err)
+		return nil, nil, false
+	}
+	if s.tenancy != nil {
+		ok, err := s.tenancy.WithinAllowanceChange(r.Context(), p.OrgID,
+			tenancy.Dedicated{CPUs: plan.From.CPUs, MemoryMB: plan.From.MemoryMB, DiskGB: plan.From.DiskGB},
+			tenancy.Dedicated{CPUs: plan.To.CPUs, MemoryMB: plan.To.MemoryMB, DiskGB: plan.To.DiskGB})
+		if err != nil {
+			s.internalError(w, "resize", err)
+			return nil, nil, false
+		}
+		if !ok {
+			writeJSON(w, http.StatusConflict, gen.Error{Code: "quota_exceeded",
+				Message: "this is beyond your organisation's dedicated allowance: ask the platform admin to raise it, or choose a smaller size"})
+			return nil, nil, false
+		}
+		if !s.checkQuota(w, s.tenancy.CheckSpendCap(r.Context(), p.OrgID)) {
+			return nil, nil, false
+		}
+	}
+	out := &gen.ResizePlan{From: genSize(plan.From), To: genSize(plan.To), Restart: plan.Restart}
+	if plan.Move != nil {
+		out.MoveTo = &plan.MoveName
+	}
+	if req.DryRun != nil && *req.DryRun {
+		return out, nil, true
+	}
+	op, _, err := ds.Resize(r.Context(), dedicated.ResizeParams{ProjectID: p.ID, Size: plan.To, CreatedBy: userID(r.Context())})
+	if err != nil {
+		s.resizeError(w, err)
+		return nil, nil, false
+	}
+	gop, err := toAPIOperation(op)
+	if err != nil {
+		s.internalError(w, "resize", err)
+		return nil, nil, false
+	}
+	return out, &gop, true
+}
+
+func (s *Server) resizeError(w http.ResponseWriter, err error) {
+	if errors.Is(err, dedicated.ErrNoRoom) {
+		writeError(w, http.StatusConflict, "no_capacity", err.Error())
+		return
+	}
+	s.provisionError(w, "resize", err)
+}
+
+func genSize(sz dedicated.Size) gen.InstanceSize {
+	return gen.InstanceSize{Cpus: float32(sz.CPUs), MemoryMb: sz.MemoryMB, DiskGb: sz.DiskGB}
 }

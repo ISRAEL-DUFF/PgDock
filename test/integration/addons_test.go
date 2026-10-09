@@ -67,9 +67,9 @@ func TestBillingAddOns(t *testing.T) {
 		t.Fatalf("extended retention on Personal: %d %+v", code, apiErr)
 	}
 	plan("Pro")
-	var sum gen.InstanceSummary
-	if code := e.Do("PATCH", instance, gen.InstanceUpdate{PitrDays: &days}, &sum); code != http.StatusOK || sum.PitrDays == nil || *sum.PitrDays != 14 {
-		t.Fatalf("14-day PITR on Pro: %d %+v", code, sum)
+	var upd gen.InstanceUpdated
+	if code := e.Do("PATCH", instance, gen.InstanceUpdate{PitrDays: &days}, &upd); code != http.StatusOK || upd.Instance.PitrDays == nil || *upd.Instance.PitrDays != 14 {
+		t.Fatalf("14-day PITR on Pro: %d %+v", code, upd)
 	}
 
 	// ---- 14-day PITR: 14 base backups kept, a point past 7 restorable ---------

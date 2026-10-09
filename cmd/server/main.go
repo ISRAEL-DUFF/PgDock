@@ -433,6 +433,10 @@ func run() error {
 		for name, k := range capacitySvc.Kinds() {
 			kinds[name] = k
 		}
+		if backups.Dedicated != nil {
+			// Dedicated hosts on demand (V4.1 §5.3).
+			backups.Dedicated.Hosts = capacitySvc.HostFor
+		}
 		bg.Add(1)
 		go func() { defer bg.Done(); capacitySvc.Run(bgCtx, 30*time.Second) }()
 	}

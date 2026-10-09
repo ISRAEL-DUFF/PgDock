@@ -159,3 +159,6 @@ WHERE n.status <> 'removed' AND n.role <> 'pooler';
 -- An empty node's shared clusters go with it.
 UPDATE instances SET deleted_at = now(), status = 'deleted'
 WHERE node_id = @node_id AND kind = 'shared' AND deleted_at IS NULL;
+
+-- name: LockCapacityProposal :one
+SELECT * FROM capacity_proposals WHERE id = @id FOR UPDATE;

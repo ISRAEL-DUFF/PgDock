@@ -1476,11 +1476,17 @@ paths:
           $ref: "#/components/responses/Error"
     patch:
       operationId: updateProjectInstance
-      summary: Change a dedicated project's instance settings
+      summary: Change a dedicated project's instance (size, disk, recovery window)
       description: |
         The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
         as billed add-ons on Pro and Team. A longer window grows day by day
         from now; a shorter one drops the older base backups at the next one.
+
+        A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+        the instance restarts in a few seconds with the poolers holding
+        clients, or with HA a standby is resized and switched to. When its
+        node can't hold the new size, a `logical_move` to one that can is
+        queued instead (`plan.move_to`). The dedicated allowance applies.
       tags: [projects]
       parameters:
         - $ref: "#/components/parameters/ProjectID"
@@ -1492,11 +1498,11 @@ paths:
               $ref: "#/components/schemas/InstanceUpdate"
       responses:
         "200":
-          description: The instance.
+          description: The instance, with the queued resize or move if any.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InstanceSummary"
+                $ref: "#/components/schemas/InstanceUpdated"
         default:
           $ref: "#/components/responses/Error"
   /api/v1/profiles:
@@ -11321,6 +11327,58 @@ components:
         pitr_days:
           type: integer
           enum: [7, 14, 30]
+        profile:
+          type: string
+          description: A size from GET /profiles, in place of cpus and memory_mb.
+        cpus:
+          type: number
+          minimum: 0.25
+          maximum: 64
+        memory_mb:
+          type: integer
+          minimum: 512
+          maximum: 262144
+        disk_gb:
+          type: integer
+          maximum: 16384
+          description: Up only; to shrink, move into a smaller instance.
+        dry_run:
+          type: boolean
+          description: Only say what a resize would do (in place, or a move to which node).
+    InstanceUpdated:
+      type: object
+      required: [instance]
+      properties:
+        instance:
+          $ref: "#/components/schemas/InstanceSummary"
+        operation:
+          $ref: "#/components/schemas/Operation"
+        plan:
+          $ref: "#/components/schemas/ResizePlan"
+    ResizePlan:
+      type: object
+      required: [from, to, restart]
+      properties:
+        from:
+          $ref: "#/components/schemas/InstanceSize"
+        to:
+          $ref: "#/components/schemas/InstanceSize"
+        restart:
+          type: boolean
+          description: The containers restart (a CPU or memory change); a disk change alone doesn't.
+        move_to:
+          type: string
+          description: The node the project moves to, when its own can't hold the new size.
+    InstanceSize:
+      type: object
+      required: [cpus, memory_mb, disk_gb]
+      properties:
+        cpus:
+          type: number
+        memory_mb:
+          type: integer
+        disk_gb:
+          type: integer
     InstanceSummary:
       type: object
       required: [id, kind, status, node_id, node_name, pg_version]

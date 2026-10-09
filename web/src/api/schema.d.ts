@@ -1194,10 +1194,16 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Change a dedicated project's instance settings
+         * Change a dedicated project's instance (size, disk, recovery window)
          * @description The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
          *     as billed add-ons on Pro and Team. A longer window grows day by day
          *     from now; a shorter one drops the older base backups at the next one.
+         *
+         *     A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+         *     the instance restarts in a few seconds with the poolers holding
+         *     clients, or with HA a standby is resized and switched to. When its
+         *     node can't hold the new size, a `logical_move` to one that can is
+         *     queued instead (`plan.move_to`). The dedicated allowance applies.
          */
         patch: operations["updateProjectInstance"];
         trace?: never;
@@ -7352,6 +7358,32 @@ export interface components {
         InstanceUpdate: {
             /** @enum {integer} */
             pitr_days?: 7 | 14 | 30;
+            /** @description A size from GET /profiles, in place of cpus and memory_mb. */
+            profile?: string;
+            cpus?: number;
+            memory_mb?: number;
+            /** @description Up only; to shrink, move into a smaller instance. */
+            disk_gb?: number;
+            /** @description Only say what a resize would do (in place, or a move to which node). */
+            dry_run?: boolean;
+        };
+        InstanceUpdated: {
+            instance: components["schemas"]["InstanceSummary"];
+            operation?: components["schemas"]["Operation"];
+            plan?: components["schemas"]["ResizePlan"];
+        };
+        ResizePlan: {
+            from: components["schemas"]["InstanceSize"];
+            to: components["schemas"]["InstanceSize"];
+            /** @description The containers restart (a CPU or memory change); a disk change alone doesn't. */
+            restart: boolean;
+            /** @description The node the project moves to, when its own can't hold the new size. */
+            move_to?: string;
+        };
+        InstanceSize: {
+            cpus: number;
+            memory_mb: number;
+            disk_gb: number;
         };
         InstanceSummary: {
             /** @description Postgres major version. */
@@ -12100,13 +12132,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The instance. */
+            /** @description The instance, with the queued resize or move if any. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InstanceSummary"];
+                    "application/json": components["schemas"]["InstanceUpdated"];
                 };
             };
             default: components["responses"]["Error"];

@@ -87,6 +87,21 @@ Provisioning is an operation with a log, and it runs these steps:
 From then on, new projects go to the node with the fewest projects, which
 is the new one.
 
+### Dedicated hosts on demand
+
+New dedicated instances are placed on the node in their region with room
+for them (its reported vCPUs, memory and disk minus what its instances are
+allocated) and the fewest instances. When none has room and the provider
+can create servers, the creation itself asks for a host: it opens the
+region's dedicated proposal (or joins the open one) with the reason. Within
+the budget the server is created at once and the project shows **Waiting
+for a host** in its operation's log while it joins (usually 5–10 minutes,
+up to 25), then lands on it. Over the budget, or while a proposal waits
+for approval, the creation is refused with `409 capacity_pending_approval`
+and the alert above fires; the user can try again once it is in service.
+With hosts added by hand, the creation is refused with `503 no_capacity`,
+naming the region.
+
 If any step fails, PGDock deletes the server and removes the node, the
 proposal is marked failed, and a critical alert fires. The server's
 `/var/log/cloud-init-output.log` usually says why.

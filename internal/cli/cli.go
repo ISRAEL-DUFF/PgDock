@@ -212,6 +212,10 @@ func (a *App) commands() []command {
 			{name: "slow", summary: "Slow queries: slow <p> [--range 24h]", run: (*App).insightsSlow},
 			{name: "indexes", summary: "Index suggestions, unused and duplicate indexes: indexes <p>", run: (*App).insightsIndexes},
 		}},
+		{name: "instance", summary: "A dedicated project's instance size and disk", sub: []command{
+			{name: "resize", summary: "resize <p> (--profile medium | --cpus 4 --memory 8192) [--dry-run]", run: (*App).instanceResize},
+			{name: "disk", summary: "Grow the disk: disk <p> --gb 160 [--dry-run]", run: (*App).instanceDisk},
+		}},
 		{name: "ha", summary: "High availability for a dedicated project", sub: []command{
 			{name: "status", summary: "Members, lag, failovers and availability: status <p>", run: (*App).haStatus},
 			{name: "enable", summary: "Add a standby on another node: enable <p> [--node <id>] [--sync]", run: (*App).haEnable},

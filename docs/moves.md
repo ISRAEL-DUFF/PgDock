@@ -92,6 +92,32 @@ Compute → Moves, `pgdock move <p> --node <id>`, or
 target node's shared cluster, which must run the same Postgres version. A
 dedicated project gets a new instance of the same size there.
 
+## Resizing and growing the disk
+
+A dedicated project's owner or admin resizes its instance from Project
+Settings → **Size and disk**, `pgdock instance resize <p> --profile large`
+(or `--cpus 4 --memory 8192`), `pgdock instance disk <p> --gb 160`, or
+`PATCH /api/v1/projects/{id}/instance`. **Check** (`--dry-run`) says what
+will happen and what it costs before anything is queued.
+
+- **Without HA** the instance restarts with the new limits (and the
+  Postgres settings derived from memory) in a few seconds, with the
+  poolers holding clients meanwhile. Read replicas follow, one at a time.
+- **With HA** the standby (and any read replica) is resized first, the
+  project switches over to it, then the old primary is resized: the pause
+  is a switchover's.
+- **The disk** only grows; it needs no restart. Volumes are Docker
+  volumes, so the size is the allowance, what is billed and where the
+  disk warning sits (80% of it, unless you set your own). To shrink, move
+  the project into a smaller instance.
+- **When the node can't hold the new size** (its agent's reported CPUs,
+  memory and disk, minus what its instances are allocated), the resize
+  becomes a node move into an instance of the new size on a node in the
+  region that can. With HA or read replicas the members can't move, so
+  the resize is refused with `409 no_capacity` instead.
+- The dedicated allowance and the spend cap apply; usage is recorded at
+  the new size from the next hour.
+
 ## Postgres versions
 
 `PGDOCK_PG_VERSIONS` (default `17,18`) lists the majors PGDock offers; the

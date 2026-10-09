@@ -876,7 +876,7 @@ export const api = {
       action,
     }),
   updateProjectInstance: (id: string, b: S["InstanceUpdate"]) =>
-    request<S["InstanceSummary"]>(
+    request<S["InstanceUpdated"]>(
       "PATCH",
       `/api/v1/projects/${id}/instance`,
       b,

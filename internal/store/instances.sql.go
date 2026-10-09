@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const setInstancePITRDays = `-- name: SetInstancePITRDays :exec
@@ -23,5 +24,30 @@ type SetInstancePITRDaysParams struct {
 // tenant: system - a dedicated project's instance the request already authorized.
 func (q *Queries) SetInstancePITRDays(ctx context.Context, arg SetInstancePITRDaysParams) error {
 	_, err := q.db.Exec(ctx, setInstancePITRDays, arg.PitrDays, arg.ID)
+	return err
+}
+
+const setInstanceSize = `-- name: SetInstanceSize :exec
+UPDATE instances SET cpu_limit = $1, mem_limit_mb = $2, volume_gb = $3, profile = $4
+WHERE id = $5
+`
+
+type SetInstanceSizeParams struct {
+	CpuLimit   pgtype.Numeric
+	MemLimitMb *int32
+	VolumeGb   *int32
+	Profile    *string
+	ID         uuid.UUID
+}
+
+// tenant: system - a dedicated project's instance the request already authorized.
+func (q *Queries) SetInstanceSize(ctx context.Context, arg SetInstanceSizeParams) error {
+	_, err := q.db.Exec(ctx, setInstanceSize,
+		arg.CpuLimit,
+		arg.MemLimitMb,
+		arg.VolumeGb,
+		arg.Profile,
+		arg.ID,
+	)
 	return err
 }

@@ -5975,6 +5975,13 @@ type InstanceActionRequest struct {
 // InstanceActionRequestAction defines model for InstanceActionRequest.Action.
 type InstanceActionRequestAction string
 
+// InstanceSize defines model for InstanceSize.
+type InstanceSize struct {
+	Cpus     float32 `json:"cpus"`
+	DiskGb   int     `json:"disk_gb"`
+	MemoryMb int     `json:"memory_mb"`
+}
+
 // InstanceState defines model for InstanceState.
 type InstanceState struct {
 	Container *string `json:"container,omitempty"`
@@ -6016,11 +6023,29 @@ type InstanceSummaryKind string
 
 // InstanceUpdate defines model for InstanceUpdate.
 type InstanceUpdate struct {
+	Cpus *float32 `json:"cpus,omitempty"`
+
+	// DiskGb Up only; to shrink, move into a smaller instance.
+	DiskGb *int `json:"disk_gb,omitempty"`
+
+	// DryRun Only say what a resize would do (in place, or a move to which node).
+	DryRun   *bool                   `json:"dry_run,omitempty"`
+	MemoryMb *int                    `json:"memory_mb,omitempty"`
 	PitrDays *InstanceUpdatePitrDays `json:"pitr_days,omitempty"`
+
+	// Profile A size from GET /profiles, in place of cpus and memory_mb.
+	Profile *string `json:"profile,omitempty"`
 }
 
 // InstanceUpdatePitrDays defines model for InstanceUpdate.PitrDays.
 type InstanceUpdatePitrDays int
+
+// InstanceUpdated defines model for InstanceUpdated.
+type InstanceUpdated struct {
+	Instance  InstanceSummary `json:"instance"`
+	Operation *Operation      `json:"operation,omitempty"`
+	Plan      *ResizePlan     `json:"plan,omitempty"`
+}
 
 // Invitation defines model for Invitation.
 type Invitation struct {
@@ -7810,6 +7835,18 @@ type ReplicaList struct {
 	// ReadUrl The read-only route's connection string, without a password.
 	ReadUrl  *string       `json:"read_url,omitempty"`
 	Replicas []ReadReplica `json:"replicas"`
+}
+
+// ResizePlan defines model for ResizePlan.
+type ResizePlan struct {
+	From InstanceSize `json:"from"`
+
+	// MoveTo The node the project moves to, when its own can't hold the new size.
+	MoveTo *string `json:"move_to,omitempty"`
+
+	// Restart The containers restart (a CPU or memory change); a disk change alone doesn't.
+	Restart bool         `json:"restart"`
+	To      InstanceSize `json:"to"`
 }
 
 // RestoreRequest defines model for RestoreRequest.
@@ -13203,22 +13240,34 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/projects/{id}/insights/slow (the `ListSlowQueries` operationId).
 	ListSlowQueries(ctx context.Context, id ProjectID, params *ListSlowQueriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateProjectInstanceWithBody Change a dedicated project's instance settings
+	// UpdateProjectInstanceWithBody Change a dedicated project's instance (size, disk, recovery window)
 	//
 	// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 	// as billed add-ons on Pro and Team. A longer window grows day by day
 	// from now; a shorter one drops the older base backups at the next one.
+	//
+	// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+	// the instance restarts in a few seconds with the poolers holding
+	// clients, or with HA a standby is resized and switched to. When its
+	// node can't hold the new size, a `logical_move` to one that can is
+	// queued instead (`plan.move_to`). The dedicated allowance applies.
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with PATCH /api/v1/projects/{id}/instance (the `UpdateProjectInstance` operationId).
 	UpdateProjectInstanceWithBody(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateProjectInstance Change a dedicated project's instance settings
+	// UpdateProjectInstance Change a dedicated project's instance (size, disk, recovery window)
 	//
 	// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 	// as billed add-ons on Pro and Team. A longer window grows day by day
 	// from now; a shorter one drops the older base backups at the next one.
+	//
+	// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+	// the instance restarts in a few seconds with the poolers holding
+	// clients, or with HA a standby is resized and switched to. When its
+	// node can't hold the new size, a `logical_move` to one that can is
+	// queued instead (`plan.move_to`). The dedicated allowance applies.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -21101,11 +21150,17 @@ func (c *Client) ListSlowQueries(ctx context.Context, id ProjectID, params *List
 	return c.Client.Do(req)
 }
 
-// UpdateProjectInstanceWithBody Change a dedicated project's instance settings
+// UpdateProjectInstanceWithBody Change a dedicated project's instance (size, disk, recovery window)
 //
 // The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 // as billed add-ons on Pro and Team. A longer window grows day by day
 // from now; a shorter one drops the older base backups at the next one.
+//
+// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+// the instance restarts in a few seconds with the poolers holding
+// clients, or with HA a standby is resized and switched to. When its
+// node can't hold the new size, a `logical_move` to one that can is
+// queued instead (`plan.move_to`). The dedicated allowance applies.
 //
 // Takes any type of body and a specified content type.
 //
@@ -21122,11 +21177,17 @@ func (c *Client) UpdateProjectInstanceWithBody(ctx context.Context, id ProjectID
 	return c.Client.Do(req)
 }
 
-// UpdateProjectInstance Change a dedicated project's instance settings
+// UpdateProjectInstance Change a dedicated project's instance (size, disk, recovery window)
 //
 // The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 // as billed add-ons on Pro and Team. A longer window grows day by day
 // from now; a shorter one drops the older base backups at the next one.
+//
+// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+// the instance restarts in a few seconds with the poolers holding
+// clients, or with HA a standby is resized and switched to. When its
+// node can't hold the new size, a `logical_move` to one that can is
+// queued instead (`plan.move_to`). The dedicated allowance applies.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -43902,22 +43963,34 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/projects/{id}/insights/slow (the `ListSlowQueries` operationId).
 	ListSlowQueriesWithResponse(ctx context.Context, id ProjectID, params *ListSlowQueriesParams, reqEditors ...RequestEditorFn) (*ListSlowQueriesResponse, error)
 
-	// UpdateProjectInstanceWithBodyWithResponse Change a dedicated project's instance settings
+	// UpdateProjectInstanceWithBodyWithResponse Change a dedicated project's instance (size, disk, recovery window)
 	//
 	// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 	// as billed add-ons on Pro and Team. A longer window grows day by day
 	// from now; a shorter one drops the older base backups at the next one.
+	//
+	// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+	// the instance restarts in a few seconds with the poolers holding
+	// clients, or with HA a standby is resized and switched to. When its
+	// node can't hold the new size, a `logical_move` to one that can is
+	// queued instead (`plan.move_to`). The dedicated allowance applies.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PATCH /api/v1/projects/{id}/instance (the `UpdateProjectInstance` operationId).
 	UpdateProjectInstanceWithBodyWithResponse(ctx context.Context, id ProjectID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectInstanceResponse, error)
 
-	// UpdateProjectInstanceWithResponse Change a dedicated project's instance settings
+	// UpdateProjectInstanceWithResponse Change a dedicated project's instance (size, disk, recovery window)
 	//
 	// The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 	// as billed add-ons on Pro and Team. A longer window grows day by day
 	// from now; a shorter one drops the older base backups at the next one.
+	//
+	// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+	// the instance restarts in a few seconds with the poolers holding
+	// clients, or with HA a standby is resized and switched to. When its
+	// node can't hold the new size, a `logical_move` to one that can is
+	// queued instead (`plan.move_to`). The dedicated allowance applies.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -58410,13 +58483,13 @@ type UpdateProjectInstanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
-	JSON200 *InstanceSummary
+	JSON200 *InstanceUpdated
 	// JSONDefault the response for an HTTP default `application/json` response
 	JSONDefault *Error
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
-func (r UpdateProjectInstanceResponse) GetJSON200() *InstanceSummary {
+func (r UpdateProjectInstanceResponse) GetJSON200() *InstanceUpdated {
 	return r.JSON200
 }
 
@@ -68940,11 +69013,17 @@ func (c *ClientWithResponses) ListSlowQueriesWithResponse(ctx context.Context, i
 	return ParseListSlowQueriesResponse(rsp)
 }
 
-// UpdateProjectInstanceWithBodyWithResponse Change a dedicated project's instance settings
+// UpdateProjectInstanceWithBodyWithResponse Change a dedicated project's instance (size, disk, recovery window)
 //
 // The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 // as billed add-ons on Pro and Team. A longer window grows day by day
 // from now; a shorter one drops the older base backups at the next one.
+//
+// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+// the instance restarts in a few seconds with the poolers holding
+// clients, or with HA a standby is resized and switched to. When its
+// node can't hold the new size, a `logical_move` to one that can is
+// queued instead (`plan.move_to`). The dedicated allowance applies.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68957,11 +69036,17 @@ func (c *ClientWithResponses) UpdateProjectInstanceWithBodyWithResponse(ctx cont
 	return ParseUpdateProjectInstanceResponse(rsp)
 }
 
-// UpdateProjectInstanceWithResponse Change a dedicated project's instance settings
+// UpdateProjectInstanceWithResponse Change a dedicated project's instance (size, disk, recovery window)
 //
 // The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
 // as billed add-ons on Pro and Team. A longer window grows day by day
 // from now; a shorter one drops the older base backups at the next one.
+//
+// A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+// the instance restarts in a few seconds with the poolers holding
+// clients, or with HA a standby is resized and switched to. When its
+// node can't hold the new size, a `logical_move` to one that can is
+// queued instead (`plan.move_to`). The dedicated allowance applies.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -80347,7 +80432,7 @@ func ParseUpdateProjectInstanceResponse(rsp *http.Response) (*UpdateProjectInsta
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest InstanceSummary
+		var dest InstanceUpdated
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -529,6 +529,36 @@ func (q *Queries) ListRebalanceMoves(ctx context.Context) ([]ListRebalanceMovesR
 	return items, nil
 }
 
+const lockCapacityProposal = `-- name: LockCapacityProposal :one
+SELECT id, region, tier, reason, provider, server_type, location, monthly_cost_minor, currency, status, auto, node_id, operation_id, error, decided_by, decided_at, created_at, updated_at FROM capacity_proposals WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) LockCapacityProposal(ctx context.Context, id uuid.UUID) (CapacityProposal, error) {
+	row := q.db.QueryRow(ctx, lockCapacityProposal, id)
+	var i CapacityProposal
+	err := row.Scan(
+		&i.ID,
+		&i.Region,
+		&i.Tier,
+		&i.Reason,
+		&i.Provider,
+		&i.ServerType,
+		&i.Location,
+		&i.MonthlyCostMinor,
+		&i.Currency,
+		&i.Status,
+		&i.Auto,
+		&i.NodeID,
+		&i.OperationID,
+		&i.Error,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const movingRebalanceMoves = `-- name: MovingRebalanceMoves :many
 SELECT id, batch, kind, project_id, from_node, to_node, reason, status, operation_id, error, created_at, updated_at FROM rebalance_moves WHERE status = 'moving'
 `

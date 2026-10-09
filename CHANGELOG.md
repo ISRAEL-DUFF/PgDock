@@ -29,6 +29,16 @@ bundle share one version (spec §11.5).
   lines. New migration 00045. Price books published before this have no
   add-on prices until a new one is published.
 - Fixed: a price book saved through the API dropped its message margin.
+- Resizing dedicated projects (V4.1-M4): a new size or a bigger disk from
+  Project Settings → Size and disk, `pgdock instance resize|disk` or
+  `PATCH /projects/{id}/instance`, with a cost estimate and a dry run. The
+  instance restarts in a few seconds under the poolers' pause, or with HA
+  switches over to a resized standby; a size its node can't hold moves it
+  to one that can. Dedicated placement now checks a node has room.
+- Dedicated hosts on demand: with no room in the region and a provider
+  that creates servers, a dedicated create provisions a host within the
+  infrastructure budget and waits for it; over the budget it is refused
+  with `409 capacity_pending_approval` while the proposal waits.
 
 ### V4 (on feature/pgdock4)
 - Backend services' edge foundation (V4-M28): a project can turn on backend
