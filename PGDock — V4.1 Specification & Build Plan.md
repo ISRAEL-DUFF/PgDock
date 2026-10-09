@@ -282,7 +282,7 @@ refused 14-day PITR with `plan_required`.
 ### 5.1 Resizing a dedicated instance
 
 - `PATCH /projects/{id}/instance` with `cpus`, `memory_mb` (from the
-  size list, `GET /dedicated/sizes`, or custom within the allowance).
+  size list, `GET /profiles`, or custom within the allowance).
 - Preflight: the dedicated allowance (V2 §10.3) and the node's free
   capacity. If the node can't fit it, the resize becomes a **node move**
   (V3 §2.3, zero-downtime) to a node that can, and the preflight says so.
@@ -729,7 +729,9 @@ CREATE TABLE pg_versions (
 -- 00048_status_subscribers.sql
 ALTER TABLE billing_contacts ADD COLUMN status_emails boolean NOT NULL DEFAULT true;
 -- 00049_costs_services.sql
--- nodes.role allows 'edge'; cost categories are values, no DDL
+ALTER TABLE nodes DROP CONSTRAINT nodes_role_check,
+  ADD CONSTRAINT nodes_role_check CHECK (role IN ('shared','dedicated','both','pooler','edge'));
+-- cost categories are values, no DDL
 ```
 
 **New usage metrics:** `pitr_14_hours`, `pitr_30_hours`,
@@ -764,19 +766,19 @@ each finished with its done-when test, docs, decisions (`V4.1-Mn` in
 | Week | Milestone | Outcome |
 | --- | --- | --- |
 | 0.5 | M1 Doc and legal corrections | Docs and the DPA true today |
-| 1–2 | M2 Per-plan limits | Free tier bounded; plans mean what the pricing page says |
+| 0.5–2 | M2 Per-plan limits | Free tier bounded; plans mean what the pricing page says |
 | 2–4 | M3 Billing add-ons | Every V3 add-on sellable |
 | 4–6 | M4 Resize, disk, hosts on demand | Customers grow without a ticket |
 | 6–7 | M5 Version lifecycle | Retiring a major is a process, not a surprise |
-| 7–8 | M6 Status and banners | Customers hear about outages and billing problems |
-| 8–9 | M7 V3.1 leftovers | Maintenance is proposed, previewed and gated |
-| 9–11 | M8 Developer experience | First request in minutes; branches work for CI with the API |
-| 11–12 | M9 Edge caching (optional) | Cheap anonymous reads |
-| 12–13 | M10 Cost attribution | V4 margins visible |
-| 13–14 | M11 Test coverage | The spec's test matrix complete |
-| 14–15 | M12 Scale proof, launch gates | GA announced on evidence |
+| 7–8.5 | M6 Status and banners | Customers hear about outages and billing problems |
+| 8.5–9.5 | M7 V3.1 leftovers | Maintenance is proposed, previewed and gated |
+| 9.5–11.5 | M8 Developer experience | First request in minutes; branches work for CI with the API |
+| 11.5–13 | M9 Edge caching (optional) | Cheap anonymous reads |
+| 13–14 | M10 Cost attribution | V4 margins visible |
+| 14–15.5 | M11 Test coverage | The spec's test matrix complete |
+| 15.5–16.5 | M12 Scale proof, launch gates | GA announced on evidence |
 
-About **15 weeks** for one engineer, **13.5 without M9**. M1, M2 and M12's
+About **16.5 weeks** for one engineer, **15 without M9**. M1, M2 and M12's
 operator rows can start in week 1 in parallel (they have lead times:
 accountant, sandboxes, pen testers).
 
