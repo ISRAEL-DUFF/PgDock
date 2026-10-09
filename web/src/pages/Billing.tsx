@@ -38,6 +38,18 @@ import {
 } from "../components/BillingPayments";
 import { LegalBanner } from "./Legal";
 
+/** The billing page's names for each service (V4 §12). */
+export const SERVICE_LABELS: Record<string, string> = {
+  plan: "Plan",
+  database: "Databases",
+  data_api: "Data API",
+  auth: "Auth",
+  messages: "SMS and WhatsApp",
+  storage: "File storage",
+  realtime: "Realtime",
+  read_replicas: "Read replicas",
+};
+
 /** Owners and billing members see billing (V3 §3.2). */
 export function canSeeBilling(role: string | undefined): boolean {
   return role === "owner" || role === "billing";
@@ -128,7 +140,9 @@ export function BillingPage() {
       description={`${org.name}'s plan, spend and invoices. Amounts are before VAT unless they say otherwise.`}
       testId="billing"
     >
-      {org.role === "owner" && a.plan !== "free" && <LegalBanner orgId={org.id} />}
+      {org.role === "owner" && a.plan !== "free" && (
+        <LegalBanner orgId={org.id} />
+      )}
       <StandingBanner a={a} />
       {a.capped && (
         <Alert tone="warn" title="Spend cap reached">
@@ -170,6 +184,27 @@ export function BillingPage() {
                     <>Spend cap {naira(f.spend_cap_minor)} on usage charges.</>
                   )}
                 </p>
+              )}
+              {f.by_service.length > 0 && (
+                <Table head={["Service", "So far", "Projected"]}>
+                  {f.by_service.map((b) => (
+                    <tr
+                      key={b.service}
+                      data-testid="service-spend"
+                      data-service={b.service}
+                    >
+                      <td className="px-3 py-2">
+                        {SERVICE_LABELS[b.service] ?? b.service}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-muted">
+                        {naira(b.so_far_minor)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {naira(b.projected_minor)}
+                      </td>
+                    </tr>
+                  ))}
+                </Table>
               )}
               {f.so_far.length > 0 && (
                 <details>
@@ -246,9 +281,21 @@ export function BillingPage() {
   );
 }
 
-function PlanPanel({ org, a, owner }: { org: string; a: BillingAccount; owner: boolean }) {
+function PlanPanel({
+  org,
+  a,
+  owner,
+}: {
+  org: string;
+  a: BillingAccount;
+  owner: boolean;
+}) {
   const qc = useQueryClient();
-  const legal = useQuery({ queryKey: ["org", org, "legal"], queryFn: () => api.orgLegal(org), enabled: owner });
+  const legal = useQuery({
+    queryKey: ["org", org, "legal"],
+    queryFn: () => api.orgLegal(org),
+    enabled: owner,
+  });
   const [acceptLegal, setAcceptLegal] = useState(false);
   const [open, setOpen] = useState(false);
   const [plan, setPlan] = useState(a.plan);
@@ -279,9 +326,15 @@ function PlanPanel({ org, a, owner }: { org: string; a: BillingAccount; owner: b
     setBusy(true);
     setErr(null);
     try {
-      await api.changePlan(org, { plan, term, immediately, accept_legal: acceptLegal || undefined });
+      await api.changePlan(org, {
+        plan,
+        term,
+        immediately,
+        accept_legal: acceptLegal || undefined,
+      });
       setOpen(false);
-      if (acceptLegal) await qc.invalidateQueries({ queryKey: ["org", org, "legal"] });
+      if (acceptLegal)
+        await qc.invalidateQueries({ queryKey: ["org", org, "legal"] });
       await qc.invalidateQueries({ queryKey: ["billing", org] });
       await qc.invalidateQueries({ queryKey: ["forecast", org] });
     } catch (e) {
@@ -392,8 +445,16 @@ function PlanPanel({ org, a, owner }: { org: string; a: BillingAccount; owner: b
             </Field>
           )}
           {owner && plan !== "free" && legal.data?.outstanding && (
-            <label className="flex items-start gap-2" data-testid="accept-legal">
-              <input type="checkbox" className="mt-1" checked={acceptLegal} onChange={(e) => setAcceptLegal(e.target.checked)} />
+            <label
+              className="flex items-start gap-2"
+              data-testid="accept-legal"
+            >
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={acceptLegal}
+                onChange={(e) => setAcceptLegal(e.target.checked)}
+              />
               <span>
                 Accept the{" "}
                 {legal.data.items

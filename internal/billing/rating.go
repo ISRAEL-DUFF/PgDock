@@ -40,7 +40,23 @@ var metricLabels = map[string]string{
 	tenancy.MetricReplicaCPU:      "vCPU-hours",
 	tenancy.MetricReplicaRAM:      "RAM GB-hours",
 	tenancy.MetricReplicaDisk:     "Disk GB-hours",
+	// Backend services (V4 §12).
+	tenancy.MetricAPIRequests:          "Data API requests",
+	tenancy.MetricAPIEgress:            "Data API transfer (GB)",
+	tenancy.MetricAuthMAU:              "Monthly active users",
+	tenancy.MetricStorageGBHours:       "File storage (GB-hours)",
+	tenancy.MetricStorageEgress:        "File downloads (GB)",
+	tenancy.MetricImageTransforms:      "Image transforms",
+	tenancy.MetricRealtimeConnMinutes:  "Realtime connection-minutes",
+	tenancy.MetricRealtimeMessages:     "Realtime messages",
+	tenancy.MetricMessagesSMS:          "SMS codes",
+	tenancy.MetricMessagesWhatsApp:     "WhatsApp codes",
+	tenancy.MetricMessagesSMSCost:      "SMS codes",
+	tenancy.MetricMessagesWhatsAppCost: "WhatsApp codes",
 }
+
+// RevenueMessages is where SMS and WhatsApp code revenue goes.
+const RevenueMessages = AccRevenuePrefix + "messages"
 
 // Rated is a month's invoice before it is saved: usage of the month in
 // arrears, the next month's plan fee in advance, and the month's plan
@@ -142,6 +158,7 @@ func (s *Service) rate(ctx context.Context, orgID uuid.UUID, month time.Time, pr
 		planUse[i] = map[string]Dec{}
 	}
 	projUse := map[uuid.UUID]map[string]Dec{}
+	msgUse := map[string]Dec{} // the month's platform messages and their cost
 	for _, r := range rows {
 		qty := DecFromNumeric(r.Quantity)
 		if !scale.IsZero() {
@@ -159,6 +176,8 @@ func (s *Service) rate(ctx context.Context, orgID uuid.UUID, month time.Time, pr
 				projUse[r.ProjectID] = map[string]Dec{}
 			}
 			projUse[r.ProjectID][r.Metric] = projUse[r.ProjectID][r.Metric].Add(qty)
+		case tenancy.MetricMessagesSMS, tenancy.MetricMessagesWhatsApp, tenancy.MetricMessagesSMSCost, tenancy.MetricMessagesWhatsAppCost:
+			msgUse[r.Metric] = msgUse[r.Metric].Add(qty)
 		default:
 			for i, sg := range segs {
 				if !day.Before(sg.from) && day.Before(sg.to) {
@@ -257,6 +276,28 @@ func (s *Service) rate(ctx context.Context, orgID uuid.UUID, month time.Time, pr
 		add(KindDedicated, tenancy.MetricReplicaDisk, "Read replicas", p.Dedicated.DiskGBHour, RevenueDedicated)
 	}
 
+	// SMS and WhatsApp codes through the platform's accounts: their
+	// provider cost plus the margin, on any plan (V4 §12).
+	for _, ch := range []struct{ count, cost string }{
+		{tenancy.MetricMessagesSMS, tenancy.MetricMessagesSMSCost},
+		{tenancy.MetricMessagesWhatsApp, tenancy.MetricMessagesWhatsAppCost},
+	} {
+		cost := msgUse[ch.cost]
+		if cost.Sign() <= 0 {
+			continue
+		}
+		factor := DecInt(100).Add(p.AddOns.MessageMarginPercent).Frac(1, 100)
+		amount := cost.Mul(factor).Round()
+		if amount == 0 {
+			continue
+		}
+		out.Lines = append(out.Lines, Line{
+			Kind: KindOverage, Metric: ch.cost, Quantity: cost, UnitPrice: factor, Amount: amount, Revenue: RevenueMessages,
+			Description: fmt.Sprintf("%s: %s sent, provider cost %s plus %s%%", metricLabels[ch.count], msgUse[ch.count].String(),
+				Naira(cost.Round()), p.AddOns.MessageMarginPercent),
+		})
+	}
+
 	// The month's plan changes: proration, annual terms and renewals.
 	for _, c := range changes {
 		if !c.EffectiveAt.Before(mEnd) {
@@ -348,4 +389,29 @@ func (s *Service) PreviewPrices(ctx context.Context, prices Prices, month time.T
 		out = append(out, Preview{OrgID: a.OrgID, OrgName: a.OrgName, Plan: a.Plan, Current: cur.Subtotal, Projected: proj.Subtotal})
 	}
 	return out, nil
+}
+
+// LineService groups an invoice line for the billing page's breakdown
+// (V4 §12): plan, database, data API, auth, messages, storage, realtime
+// or read replicas.
+func LineService(l Line) string {
+	switch l.Metric {
+	case tenancy.MetricAPIRequests, tenancy.MetricAPIEgress:
+		return "data_api"
+	case tenancy.MetricAuthMAU:
+		return "auth"
+	case tenancy.MetricMessagesSMS, tenancy.MetricMessagesWhatsApp, tenancy.MetricMessagesSMSCost, tenancy.MetricMessagesWhatsAppCost:
+		return "messages"
+	case tenancy.MetricStorageGBHours, tenancy.MetricStorageEgress, tenancy.MetricImageTransforms:
+		return "storage"
+	case tenancy.MetricRealtimeConnMinutes, tenancy.MetricRealtimeMessages:
+		return "realtime"
+	case tenancy.MetricReplicaCPU, tenancy.MetricReplicaRAM, tenancy.MetricReplicaDisk:
+		return "read_replicas"
+	}
+	switch l.Kind {
+	case KindPlan, KindProration, KindCredit:
+		return "plan"
+	}
+	return "database"
 }

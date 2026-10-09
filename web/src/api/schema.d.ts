@@ -9100,6 +9100,25 @@ export interface components {
              * @description Kobo.
              */
             amount: number;
+            /**
+             * @description What the line is for, for the per-service breakdown (V4 §12).
+             * @enum {string}
+             */
+            service?: "plan" | "database" | "data_api" | "auth" | "messages" | "storage" | "realtime" | "read_replicas";
+        };
+        ServiceSpend: {
+            /** @enum {string} */
+            service: "plan" | "database" | "data_api" | "auth" | "messages" | "storage" | "realtime" | "read_replicas";
+            /**
+             * Format: int64
+             * @description The month's charges so far, before VAT.
+             */
+            so_far_minor: number;
+            /**
+             * Format: int64
+             * @description The whole month's, projected from usage so far.
+             */
+            projected_minor: number;
         };
         PlanOption: {
             id: string;
@@ -9683,6 +9702,8 @@ export interface components {
             capped: boolean;
             /** @description The month's lines so far (the next invoice, still changing). */
             so_far: components["schemas"]["InvoiceLine"][];
+            /** @description Charges per service so far and projected for the month (V4 §12). */
+            by_service: components["schemas"]["ServiceSpend"][];
         };
         VirtualAccount: {
             provider: string;

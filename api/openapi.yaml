@@ -14651,6 +14651,25 @@ components:
           type: integer
           format: int64
           description: Kobo.
+        service:
+          type: string
+          enum: [plan, database, data_api, auth, messages, storage, realtime, read_replicas]
+          description: What the line is for, for the per-service breakdown (V4 §12).
+    ServiceSpend:
+      type: object
+      required: [service, so_far_minor, projected_minor]
+      properties:
+        service:
+          type: string
+          enum: [plan, database, data_api, auth, messages, storage, realtime, read_replicas]
+        so_far_minor:
+          type: integer
+          format: int64
+          description: The month's charges so far, before VAT.
+        projected_minor:
+          type: integer
+          format: int64
+          description: The whole month's, projected from usage so far.
     PlanOption:
       type: object
       required: [id, name, monthly_minor, annual_minor]
@@ -15696,7 +15715,7 @@ components:
                 format: int64
     BillingForecast:
       type: object
-      required: [month, spend_minor, usage_minor, elapsed, capped, so_far]
+      required: [month, spend_minor, usage_minor, elapsed, capped, so_far, by_service]
       properties:
         month:
           type: string
@@ -15726,6 +15745,11 @@ components:
           description: The month's lines so far (the next invoice, still changing).
           items:
             $ref: "#/components/schemas/InvoiceLine"
+        by_service:
+          type: array
+          description: Charges per service so far and projected for the month (V4 §12).
+          items:
+            $ref: "#/components/schemas/ServiceSpend"
     VirtualAccount:
       type: object
       required: [provider, account_number, bank_name, account_name]

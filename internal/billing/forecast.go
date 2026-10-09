@@ -24,6 +24,9 @@ type Forecast struct {
 	Usage int64
 	// Elapsed is the share of the month whose usage is recorded.
 	Elapsed Dec
+	// ByService is the projected cost per service (LineService), the
+	// month's plan fee under "plan".
+	ByService map[string]int64
 }
 
 // budgetThresholds are the budget alerts' percentages (V3 §3.10).
@@ -53,10 +56,17 @@ func (s *Service) Forecast(ctx context.Context, orgID uuid.UUID) (Forecast, erro
 		return Forecast{}, err
 	}
 	f.Spend = r.Subtotal - r.NextFee + r.MonthFee
+	f.ByService = map[string]int64{}
+	if r.MonthFee > 0 {
+		f.ByService["plan"] = r.MonthFee
+	}
 	for _, l := range r.Lines {
 		switch l.Kind {
 		case KindOverage, KindDedicated, KindAddon:
 			f.Usage += l.Amount
+		}
+		if !l.Advance {
+			f.ByService[LineService(l)] += l.Amount
 		}
 	}
 	return f, nil

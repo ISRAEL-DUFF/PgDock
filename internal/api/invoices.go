@@ -52,6 +52,7 @@ func (s *Server) invoiceDetail(w http.ResponseWriter, r *http.Request, inv store
 			Quantity: billing.DecFromNumeric(l.Quantity).String(), UnitPrice: billing.DecFromNumeric(l.UnitPriceMinor).String(), Amount: l.AmountMinor,
 		})
 	}
+	out.Lines = withServices(out.Lines)
 	for _, c := range cns {
 		out.CreditNotes = append(out.CreditNotes, toAPICreditNote(c))
 	}

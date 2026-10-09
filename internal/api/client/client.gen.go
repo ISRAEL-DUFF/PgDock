@@ -1332,6 +1332,42 @@ func (e InvoiceLineKind) Valid() bool {
 	}
 }
 
+// Defines values for InvoiceLineService.
+const (
+	InvoiceLineServiceAuth         InvoiceLineService = "auth"
+	InvoiceLineServiceDataApi      InvoiceLineService = "data_api"
+	InvoiceLineServiceDatabase     InvoiceLineService = "database"
+	InvoiceLineServiceMessages     InvoiceLineService = "messages"
+	InvoiceLineServicePlan         InvoiceLineService = "plan"
+	InvoiceLineServiceReadReplicas InvoiceLineService = "read_replicas"
+	InvoiceLineServiceRealtime     InvoiceLineService = "realtime"
+	InvoiceLineServiceStorage      InvoiceLineService = "storage"
+)
+
+// Valid indicates whether the value is a known member of the InvoiceLineService enum.
+func (e InvoiceLineService) Valid() bool {
+	switch e {
+	case InvoiceLineServiceAuth:
+		return true
+	case InvoiceLineServiceDataApi:
+		return true
+	case InvoiceLineServiceDatabase:
+		return true
+	case InvoiceLineServiceMessages:
+		return true
+	case InvoiceLineServicePlan:
+		return true
+	case InvoiceLineServiceReadReplicas:
+		return true
+	case InvoiceLineServiceRealtime:
+		return true
+	case InvoiceLineServiceStorage:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for JobKind.
 const (
 	JobKindHttp JobKind = "http"
@@ -2418,6 +2454,42 @@ func (e SchemaRiskLevel) Valid() bool {
 	}
 }
 
+// Defines values for ServiceSpendService.
+const (
+	ServiceSpendServiceAuth         ServiceSpendService = "auth"
+	ServiceSpendServiceDataApi      ServiceSpendService = "data_api"
+	ServiceSpendServiceDatabase     ServiceSpendService = "database"
+	ServiceSpendServiceMessages     ServiceSpendService = "messages"
+	ServiceSpendServicePlan         ServiceSpendService = "plan"
+	ServiceSpendServiceReadReplicas ServiceSpendService = "read_replicas"
+	ServiceSpendServiceRealtime     ServiceSpendService = "realtime"
+	ServiceSpendServiceStorage      ServiceSpendService = "storage"
+)
+
+// Valid indicates whether the value is a known member of the ServiceSpendService enum.
+func (e ServiceSpendService) Valid() bool {
+	switch e {
+	case ServiceSpendServiceAuth:
+		return true
+	case ServiceSpendServiceDataApi:
+		return true
+	case ServiceSpendServiceDatabase:
+		return true
+	case ServiceSpendServiceMessages:
+		return true
+	case ServiceSpendServicePlan:
+		return true
+	case ServiceSpendServiceReadReplicas:
+		return true
+	case ServiceSpendServiceRealtime:
+		return true
+	case ServiceSpendServiceStorage:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SessionStateSignupMode.
 const (
 	SessionStateSignupModeApproval   SessionStateSignupMode = "approval"
@@ -2546,19 +2618,19 @@ func (e StorageTargetKind) Valid() bool {
 
 // Defines values for SupabaseMigrationRequestStep.
 const (
-	Policies SupabaseMigrationRequestStep = "policies"
-	Storage  SupabaseMigrationRequestStep = "storage"
-	Users    SupabaseMigrationRequestStep = "users"
+	SupabaseMigrationRequestStepPolicies SupabaseMigrationRequestStep = "policies"
+	SupabaseMigrationRequestStepStorage  SupabaseMigrationRequestStep = "storage"
+	SupabaseMigrationRequestStepUsers    SupabaseMigrationRequestStep = "users"
 )
 
 // Valid indicates whether the value is a known member of the SupabaseMigrationRequestStep enum.
 func (e SupabaseMigrationRequestStep) Valid() bool {
 	switch e {
-	case Policies:
+	case SupabaseMigrationRequestStepPolicies:
 		return true
-	case Storage:
+	case SupabaseMigrationRequestStepStorage:
 		return true
-	case Users:
+	case SupabaseMigrationRequestStepUsers:
 		return true
 	default:
 		return false
@@ -4669,7 +4741,10 @@ type BillingDetailsUpdate struct {
 // BillingForecast defines model for BillingForecast.
 type BillingForecast struct {
 	BudgetMinor *int64 `json:"budget_minor,omitempty"`
-	Capped      bool   `json:"capped"`
+
+	// ByService Charges per service so far and projected for the month (V4 §12).
+	ByService []ServiceSpend `json:"by_service"`
+	Capped    bool           `json:"capped"`
 
 	// Elapsed An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 	//
@@ -5967,6 +6042,9 @@ type InvoiceLine struct {
 	// Example: 34.25
 	Quantity Decimal `json:"quantity"`
 
+	// Service What the line is for, for the per-service breakdown (V4 §12).
+	Service *InvoiceLineService `json:"service,omitempty"`
+
 	// UnitPrice An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 	//
 	// Example: 34.25
@@ -5975,6 +6053,9 @@ type InvoiceLine struct {
 
 // InvoiceLineKind defines model for InvoiceLine.Kind.
 type InvoiceLineKind string
+
+// InvoiceLineService What the line is for, for the per-service breakdown (V4 §12).
+type InvoiceLineService string
 
 // InvoiceList defines model for InvoiceList.
 type InvoiceList struct {
@@ -7897,6 +7978,19 @@ type ServerPriceList struct {
 	Items    []ServerPrice `json:"items"`
 	Provider string        `json:"provider"`
 }
+
+// ServiceSpend defines model for ServiceSpend.
+type ServiceSpend struct {
+	// ProjectedMinor The whole month's, projected from usage so far.
+	ProjectedMinor int64               `json:"projected_minor"`
+	Service        ServiceSpendService `json:"service"`
+
+	// SoFarMinor The month's charges so far, before VAT.
+	SoFarMinor int64 `json:"so_far_minor"`
+}
+
+// ServiceSpendService defines model for ServiceSpend.Service.
+type ServiceSpendService string
 
 // SessionInfo defines model for SessionInfo.
 type SessionInfo struct {

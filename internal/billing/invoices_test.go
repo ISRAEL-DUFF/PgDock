@@ -294,3 +294,71 @@ func mustLines(t *testing.T, q *store.Queries, id uuid.UUID) []store.InvoiceLine
 func ptrTo[T any](v T) *T { return &v }
 
 func pgDate(t time.Time) pgtype.Date { return pgtype.Date{Time: t, Valid: true} }
+
+// TestBackendServicesRating rates V4's metrics (V4 §12): each above the
+// plan's allowance at its unit price, and SMS and WhatsApp codes at their
+// provider cost plus the margin; LineService groups the lines.
+func TestBackendServicesRating(t *testing.T) {
+	s, db, clk, _ := newService(t)
+	ctx := context.Background()
+	org := newOrg(t, db, "appco")
+	app := uuid.New()
+	clk.t = day(1)
+	if _, err := s.ChangePlan(ctx, org, billing.PlanRequest{Plan: billing.PlanPro}); err != nil {
+		t.Fatal(err)
+	}
+	once := func(metric, qty string) { usage(t, db, org, app, metric, day(10), day(10).Add(time.Hour), qty) }
+	once(tenancy.MetricAPIRequests, "6000000")       // 1M over 5M
+	once(tenancy.MetricAuthMAU, "51000")             // 1,000 over 50,000
+	once(tenancy.MetricImageTransforms, "12000")     // 2,000 over 10,000
+	once(tenancy.MetricRealtimeMessages, "11000000") // 1M over 10M
+	once(tenancy.MetricAPIEgress, "100")             // within 250 GB
+	once(tenancy.MetricMessagesSMS, "100")
+	once(tenancy.MetricMessagesSMSCost, "40000") // ₦4 each
+	once(tenancy.MetricMessagesWhatsApp, "10")
+	once(tenancy.MetricMessagesWhatsAppCost, "10000")
+	// 60 GB of files all month: 44,640 GB-hours, 8,140 over 36,500.
+	usage(t, db, org, app, tenancy.MetricStorageGBHours, day(1), day(1).AddDate(0, 1, 0), "60")
+
+	r, err := s.Rate(ctx, org, day(31))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]struct {
+		amount  int64
+		service string
+	}{
+		"Data API requests above the Pro allowance":                  {300_000, "data_api"}, // 1M × 0.3 kobo
+		"Monthly active users above the Pro allowance":               {500_000, "auth"},     // 1,000 × ₦5
+		"Image transforms above the Pro allowance":                   {2_000, "storage"},
+		"Realtime messages above the Pro allowance":                  {400_000, "realtime"},
+		"File storage (GB-hours) above the Pro allowance":            {33_455, "storage"}, // 8,140 × 4.11
+		"SMS codes: 100 sent, provider cost NGN 400.00 plus 20%":     {48_000, "messages"},
+		"WhatsApp codes: 10 sent, provider cost NGN 100.00 plus 20%": {12_000, "messages"},
+	}
+	got := map[string]bool{}
+	for _, l := range r.Lines {
+		for prefix, w := range want {
+			if strings.HasPrefix(l.Description, prefix) {
+				got[prefix] = true
+				if l.Amount != w.amount {
+					t.Errorf("%s: %d, want %d", prefix, l.Amount, w.amount)
+				}
+				if svc := billing.LineService(l); svc != w.service {
+					t.Errorf("%s: service %s, want %s", prefix, svc, w.service)
+				}
+			}
+		}
+		if strings.HasPrefix(l.Description, "Data API transfer") {
+			t.Errorf("transfer within the allowance was charged: %s", l.Description)
+		}
+	}
+	for prefix := range want {
+		if !got[prefix] {
+			for _, l := range r.Lines {
+				t.Logf("%-70s %d", l.Description, l.Amount)
+			}
+			t.Fatalf("no line %q", prefix)
+		}
+	}
+}

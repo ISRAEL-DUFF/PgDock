@@ -156,8 +156,22 @@ func (s *Server) UpdateOrgBilling(w http.ResponseWriter, r *http.Request, org ge
 	s.writeBillingAccount(w, r, a)
 }
 
+// withServices fills in each line's service (V4 §12).
+func withServices(lines []gen.InvoiceLine) []gen.InvoiceLine {
+	for i, l := range lines {
+		bl := billing.Line{Kind: string(l.Kind)}
+		if l.Metric != nil {
+			bl.Metric = *l.Metric
+		}
+		svc := gen.InvoiceLineService(billing.LineService(bl))
+		lines[i].Service = &svc
+	}
+	return lines
+}
+
 func toAPIPlanChange(c billing.PlanChange) (gen.PlanChange, error) {
 	lines, err := convert[[]gen.InvoiceLine](c.Lines)
+	lines = withServices(lines)
 	if lines == nil {
 		lines = []gen.InvoiceLine{}
 	}
@@ -545,9 +559,26 @@ func (s *Server) GetOrgForecast(w http.ResponseWriter, r *http.Request, org gen.
 	if lines == nil {
 		lines = []gen.InvoiceLine{}
 	}
+	lines = withServices(lines)
+	soFar := map[string]int64{}
+	if sofar.MonthFee > 0 {
+		soFar["plan"] = sofar.MonthFee
+	}
+	for _, l := range sofar.Lines {
+		if !l.Advance {
+			soFar[billing.LineService(l)] += l.Amount
+		}
+	}
+	byService := []gen.ServiceSpend{}
+	for _, svc := range []string{"plan", "database", "data_api", "auth", "messages", "storage", "realtime", "read_replicas"} {
+		if soFar[svc] == 0 && f.ByService[svc] == 0 {
+			continue
+		}
+		byService = append(byService, gen.ServiceSpend{Service: gen.ServiceSpendService(svc), SoFarMinor: soFar[svc], ProjectedMinor: f.ByService[svc]})
+	}
 	writeJSON(w, http.StatusOK, gen.BillingForecast{
 		Month: f.Month.Format("2006-01"), SpendMinor: f.Spend, UsageMinor: f.Usage, Elapsed: f.Elapsed.String(),
-		BudgetMinor: a.BudgetMinor, SpendCapMinor: a.SpendCapMinor, Capped: a.Capped, SoFar: lines,
+		BudgetMinor: a.BudgetMinor, SpendCapMinor: a.SpendCapMinor, Capped: a.Capped, SoFar: lines, ByService: byService,
 	})
 }
 
@@ -593,6 +624,7 @@ func (s *Server) EstimateOrgCost(w http.ResponseWriter, r *http.Request, org gen
 	if lines == nil {
 		lines = []gen.InvoiceLine{}
 	}
+	lines = withServices(lines)
 	writeJSON(w, http.StatusOK, map[string]any{"hourly_minor": e.HourlyMinor, "monthly_minor": e.MonthlyMinor, "lines": lines})
 }
 

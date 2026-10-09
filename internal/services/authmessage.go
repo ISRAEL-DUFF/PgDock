@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -388,7 +389,7 @@ func (s *Service) sendAuthMessages(ctx context.Context) (int, error) {
 				return err
 			}
 			if res.metric != "" {
-				return s.meterMessage(ctx, q, d.ProjectID, res.metric)
+				return s.meterMessage(ctx, q, d.ProjectID, res.metric, res.cost, res.currency)
 			}
 			return nil
 		})
@@ -518,13 +519,32 @@ func (s *Service) sendMessageHook(ctx context.Context, d store.AuthMessageOutbox
 	return nil
 }
 
-func (s *Service) meterMessage(ctx context.Context, q *store.Queries, projectID uuid.UUID, metric string) error {
+// meterMessage counts a platform message and records its provider cost,
+// which it is billed at plus a margin (V4 §12). A cost in a currency other
+// than naira isn't recorded: the operator's per-message price applies only
+// in kobo.
+func (s *Service) meterMessage(ctx context.Context, q *store.Queries, projectID uuid.UUID, metric string, cost *int64, currency *string) error {
 	o, err := q.ProjectUsageOwner(ctx, []uuid.UUID{projectID})
 	if err != nil || len(o) == 0 {
 		return err
 	}
-	return q.AddUsage(ctx, store.AddUsageParams{OrgID: o[0].OrgID, ProjectID: projectID, Metric: metric,
-		PeriodStart: time.Now().UTC().Truncate(time.Hour), Quantity: intNumeric(1), PlanID: o[0].PlanID})
+	hour := time.Now().UTC().Truncate(time.Hour)
+	if err := q.AddUsage(ctx, store.AddUsageParams{OrgID: o[0].OrgID, ProjectID: projectID, Metric: metric,
+		PeriodStart: hour, Quantity: intNumeric(1), PlanID: o[0].PlanID}); err != nil {
+		return err
+	}
+	if cost == nil || *cost <= 0 || (currency != nil && *currency != "" && !strings.EqualFold(*currency, "NGN")) {
+		if cost != nil && *cost > 0 {
+			s.log.Warn("message cost not billed: not in naira", "project", projectID, "currency", *currency)
+		}
+		return nil
+	}
+	costMetric := tenancy.MetricMessagesSMSCost
+	if metric == tenancy.MetricMessagesWhatsApp {
+		costMetric = tenancy.MetricMessagesWhatsAppCost
+	}
+	return q.AddUsage(ctx, store.AddUsageParams{OrgID: o[0].OrgID, ProjectID: projectID, Metric: costMetric,
+		PeriodStart: hour, Quantity: intNumeric(*cost), PlanID: o[0].PlanID})
 }
 
 // EmailUsage is a project's auth message sends in the last day, the

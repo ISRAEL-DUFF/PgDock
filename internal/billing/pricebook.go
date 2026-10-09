@@ -36,6 +36,15 @@ var PlanMetrics = []string{
 	tenancy.MetricWebhookSent,
 	tenancy.MetricJobRunsSQL,
 	tenancy.MetricJobRunsHTTP,
+	// Backend services (V4 §10.1, §12).
+	tenancy.MetricAPIRequests,
+	tenancy.MetricAPIEgress,
+	tenancy.MetricAuthMAU,
+	tenancy.MetricStorageGBHours,
+	tenancy.MetricStorageEgress,
+	tenancy.MetricImageTransforms,
+	tenancy.MetricRealtimeConnMinutes,
+	tenancy.MetricRealtimeMessages,
 }
 
 // Prices is a price book's contents (V3 §3.9). Money is in kobo; unit
@@ -80,6 +89,9 @@ type AddOns struct {
 	HAPremiumPercent Dec `json:"ha_premium_percent"`
 	// SyncReplicationHour is per hour of synchronous replication.
 	SyncReplicationHour Dec `json:"sync_replication_hour"`
+	// MessageMarginPercent is added to the provider cost of SMS and
+	// WhatsApp codes sent through the platform's accounts (V4 §12).
+	MessageMarginPercent Dec `json:"message_margin_percent"`
 }
 
 // Monthly is the plan's monthly fee on term (an annual fee spread over 12).
@@ -150,7 +162,7 @@ func (p Prices) Validate() error {
 	for name, v := range map[string]Dec{
 		"dedicated.vcpu_hour": p.Dedicated.VCPUHour, "dedicated.ram_gb_hour": p.Dedicated.RAMGBHour,
 		"dedicated.disk_gb_hour": p.Dedicated.DiskGBHour, "addons.ha_premium_percent": p.AddOns.HAPremiumPercent,
-		"addons.sync_replication_hour": p.AddOns.SyncReplicationHour,
+		"addons.sync_replication_hour": p.AddOns.SyncReplicationHour, "addons.message_margin_percent": p.AddOns.MessageMarginPercent,
 	} {
 		if v.Sign() < 0 {
 			return invalidf("%s can't be negative", name)
@@ -158,6 +170,9 @@ func (p Prices) Validate() error {
 	}
 	if p.AddOns.HAPremiumPercent.Cmp(DecInt(500)) > 0 {
 		return invalidf("the HA premium is a percentage (0 to 500)")
+	}
+	if p.AddOns.MessageMarginPercent.Cmp(DecInt(500)) > 0 {
+		return invalidf("the message margin is a percentage (0 to 500)")
 	}
 	return nil
 }
@@ -194,6 +209,14 @@ func DefaultPrices() Prices {
 		hooks   = tenancy.MetricWebhookSent
 		sqlRuns = tenancy.MetricJobRunsSQL
 		http    = tenancy.MetricJobRunsHTTP
+		reqs    = tenancy.MetricAPIRequests
+		apiOut  = tenancy.MetricAPIEgress
+		mau     = tenancy.MetricAuthMAU
+		files   = tenancy.MetricStorageGBHours
+		fileOut = tenancy.MetricStorageEgress
+		renders = tenancy.MetricImageTransforms
+		rtConn  = tenancy.MetricRealtimeConnMinutes
+		rtMsgs  = tenancy.MetricRealtimeMessages
 	)
 	return Prices{
 		Currency: "NGN",
@@ -202,18 +225,26 @@ func DefaultPrices() Prices {
 			PlanPro: {
 				Name: "Pro", MonthlyMinor: 1_500_000, AnnualMinor: 15_000_000, QuotaPlan: "Pro", PaymentTermsDays: 7,
 				// 10 GB of storage, 30 GB of backups, 10 branches all month.
-				Included: m(storage, "7300", backup, "21900", branch, "7300", traffic, "100", hooks, "100000", sqlRuns, "100000", http, "50000"),
+				// Backend services (V4 §10.1): 5M requests, 250 GB out, 50k MAU, 50 GB of files and 250 GB
+				// downloaded, 10k transforms, 1,000 connections all month, 10M realtime messages.
+				Included: m(storage, "7300", backup, "21900", branch, "7300", traffic, "100", hooks, "100000", sqlRuns, "100000", http, "50000",
+					reqs, "5000000", apiOut, "250", mau, "50000", files, "36500", fileOut, "250", renders, "10000", rtConn, "43800000", rtMsgs, "10000000"),
 				// ₦250 per GB-month, ₦50 per backup GB-month, ₦100 per branch-month, ₦100 per GB moved, ₦20 per 1,000.
-				Unit: m(storage, "34.25", backup, "6.85", branch, "13.7", traffic, "10000", hooks, "2", sqlRuns, "2", http, "2"),
+				// Services: ₦3 per 1,000 requests, ₦150 per GB out, ₦5 per MAU, ₦30 per file GB-month, ₦150 per
+				// GB downloaded, ₦10 per 1,000 transforms, ₦16 per connection-month, ₦4 per 1,000 messages.
+				Unit: m(storage, "34.25", backup, "6.85", branch, "13.7", traffic, "10000", hooks, "2", sqlRuns, "2", http, "2",
+					reqs, "0.3", apiOut, "15000", mau, "500", files, "4.11", fileOut, "15000", renders, "1", rtConn, "0.0365", rtMsgs, "0.4"),
 			},
 			PlanTeam: {
 				Name: "Team", MonthlyMinor: 6_000_000, AnnualMinor: 60_000_000, QuotaPlan: "Team", PaymentTermsDays: 14,
-				Included: m(storage, "36500", backup, "109500", branch, "36500", traffic, "500", hooks, "500000", sqlRuns, "500000", http, "250000"),
-				Unit:     m(storage, "27.4", backup, "5.48", branch, "10.96", traffic, "8000", hooks, "1.6", sqlRuns, "1.6", http, "1.6"),
+				Included: m(storage, "36500", backup, "109500", branch, "36500", traffic, "500", hooks, "500000", sqlRuns, "500000", http, "250000",
+					reqs, "25000000", apiOut, "1000", mau, "200000", files, "146000", fileOut, "1000", renders, "50000", rtConn, "219000000", rtMsgs, "50000000"),
+				Unit: m(storage, "27.4", backup, "5.48", branch, "10.96", traffic, "8000", hooks, "1.6", sqlRuns, "1.6", http, "1.6",
+					reqs, "0.24", apiOut, "12000", mau, "400", files, "3.29", fileOut, "12000", renders, "0.8", rtConn, "0.0292", rtMsgs, "0.32"),
 			},
 		},
 		// ₦20,000 per vCPU-month, ₦5,000 per GB of RAM, ₦250 per GB of disk.
 		Dedicated: Dedicated{VCPUHour: D("2740"), RAMGBHour: D("685"), DiskGBHour: D("34.25")},
-		AddOns:    AddOns{HAPremiumPercent: D("20"), SyncReplicationHour: D("1370")},
+		AddOns:    AddOns{HAPremiumPercent: D("20"), SyncReplicationHour: D("1370"), MessageMarginPercent: D("20")},
 	}
 }
