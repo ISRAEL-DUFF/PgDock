@@ -226,6 +226,15 @@ func (e *Edge) cors(c *call) bool {
 	return true
 }
 
+// spendCapRate is a per-minute rate limit under a spend cap (0 stays
+// unlimited).
+func spendCapRate(perMinute int) int {
+	if perMinute <= 0 {
+		return perMinute
+	}
+	return max(perMinute/edgeapi.SpendCapRateDivisor, 1)
+}
+
 // authorize checks the API key and the user's token, and the rate limits.
 func (e *Edge) authorize(c *call) (Request, bool) {
 	p, r := c.p, c.r
@@ -244,9 +253,20 @@ func (e *Edge) authorize(c *call) (Request, bool) {
 	}
 	id := k.ID
 	c.keyID = &id
-	if !e.limits.allow("ip:"+p.cfg.Ref+":"+c.ip, p.cfg.Settings.RatePerIP) || !e.limits.allow("key:"+k.ID.String(), p.cfg.Settings.RatePerKey) {
+	perIP, perKey, bucket := p.cfg.Settings.RatePerIP, p.cfg.Settings.RatePerKey, ""
+	capped := p.cfg.SpendCapped && !strings.HasPrefix(r.URL.Path, "/auth/")
+	if capped {
+		// Sign-in keeps its limits and its own buckets; everything else
+		// slows down (V4 §12).
+		perIP, perKey, bucket = spendCapRate(perIP), spendCapRate(perKey), "capped:"
+	}
+	if !e.limits.allow(bucket+"ip:"+p.cfg.Ref+":"+c.ip, perIP) || !e.limits.allow(bucket+"key:"+k.ID.String(), perKey) {
 		c.w.Header().Set("Retry-After", "1")
-		c.fail(http.StatusTooManyRequests, "rate_limited", "too many requests; slow down")
+		if capped {
+			c.fail(http.StatusTooManyRequests, "spend_cap_rate_limited", "the organisation has reached its spend cap, so this project's request rate is reduced; slow down or raise the cap")
+		} else {
+			c.fail(http.StatusTooManyRequests, "rate_limited", "too many requests; slow down")
+		}
 		return Request{}, false
 	}
 	req := Request{Timeout: time.Duration(p.cfg.Settings.StatementTimeoutMs) * time.Millisecond}

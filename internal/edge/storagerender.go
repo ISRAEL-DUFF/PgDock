@@ -196,6 +196,11 @@ func (e *Edge) render(c *call, req *Request, bucket, path string, mode renderMod
 		c.fail(http.StatusTooManyRequests, "transform_limit", "the organisation's image transforms for this month are used up")
 		return
 	}
+	if c.p.cfg.SpendCapped {
+		c.w.Header().Set("Retry-After", "3600")
+		c.fail(http.StatusTooManyRequests, "spend_cap_reached", "the organisation has reached its spend cap; new image transforms are paused (cached ones still serve)")
+		return
+	}
 	select {
 	case e.renderSlots <- struct{}{}:
 		defer func() { <-e.renderSlots }()

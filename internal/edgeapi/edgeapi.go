@@ -142,7 +142,16 @@ type Project struct {
 	Storage *StorageConfig `json:"storage,omitempty"`
 	// Realtime is what the project's realtime connections may do (V4 §6).
 	Realtime RealtimeConfig `json:"realtime"`
+	// SpendCapped says the organisation's usage has reached its spend cap
+	// (V4 §12): the edge tightens the data and storage API's rate limits
+	// by SpendCapRateDivisor, pauses new image transforms and refuses new
+	// realtime connections. Sign-in and existing connections carry on.
+	SpendCapped bool `json:"spend_capped,omitempty"`
 }
+
+// SpendCapRateDivisor is how much a spend cap tightens the per-IP and
+// per-key rate limits.
+const SpendCapRateDivisor = 4
 
 // RealtimeConfig is a project's realtime limits as the edge applies them.
 type RealtimeConfig struct {

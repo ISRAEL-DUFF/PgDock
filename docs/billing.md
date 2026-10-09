@@ -164,8 +164,31 @@ cap is raised or the month ends:
 - webhook deliveries queue (they are delivered once the cap lifts);
 - scheduled job runs are skipped.
 
+- backend services slow down rather than stop (V4 §12): the data and
+  storage API's per-IP and per-key rate limits drop to a quarter
+  (`429 spend_cap_rate_limited`), new image transforms pause while
+  cached renders still serve (`429 spend_cap_reached`), and new realtime
+  connections are refused while open ones carry on. Sign-in, sign-up and
+  token refresh keep their own limits, so users can still reach their
+  data.
+
 Nothing running stops, no database is disconnected and no data is
 deleted. Storage above the plan follows V2's storage locks as before.
+The edge learns of the cap through its configuration feed within
+seconds of the forecast setting it, and of its lifting the same way.
+
+**Backend services pricing:** each plan includes an allowance of data
+API requests and transfer, monthly active users, file storage
+(GB-hours) and downloads, image transforms, realtime connection-minutes
+and messages; use above it is rated at the price book's unit price, one
+line per metric. SMS and WhatsApp codes are charged at the provider's
+cost plus the price book's `message_margin_percent` (20% by default),
+one line per channel, with the count and the provider cost in the
+description. Every invoice and forecast line names its service
+(`plan`, `database`, `data_api`, `auth`, `messages`, `storage`,
+`realtime`, `read_replicas`), and **This month so far** breaks the
+month down by service: so far and projected. A published price book
+without these metrics charges nothing for them.
 
 **Cost estimates:** the Promote and Enable HA panels show what the
 instance or the standby will cost a month (730 hours) at the

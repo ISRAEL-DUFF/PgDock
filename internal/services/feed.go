@@ -164,6 +164,7 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 		if r.HasReplicas {
 			p.ReadDatabase = r.DbName + pooler.ReadOnlySuffix
 		}
+		p.SpendCapped = r.SpendCapped
 		p.Storage = s.storageConfig(ctx, r, targets)
 		p.Realtime = edgeapi.RealtimeConfig{MessagesBlocked: r.RealtimeMessagesBlocked,
 			MaxChangesPerSecond: DefaultRealtimeChangesPerSecond, MaxGroups: DefaultRealtimeGroups}

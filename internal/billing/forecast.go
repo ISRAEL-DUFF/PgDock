@@ -119,6 +119,7 @@ func (s *Service) RefreshForecast(ctx context.Context, orgID uuid.UUID) (Forecas
 			fmt.Sprintf("PGDock: %s has reached its spend cap", s.orgName(ctx, orgID)),
 			fmt.Sprintf("Usage charges for %s are forecast at %s, at or above the spend cap of %s.\n\n"+
 				"Until the cap is raised or next month starts, new branches, dedicated instances and HA are refused, webhook deliveries queue, and scheduled jobs are skipped. "+
+				"Backend services slow down: data and storage API rate limits are tightened, new image transforms pause and new realtime connections are refused; sign-in and existing connections carry on. "+
 				"Databases stay connected and no data is deleted.\n\nChange the cap: %s/org/billing?org=%s\n",
 				month, Naira(f.Usage), Naira(*a.SpendCapMinor), s.publicURL, orgID))
 	case !capped && a.Capped:

@@ -821,6 +821,13 @@ report is recorded once even if it is retried. The request log (method,
 path, status, latency, role, user, key, IP) is on the API page and at
 `GET /api/v1/projects/{id}/services/logs`, kept 7 days.
 
+When the organisation reaches its spend cap ([billing](billing.md)),
+the project slows down instead of stopping: data and storage requests
+get a quarter of the usual rate limits (`429 spend_cap_rate_limited`),
+new image transforms answer `429 spend_cap_reached` (cached ones still
+serve), and new realtime connections are refused with `429
+spend_cap_reached` while open ones stay. Auth endpoints are unaffected.
+
 ## Running pgdock-edge
 
 Run one pgdock-edge per region, on the region's nodes. It keeps no state.
