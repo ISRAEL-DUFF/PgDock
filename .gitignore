@@ -18,3 +18,9 @@
 /test/e2e/test-results/
 /test/e2e/playwright-report/
 /dist/
+
+# SDK build outputs
+sdk/js/node_modules
+sdk/js/dist
+sdk/dart/.dart_tool
+sdk/dart/pubspec.lock
