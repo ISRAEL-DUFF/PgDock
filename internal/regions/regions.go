@@ -23,7 +23,9 @@ import (
 
 // Errors.
 var (
-	ErrInvalid  = errors.New("invalid request")
+	ErrInvalid = errors.New("invalid request")
+	// ErrNotReady is a hidden region whose launch checks don't pass yet.
+	ErrNotReady = errors.New("region not ready")
 	ErrNotFound = errors.New("region not found")
 )
 
@@ -191,6 +193,14 @@ func (s *Service) Save(ctx context.Context, in Input) (store.Region, error) {
 	if in.Hidden {
 		status = "hidden"
 	}
+	// Opening a hidden region waits for its launch checks (V4.1 §13): the
+	// rest of the change is saved with the region still hidden, then checked.
+	opening := false
+	if prev, err := q.GetRegion(ctx, in.ID); err == nil && prev.Status == "hidden" && status == "active" {
+		opening, status = true, "hidden"
+	} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return store.Region{}, err
+	}
 	r, err := q.UpsertRegion(ctx, store.UpsertRegionParams{
 		ID: in.ID, Name: in.Name, Country: in.Country, PoolerHost: in.PoolerHost, Provider: in.Provider, Location: in.Location,
 		StorageTargetID: in.StorageTargetID, CopyTargetID: in.CopyTargetID, FloatingIpID: in.FloatingIPID, Residency: in.Residency, Status: status,
@@ -203,6 +213,29 @@ func (s *Service) Save(ctx context.Context, in Input) (store.Region, error) {
 		if err := q.SetStorageTargetRegion(ctx, store.SetStorageTargetRegionParams{ID: *in.StorageTargetID, PgdockRegion: &in.ID}); err != nil {
 			return r, err
 		}
+	}
+	if err := s.Load(ctx); err != nil {
+		return r, err
+	}
+	if !opening {
+		return r, nil
+	}
+	checks, err := s.Readiness(ctx, in.ID)
+	if err != nil {
+		return r, err
+	}
+	if bad := Blocking(checks); len(bad) > 0 {
+		msg := ""
+		for i, c := range bad {
+			if i > 0 {
+				msg += "; "
+			}
+			msg += c.Name + ": " + c.Detail
+		}
+		return r, fmt.Errorf("%w: saved, but the region stays hidden until its launch checks pass (%s)", ErrNotReady, msg)
+	}
+	if r, err = q.SetRegionStatus(ctx, store.SetRegionStatusParams{ID: in.ID, Status: "active"}); err != nil {
+		return r, err
 	}
 	return r, s.Load(ctx)
 }

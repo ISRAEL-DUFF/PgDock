@@ -7088,6 +7088,26 @@ paths:
                 $ref: "#/components/schemas/AdminRegion"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/regions/{region_id}/readiness:
+    get:
+      operationId: getAdminRegionReadiness
+      summary: A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
+      tags: [regions]
+      parameters:
+        - name: region_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The checks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegionReadiness"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/residency:
     put:
       operationId: setProjectResidency
@@ -8676,6 +8696,30 @@ components:
                 enum: [none, pending, copied, failed, skipped]
               count:
                 type: integer
+    RegionReadiness:
+      type: object
+      required: [ready, checks]
+      properties:
+        ready:
+          type: boolean
+          description: No blocking check fails, so the region can be opened.
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegionCheck"
+    RegionCheck:
+      type: object
+      required: [name, ok, blocking, detail]
+      properties:
+        name:
+          type: string
+        ok:
+          type: boolean
+        blocking:
+          type: boolean
+          description: Failing, and keeps a hidden region hidden.
+        detail:
+          type: string
     AdminRegionRequest:
       type: object
       required: [name]

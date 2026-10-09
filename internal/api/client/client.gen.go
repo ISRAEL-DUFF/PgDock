@@ -7583,6 +7583,15 @@ type Region struct {
 	Residency bool `json:"residency"`
 }
 
+// RegionCheck defines model for RegionCheck.
+type RegionCheck struct {
+	// Blocking Failing, and keeps a hidden region hidden.
+	Blocking bool   `json:"blocking"`
+	Detail   string `json:"detail"`
+	Name     string `json:"name"`
+	Ok       bool   `json:"ok"`
+}
+
 // RegionDedicated defines model for RegionDedicated.
 type RegionDedicated struct {
 	FitsOn    *string `json:"fits_on,omitempty"`
@@ -7596,6 +7605,14 @@ type RegionDedicated struct {
 // RegionList defines model for RegionList.
 type RegionList struct {
 	Items []Region `json:"items"`
+}
+
+// RegionReadiness defines model for RegionReadiness.
+type RegionReadiness struct {
+	Checks []RegionCheck `json:"checks"`
+
+	// Ready No blocking check fails, so the region can be opened.
+	Ready bool `json:"ready"`
 }
 
 // RegionShared defines model for RegionShared.
@@ -11096,6 +11113,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
 	PutAdminRegion(ctx context.Context, regionId string, body PutAdminRegionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAdminRegionReadiness A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
+	//
+	// Corresponds with GET /api/v1/admin/regions/{region_id}/readiness (the `GetAdminRegionReadiness` operationId).
+	GetAdminRegionReadiness(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AdminRevenue The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
 	//
@@ -16198,6 +16220,21 @@ func (c *Client) PutAdminRegionWithBody(ctx context.Context, regionId string, co
 // Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
 func (c *Client) PutAdminRegion(ctx context.Context, regionId string, body PutAdminRegionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutAdminRegionRequest(c.Server, regionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAdminRegionReadiness A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
+//
+// Corresponds with GET /api/v1/admin/regions/{region_id}/readiness (the `GetAdminRegionReadiness` operationId).
+func (c *Client) GetAdminRegionReadiness(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAdminRegionReadinessRequest(c.Server, regionId)
 	if err != nil {
 		return nil, err
 	}
@@ -26978,6 +27015,40 @@ func NewPutAdminRegionRequestWithBody(server string, regionId string, contentTyp
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetAdminRegionReadinessRequest constructs an http.Request for the GetAdminRegionReadiness method
+func NewGetAdminRegionReadinessRequest(server string, regionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "region_id", regionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/regions/%s/readiness", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -41395,6 +41466,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
 	PutAdminRegionWithResponse(ctx context.Context, regionId string, body PutAdminRegionJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAdminRegionResponse, error)
 
+	// GetAdminRegionReadinessWithResponse A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/regions/{region_id}/readiness (the `GetAdminRegionReadiness` operationId).
+	GetAdminRegionReadinessWithResponse(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*GetAdminRegionReadinessResponse, error)
+
 	// AdminRevenueWithResponse The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -48751,6 +48829,54 @@ func (r PutAdminRegionResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PutAdminRegionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAdminRegionReadinessResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RegionReadiness
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAdminRegionReadinessResponse) GetJSON200() *RegionReadiness {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetAdminRegionReadinessResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAdminRegionReadinessResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAdminRegionReadinessResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAdminRegionReadinessResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAdminRegionReadinessResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -64652,6 +64778,19 @@ func (c *ClientWithResponses) PutAdminRegionWithResponse(ctx context.Context, re
 	return ParsePutAdminRegionResponse(rsp)
 }
 
+// GetAdminRegionReadinessWithResponse A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/regions/{region_id}/readiness (the `GetAdminRegionReadiness` operationId).
+func (c *ClientWithResponses) GetAdminRegionReadinessWithResponse(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*GetAdminRegionReadinessResponse, error) {
+	rsp, err := c.GetAdminRegionReadiness(ctx, regionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAdminRegionReadinessResponse(rsp)
+}
+
 // AdminRevenueWithResponse The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -73401,6 +73540,39 @@ func ParsePutAdminRegionResponse(rsp *http.Response) (*PutAdminRegionResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AdminRegion
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAdminRegionReadinessResponse parses an HTTP response from a GetAdminRegionReadinessWithResponse call
+func ParseGetAdminRegionReadinessResponse(rsp *http.Response) (*GetAdminRegionReadinessResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAdminRegionReadinessResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RegionReadiness
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

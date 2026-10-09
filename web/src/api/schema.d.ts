@@ -5056,6 +5056,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/regions/{region_id}/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail */
+        get: operations["getAdminRegionReadiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/residency": {
         parameters: {
             query?: never;
@@ -5905,6 +5922,18 @@ export interface components {
                 status: "none" | "pending" | "copied" | "failed" | "skipped";
                 count: number;
             }[];
+        };
+        RegionReadiness: {
+            /** @description No blocking check fails, so the region can be opened. */
+            ready: boolean;
+            checks: components["schemas"]["RegionCheck"][];
+        };
+        RegionCheck: {
+            name: string;
+            ok: boolean;
+            /** @description Failing, and keeps a hidden region hidden. */
+            blocking: boolean;
+            detail: string;
         };
         AdminRegionRequest: {
             name: string;
@@ -19016,6 +19045,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminRegion"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAdminRegionReadiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The checks. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionReadiness"];
                 };
             };
             default: components["responses"]["Error"];

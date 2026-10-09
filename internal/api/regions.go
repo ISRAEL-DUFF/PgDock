@@ -116,6 +116,9 @@ func (s *Server) PutAdminRegion(w http.ResponseWriter, r *http.Request, regionID
 	case errors.Is(err, regions.ErrInvalid):
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
+	case errors.Is(err, regions.ErrNotReady):
+		writeError(w, http.StatusConflict, "region_not_ready", err.Error())
+		return
 	case err != nil:
 		s.internalError(w, "save region", err)
 		return
@@ -166,4 +169,26 @@ func (s *Server) SetProjectResidency(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 	writeJSON(w, http.StatusOK, gen.ProjectResidencyResult{Project: gp, RemovedCopies: removed})
+}
+
+// GetAdminRegionReadiness implements GET /api/v1/admin/regions/{region_id}/readiness.
+func (s *Server) GetAdminRegionReadiness(w http.ResponseWriter, r *http.Request, regionID string) {
+	rs := s.regionsSvc(w)
+	if rs == nil {
+		return
+	}
+	checks, err := rs.Readiness(r.Context(), regionID)
+	switch {
+	case errors.Is(err, regions.ErrNotFound):
+		writeError(w, http.StatusNotFound, "not_found", "no such region")
+		return
+	case err != nil:
+		s.internalError(w, "region readiness", err)
+		return
+	}
+	out := gen.RegionReadiness{Ready: len(regions.Blocking(checks)) == 0, Checks: make([]gen.RegionCheck, 0, len(checks))}
+	for _, c := range checks {
+		out.Checks = append(out.Checks, gen.RegionCheck{Name: c.Name, Ok: c.OK, Blocking: c.Blocking, Detail: c.Detail})
+	}
+	writeJSON(w, http.StatusOK, out)
 }

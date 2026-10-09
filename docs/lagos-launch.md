@@ -97,8 +97,9 @@ Fixes M27 made on the way, all covered by the tests above:
 
 ### Opening
 
-17. Turn off **Hidden** on the region (Platform → Regions). New projects
-    can now choose Lagos.
+17. Check the region's **launch checks** (Platform → Regions → the region):
+    every blocking one must pass, and read every warning. Then turn off
+    **Hidden**. New projects can now choose Lagos.
 18. Post an announcement through the status page, and watch for a week:
     alerts, pooler events, failover history, reconciliation, and the
     first month end's invoices for Lagos organisations.

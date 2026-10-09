@@ -161,6 +161,7 @@ export type InsightSort = "total" | "mean" | "calls" | "rows";
 export type AdminRegion = S["AdminRegion"];
 export type AdminRegionList = S["AdminRegionList"];
 export type AdminRegionRequest = S["AdminRegionRequest"];
+export type RegionReadiness = S["RegionReadiness"];
 export type ProjectResidencyResult = S["ProjectResidencyResult"];
 export type RebalanceMove = S["RebalanceMove"];
 export type Margins = S["Margins"];
@@ -1564,6 +1565,10 @@ export const api = {
   // Regions and data residency (V3 §6).
   regions: () => getJSON<{ items: Region[] }>("/api/v1/regions"),
   adminRegions: () => getJSON<AdminRegionList>("/api/v1/admin/regions"),
+  regionReadiness: (id: string) =>
+    getJSON<RegionReadiness>(
+      `/api/v1/admin/regions/${encodeURIComponent(id)}/readiness`,
+    ),
   saveRegion: (id: string, b: AdminRegionRequest) =>
     request<AdminRegion>(
       "PUT",

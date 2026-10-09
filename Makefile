@@ -29,7 +29,7 @@ DEV_ENV := deploy/dev/server.env
 # Loads $(DEV_ENV); PGDOCK_* variables already set by the caller win.
 LOAD_DEV_ENV := saved="$$(export -p | grep ' PGDOCK_' || true)"; set -a; . ./$(DEV_ENV); set +a; eval "$$saved"
 
-.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-move test-agent-bin pg-image pooler-host-images status-image edge-image test-acme test-e2e test-docs test-load e2e-images generate check-generated build build-ui build-go test test-go test-web test-sdk docs-site lint release-check release clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-move test-agent-bin pg-image pooler-host-images status-image edge-image test-acme test-e2e test-docs test-load test-payments-sandbox e2e-images generate check-generated build build-ui build-go test test-go test-web test-sdk docs-site lint release-check release clean clean-ui
 
 all: build
 
@@ -140,6 +140,11 @@ test: test-go test-web
 # skip otherwise; `make test-db` points them at the dev environment.
 test-go:
 	go test -race ./...
+
+## test-payments-sandbox: PGDock's Flutterwave and iSpend clients against the
+## real sandboxes (V4.1 §13); needs their sandbox keys (docs/payments.md).
+test-payments-sandbox:
+	PGDOCK_TEST_SANDBOX=1 go test -count=1 -v ./test/sandbox/
 
 ## test-db: Go tests including the Postgres-backed ones, against `make dev-up`.
 test-db: dev-up

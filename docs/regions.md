@@ -38,6 +38,17 @@ Regions are managed under **Platform → Regions** (or
    the country and an in-country backup target.
 
 Hidden regions take no new projects; existing ones keep running.
+A hidden region shows its **launch checks** in its panel (and at
+`GET /api/v1/admin/regions/{id}/readiness`): healthy nodes, the pooler
+pair and its failure domains, the floating IP, the hostname, backup and
+copy targets, and, if the region has an etcd cluster, three members in
+three failure domains. Turning **Hidden** off is refused (`409
+region_not_ready`, the region stays hidden, the rest of the change is
+saved) while a blocking check fails: no healthy node, an etcd cluster
+that isn't three members in three domains, an HA pair or etcd cluster
+sharing a domain, or a residency region without its backup target. The
+others are warnings. A region with no etcd cluster can open; it just
+can't offer HA.
 
 ## Projects and regions
 

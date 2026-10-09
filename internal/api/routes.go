@@ -345,6 +345,7 @@ var routeRules = map[string]rule{
 	"GET /api/v1/admin/capacity":                                   {scope: scopePlatform, action: authz.PlatformManage},
 	"GET /api/v1/admin/regions":                                    {scope: scopePlatform, action: authz.PlatformManage},
 	"PUT /api/v1/admin/regions/{region_id}":                        {scope: scopePlatform, action: authz.PlatformManage},
+	"GET /api/v1/admin/regions/{region_id}/readiness":              {scope: scopePlatform, action: authz.PlatformManage},
 	"PUT /api/v1/admin/capacity/settings":                          {scope: scopePlatform, action: authz.PlatformManage},
 	"POST /api/v1/admin/capacity/evaluate":                         {scope: scopePlatform, action: authz.PlatformManage},
 	"POST /api/v1/admin/capacity/proposals/{proposal_id}/approve":  {scope: scopePlatform, action: authz.PlatformManage},

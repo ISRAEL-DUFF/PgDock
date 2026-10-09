@@ -7579,6 +7579,15 @@ type Region struct {
 	Residency bool `json:"residency"`
 }
 
+// RegionCheck defines model for RegionCheck.
+type RegionCheck struct {
+	// Blocking Failing, and keeps a hidden region hidden.
+	Blocking bool   `json:"blocking"`
+	Detail   string `json:"detail"`
+	Name     string `json:"name"`
+	Ok       bool   `json:"ok"`
+}
+
 // RegionDedicated defines model for RegionDedicated.
 type RegionDedicated struct {
 	FitsOn    *string `json:"fits_on,omitempty"`
@@ -7592,6 +7601,14 @@ type RegionDedicated struct {
 // RegionList defines model for RegionList.
 type RegionList struct {
 	Items []Region `json:"items"`
+}
+
+// RegionReadiness defines model for RegionReadiness.
+type RegionReadiness struct {
+	Checks []RegionCheck `json:"checks"`
+
+	// Ready No blocking check fails, so the region can be opened.
+	Ready bool `json:"ready"`
 }
 
 // RegionShared defines model for RegionShared.
@@ -10505,6 +10522,9 @@ type ServerInterface interface {
 	// PutAdminRegion Create or change a region
 	// (PUT /api/v1/admin/regions/{region_id})
 	PutAdminRegion(w http.ResponseWriter, r *http.Request, regionId string)
+	// GetAdminRegionReadiness A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
+	// (GET /api/v1/admin/regions/{region_id}/readiness)
+	GetAdminRegionReadiness(w http.ResponseWriter, r *http.Request, regionId string)
 	// AdminRevenue The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables)
 	// (GET /api/v1/admin/revenue)
 	AdminRevenue(w http.ResponseWriter, r *http.Request, params AdminRevenueParams)
@@ -11900,6 +11920,12 @@ func (_ Unimplemented) ListAdminRegions(w http.ResponseWriter, r *http.Request) 
 // PutAdminRegion Create or change a region
 // (PUT /api/v1/admin/regions/{region_id})
 func (_ Unimplemented) PutAdminRegion(w http.ResponseWriter, r *http.Request, regionId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetAdminRegionReadiness A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
+// (GET /api/v1/admin/regions/{region_id}/readiness)
+func (_ Unimplemented) GetAdminRegionReadiness(w http.ResponseWriter, r *http.Request, regionId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -15605,6 +15631,32 @@ func (siw *ServerInterfaceWrapper) PutAdminRegion(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutAdminRegion(w, r, regionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminRegionReadiness operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminRegionReadiness(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "region_id" -------------
+	var regionId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "region_id", chi.URLParam(r, "region_id"), &regionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "region_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminRegionReadiness(w, r, regionId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25549,6 +25601,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/v1/admin/regions/{region_id}", wrapper.PutAdminRegion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/regions/{region_id}/readiness", wrapper.GetAdminRegionReadiness)
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/v1/projects/{id}/residency", wrapper.SetProjectResidency)

@@ -220,6 +220,35 @@ func (q *Queries) SetProjectResidency(ctx context.Context, arg SetProjectResiden
 	return i, err
 }
 
+const setRegionStatus = `-- name: SetRegionStatus :one
+UPDATE regions SET status = $1 WHERE id = $2 RETURNING id, name, country, pooler_host, provider, location, storage_target_id, copy_target_id, floating_ip_id, residency, status, created_at
+`
+
+type SetRegionStatusParams struct {
+	Status string
+	ID     string
+}
+
+func (q *Queries) SetRegionStatus(ctx context.Context, arg SetRegionStatusParams) (Region, error) {
+	row := q.db.QueryRow(ctx, setRegionStatus, arg.Status, arg.ID)
+	var i Region
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Country,
+		&i.PoolerHost,
+		&i.Provider,
+		&i.Location,
+		&i.StorageTargetID,
+		&i.CopyTargetID,
+		&i.FloatingIpID,
+		&i.Residency,
+		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const setStorageTargetRegion = `-- name: SetStorageTargetRegion :exec
 UPDATE storage_targets SET pgdock_region = $1 WHERE id = $2
 `
