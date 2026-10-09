@@ -9730,16 +9730,21 @@ type Webhook struct {
 	Columns             *[]string          `json:"columns,omitempty"`
 	ConsecutiveFailures int                `json:"consecutive_failures"`
 	CreatedAt           time.Time          `json:"created_at"`
+	Description         string             `json:"description"`
 	Enabled             bool               `json:"enabled"`
 	Events              []string           `json:"events"`
 	HeaderNames         []string           `json:"header_names"`
 	Id                  openapi_types.UUID `json:"id"`
+	Metadata            map[string]string  `json:"metadata"`
 	Name                string             `json:"name"`
-	ProjectId           openapi_types.UUID `json:"project_id"`
-	Status              WebhookStatus      `json:"status"`
-	StatusReason        *string            `json:"status_reason,omitempty"`
-	Tables              []string           `json:"tables"`
-	Url                 string             `json:"url"`
+
+	// PreviousSecretExpiresAt While a rotation overlaps, until when the previous secret also signs deliveries.
+	PreviousSecretExpiresAt *time.Time         `json:"previous_secret_expires_at,omitempty"`
+	ProjectId               openapi_types.UUID `json:"project_id"`
+	Status                  WebhookStatus      `json:"status"`
+	StatusReason            *string            `json:"status_reason,omitempty"`
+	Tables                  []string           `json:"tables"`
+	Url                     string             `json:"url"`
 }
 
 // WebhookStatus defines model for Webhook.Status.
@@ -9782,13 +9787,19 @@ type WebhookList struct {
 // WebhookRequest defines model for WebhookRequest.
 type WebhookRequest struct {
 	// Columns For UPDATE, fire only when one of these columns changed.
-	Columns *[]string              `json:"columns,omitempty"`
-	Enabled *bool                  `json:"enabled,omitempty"`
-	Events  []WebhookRequestEvents `json:"events"`
+	Columns *[]string `json:"columns,omitempty"`
+
+	// Description Free text for the webhook's owner (one line).
+	Description *string                `json:"description,omitempty"`
+	Enabled     *bool                  `json:"enabled,omitempty"`
+	Events      []WebhookRequestEvents `json:"events"`
 
 	// Headers Static headers sent with each request (stored encrypted, never returned).
 	Headers *map[string]string `json:"headers,omitempty"`
-	Name    string             `json:"name"`
+
+	// Metadata String tags for the webhook's owner, such as the tool that created it (keys 1 to 40 of letters, digits, dots, colons, dashes, underscores; values up to 500 characters).
+	Metadata *map[string]string `json:"metadata,omitempty"`
+	Name     string             `json:"name"`
 
 	// Tables Tables as schema.table (or table, in public).
 	Tables []string `json:"tables"`
@@ -9798,9 +9809,17 @@ type WebhookRequest struct {
 // WebhookRequestEvents defines model for WebhookRequest.Events.
 type WebhookRequestEvents string
 
+// WebhookRotateSecret defines model for WebhookRotateSecret.
+type WebhookRotateSecret struct {
+	// OverlapSeconds How long the old secret keeps signing beside the new one.
+	OverlapSeconds *int `json:"overlap_seconds,omitempty"`
+}
+
 // WebhookSecret defines model for WebhookSecret.
 type WebhookSecret struct {
-	Secret string `json:"secret"`
+	// PreviousSecretExpiresAt Until when the old secret also signs, with an overlap.
+	PreviousSecretExpiresAt *time.Time `json:"previous_secret_expires_at,omitempty"`
+	Secret                  string     `json:"secret"`
 }
 
 // WebhookTestResult defines model for WebhookTestResult.
@@ -9815,15 +9834,21 @@ type WebhookTestResult struct {
 
 // WebhookUpdate defines model for WebhookUpdate.
 type WebhookUpdate struct {
-	Columns *[]string              `json:"columns,omitempty"`
-	Enabled *bool                  `json:"enabled,omitempty"`
-	Events  *[]WebhookUpdateEvents `json:"events,omitempty"`
+	Columns *[]string `json:"columns,omitempty"`
+
+	// Description Free text for the webhook's owner (one line).
+	Description *string                `json:"description,omitempty"`
+	Enabled     *bool                  `json:"enabled,omitempty"`
+	Events      *[]WebhookUpdateEvents `json:"events,omitempty"`
 
 	// Headers Replaces the stored headers; {} removes them.
 	Headers *map[string]string `json:"headers,omitempty"`
-	Name    *string            `json:"name,omitempty"`
-	Tables  *[]string          `json:"tables,omitempty"`
-	Url     *string            `json:"url,omitempty"`
+
+	// Metadata String tags for the webhook's owner, replacing the stored ones; {} removes them (keys 1 to 40 of letters, digits, dots, colons, dashes, underscores; values up to 500 characters).
+	Metadata *map[string]string `json:"metadata,omitempty"`
+	Name     *string            `json:"name,omitempty"`
+	Tables   *[]string          `json:"tables,omitempty"`
+	Url      *string            `json:"url,omitempty"`
 }
 
 // WebhookUpdateEvents defines model for WebhookUpdate.Events.
@@ -11020,6 +11045,9 @@ type UpdateWebhookJSONRequestBody = WebhookUpdate
 
 // ReplayWebhookJSONRequestBody defines body for ReplayWebhook for application/json ContentType.
 type ReplayWebhookJSONRequestBody = ReplayRequest
+
+// RotateWebhookSecretJSONRequestBody defines body for RotateWebhookSecret for application/json ContentType.
+type RotateWebhookSecretJSONRequestBody = WebhookRotateSecret
 
 // PutAlertSettingsJSONRequestBody defines body for PutAlertSettings for application/json ContentType.
 type PutAlertSettingsJSONRequestBody = AlertSettingsRequest
@@ -14899,10 +14927,27 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay (the `ReplayWebhook` operationId).
 	ReplayWebhook(ctx context.Context, id ProjectID, webhookId WebhookID, body ReplayWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RotateWebhookSecret Replace the signing secret (returned once)
+	// RotateWebhookSecretWithBody Replace the signing secret (returned once)
+	//
+	// Without an overlap the old secret stops signing at once. With
+	// overlap_seconds, deliveries until then carry two v1 signatures, the
+	// new secret's first, so a receiver holding either one verifies.
+	//
+	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret (the `RotateWebhookSecret` operationId).
-	RotateWebhookSecret(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RotateWebhookSecretWithBody(ctx context.Context, id ProjectID, webhookId WebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RotateWebhookSecret Replace the signing secret (returned once)
+	//
+	// Without an overlap the old secret stops signing at once. With
+	// overlap_seconds, deliveries until then carry two v1 signatures, the
+	// new secret's first, so a receiver holding either one verifies.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret (the `RotateWebhookSecret` operationId).
+	RotateWebhookSecret(ctx context.Context, id ProjectID, webhookId WebhookID, body RotateWebhookSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// TestWebhook Send a test event now
 	//
@@ -24199,11 +24244,38 @@ func (c *Client) ReplayWebhook(ctx context.Context, id ProjectID, webhookId Webh
 	return c.Client.Do(req)
 }
 
-// RotateWebhookSecret Replace the signing secret (returned once)
+// RotateWebhookSecretWithBody Replace the signing secret (returned once)
+//
+// Without an overlap the old secret stops signing at once. With
+// overlap_seconds, deliveries until then carry two v1 signatures, the
+// new secret's first, so a receiver holding either one verifies.
+//
+// Takes any type of body and a specified content type.
 //
 // Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret (the `RotateWebhookSecret` operationId).
-func (c *Client) RotateWebhookSecret(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRotateWebhookSecretRequest(c.Server, id, webhookId)
+func (c *Client) RotateWebhookSecretWithBody(ctx context.Context, id ProjectID, webhookId WebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRotateWebhookSecretRequestWithBody(c.Server, id, webhookId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RotateWebhookSecret Replace the signing secret (returned once)
+//
+// Without an overlap the old secret stops signing at once. With
+// overlap_seconds, deliveries until then carry two v1 signatures, the
+// new secret's first, so a receiver holding either one verifies.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret (the `RotateWebhookSecret` operationId).
+func (c *Client) RotateWebhookSecret(ctx context.Context, id ProjectID, webhookId WebhookID, body RotateWebhookSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRotateWebhookSecretRequest(c.Server, id, webhookId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -41092,8 +41164,19 @@ func NewReplayWebhookRequestWithBody(server string, id ProjectID, webhookId Webh
 	return req, nil
 }
 
-// NewRotateWebhookSecretRequest constructs an http.Request for the RotateWebhookSecret method
-func NewRotateWebhookSecretRequest(server string, id ProjectID, webhookId WebhookID) (*http.Request, error) {
+// NewRotateWebhookSecretRequest calls the generic RotateWebhookSecret builder with application/json body
+func NewRotateWebhookSecretRequest(server string, id ProjectID, webhookId WebhookID, body RotateWebhookSecretJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRotateWebhookSecretRequestWithBody(server, id, webhookId, "application/json", bodyReader)
+}
+
+// NewRotateWebhookSecretRequestWithBody constructs an http.Request for the RotateWebhookSecret method, with any body, and a specified content type
+func NewRotateWebhookSecretRequestWithBody(server string, id ProjectID, webhookId WebhookID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -41125,10 +41208,12 @@ func NewRotateWebhookSecretRequest(server string, id ProjectID, webhookId Webhoo
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -46528,12 +46613,27 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/replay (the `ReplayWebhook` operationId).
 	ReplayWebhookWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, body ReplayWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplayWebhookResponse, error)
 
-	// RotateWebhookSecretWithResponse Replace the signing secret (returned once)
+	// RotateWebhookSecretWithBodyWithResponse Replace the signing secret (returned once)
 	//
-	// Returns a wrapper object for the known response body format(s).
+	// Without an overlap the old secret stops signing at once. With
+	// overlap_seconds, deliveries until then carry two v1 signatures, the
+	// new secret's first, so a receiver holding either one verifies.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret (the `RotateWebhookSecret` operationId).
-	RotateWebhookSecretWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*RotateWebhookSecretResponse, error)
+	RotateWebhookSecretWithBodyWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RotateWebhookSecretResponse, error)
+
+	// RotateWebhookSecretWithResponse Replace the signing secret (returned once)
+	//
+	// Without an overlap the old secret stops signing at once. With
+	// overlap_seconds, deliveries until then carry two v1 signatures, the
+	// new secret's first, so a receiver holding either one verifies.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret (the `RotateWebhookSecret` operationId).
+	RotateWebhookSecretWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, body RotateWebhookSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*RotateWebhookSecretResponse, error)
 
 	// TestWebhookWithResponse Send a test event now
 	//
@@ -73004,13 +73104,34 @@ func (c *ClientWithResponses) ReplayWebhookWithResponse(ctx context.Context, id 
 	return ParseReplayWebhookResponse(rsp)
 }
 
-// RotateWebhookSecretWithResponse Replace the signing secret (returned once)
+// RotateWebhookSecretWithBodyWithResponse Replace the signing secret (returned once)
 //
-// Returns a wrapper object for the known response body format(s).
+// Without an overlap the old secret stops signing at once. With
+// overlap_seconds, deliveries until then carry two v1 signatures, the
+// new secret's first, so a receiver holding either one verifies.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret (the `RotateWebhookSecret` operationId).
-func (c *ClientWithResponses) RotateWebhookSecretWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, reqEditors ...RequestEditorFn) (*RotateWebhookSecretResponse, error) {
-	rsp, err := c.RotateWebhookSecret(ctx, id, webhookId, reqEditors...)
+func (c *ClientWithResponses) RotateWebhookSecretWithBodyWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RotateWebhookSecretResponse, error) {
+	rsp, err := c.RotateWebhookSecretWithBody(ctx, id, webhookId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRotateWebhookSecretResponse(rsp)
+}
+
+// RotateWebhookSecretWithResponse Replace the signing secret (returned once)
+//
+// Without an overlap the old secret stops signing at once. With
+// overlap_seconds, deliveries until then carry two v1 signatures, the
+// new secret's first, so a receiver holding either one verifies.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/projects/{id}/webhooks/{webhook_id}/rotate-secret (the `RotateWebhookSecret` operationId).
+func (c *ClientWithResponses) RotateWebhookSecretWithResponse(ctx context.Context, id ProjectID, webhookId WebhookID, body RotateWebhookSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*RotateWebhookSecretResponse, error) {
+	rsp, err := c.RotateWebhookSecret(ctx, id, webhookId, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

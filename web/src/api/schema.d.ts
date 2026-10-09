@@ -4219,7 +4219,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Replace the signing secret (returned once) */
+        /**
+         * Replace the signing secret (returned once)
+         * @description Without an overlap the old secret stops signing at once. With
+         *     overlap_seconds, deliveries until then carry two v1 signatures, the
+         *     new secret's first, so a receiver holding either one verifies.
+         */
         post: operations["rotateWebhookSecret"];
         delete?: never;
         options?: never;
@@ -8024,6 +8029,12 @@ export interface components {
             };
             /** @default true */
             enabled: boolean;
+            /** @description Free text for the webhook's owner (one line). */
+            description?: string;
+            /** @description String tags for the webhook's owner, such as the tool that created it (keys 1 to 40 of letters, digits, dots, colons, dashes, underscores; values up to 500 characters). */
+            metadata?: {
+                [key: string]: string;
+            };
         };
         WebhookUpdate: {
             name?: string;
@@ -8036,6 +8047,12 @@ export interface components {
                 [key: string]: string;
             };
             enabled?: boolean;
+            /** @description Free text for the webhook's owner (one line). */
+            description?: string;
+            /** @description String tags for the webhook's owner, replacing the stored ones; {} removes them (keys 1 to 40 of letters, digits, dots, colons, dashes, underscores; values up to 500 characters). */
+            metadata?: {
+                [key: string]: string;
+            };
         };
         Webhook: {
             /** Format: uuid */
@@ -8058,11 +8075,27 @@ export interface components {
              * @description Events waiting in the outbox.
              */
             backlog: number;
+            description: string;
+            metadata: {
+                [key: string]: string;
+            };
+            /**
+             * Format: date-time
+             * @description While a rotation overlaps, until when the previous secret also signs deliveries.
+             */
+            previous_secret_expires_at?: string | null;
             /** Format: date-time */
             created_at: string;
         };
         WebhookList: {
             items: components["schemas"]["Webhook"][];
+        };
+        WebhookRotateSecret: {
+            /**
+             * @description How long the old secret keeps signing beside the new one.
+             * @default 0
+             */
+            overlap_seconds: number;
         };
         WebhookCreated: {
             webhook: components["schemas"]["Webhook"];
@@ -8071,6 +8104,11 @@ export interface components {
         };
         WebhookSecret: {
             secret: string;
+            /**
+             * Format: date-time
+             * @description Until when the old secret also signs, with an overlap.
+             */
+            previous_secret_expires_at?: string | null;
         };
         WebhookTestResult: {
             event_id: string;
@@ -18026,7 +18064,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["WebhookRotateSecret"];
+            };
+        };
         responses: {
             /** @description The new secret. */
             200: {

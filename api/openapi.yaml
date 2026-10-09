@@ -8,6 +8,9 @@ info:
     (openapi-typescript) are generated from it with `make generate`.
 servers:
   - url: /
+security:
+  - bearerAuth: []
+  - sessionCookie: []
 paths:
   /healthz:
     get:
@@ -5835,10 +5838,20 @@ paths:
     post:
       operationId: rotateWebhookSecret
       summary: Replace the signing secret (returned once)
+      description: |
+        Without an overlap the old secret stops signing at once. With
+        overlap_seconds, deliveries until then carry two v1 signatures, the
+        new secret's first, so a receiver holding either one verifies.
       tags: [webhooks]
       parameters:
         - $ref: "#/components/parameters/ProjectID"
         - $ref: "#/components/parameters/WebhookID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebhookRotateSecret"
       responses:
         "200":
           description: The new secret.
@@ -8324,6 +8337,23 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        An API token (`pgd_…`, from Account → API tokens, `pgdock login` or
+        `POST /api/v1/tokens`) as `Authorization: Bearer <token>`. Token
+        calls need no CSRF header and carry the token's scopes (`read`,
+        `write`, …) and project restriction; routes that a token can't
+        reach answer 403 `token_not_allowed` or `insufficient_scope`.
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: pgdock_session
+      description: |
+        The dashboard's session cookie (the browser flow). Mutating calls
+        also need the `X-CSRF-Token` header from `GET /api/v1/session`.
   parameters:
     InsightRange:
       name: range
@@ -12487,6 +12517,17 @@ components:
         enabled:
           type: boolean
           default: true
+        description:
+          type: string
+          maxLength: 500
+          description: Free text for the webhook's owner (one line).
+        metadata:
+          type: object
+          maxProperties: 16
+          description: String tags for the webhook's owner, such as the tool that created it (keys 1 to 40 of letters, digits, dots, colons, dashes, underscores; values up to 500 characters).
+          additionalProperties:
+            type: string
+            maxLength: 500
     WebhookUpdate:
       type: object
       properties:
@@ -12515,9 +12556,20 @@ components:
             type: string
         enabled:
           type: boolean
+        description:
+          type: string
+          maxLength: 500
+          description: Free text for the webhook's owner (one line).
+        metadata:
+          type: object
+          maxProperties: 16
+          description: String tags for the webhook's owner, replacing the stored ones; {} removes them (keys 1 to 40 of letters, digits, dots, colons, dashes, underscores; values up to 500 characters).
+          additionalProperties:
+            type: string
+            maxLength: 500
     Webhook:
       type: object
-      required: [id, project_id, name, tables, events, url, header_names, enabled, status, consecutive_failures, backlog, created_at]
+      required: [id, project_id, name, description, metadata, tables, events, url, header_names, enabled, status, consecutive_failures, backlog, created_at]
       properties:
         id:
           type: string
@@ -12559,6 +12611,17 @@ components:
           type: integer
           format: int64
           description: Events waiting in the outbox.
+        description:
+          type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        previous_secret_expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: While a rotation overlaps, until when the previous secret also signs deliveries.
         created_at:
           type: string
           format: date-time
@@ -12570,6 +12633,15 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Webhook"
+    WebhookRotateSecret:
+      type: object
+      properties:
+        overlap_seconds:
+          type: integer
+          minimum: 0
+          maximum: 86400
+          default: 0
+          description: How long the old secret keeps signing beside the new one.
     WebhookCreated:
       type: object
       required: [webhook, secret]
@@ -12585,6 +12657,11 @@ components:
       properties:
         secret:
           type: string
+        previous_secret_expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Until when the old secret also signs, with an overlap.
     WebhookTestResult:
       type: object
       required: [event_id, ok]

@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -134,11 +136,26 @@ type Params struct {
 	// Headers replace the stored ones when not nil.
 	Headers map[string]string
 	Enabled bool
+	// Description and Metadata are free for the webhook's owner, such as
+	// a tool tagging the webhooks it created; Metadata replaces the
+	// stored one when not nil.
+	Description string
+	Metadata    map[string]string
 }
+
+// Metadata's bounds.
+const (
+	maxDescription   = 500
+	maxMetadataKeys  = 16
+	maxMetadataValue = 500
+	// MaxSecretOverlap is the longest a rotated-out secret keeps signing.
+	MaxSecretOverlap = 24 * time.Hour
+)
 
 var (
 	nameRe   = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$`)
 	headerRe = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
+	metaKey  = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,40}$`)
 )
 
 // reserved headers are set by PGDock.
@@ -184,6 +201,21 @@ func (s *Service) validate(ctx context.Context, p store.Project, in *Params) err
 	in.Events = events
 	if len(in.Columns) > 0 && !slices.Contains(in.Events, "UPDATE") {
 		return fmt.Errorf("%w: columns filter UPDATE events; add UPDATE or remove the columns", ErrInvalid)
+	}
+	in.Description = strings.TrimSpace(in.Description)
+	if utf8.RuneCountInString(in.Description) > maxDescription || strings.ContainsFunc(in.Description, unicode.IsControl) {
+		return fmt.Errorf("%w: a description of at most %d characters, on one line", ErrInvalid, maxDescription)
+	}
+	if len(in.Metadata) > maxMetadataKeys {
+		return fmt.Errorf("%w: at most %d metadata keys", ErrInvalid, maxMetadataKeys)
+	}
+	for k, v := range in.Metadata {
+		if !metaKey.MatchString(k) {
+			return fmt.Errorf("%w: metadata key %q: 1 to 40 letters, digits, dots, colons, dashes or underscores", ErrInvalid, k)
+		}
+		if utf8.RuneCountInString(v) > maxMetadataValue {
+			return fmt.Errorf("%w: metadata %q is longer than %d characters", ErrInvalid, k, maxMetadataValue)
+		}
 	}
 	if len(in.Headers) > 20 {
 		return fmt.Errorf("%w: at most 20 headers", ErrInvalid)
@@ -281,6 +313,7 @@ func (s *Service) Create(ctx context.Context, p store.Project, in Params, by *uu
 		w, err := q.InsertWebhook(ctx, store.InsertWebhookParams{
 			ID: id, ProjectID: p.ID, Name: in.Name, Tables: in.Tables, Events: in.Events, Columns: in.Columns, Url: in.URL,
 			HeadersEnc: hdr, SecretEnc: sec, Enabled: in.Enabled, Status: status, CreatedBy: by,
+			Description: in.Description, Metadata: metadataJSON(in.Metadata),
 		})
 		if err != nil {
 			var pe *pgconn.PgError
@@ -302,7 +335,24 @@ func updateParams(w store.Webhook, hdr []byte) store.UpdateWebhookParams {
 	return store.UpdateWebhookParams{
 		ID: w.ID, Name: w.Name, Tables: w.Tables, Events: w.Events, Columns: w.Columns, Url: w.Url, HeadersEnc: hdr,
 		Enabled: w.Enabled, Status: w.Status, StatusReason: w.StatusReason, ConsecutiveFailures: w.ConsecutiveFailures,
+		Description: w.Description, Metadata: w.Metadata,
 	}
+}
+
+// metadataJSON is m as stored ({} when empty).
+func metadataJSON(m map[string]string) json.RawMessage {
+	if len(m) == 0 {
+		return json.RawMessage("{}")
+	}
+	b, _ := json.Marshal(m)
+	return b
+}
+
+// Metadata is a webhook's stored metadata.
+func Metadata(w store.Webhook) map[string]string {
+	m := map[string]string{}
+	_ = json.Unmarshal(w.Metadata, &m)
+	return m
 }
 
 // Update changes a webhook and reinstalls its triggers; enabling a paused
@@ -324,6 +374,10 @@ func (s *Service) Update(ctx context.Context, p store.Project, w store.Webhook, 
 	}
 	old := w
 	w.Name, w.Tables, w.Events, w.Columns, w.Url, w.Enabled = in.Name, in.Tables, in.Events, in.Columns, in.URL, in.Enabled
+	w.Description = in.Description
+	if in.Metadata != nil {
+		w.Metadata = metadataJSON(in.Metadata)
+	}
 	switch {
 	case !in.Enabled:
 		w.Status = StatusPaused
@@ -359,17 +413,44 @@ func (s *Service) SetEnabled(ctx context.Context, p store.Project, w store.Webho
 	if err != nil {
 		return w, err
 	}
-	return s.Update(ctx, p, w, Params{Name: w.Name, Tables: w.Tables, Events: w.Events, Columns: w.Columns, URL: w.Url, Headers: hdrs, Enabled: enabled})
+	return s.Update(ctx, p, w, Params{Name: w.Name, Tables: w.Tables, Events: w.Events, Columns: w.Columns, URL: w.Url, Headers: hdrs, Enabled: enabled,
+		Description: w.Description})
 }
 
 // RotateSecret replaces the signing secret; the new one is returned once.
-func (s *Service) RotateSecret(ctx context.Context, w store.Webhook) (string, error) {
+//
+// With an overlap, the old secret keeps signing deliveries beside the new
+// one (two v1 values) until then, so receivers can switch without failing
+// the events in flight; without one the old secret stops at once.
+func (s *Service) RotateSecret(ctx context.Context, w store.Webhook, overlap time.Duration) (string, *time.Time, error) {
+	if overlap < 0 || overlap > MaxSecretOverlap {
+		return "", nil, fmt.Errorf("%w: the overlap is 0 to %d seconds", ErrInvalid, int(MaxSecretOverlap.Seconds()))
+	}
 	secret := newSecret()
 	sec, err := s.keyring.Encrypt([]byte(secret), secretAAD(w.ID))
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return secret, store.New(s.db).SetWebhookSecret(ctx, store.SetWebhookSecretParams{ID: w.ID, SecretEnc: sec})
+	params := store.SetWebhookSecretParams{ID: w.ID, SecretEnc: sec}
+	if overlap > 0 {
+		until := s.cfg.Now().Add(overlap)
+		params.PreviousSecretEnc, params.PreviousSecretExpiresAt = w.SecretEnc, &until
+	}
+	return secret, params.PreviousSecretExpiresAt, store.New(s.db).SetWebhookSecret(ctx, params)
+}
+
+// PreviousSecret is the rotated-out secret still signing beside the
+// current one, or "" when there is none or its overlap is over.
+func (s *Service) PreviousSecret(w store.Webhook) string {
+	if len(w.PreviousSecretEnc) == 0 || w.PreviousSecretExpiresAt == nil || !s.cfg.Now().Before(*w.PreviousSecretExpiresAt) {
+		return ""
+	}
+	b, err := s.keyring.Decrypt(w.PreviousSecretEnc, secretAAD(w.ID))
+	if err != nil {
+		s.log.Warn("open a webhook's previous secret", "webhook_id", w.ID, "err", err)
+		return ""
+	}
+	return string(b)
 }
 
 // Delete removes a webhook's triggers, its queued events, and the webhook.

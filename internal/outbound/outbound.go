@@ -253,6 +253,9 @@ type Request struct {
 	Timeout time.Duration
 	// Secret, when set, signs the request (PGDock-Signature).
 	Secret string
+	// PreviousSecret, when set, adds a second signature during a secret
+	// rotation's overlap, so a receiver holding either secret verifies.
+	PreviousSecret string
 }
 
 // Response is what came back.
@@ -369,7 +372,11 @@ func (s *Service) Send(ctx context.Context, t Target, r Request) (Response, erro
 	req.Header.Set("User-Agent", "PGDock-Webhooks/1")
 	if r.Secret != "" {
 		// The receiver checks the timestamp against its own clock.
-		req.Header.Set("PGDock-Signature", Sign(r.Secret, time.Now(), r.Body))
+		secrets := []string{r.Secret}
+		if r.PreviousSecret != "" {
+			secrets = append(secrets, r.PreviousSecret)
+		}
+		req.Header.Set("PGDock-Signature", signature.SignAll(secrets, time.Now(), r.Body))
 	}
 	start := time.Now()
 	resp, err := client.Do(req)

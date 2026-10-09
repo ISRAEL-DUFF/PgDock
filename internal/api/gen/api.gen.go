@@ -9726,16 +9726,21 @@ type Webhook struct {
 	Columns             *[]string          `json:"columns,omitempty"`
 	ConsecutiveFailures int                `json:"consecutive_failures"`
 	CreatedAt           time.Time          `json:"created_at"`
+	Description         string             `json:"description"`
 	Enabled             bool               `json:"enabled"`
 	Events              []string           `json:"events"`
 	HeaderNames         []string           `json:"header_names"`
 	Id                  openapi_types.UUID `json:"id"`
+	Metadata            map[string]string  `json:"metadata"`
 	Name                string             `json:"name"`
-	ProjectId           openapi_types.UUID `json:"project_id"`
-	Status              WebhookStatus      `json:"status"`
-	StatusReason        *string            `json:"status_reason,omitempty"`
-	Tables              []string           `json:"tables"`
-	Url                 string             `json:"url"`
+
+	// PreviousSecretExpiresAt While a rotation overlaps, until when the previous secret also signs deliveries.
+	PreviousSecretExpiresAt *time.Time         `json:"previous_secret_expires_at,omitempty"`
+	ProjectId               openapi_types.UUID `json:"project_id"`
+	Status                  WebhookStatus      `json:"status"`
+	StatusReason            *string            `json:"status_reason,omitempty"`
+	Tables                  []string           `json:"tables"`
+	Url                     string             `json:"url"`
 }
 
 // WebhookStatus defines model for Webhook.Status.
@@ -9778,13 +9783,19 @@ type WebhookList struct {
 // WebhookRequest defines model for WebhookRequest.
 type WebhookRequest struct {
 	// Columns For UPDATE, fire only when one of these columns changed.
-	Columns *[]string              `json:"columns,omitempty"`
-	Enabled *bool                  `json:"enabled,omitempty"`
-	Events  []WebhookRequestEvents `json:"events"`
+	Columns *[]string `json:"columns,omitempty"`
+
+	// Description Free text for the webhook's owner (one line).
+	Description *string                `json:"description,omitempty"`
+	Enabled     *bool                  `json:"enabled,omitempty"`
+	Events      []WebhookRequestEvents `json:"events"`
 
 	// Headers Static headers sent with each request (stored encrypted, never returned).
 	Headers *map[string]string `json:"headers,omitempty"`
-	Name    string             `json:"name"`
+
+	// Metadata String tags for the webhook's owner, such as the tool that created it (keys 1 to 40 of letters, digits, dots, colons, dashes, underscores; values up to 500 characters).
+	Metadata *map[string]string `json:"metadata,omitempty"`
+	Name     string             `json:"name"`
 
 	// Tables Tables as schema.table (or table, in public).
 	Tables []string `json:"tables"`
@@ -9794,9 +9805,17 @@ type WebhookRequest struct {
 // WebhookRequestEvents defines model for WebhookRequest.Events.
 type WebhookRequestEvents string
 
+// WebhookRotateSecret defines model for WebhookRotateSecret.
+type WebhookRotateSecret struct {
+	// OverlapSeconds How long the old secret keeps signing beside the new one.
+	OverlapSeconds *int `json:"overlap_seconds,omitempty"`
+}
+
 // WebhookSecret defines model for WebhookSecret.
 type WebhookSecret struct {
-	Secret string `json:"secret"`
+	// PreviousSecretExpiresAt Until when the old secret also signs, with an overlap.
+	PreviousSecretExpiresAt *time.Time `json:"previous_secret_expires_at,omitempty"`
+	Secret                  string     `json:"secret"`
 }
 
 // WebhookTestResult defines model for WebhookTestResult.
@@ -9811,15 +9830,21 @@ type WebhookTestResult struct {
 
 // WebhookUpdate defines model for WebhookUpdate.
 type WebhookUpdate struct {
-	Columns *[]string              `json:"columns,omitempty"`
-	Enabled *bool                  `json:"enabled,omitempty"`
-	Events  *[]WebhookUpdateEvents `json:"events,omitempty"`
+	Columns *[]string `json:"columns,omitempty"`
+
+	// Description Free text for the webhook's owner (one line).
+	Description *string                `json:"description,omitempty"`
+	Enabled     *bool                  `json:"enabled,omitempty"`
+	Events      *[]WebhookUpdateEvents `json:"events,omitempty"`
 
 	// Headers Replaces the stored headers; {} removes them.
 	Headers *map[string]string `json:"headers,omitempty"`
-	Name    *string            `json:"name,omitempty"`
-	Tables  *[]string          `json:"tables,omitempty"`
-	Url     *string            `json:"url,omitempty"`
+
+	// Metadata String tags for the webhook's owner, replacing the stored ones; {} removes them (keys 1 to 40 of letters, digits, dots, colons, dashes, underscores; values up to 500 characters).
+	Metadata *map[string]string `json:"metadata,omitempty"`
+	Name     *string            `json:"name,omitempty"`
+	Tables   *[]string          `json:"tables,omitempty"`
+	Url      *string            `json:"url,omitempty"`
 }
 
 // WebhookUpdateEvents defines model for WebhookUpdate.Events.
@@ -11016,6 +11041,9 @@ type UpdateWebhookJSONRequestBody = WebhookUpdate
 
 // ReplayWebhookJSONRequestBody defines body for ReplayWebhook for application/json ContentType.
 type ReplayWebhookJSONRequestBody = ReplayRequest
+
+// RotateWebhookSecretJSONRequestBody defines body for RotateWebhookSecret for application/json ContentType.
+type RotateWebhookSecretJSONRequestBody = WebhookRotateSecret
 
 // PutAlertSettingsJSONRequestBody defines body for PutAlertSettings for application/json ContentType.
 type PutAlertSettingsJSONRequestBody = AlertSettingsRequest

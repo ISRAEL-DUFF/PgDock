@@ -144,11 +144,24 @@ func (s *Service) active(ctx context.Context, projectID uuid.UUID) (store.Projec
 	return p, nil
 }
 
-// asleep refuses a Free project paused or archived for inactivity (V3 §4):
-// its database accepts no connections until it is resumed.
+// AsleepError is a Free project paused or archived for inactivity (V3 §4):
+// its database accepts no connections until it is resumed. It is also an
+// ErrNotActive.
+type AsleepError struct {
+	ProjectID uuid.UUID
+	Lifecycle string // paused or archived
+}
+
+func (e *AsleepError) Error() string {
+	return fmt.Sprintf("%s: it is %s for inactivity", ErrNotActive, e.Lifecycle)
+}
+
+func (e *AsleepError) Is(target error) bool { return target == ErrNotActive }
+
+// asleep refuses a Free project paused or archived for inactivity.
 func asleep(p store.Project) error {
 	if p.Lifecycle != "" && p.Lifecycle != "active" {
-		return fmt.Errorf("%w: it is %s for inactivity; resume it first", ErrNotActive, p.Lifecycle)
+		return &AsleepError{ProjectID: p.ID, Lifecycle: p.Lifecycle}
 	}
 	return nil
 }
