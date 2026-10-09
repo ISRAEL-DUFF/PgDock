@@ -103,6 +103,10 @@ type Service struct {
 	// Hosts, when set, provides a new dedicated host when no node has room
 	// (the capacity service, V4.1 §5.3).
 	Hosts HostFunc
+	// proposer drafts the announcements the HA window gate waits for.
+	proposer Proposer
+	// etcdMoveOne replaces MoveToRegionEtcd in Move all (tests).
+	etcdMoveOne func(ctx context.Context, project uuid.UUID, by *uuid.UUID) (store.Operation, error)
 }
 
 // New returns a Service.

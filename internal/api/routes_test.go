@@ -647,7 +647,9 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/admin/failure-domains",
 		// V3.1 §4 announced maintenance
 		"GET /api/v1/admin/maintenance/announcements", "POST /api/v1/admin/maintenance/announcements",
-		"DELETE /api/v1/admin/maintenance/announcements/{incident_id}",
+		"GET /api/v1/admin/regions/{region_id}/overview", "POST /api/v1/admin/regions/{region_id}/etcd-move-all",
+		"DELETE /api/v1/admin/maintenance/announcements/{incident_id}", "POST /api/v1/admin/maintenance/announcements/preview",
+		"POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm", "POST /api/v1/admin/maintenance/announcements/{incident_id}/discard",
 		// V3.1 §3.2 replacing an etcd member
 		"POST /api/v1/admin/etcd/members/{node_id}/replace",
 		// V3 §2.4 "Minor upgrades ... automated in a weekly maintenance window"

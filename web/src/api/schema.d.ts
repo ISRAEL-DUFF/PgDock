@@ -5150,6 +5150,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/regions/{region_id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1) */
+        get: operations["getAdminRegionOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/regions/{region_id}/etcd-move-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move every HA project on another region's etcd onto this region's, one at a time
+         * @description Queues one operation that runs the per-project etcd moves in turn (each pauses its own project for a few seconds); never two at once in the region.
+         */
+        post: operations["moveAllToRegionEtcd"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/residency": {
         parameters: {
             query?: never;
@@ -5586,6 +5623,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/maintenance/announcements/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The email an announcement would send, and how many it reaches
+         * @description Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+         */
+        post: operations["previewMaintenanceAnnouncement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/maintenance/announcements/{incident_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Announce a maintenance draft PGDock proposed
+         * @description Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
+         */
+        post: operations["confirmMaintenanceDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/maintenance/announcements/{incident_id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discard a maintenance draft; the work it was for keeps waiting */
+        post: operations["discardMaintenanceDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/maintenance/announcements/{incident_id}": {
         parameters: {
             query?: never;
@@ -5788,6 +5882,39 @@ export interface components {
             /** @enum {string} */
             level: "info" | "warn" | "error";
             msg: string;
+        };
+        RegionOverview: {
+            region: string;
+            pooler_hosts: components["schemas"]["RegionPoolerHost"][];
+            /** @description Set when the pair shares a failure domain (or one isn't set). */
+            pooler_pair_problem?: string | null;
+            etcd_members: components["schemas"]["RegionEtcdMember"][];
+            etcd_ready: boolean;
+            /** @description Why the region's cluster can't take projects yet, when it can't. */
+            etcd_problem?: string | null;
+            /** @description The region's HA projects whose Patroni state is in another region's etcd cluster. */
+            ha_elsewhere: components["schemas"]["RegionHAElsewhere"][];
+            move_all?: components["schemas"]["Operation"];
+        };
+        RegionPoolerHost: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            status: string;
+            failure_domain?: string | null;
+        };
+        RegionEtcdMember: {
+            /** Format: uuid */
+            node_id: string;
+            node_name: string;
+            status: string;
+            failure_domain?: string | null;
+        };
+        RegionHAElsewhere: {
+            /** Format: uuid */
+            project_id: string;
+            name: string;
+            etcd_region: string;
         };
         Operation: {
             /** Format: uuid */
@@ -6823,8 +6950,34 @@ export interface components {
             /** @description Announced less than 72 hours ahead, so minutes before excluded_from count. */
             short_notice?: boolean;
             emailed?: number;
+            /** @description Proposed by PGDock and not announced yet; confirm or discard it. */
+            draft?: boolean;
+            /** @description What PGDock proposed it for (minor_upgrade). */
+            proposed_for?: string | null;
             scope_projects: string[];
             scope_nodes: string[];
+        };
+        MaintenancePreviewRequest: {
+            /**
+             * Format: uuid
+             * @description A draft to preview; the other fields are then ignored.
+             */
+            incident_id?: string;
+            title?: string;
+            body?: string;
+            region?: string;
+            /** Format: date-time */
+            start?: string;
+            /** Format: date-time */
+            end?: string;
+            project_ids?: string[];
+            node_ids?: string[];
+        };
+        MaintenancePreview: {
+            subject: string;
+            body: string;
+            organisations: number;
+            addresses: number;
         };
         MaintenanceAnnouncementList: {
             items: components["schemas"]["MaintenanceAnnouncement"][];
@@ -8420,8 +8573,11 @@ export interface components {
         };
         /** @enum {string} */
         IncidentSeverity: "minor" | "major" | "critical" | "maintenance";
-        /** @enum {string} */
-        IncidentStatus: "investigating" | "identified" | "monitoring" | "resolved";
+        /**
+         * @description draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+         * @enum {string}
+         */
+        IncidentStatus: "draft" | "investigating" | "identified" | "monitoring" | "resolved";
         Incident: {
             /** Format: uuid */
             id: string;
@@ -19426,6 +19582,52 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    getAdminRegionOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The region. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    moveAllToRegionEtcd: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     setProjectResidency: {
         parameters: {
             query?: never;
@@ -20214,6 +20416,77 @@ export interface operations {
         responses: {
             /** @description Announced. */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceAnnouncement"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewMaintenanceAnnouncement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaintenancePreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description The email. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenancePreview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    confirmMaintenanceDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Announced. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceAnnouncement"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    discardMaintenanceDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Discarded. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

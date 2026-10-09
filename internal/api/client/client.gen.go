@@ -1157,6 +1157,7 @@ func (e IncidentSeverity) Valid() bool {
 
 // Defines values for IncidentStatus.
 const (
+	IncidentStatusDraft         IncidentStatus = "draft"
 	IncidentStatusIdentified    IncidentStatus = "identified"
 	IncidentStatusInvestigating IncidentStatus = "investigating"
 	IncidentStatusMonitoring    IncidentStatus = "monitoring"
@@ -1166,6 +1167,8 @@ const (
 // Valid indicates whether the value is a known member of the IncidentStatus enum.
 func (e IncidentStatus) Valid() bool {
 	switch e {
+	case IncidentStatusDraft:
+		return true
 	case IncidentStatusIdentified:
 		return true
 	case IncidentStatusInvestigating:
@@ -5196,8 +5199,10 @@ type CreateIncidentRequest struct {
 	Components []string         `json:"components"`
 	Region     *string          `json:"region,omitempty"`
 	Severity   IncidentSeverity `json:"severity"`
-	Status     IncidentStatus   `json:"status"`
-	Title      string           `json:"title"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status IncidentStatus `json:"status"`
+	Title  string         `json:"title"`
 }
 
 // CreateNodeRequest defines model for CreateNodeRequest.
@@ -5920,10 +5925,12 @@ type Incident struct {
 	ResolvedAt *time.Time       `json:"resolved_at,omitempty"`
 	Severity   IncidentSeverity `json:"severity"`
 	StartedAt  time.Time        `json:"started_at"`
-	Status     IncidentStatus   `json:"status"`
-	Title      string           `json:"title"`
-	UpdatedAt  time.Time        `json:"updated_at"`
-	Updates    []IncidentUpdate `json:"updates"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status    IncidentStatus   `json:"status"`
+	Title     string           `json:"title"`
+	UpdatedAt time.Time        `json:"updated_at"`
+	Updates   []IncidentUpdate `json:"updates"`
 }
 
 // IncidentList defines model for IncidentList.
@@ -5938,7 +5945,7 @@ type IncidentList struct {
 // IncidentSeverity defines model for IncidentSeverity.
 type IncidentSeverity string
 
-// IncidentStatus defines model for IncidentStatus.
+// IncidentStatus draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
 type IncidentStatus string
 
 // IncidentUpdate defines model for IncidentUpdate.
@@ -5948,13 +5955,17 @@ type IncidentUpdate struct {
 	PostedAt time.Time `json:"posted_at"`
 
 	// PostedBy The poster's email.
-	PostedBy *string        `json:"posted_by,omitempty"`
-	Status   IncidentStatus `json:"status"`
+	PostedBy *string `json:"posted_by,omitempty"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status IncidentStatus `json:"status"`
 }
 
 // IncidentUpdateRequest defines model for IncidentUpdateRequest.
 type IncidentUpdateRequest struct {
-	Body   string         `json:"body"`
+	Body string `json:"body"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 }
 
@@ -6586,11 +6597,17 @@ type MailSettingsRequestTls string
 type MaintenanceAnnouncement struct {
 	AnnouncedAt *time.Time `json:"announced_at,omitempty"`
 	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
-	Emailed     *int       `json:"emailed,omitempty"`
+
+	// Draft Proposed by PGDock and not announced yet; confirm or discard it.
+	Draft   *bool `json:"draft,omitempty"`
+	Emailed *int  `json:"emailed,omitempty"`
 
 	// ExcludedFrom When the SLA starts excluding the window's minutes (72 hours after the announcement, or the start).
-	ExcludedFrom   *time.Time           `json:"excluded_from,omitempty"`
-	Incident       Incident             `json:"incident"`
+	ExcludedFrom *time.Time `json:"excluded_from,omitempty"`
+	Incident     Incident   `json:"incident"`
+
+	// ProposedFor What PGDock proposed it for (minor_upgrade).
+	ProposedFor    *string              `json:"proposed_for,omitempty"`
 	ScheduledEnd   *time.Time           `json:"scheduled_end,omitempty"`
 	ScheduledStart *time.Time           `json:"scheduled_start,omitempty"`
 	ScopeNodes     []openapi_types.UUID `json:"scope_nodes"`
@@ -6624,6 +6641,28 @@ type MaintenanceAnnouncementRequest struct {
 	Replaces *openapi_types.UUID `json:"replaces,omitempty"`
 	Start    time.Time           `json:"start"`
 	Title    *string             `json:"title,omitempty"`
+}
+
+// MaintenancePreview defines model for MaintenancePreview.
+type MaintenancePreview struct {
+	Addresses     int    `json:"addresses"`
+	Body          string `json:"body"`
+	Organisations int    `json:"organisations"`
+	Subject       string `json:"subject"`
+}
+
+// MaintenancePreviewRequest defines model for MaintenancePreviewRequest.
+type MaintenancePreviewRequest struct {
+	Body *string    `json:"body,omitempty"`
+	End  *time.Time `json:"end,omitempty"`
+
+	// IncidentId A draft to preview; the other fields are then ignored.
+	IncidentId *openapi_types.UUID   `json:"incident_id,omitempty"`
+	NodeIds    *[]openapi_types.UUID `json:"node_ids,omitempty"`
+	ProjectIds *[]openapi_types.UUID `json:"project_ids,omitempty"`
+	Region     *string               `json:"region,omitempty"`
+	Start      *time.Time            `json:"start,omitempty"`
+	Title      *string               `json:"title,omitempty"`
 }
 
 // MaintenanceStatus defines model for MaintenanceStatus.
@@ -6945,8 +6984,10 @@ type OrgIncident struct {
 	Region       *string          `json:"region,omitempty"`
 	Severity     IncidentSeverity `json:"severity"`
 	StartedAt    time.Time        `json:"started_at"`
-	Status       IncidentStatus   `json:"status"`
-	Title        string           `json:"title"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status IncidentStatus `json:"status"`
+	Title  string         `json:"title"`
 
 	// Url The incident on the status page, when one is configured.
 	Url *string `json:"url,omitempty"`
@@ -7948,9 +7989,50 @@ type RegionDedicated struct {
 	Region    string  `json:"region"`
 }
 
+// RegionEtcdMember defines model for RegionEtcdMember.
+type RegionEtcdMember struct {
+	FailureDomain *string            `json:"failure_domain,omitempty"`
+	NodeId        openapi_types.UUID `json:"node_id"`
+	NodeName      string             `json:"node_name"`
+	Status        string             `json:"status"`
+}
+
+// RegionHAElsewhere defines model for RegionHAElsewhere.
+type RegionHAElsewhere struct {
+	EtcdRegion string             `json:"etcd_region"`
+	Name       string             `json:"name"`
+	ProjectId  openapi_types.UUID `json:"project_id"`
+}
+
 // RegionList defines model for RegionList.
 type RegionList struct {
 	Items []Region `json:"items"`
+}
+
+// RegionOverview defines model for RegionOverview.
+type RegionOverview struct {
+	EtcdMembers []RegionEtcdMember `json:"etcd_members"`
+
+	// EtcdProblem Why the region's cluster can't take projects yet, when it can't.
+	EtcdProblem *string `json:"etcd_problem,omitempty"`
+	EtcdReady   bool    `json:"etcd_ready"`
+
+	// HaElsewhere The region's HA projects whose Patroni state is in another region's etcd cluster.
+	HaElsewhere []RegionHAElsewhere `json:"ha_elsewhere"`
+	MoveAll     *Operation          `json:"move_all,omitempty"`
+	PoolerHosts []RegionPoolerHost  `json:"pooler_hosts"`
+
+	// PoolerPairProblem Set when the pair shares a failure domain (or one isn't set).
+	PoolerPairProblem *string `json:"pooler_pair_problem,omitempty"`
+	Region            string  `json:"region"`
+}
+
+// RegionPoolerHost defines model for RegionPoolerHost.
+type RegionPoolerHost struct {
+	FailureDomain *string            `json:"failure_domain,omitempty"`
+	Id            openapi_types.UUID `json:"id"`
+	Name          string             `json:"name"`
+	Status        string             `json:"status"`
 }
 
 // RegionReadiness defines model for RegionReadiness.
@@ -10222,6 +10304,9 @@ type AdminPublishLegalJSONRequestBody = LegalPublish
 // AnnounceMaintenanceJSONRequestBody defines body for AnnounceMaintenance for application/json ContentType.
 type AnnounceMaintenanceJSONRequestBody = MaintenanceAnnouncementRequest
 
+// PreviewMaintenanceAnnouncementJSONRequestBody defines body for PreviewMaintenanceAnnouncement for application/json ContentType.
+type PreviewMaintenanceAnnouncementJSONRequestBody = MaintenancePreviewRequest
+
 // PutMaintenanceWindowJSONRequestBody defines body for PutMaintenanceWindow for application/json ContentType.
 type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
 
@@ -11118,10 +11203,40 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
 	AnnounceMaintenance(ctx context.Context, body AnnounceMaintenanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PreviewMaintenanceAnnouncementWithBody The email an announcement would send, and how many it reaches
+	//
+	// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+	PreviewMaintenanceAnnouncementWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewMaintenanceAnnouncement The email an announcement would send, and how many it reaches
+	//
+	// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+	PreviewMaintenanceAnnouncement(ctx context.Context, body PreviewMaintenanceAnnouncementJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CancelMaintenance Cancel an announced maintenance window
 	//
 	// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
 	CancelMaintenance(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+	//
+	// Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm (the `ConfirmMaintenanceDraft` operationId).
+	ConfirmMaintenanceDraft(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DiscardMaintenanceDraft Discard a maintenance draft; the work it was for keeps waiting
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/discard (the `DiscardMaintenanceDraft` operationId).
+	DiscardMaintenanceDraft(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutMaintenanceWindowWithBody Change the weekly maintenance window (UTC)
 	//
@@ -11529,6 +11644,18 @@ type ClientInterface interface {
 	//
 	// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
 	PutAdminRegion(ctx context.Context, regionId string, body PutAdminRegionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// MoveAllToRegionEtcd Move every HA project on another region's etcd onto this region's, one at a time
+	//
+	// Queues one operation that runs the per-project etcd moves in turn (each pauses its own project for a few seconds); never two at once in the region.
+	//
+	// Corresponds with POST /api/v1/admin/regions/{region_id}/etcd-move-all (the `MoveAllToRegionEtcd` operationId).
+	MoveAllToRegionEtcd(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAdminRegionOverview A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1)
+	//
+	// Corresponds with GET /api/v1/admin/regions/{region_id}/overview (the `GetAdminRegionOverview` operationId).
+	GetAdminRegionOverview(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetAdminRegionReadiness A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
 	//
@@ -15774,11 +15901,81 @@ func (c *Client) AnnounceMaintenance(ctx context.Context, body AnnounceMaintenan
 	return c.Client.Do(req)
 }
 
+// PreviewMaintenanceAnnouncementWithBody The email an announcement would send, and how many it reaches
+//
+// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+func (c *Client) PreviewMaintenanceAnnouncementWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewMaintenanceAnnouncementRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewMaintenanceAnnouncement The email an announcement would send, and how many it reaches
+//
+// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+func (c *Client) PreviewMaintenanceAnnouncement(ctx context.Context, body PreviewMaintenanceAnnouncementJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewMaintenanceAnnouncementRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // CancelMaintenance Cancel an announced maintenance window
 //
 // Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
 func (c *Client) CancelMaintenance(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCancelMaintenanceRequest(c.Server, incidentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+//
+// Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm (the `ConfirmMaintenanceDraft` operationId).
+func (c *Client) ConfirmMaintenanceDraft(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewConfirmMaintenanceDraftRequest(c.Server, incidentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DiscardMaintenanceDraft Discard a maintenance draft; the work it was for keeps waiting
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/discard (the `DiscardMaintenanceDraft` operationId).
+func (c *Client) DiscardMaintenanceDraft(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDiscardMaintenanceDraftRequest(c.Server, incidentId)
 	if err != nil {
 		return nil, err
 	}
@@ -16756,6 +16953,38 @@ func (c *Client) PutAdminRegionWithBody(ctx context.Context, regionId string, co
 // Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
 func (c *Client) PutAdminRegion(ctx context.Context, regionId string, body PutAdminRegionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutAdminRegionRequest(c.Server, regionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// MoveAllToRegionEtcd Move every HA project on another region's etcd onto this region's, one at a time
+//
+// Queues one operation that runs the per-project etcd moves in turn (each pauses its own project for a few seconds); never two at once in the region.
+//
+// Corresponds with POST /api/v1/admin/regions/{region_id}/etcd-move-all (the `MoveAllToRegionEtcd` operationId).
+func (c *Client) MoveAllToRegionEtcd(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMoveAllToRegionEtcdRequest(c.Server, regionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetAdminRegionOverview A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1)
+//
+// Corresponds with GET /api/v1/admin/regions/{region_id}/overview (the `GetAdminRegionOverview` operationId).
+func (c *Client) GetAdminRegionOverview(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAdminRegionOverviewRequest(c.Server, regionId)
 	if err != nil {
 		return nil, err
 	}
@@ -26193,6 +26422,46 @@ func NewAnnounceMaintenanceRequestWithBody(server string, contentType string, bo
 	return req, nil
 }
 
+// NewPreviewMaintenanceAnnouncementRequest calls the generic PreviewMaintenanceAnnouncement builder with application/json body
+func NewPreviewMaintenanceAnnouncementRequest(server string, body PreviewMaintenanceAnnouncementJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreviewMaintenanceAnnouncementRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPreviewMaintenanceAnnouncementRequestWithBody constructs an http.Request for the PreviewMaintenanceAnnouncement method, with any body, and a specified content type
+func NewPreviewMaintenanceAnnouncementRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/maintenance/announcements/preview")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewCancelMaintenanceRequest constructs an http.Request for the CancelMaintenance method
 func NewCancelMaintenanceRequest(server string, incidentId openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -26220,6 +26489,74 @@ func NewCancelMaintenanceRequest(server string, incidentId openapi_types.UUID) (
 	}
 
 	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewConfirmMaintenanceDraftRequest constructs an http.Request for the ConfirmMaintenanceDraft method
+func NewConfirmMaintenanceDraftRequest(server string, incidentId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "incident_id", incidentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/maintenance/announcements/%s/confirm", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDiscardMaintenanceDraftRequest constructs an http.Request for the DiscardMaintenanceDraft method
+func NewDiscardMaintenanceDraftRequest(server string, incidentId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "incident_id", incidentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/maintenance/announcements/%s/discard", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -27734,6 +28071,74 @@ func NewPutAdminRegionRequestWithBody(server string, regionId string, contentTyp
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewMoveAllToRegionEtcdRequest constructs an http.Request for the MoveAllToRegionEtcd method
+func NewMoveAllToRegionEtcdRequest(server string, regionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "region_id", regionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/regions/%s/etcd-move-all", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAdminRegionOverviewRequest constructs an http.Request for the GetAdminRegionOverview method
+func NewGetAdminRegionOverviewRequest(server string, regionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "region_id", regionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/regions/%s/overview", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -41909,12 +42314,46 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/admin/maintenance/announcements (the `AnnounceMaintenance` operationId).
 	AnnounceMaintenanceWithResponse(ctx context.Context, body AnnounceMaintenanceJSONRequestBody, reqEditors ...RequestEditorFn) (*AnnounceMaintenanceResponse, error)
 
+	// PreviewMaintenanceAnnouncementWithBodyWithResponse The email an announcement would send, and how many it reaches
+	//
+	// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+	PreviewMaintenanceAnnouncementWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewMaintenanceAnnouncementResponse, error)
+
+	// PreviewMaintenanceAnnouncementWithResponse The email an announcement would send, and how many it reaches
+	//
+	// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+	PreviewMaintenanceAnnouncementWithResponse(ctx context.Context, body PreviewMaintenanceAnnouncementJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewMaintenanceAnnouncementResponse, error)
+
 	// CancelMaintenanceWithResponse Cancel an announced maintenance window
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
 	CancelMaintenanceWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelMaintenanceResponse, error)
+
+	// ConfirmMaintenanceDraftWithResponse Announce a maintenance draft PGDock proposed
+	//
+	// Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm (the `ConfirmMaintenanceDraft` operationId).
+	ConfirmMaintenanceDraftWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ConfirmMaintenanceDraftResponse, error)
+
+	// DiscardMaintenanceDraftWithResponse Discard a maintenance draft; the work it was for keeps waiting
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/discard (the `DiscardMaintenanceDraft` operationId).
+	DiscardMaintenanceDraftWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DiscardMaintenanceDraftResponse, error)
 
 	// PutMaintenanceWindowWithBodyWithResponse Change the weekly maintenance window (UTC)
 	//
@@ -42352,6 +42791,22 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with PUT /api/v1/admin/regions/{region_id} (the `PutAdminRegion` operationId).
 	PutAdminRegionWithResponse(ctx context.Context, regionId string, body PutAdminRegionJSONRequestBody, reqEditors ...RequestEditorFn) (*PutAdminRegionResponse, error)
+
+	// MoveAllToRegionEtcdWithResponse Move every HA project on another region's etcd onto this region's, one at a time
+	//
+	// Queues one operation that runs the per-project etcd moves in turn (each pauses its own project for a few seconds); never two at once in the region.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/admin/regions/{region_id}/etcd-move-all (the `MoveAllToRegionEtcd` operationId).
+	MoveAllToRegionEtcdWithResponse(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*MoveAllToRegionEtcdResponse, error)
+
+	// GetAdminRegionOverviewWithResponse A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/regions/{region_id}/overview (the `GetAdminRegionOverview` operationId).
+	GetAdminRegionOverviewWithResponse(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*GetAdminRegionOverviewResponse, error)
 
 	// GetAdminRegionReadinessWithResponse A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
 	//
@@ -48075,6 +48530,54 @@ func (r AnnounceMaintenanceResponse) ContentType() string {
 	return ""
 }
 
+type PreviewMaintenanceAnnouncementResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MaintenancePreview
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewMaintenanceAnnouncementResponse) GetJSON200() *MaintenancePreview {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r PreviewMaintenanceAnnouncementResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PreviewMaintenanceAnnouncementResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewMaintenanceAnnouncementResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewMaintenanceAnnouncementResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewMaintenanceAnnouncementResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type CancelMaintenanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -48117,6 +48620,102 @@ func (r CancelMaintenanceResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r CancelMaintenanceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ConfirmMaintenanceDraftResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MaintenanceAnnouncement
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ConfirmMaintenanceDraftResponse) GetJSON200() *MaintenanceAnnouncement {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ConfirmMaintenanceDraftResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ConfirmMaintenanceDraftResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ConfirmMaintenanceDraftResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ConfirmMaintenanceDraftResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ConfirmMaintenanceDraftResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DiscardMaintenanceDraftResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *MaintenanceAnnouncement
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r DiscardMaintenanceDraftResponse) GetJSON200() *MaintenanceAnnouncement {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DiscardMaintenanceDraftResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DiscardMaintenanceDraftResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DiscardMaintenanceDraftResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DiscardMaintenanceDraftResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DiscardMaintenanceDraftResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -49877,6 +50476,102 @@ func (r PutAdminRegionResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PutAdminRegionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type MoveAllToRegionEtcdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Operation
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r MoveAllToRegionEtcdResponse) GetJSON202() *Operation {
+	return r.JSON202
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r MoveAllToRegionEtcdResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r MoveAllToRegionEtcdResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r MoveAllToRegionEtcdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r MoveAllToRegionEtcdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r MoveAllToRegionEtcdResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetAdminRegionOverviewResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RegionOverview
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAdminRegionOverviewResponse) GetJSON200() *RegionOverview {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetAdminRegionOverviewResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetAdminRegionOverviewResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAdminRegionOverviewResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAdminRegionOverviewResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetAdminRegionOverviewResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -65229,6 +65924,36 @@ func (c *ClientWithResponses) AnnounceMaintenanceWithResponse(ctx context.Contex
 	return ParseAnnounceMaintenanceResponse(rsp)
 }
 
+// PreviewMaintenanceAnnouncementWithBodyWithResponse The email an announcement would send, and how many it reaches
+//
+// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+func (c *ClientWithResponses) PreviewMaintenanceAnnouncementWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewMaintenanceAnnouncementResponse, error) {
+	rsp, err := c.PreviewMaintenanceAnnouncementWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewMaintenanceAnnouncementResponse(rsp)
+}
+
+// PreviewMaintenanceAnnouncementWithResponse The email an announcement would send, and how many it reaches
+//
+// Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/preview (the `PreviewMaintenanceAnnouncement` operationId).
+func (c *ClientWithResponses) PreviewMaintenanceAnnouncementWithResponse(ctx context.Context, body PreviewMaintenanceAnnouncementJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewMaintenanceAnnouncementResponse, error) {
+	rsp, err := c.PreviewMaintenanceAnnouncement(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewMaintenanceAnnouncementResponse(rsp)
+}
+
 // CancelMaintenanceWithResponse Cancel an announced maintenance window
 //
 // Returns a wrapper object for the known response body format(s).
@@ -65240,6 +65965,34 @@ func (c *ClientWithResponses) CancelMaintenanceWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseCancelMaintenanceResponse(rsp)
+}
+
+// ConfirmMaintenanceDraftWithResponse Announce a maintenance draft PGDock proposed
+//
+// Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm (the `ConfirmMaintenanceDraft` operationId).
+func (c *ClientWithResponses) ConfirmMaintenanceDraftWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ConfirmMaintenanceDraftResponse, error) {
+	rsp, err := c.ConfirmMaintenanceDraft(ctx, incidentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseConfirmMaintenanceDraftResponse(rsp)
+}
+
+// DiscardMaintenanceDraftWithResponse Discard a maintenance draft; the work it was for keeps waiting
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/maintenance/announcements/{incident_id}/discard (the `DiscardMaintenanceDraft` operationId).
+func (c *ClientWithResponses) DiscardMaintenanceDraftWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DiscardMaintenanceDraftResponse, error) {
+	rsp, err := c.DiscardMaintenanceDraft(ctx, incidentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDiscardMaintenanceDraftResponse(rsp)
 }
 
 // PutMaintenanceWindowWithBodyWithResponse Change the weekly maintenance window (UTC)
@@ -66019,6 +66772,34 @@ func (c *ClientWithResponses) PutAdminRegionWithResponse(ctx context.Context, re
 		return nil, err
 	}
 	return ParsePutAdminRegionResponse(rsp)
+}
+
+// MoveAllToRegionEtcdWithResponse Move every HA project on another region's etcd onto this region's, one at a time
+//
+// Queues one operation that runs the per-project etcd moves in turn (each pauses its own project for a few seconds); never two at once in the region.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/admin/regions/{region_id}/etcd-move-all (the `MoveAllToRegionEtcd` operationId).
+func (c *ClientWithResponses) MoveAllToRegionEtcdWithResponse(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*MoveAllToRegionEtcdResponse, error) {
+	rsp, err := c.MoveAllToRegionEtcd(ctx, regionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMoveAllToRegionEtcdResponse(rsp)
+}
+
+// GetAdminRegionOverviewWithResponse A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/regions/{region_id}/overview (the `GetAdminRegionOverview` operationId).
+func (c *ClientWithResponses) GetAdminRegionOverviewWithResponse(ctx context.Context, regionId string, reqEditors ...RequestEditorFn) (*GetAdminRegionOverviewResponse, error) {
+	rsp, err := c.GetAdminRegionOverview(ctx, regionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAdminRegionOverviewResponse(rsp)
 }
 
 // GetAdminRegionReadinessWithResponse A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
@@ -73724,6 +74505,39 @@ func ParseAnnounceMaintenanceResponse(rsp *http.Response) (*AnnounceMaintenanceR
 	return response, nil
 }
 
+// ParsePreviewMaintenanceAnnouncementResponse parses an HTTP response from a PreviewMaintenanceAnnouncementWithResponse call
+func ParsePreviewMaintenanceAnnouncementResponse(rsp *http.Response) (*PreviewMaintenanceAnnouncementResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewMaintenanceAnnouncementResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MaintenancePreview
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseCancelMaintenanceResponse parses an HTTP response from a CancelMaintenanceWithResponse call
 func ParseCancelMaintenanceResponse(rsp *http.Response) (*CancelMaintenanceResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -73733,6 +74547,72 @@ func ParseCancelMaintenanceResponse(rsp *http.Response) (*CancelMaintenanceRespo
 	}
 
 	response := &CancelMaintenanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MaintenanceAnnouncement
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseConfirmMaintenanceDraftResponse parses an HTTP response from a ConfirmMaintenanceDraftWithResponse call
+func ParseConfirmMaintenanceDraftResponse(rsp *http.Response) (*ConfirmMaintenanceDraftResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ConfirmMaintenanceDraftResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MaintenanceAnnouncement
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDiscardMaintenanceDraftResponse parses an HTTP response from a DiscardMaintenanceDraftWithResponse call
+func ParseDiscardMaintenanceDraftResponse(rsp *http.Response) (*DiscardMaintenanceDraftResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DiscardMaintenanceDraftResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -74942,6 +75822,72 @@ func ParsePutAdminRegionResponse(rsp *http.Response) (*PutAdminRegionResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AdminRegion
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseMoveAllToRegionEtcdResponse parses an HTTP response from a MoveAllToRegionEtcdWithResponse call
+func ParseMoveAllToRegionEtcdResponse(rsp *http.Response) (*MoveAllToRegionEtcdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &MoveAllToRegionEtcdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Operation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAdminRegionOverviewResponse parses an HTTP response from a GetAdminRegionOverviewWithResponse call
+func ParseGetAdminRegionOverviewResponse(rsp *http.Response) (*GetAdminRegionOverviewResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAdminRegionOverviewResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RegionOverview
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

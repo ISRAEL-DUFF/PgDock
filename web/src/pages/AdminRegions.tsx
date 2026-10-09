@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import {
   api,
@@ -330,6 +331,7 @@ function RegionPanel({
           </span>
         </label>
         {r?.status === "hidden" && <Readiness id={r.id} />}
+        {r && <RegionOverview id={r.id} />}
         <label className="flex items-start gap-2 text-[13px]">
           <input
             type="checkbox"
@@ -342,6 +344,122 @@ function RegionPanel({
         {err && <Alert>{err}</Alert>}
       </form>
     </SidePanel>
+  );
+}
+
+/** A region's pooler pair, etcd cluster, and the HA projects still on
+ * another region's etcd, with Move all (V4.1 §8.1). */
+function RegionOverview({ id }: { id: string }) {
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: ["region-overview", id],
+    queryFn: () => api.regionOverview(id),
+    refetchInterval: (query) =>
+      query.state.data?.move_all &&
+      ["queued", "running"].includes(query.state.data.move_all.status)
+        ? 3_000
+        : false,
+  });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  if (q.isPending) return null;
+  if (q.isError) return <Alert>{errorMessage(q.error)}</Alert>;
+  const o = q.data;
+  const moving =
+    !!o.move_all && ["queued", "running"].includes(o.move_all.status);
+  const moveAll = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.moveAllToRegionEtcd(id);
+      await qc.invalidateQueries({ queryKey: ["region-overview", id] });
+    } catch (e) {
+      setErr(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="space-y-3 text-[13px]" data-testid="region-overview">
+      <div>
+        <div className="font-medium">Pooler pair</div>
+        {o.pooler_hosts.length === 0 ? (
+          <p className="text-muted">No pooler hosts in this region.</p>
+        ) : (
+          <ul>
+            {o.pooler_hosts.map((h) => (
+              <li key={h.id}>
+                {h.name} · {h.failure_domain ?? "no failure domain"} ·{" "}
+                {h.status}
+              </li>
+            ))}
+          </ul>
+        )}
+        {o.pooler_pair_problem && (
+          <Alert tone="warn">{o.pooler_pair_problem}</Alert>
+        )}
+      </div>
+      <div>
+        <div className="font-medium">
+          etcd{" "}
+          {o.etcd_ready ? (
+            <Badge tone="ok">ready</Badge>
+          ) : (
+            <Badge tone="warn">not ready</Badge>
+          )}
+        </div>
+        <p className="text-muted">
+          {o.etcd_members.length} members,{" "}
+          {o.etcd_members.filter((m) => m.status === "healthy").length} healthy.{" "}
+          <Link to="/nodes" className="underline">
+            Manage it on Nodes
+          </Link>
+          .
+        </p>
+        {o.etcd_problem && <p className="text-muted">{o.etcd_problem}</p>}
+      </div>
+      <div data-testid="ha-elsewhere">
+        <div className="font-medium">
+          HA projects on another region&apos;s etcd
+        </div>
+        {o.ha_elsewhere.length === 0 ? (
+          <p className="text-muted">
+            None: every HA project here uses this region&apos;s cluster.
+          </p>
+        ) : (
+          <ul>
+            {o.ha_elsewhere.map((p) => (
+              <li key={p.project_id}>
+                {p.name} · on {p.etcd_region}
+              </li>
+            ))}
+          </ul>
+        )}
+        {o.ha_elsewhere.length > 0 && (
+          <div className="mt-2">
+            <Button
+              busy={busy}
+              disabled={!o.etcd_ready || moving}
+              onClick={() => void moveAll()}
+              data-testid="move-all"
+            >
+              Move all
+            </Button>
+            <p className="mt-1 text-muted">
+              One project at a time; each pauses its own writes for a few
+              seconds while its primary restarts.
+            </p>
+          </div>
+        )}
+        {o.move_all && (
+          <p className="mt-1" data-testid="move-all-status">
+            Move all: {o.move_all.status}
+            {o.move_all.error ? ` (${o.move_all.error})` : ""}
+          </p>
+        )}
+        {err && <Alert>{err}</Alert>}
+      </div>
+    </div>
   );
 }
 

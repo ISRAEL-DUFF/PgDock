@@ -164,3 +164,20 @@ SELECT i.id, i.title, i.scheduled_start, i.scheduled_end, count(*)::int AS minut
 FROM availability_minutes a JOIN incidents i ON i.id = a.excluded_by
 WHERE a.project_id = @project_id AND a.minute >= @from_ts AND a.minute < @to_ts
 GROUP BY i.id, i.title, i.scheduled_start, i.scheduled_end ORDER BY i.scheduled_start;
+
+-- name: HAOnOtherEtcd :many
+-- tenant: system - a region's projects under Patroni whose state is in another region's etcd cluster (V3.1 §3.3).
+SELECT p.id, p.name, p.org_id, coalesce(nullif(i.etcd_region, ''), n.region)::text AS etcd_region
+FROM projects p JOIN instances i ON i.id = p.instance_id JOIN nodes n ON n.id = i.node_id
+WHERE p.region = @region AND p.deleted_at IS NULL AND i.deleted_at IS NULL AND i.patroni
+  AND coalesce(nullif(i.etcd_region, ''), n.region) <> @region
+ORDER BY p.created_at;
+
+-- name: RegionPoolerHosts :many
+-- tenant: system - platform infrastructure (a region's pooler hosts).
+SELECT * FROM nodes WHERE role = 'pooler' AND status <> 'removed' AND region = @region ORDER BY name;
+
+-- name: LatestRegionOperation :one
+-- tenant: system - the newest platform operation of a kind for a region.
+SELECT * FROM operations WHERE kind = @kind AND project_id IS NULL AND params->>'region' = @region::text
+ORDER BY created_at DESC LIMIT 1;

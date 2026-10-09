@@ -58,6 +58,17 @@ bundle share one version (spec §11.5).
   30 seconds. Upgrade pgdock-status with pgdock-server and add the new
   components to status.toml (see status.example.toml). New migration
   00047.
+- Proposed maintenance (V4.1-M7): when an HA project's minor upgrade waits
+  for an announced window, PGDock drafts the announcement for the first
+  window at least 96 hours away; confirm it (it shows the exact email,
+  and how many it reaches) or discard it under Admin → Incidents →
+  Scheduled maintenance. The schedule form previews its email too. New
+  migration 00048.
+- Region page: a region's pooler pair and failure domains, its etcd
+  cluster, and its HA projects still on another region's etcd, with
+  **Move all**, which moves them one at a time.
+- With automatic rebalancing on, rebalance moves run only inside the
+  maintenance window.
 - Banners: every member of an organisation sees an overdue, restricted or
   suspended billing state or a declined payment (owners and billing
   members with the pay link, no amounts), owners and billing members see

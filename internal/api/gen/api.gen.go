@@ -1153,6 +1153,7 @@ func (e IncidentSeverity) Valid() bool {
 
 // Defines values for IncidentStatus.
 const (
+	IncidentStatusDraft         IncidentStatus = "draft"
 	IncidentStatusIdentified    IncidentStatus = "identified"
 	IncidentStatusInvestigating IncidentStatus = "investigating"
 	IncidentStatusMonitoring    IncidentStatus = "monitoring"
@@ -1162,6 +1163,8 @@ const (
 // Valid indicates whether the value is a known member of the IncidentStatus enum.
 func (e IncidentStatus) Valid() bool {
 	switch e {
+	case IncidentStatusDraft:
+		return true
 	case IncidentStatusIdentified:
 		return true
 	case IncidentStatusInvestigating:
@@ -5192,8 +5195,10 @@ type CreateIncidentRequest struct {
 	Components []string         `json:"components"`
 	Region     *string          `json:"region,omitempty"`
 	Severity   IncidentSeverity `json:"severity"`
-	Status     IncidentStatus   `json:"status"`
-	Title      string           `json:"title"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status IncidentStatus `json:"status"`
+	Title  string         `json:"title"`
 }
 
 // CreateNodeRequest defines model for CreateNodeRequest.
@@ -5916,10 +5921,12 @@ type Incident struct {
 	ResolvedAt *time.Time       `json:"resolved_at,omitempty"`
 	Severity   IncidentSeverity `json:"severity"`
 	StartedAt  time.Time        `json:"started_at"`
-	Status     IncidentStatus   `json:"status"`
-	Title      string           `json:"title"`
-	UpdatedAt  time.Time        `json:"updated_at"`
-	Updates    []IncidentUpdate `json:"updates"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status    IncidentStatus   `json:"status"`
+	Title     string           `json:"title"`
+	UpdatedAt time.Time        `json:"updated_at"`
+	Updates   []IncidentUpdate `json:"updates"`
 }
 
 // IncidentList defines model for IncidentList.
@@ -5934,7 +5941,7 @@ type IncidentList struct {
 // IncidentSeverity defines model for IncidentSeverity.
 type IncidentSeverity string
 
-// IncidentStatus defines model for IncidentStatus.
+// IncidentStatus draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
 type IncidentStatus string
 
 // IncidentUpdate defines model for IncidentUpdate.
@@ -5944,13 +5951,17 @@ type IncidentUpdate struct {
 	PostedAt time.Time `json:"posted_at"`
 
 	// PostedBy The poster's email.
-	PostedBy *string        `json:"posted_by,omitempty"`
-	Status   IncidentStatus `json:"status"`
+	PostedBy *string `json:"posted_by,omitempty"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status IncidentStatus `json:"status"`
 }
 
 // IncidentUpdateRequest defines model for IncidentUpdateRequest.
 type IncidentUpdateRequest struct {
-	Body   string         `json:"body"`
+	Body string `json:"body"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 }
 
@@ -6582,11 +6593,17 @@ type MailSettingsRequestTls string
 type MaintenanceAnnouncement struct {
 	AnnouncedAt *time.Time `json:"announced_at,omitempty"`
 	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
-	Emailed     *int       `json:"emailed,omitempty"`
+
+	// Draft Proposed by PGDock and not announced yet; confirm or discard it.
+	Draft   *bool `json:"draft,omitempty"`
+	Emailed *int  `json:"emailed,omitempty"`
 
 	// ExcludedFrom When the SLA starts excluding the window's minutes (72 hours after the announcement, or the start).
-	ExcludedFrom   *time.Time           `json:"excluded_from,omitempty"`
-	Incident       Incident             `json:"incident"`
+	ExcludedFrom *time.Time `json:"excluded_from,omitempty"`
+	Incident     Incident   `json:"incident"`
+
+	// ProposedFor What PGDock proposed it for (minor_upgrade).
+	ProposedFor    *string              `json:"proposed_for,omitempty"`
 	ScheduledEnd   *time.Time           `json:"scheduled_end,omitempty"`
 	ScheduledStart *time.Time           `json:"scheduled_start,omitempty"`
 	ScopeNodes     []openapi_types.UUID `json:"scope_nodes"`
@@ -6620,6 +6637,28 @@ type MaintenanceAnnouncementRequest struct {
 	Replaces *openapi_types.UUID `json:"replaces,omitempty"`
 	Start    time.Time           `json:"start"`
 	Title    *string             `json:"title,omitempty"`
+}
+
+// MaintenancePreview defines model for MaintenancePreview.
+type MaintenancePreview struct {
+	Addresses     int    `json:"addresses"`
+	Body          string `json:"body"`
+	Organisations int    `json:"organisations"`
+	Subject       string `json:"subject"`
+}
+
+// MaintenancePreviewRequest defines model for MaintenancePreviewRequest.
+type MaintenancePreviewRequest struct {
+	Body *string    `json:"body,omitempty"`
+	End  *time.Time `json:"end,omitempty"`
+
+	// IncidentId A draft to preview; the other fields are then ignored.
+	IncidentId *openapi_types.UUID   `json:"incident_id,omitempty"`
+	NodeIds    *[]openapi_types.UUID `json:"node_ids,omitempty"`
+	ProjectIds *[]openapi_types.UUID `json:"project_ids,omitempty"`
+	Region     *string               `json:"region,omitempty"`
+	Start      *time.Time            `json:"start,omitempty"`
+	Title      *string               `json:"title,omitempty"`
 }
 
 // MaintenanceStatus defines model for MaintenanceStatus.
@@ -6941,8 +6980,10 @@ type OrgIncident struct {
 	Region       *string          `json:"region,omitempty"`
 	Severity     IncidentSeverity `json:"severity"`
 	StartedAt    time.Time        `json:"started_at"`
-	Status       IncidentStatus   `json:"status"`
-	Title        string           `json:"title"`
+
+	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	Status IncidentStatus `json:"status"`
+	Title  string         `json:"title"`
 
 	// Url The incident on the status page, when one is configured.
 	Url *string `json:"url,omitempty"`
@@ -7944,9 +7985,50 @@ type RegionDedicated struct {
 	Region    string  `json:"region"`
 }
 
+// RegionEtcdMember defines model for RegionEtcdMember.
+type RegionEtcdMember struct {
+	FailureDomain *string            `json:"failure_domain,omitempty"`
+	NodeId        openapi_types.UUID `json:"node_id"`
+	NodeName      string             `json:"node_name"`
+	Status        string             `json:"status"`
+}
+
+// RegionHAElsewhere defines model for RegionHAElsewhere.
+type RegionHAElsewhere struct {
+	EtcdRegion string             `json:"etcd_region"`
+	Name       string             `json:"name"`
+	ProjectId  openapi_types.UUID `json:"project_id"`
+}
+
 // RegionList defines model for RegionList.
 type RegionList struct {
 	Items []Region `json:"items"`
+}
+
+// RegionOverview defines model for RegionOverview.
+type RegionOverview struct {
+	EtcdMembers []RegionEtcdMember `json:"etcd_members"`
+
+	// EtcdProblem Why the region's cluster can't take projects yet, when it can't.
+	EtcdProblem *string `json:"etcd_problem,omitempty"`
+	EtcdReady   bool    `json:"etcd_ready"`
+
+	// HaElsewhere The region's HA projects whose Patroni state is in another region's etcd cluster.
+	HaElsewhere []RegionHAElsewhere `json:"ha_elsewhere"`
+	MoveAll     *Operation          `json:"move_all,omitempty"`
+	PoolerHosts []RegionPoolerHost  `json:"pooler_hosts"`
+
+	// PoolerPairProblem Set when the pair shares a failure domain (or one isn't set).
+	PoolerPairProblem *string `json:"pooler_pair_problem,omitempty"`
+	Region            string  `json:"region"`
+}
+
+// RegionPoolerHost defines model for RegionPoolerHost.
+type RegionPoolerHost struct {
+	FailureDomain *string            `json:"failure_domain,omitempty"`
+	Id            openapi_types.UUID `json:"id"`
+	Name          string             `json:"name"`
+	Status        string             `json:"status"`
 }
 
 // RegionReadiness defines model for RegionReadiness.
@@ -10218,6 +10300,9 @@ type AdminPublishLegalJSONRequestBody = LegalPublish
 // AnnounceMaintenanceJSONRequestBody defines body for AnnounceMaintenance for application/json ContentType.
 type AnnounceMaintenanceJSONRequestBody = MaintenanceAnnouncementRequest
 
+// PreviewMaintenanceAnnouncementJSONRequestBody defines body for PreviewMaintenanceAnnouncement for application/json ContentType.
+type PreviewMaintenanceAnnouncementJSONRequestBody = MaintenancePreviewRequest
+
 // PutMaintenanceWindowJSONRequestBody defines body for PutMaintenanceWindow for application/json ContentType.
 type PutMaintenanceWindowJSONRequestBody = MaintenanceWindow
 
@@ -10802,9 +10887,18 @@ type ServerInterface interface {
 	// AnnounceMaintenance Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA
 	// (POST /api/v1/admin/maintenance/announcements)
 	AnnounceMaintenance(w http.ResponseWriter, r *http.Request)
+	// PreviewMaintenanceAnnouncement The email an announcement would send, and how many it reaches
+	// (POST /api/v1/admin/maintenance/announcements/preview)
+	PreviewMaintenanceAnnouncement(w http.ResponseWriter, r *http.Request)
 	// CancelMaintenance Cancel an announced maintenance window
 	// (DELETE /api/v1/admin/maintenance/announcements/{incident_id})
 	CancelMaintenance(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID)
+	// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+	// (POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm)
+	ConfirmMaintenanceDraft(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID)
+	// DiscardMaintenanceDraft Discard a maintenance draft; the work it was for keeps waiting
+	// (POST /api/v1/admin/maintenance/announcements/{incident_id}/discard)
+	DiscardMaintenanceDraft(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID)
 	// PutMaintenanceWindow Change the weekly maintenance window (UTC)
 	// (PUT /api/v1/admin/maintenance/window)
 	PutMaintenanceWindow(w http.ResponseWriter, r *http.Request)
@@ -10913,6 +11007,12 @@ type ServerInterface interface {
 	// PutAdminRegion Create or change a region
 	// (PUT /api/v1/admin/regions/{region_id})
 	PutAdminRegion(w http.ResponseWriter, r *http.Request, regionId string)
+	// MoveAllToRegionEtcd Move every HA project on another region's etcd onto this region's, one at a time
+	// (POST /api/v1/admin/regions/{region_id}/etcd-move-all)
+	MoveAllToRegionEtcd(w http.ResponseWriter, r *http.Request, regionId string)
+	// GetAdminRegionOverview A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1)
+	// (GET /api/v1/admin/regions/{region_id}/overview)
+	GetAdminRegionOverview(w http.ResponseWriter, r *http.Request, regionId string)
 	// GetAdminRegionReadiness A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail
 	// (GET /api/v1/admin/regions/{region_id}/readiness)
 	GetAdminRegionReadiness(w http.ResponseWriter, r *http.Request, regionId string)
@@ -12113,9 +12213,27 @@ func (_ Unimplemented) AnnounceMaintenance(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// PreviewMaintenanceAnnouncement The email an announcement would send, and how many it reaches
+// (POST /api/v1/admin/maintenance/announcements/preview)
+func (_ Unimplemented) PreviewMaintenanceAnnouncement(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // CancelMaintenance Cancel an announced maintenance window
 // (DELETE /api/v1/admin/maintenance/announcements/{incident_id})
 func (_ Unimplemented) CancelMaintenance(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+// (POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm)
+func (_ Unimplemented) ConfirmMaintenanceDraft(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DiscardMaintenanceDraft Discard a maintenance draft; the work it was for keeps waiting
+// (POST /api/v1/admin/maintenance/announcements/{incident_id}/discard)
+func (_ Unimplemented) DiscardMaintenanceDraft(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -12332,6 +12450,18 @@ func (_ Unimplemented) ListAdminRegions(w http.ResponseWriter, r *http.Request) 
 // PutAdminRegion Create or change a region
 // (PUT /api/v1/admin/regions/{region_id})
 func (_ Unimplemented) PutAdminRegion(w http.ResponseWriter, r *http.Request, regionId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// MoveAllToRegionEtcd Move every HA project on another region's etcd onto this region's, one at a time
+// (POST /api/v1/admin/regions/{region_id}/etcd-move-all)
+func (_ Unimplemented) MoveAllToRegionEtcd(w http.ResponseWriter, r *http.Request, regionId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetAdminRegionOverview A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1)
+// (GET /api/v1/admin/regions/{region_id}/overview)
+func (_ Unimplemented) GetAdminRegionOverview(w http.ResponseWriter, r *http.Request, regionId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -15221,6 +15351,20 @@ func (siw *ServerInterfaceWrapper) AnnounceMaintenance(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// PreviewMaintenanceAnnouncement operation middleware
+func (siw *ServerInterfaceWrapper) PreviewMaintenanceAnnouncement(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewMaintenanceAnnouncement(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CancelMaintenance operation middleware
 func (siw *ServerInterfaceWrapper) CancelMaintenance(w http.ResponseWriter, r *http.Request) {
 
@@ -15238,6 +15382,58 @@ func (siw *ServerInterfaceWrapper) CancelMaintenance(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CancelMaintenance(w, r, incidentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfirmMaintenanceDraft operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmMaintenanceDraft(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "incident_id" -------------
+	var incidentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "incident_id", chi.URLParam(r, "incident_id"), &incidentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "incident_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmMaintenanceDraft(w, r, incidentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DiscardMaintenanceDraft operation middleware
+func (siw *ServerInterfaceWrapper) DiscardMaintenanceDraft(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "incident_id" -------------
+	var incidentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "incident_id", chi.URLParam(r, "incident_id"), &incidentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "incident_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DiscardMaintenanceDraft(w, r, incidentId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -16101,6 +16297,58 @@ func (siw *ServerInterfaceWrapper) PutAdminRegion(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutAdminRegion(w, r, regionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MoveAllToRegionEtcd operation middleware
+func (siw *ServerInterfaceWrapper) MoveAllToRegionEtcd(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "region_id" -------------
+	var regionId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "region_id", chi.URLParam(r, "region_id"), &regionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "region_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MoveAllToRegionEtcd(w, r, regionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminRegionOverview operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminRegionOverview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "region_id" -------------
+	var regionId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "region_id", chi.URLParam(r, "region_id"), &regionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "region_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminRegionOverview(w, r, regionId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -26178,6 +26426,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/admin/regions/{region_id}/readiness", wrapper.GetAdminRegionReadiness)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/regions/{region_id}/overview", wrapper.GetAdminRegionOverview)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/regions/{region_id}/etcd-move-all", wrapper.MoveAllToRegionEtcd)
+	})
+	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/v1/projects/{id}/residency", wrapper.SetProjectResidency)
 	})
 	r.Group(func(r chi.Router) {
@@ -26269,6 +26523,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/admin/maintenance/announcements", wrapper.AnnounceMaintenance)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/maintenance/announcements/preview", wrapper.PreviewMaintenanceAnnouncement)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/maintenance/announcements/{incident_id}/confirm", wrapper.ConfirmMaintenanceDraft)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/admin/maintenance/announcements/{incident_id}/discard", wrapper.DiscardMaintenanceDraft)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/v1/admin/maintenance/announcements/{incident_id}", wrapper.CancelMaintenance)

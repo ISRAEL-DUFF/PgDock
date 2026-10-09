@@ -7255,6 +7255,50 @@ paths:
                 $ref: "#/components/schemas/RegionReadiness"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/regions/{region_id}/overview:
+    get:
+      operationId: getAdminRegionOverview
+      summary: A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1)
+      tags: [regions]
+      parameters:
+        - name: region_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The region.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegionOverview"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/regions/{region_id}/etcd-move-all:
+    post:
+      operationId: moveAllToRegionEtcd
+      summary: Move every HA project on another region's etcd onto this region's, one at a time
+      description: >-
+        Queues one operation that runs the per-project etcd moves in turn
+        (each pauses its own project for a few seconds); never two at once
+        in the region.
+      tags: [regions]
+      parameters:
+        - name: region_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/residency:
     put:
       operationId: setProjectResidency
@@ -7978,6 +8022,73 @@ paths:
                 $ref: "#/components/schemas/MaintenanceAnnouncement"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/maintenance/announcements/preview:
+    post:
+      operationId: previewMaintenanceAnnouncement
+      summary: The email an announcement would send, and how many it reaches
+      description: >-
+        Rendered from the template the announcement uses (V4.1 §8.3): for a
+        draft (incident_id), the email confirming it sends; otherwise the
+        email announcing the given window and scope would send.
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MaintenancePreviewRequest"
+      responses:
+        "200":
+          description: The email.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenancePreview"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/maintenance/announcements/{incident_id}/confirm:
+    post:
+      operationId: confirmMaintenanceDraft
+      summary: Announce a maintenance draft PGDock proposed
+      description: Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
+      tags: [admin]
+      parameters:
+        - name: incident_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Announced.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceAnnouncement"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/maintenance/announcements/{incident_id}/discard:
+    post:
+      operationId: discardMaintenanceDraft
+      summary: Discard a maintenance draft; the work it was for keeps waiting
+      tags: [admin]
+      parameters:
+        - name: incident_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Discarded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceAnnouncement"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/maintenance/announcements/{incident_id}:
     delete:
       operationId: cancelMaintenance
@@ -8499,6 +8610,76 @@ components:
           type: string
           enum: [info, warn, error]
         msg:
+          type: string
+    RegionOverview:
+      type: object
+      required: [region, pooler_hosts, etcd_members, etcd_ready, ha_elsewhere]
+      properties:
+        region:
+          type: string
+        pooler_hosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegionPoolerHost"
+        pooler_pair_problem:
+          type: string
+          nullable: true
+          description: Set when the pair shares a failure domain (or one isn't set).
+        etcd_members:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegionEtcdMember"
+        etcd_ready:
+          type: boolean
+        etcd_problem:
+          type: string
+          nullable: true
+          description: Why the region's cluster can't take projects yet, when it can't.
+        ha_elsewhere:
+          type: array
+          description: The region's HA projects whose Patroni state is in another region's etcd cluster.
+          items:
+            $ref: "#/components/schemas/RegionHAElsewhere"
+        move_all:
+          $ref: "#/components/schemas/Operation"
+    RegionPoolerHost:
+      type: object
+      required: [id, name, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+        failure_domain:
+          type: string
+          nullable: true
+    RegionEtcdMember:
+      type: object
+      required: [node_id, node_name, status]
+      properties:
+        node_id:
+          type: string
+          format: uuid
+        node_name:
+          type: string
+        status:
+          type: string
+        failure_domain:
+          type: string
+          nullable: true
+    RegionHAElsewhere:
+      type: object
+      required: [project_id, name, etcd_region]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        etcd_region:
           type: string
     Operation:
       type: object
@@ -10336,6 +10517,13 @@ components:
           description: Announced less than 72 hours ahead, so minutes before excluded_from count.
         emailed:
           type: integer
+        draft:
+          type: boolean
+          description: Proposed by PGDock and not announced yet; confirm or discard it.
+        proposed_for:
+          type: string
+          nullable: true
+          description: What PGDock proposed it for (minor_upgrade).
         scope_projects:
           type: array
           items:
@@ -10346,6 +10534,47 @@ components:
           items:
             type: string
             format: uuid
+    MaintenancePreviewRequest:
+      type: object
+      properties:
+        incident_id:
+          type: string
+          format: uuid
+          description: A draft to preview; the other fields are then ignored.
+        title:
+          type: string
+        body:
+          type: string
+        region:
+          type: string
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        project_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        node_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+    MaintenancePreview:
+      type: object
+      required: [subject, body, organisations, addresses]
+      properties:
+        subject:
+          type: string
+        body:
+          type: string
+        organisations:
+          type: integer
+        addresses:
+          type: integer
     MaintenanceAnnouncementList:
       type: object
       required: [items]
@@ -13327,7 +13556,8 @@ components:
       enum: [minor, major, critical, maintenance]
     IncidentStatus:
       type: string
-      enum: [investigating, identified, monitoring, resolved]
+      description: draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+      enum: [draft, investigating, identified, monitoring, resolved]
     Incident:
       type: object
       required: [id, title, components, severity, status, started_at, updated_at, updates]

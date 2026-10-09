@@ -520,6 +520,9 @@ func run() error {
 	}, log)
 	incidentSvc.SetMailer(mailSvc, cfg.Insight.PublicURL)
 	incidentSvc.Billing = billingSvc.Health
+	if backups != nil && backups.Dedicated != nil {
+		backups.Dedicated.SetProposer(incidentSvc)
+	}
 	if cfg.Status.URL != "" {
 		log.Info("pushing heartbeats and incidents to the status page", "url", cfg.Status.URL)
 		bg.Add(1)

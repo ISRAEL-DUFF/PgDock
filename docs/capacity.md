@@ -136,7 +136,10 @@ The settings (Platform → Capacity → Settings) are:
   proposes moves from the fullest node to the emptiest, at most ten in a
   batch, choosing the largest projects that narrow the gap. Approve or
   reject the batch. With automatic rebalancing on, batches are approved by
-  themselves during the maintenance window (Nodes → Maintenance window).
+  themselves during the maintenance window (Nodes → Maintenance window),
+  and their moves run only inside it: one not started when the window
+  ends waits for the next. Rebalancing moves shared projects only; HA
+  projects are never among them.
 - **Empty nodes:** a node with no projects, dedicated instances, HA
   members, etcd member, or move copies is marked empty. The copies a move
   keeps are kept for 48 hours. A server from a provider is deleted after

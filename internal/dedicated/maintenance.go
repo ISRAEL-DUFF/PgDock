@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/israel-duff/pgdock/internal/agentapi"
+	"github.com/israel-duff/pgdock/internal/incidents"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
@@ -168,8 +169,14 @@ func (s *Service) MaintenanceSweep(ctx context.Context, now time.Time) (*store.I
 		s.log.Warn("checking Postgres releases", "err", err)
 	}
 	w, err := s.MaintenanceWindow(ctx)
-	if err != nil || !w.Contains(now) {
+	if err != nil {
 		return nil, err
+	}
+	if err := s.proposeMaintenance(ctx, w, now); err != nil {
+		s.log.Warn("proposing maintenance", "err", err)
+	}
+	if !w.Contains(now) {
+		return nil, nil
 	}
 	q := store.New(s.db)
 	behind, err := q.InstancesBehind(ctx)
@@ -415,6 +422,54 @@ func (s *Service) announced(ctx context.Context, inst store.Instance, now time.T
 		s.log.Warn("maintenance announcement check", "project", p.ID, "err", err)
 	}
 	return err == nil
+}
+
+// Proposer drafts maintenance announcements: the incidents service.
+type Proposer interface {
+	Propose(ctx context.Context, p incidents.Proposal, now time.Time) (*incidents.Incident, error)
+}
+
+// SetProposer lets the maintenance sweep draft the announcements the
+// window gate waits for (V4.1 §8.2).
+func (s *Service) SetProposer(p Proposer) { s.proposer = p }
+
+// proposeMaintenance drafts an announcement for the first window at
+// least DraftLead away for every HA instance behind on its minor release
+// that the gate would hold back, unless one is planned already.
+func (s *Service) proposeMaintenance(ctx context.Context, w MaintenanceWindow, now time.Time) error {
+	if s.proposer == nil || !s.cfg.RequireAnnouncement || !w.Enabled {
+		return nil
+	}
+	q := store.New(s.db)
+	behind, err := q.InstancesBehind(ctx)
+	if err != nil {
+		return err
+	}
+	var projects []uuid.UUID
+	for _, inst := range behind {
+		if !inst.HaEnabled || !NewerRelease(*inst.PgRelease, *inst.PgReleaseAvailable) {
+			continue
+		}
+		p, err := q.ProjectOnInstance(ctx, inst.ID)
+		if err != nil {
+			continue
+		}
+		projects = append(projects, p.ID)
+	}
+	if len(projects) == 0 {
+		return nil
+	}
+	earliest := now.Add(incidents.DraftLead)
+	start := w.Next(earliest)
+	if start.Before(earliest) {
+		start = start.AddDate(0, 0, 7)
+	}
+	_, err = s.proposer.Propose(ctx, incidents.Proposal{
+		Reason: "minor_upgrade", Title: "Postgres minor upgrade",
+		Body:  "HA projects switch over to an upgraded standby, pausing writes for a few seconds.",
+		Start: start, End: start.Add(time.Duration(w.Hours) * time.Hour), Projects: projects,
+	}, now)
+	return err
 }
 
 // SetRequireAnnouncement turns the HA announcement gate on or off (tests).

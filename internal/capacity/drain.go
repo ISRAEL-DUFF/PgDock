@@ -188,6 +188,21 @@ func (s *Service) advanceMoves(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// With automatic rebalancing, rebalance moves run only inside the
+	// maintenance window (V4.1 §8.4); drains don't wait.
+	if m.Kind == MoveRebalance {
+		if st, err := s.Settings(ctx); err != nil {
+			return err
+		} else if st.AutoRebalance {
+			w, err := s.ded.MaintenanceWindow(ctx)
+			if err != nil {
+				return err
+			}
+			if !w.Contains(s.cfg.Now()) {
+				return nil
+			}
+		}
+	}
 	fail := func(status, msg string) error {
 		return q.SetRebalanceMove(ctx, store.SetRebalanceMoveParams{ID: m.ID, Status: status, Error: &msg})
 	}

@@ -1310,6 +1310,22 @@ export const api = {
       "/api/v1/admin/maintenance/announcements",
       b,
     ),
+  confirmMaintenanceDraft: (id: string) =>
+    request<S["MaintenanceAnnouncement"]>(
+      "POST",
+      `/api/v1/admin/maintenance/announcements/${id}/confirm`,
+    ),
+  discardMaintenanceDraft: (id: string) =>
+    request<S["MaintenanceAnnouncement"]>(
+      "POST",
+      `/api/v1/admin/maintenance/announcements/${id}/discard`,
+    ),
+  previewMaintenance: (b: S["MaintenancePreviewRequest"]) =>
+    request<S["MaintenancePreview"]>(
+      "POST",
+      "/api/v1/admin/maintenance/announcements/preview",
+      b,
+    ),
   cancelMaintenance: (id: string) =>
     request<S["MaintenanceAnnouncement"]>(
       "DELETE",
@@ -1591,6 +1607,15 @@ export const api = {
   // Regions and data residency (V3 §6).
   regions: () => getJSON<{ items: Region[] }>("/api/v1/regions"),
   adminRegions: () => getJSON<AdminRegionList>("/api/v1/admin/regions"),
+  regionOverview: (id: string) =>
+    getJSON<S["RegionOverview"]>(
+      `/api/v1/admin/regions/${encodeURIComponent(id)}/overview`,
+    ),
+  moveAllToRegionEtcd: (id: string) =>
+    request<Operation>(
+      "POST",
+      `/api/v1/admin/regions/${encodeURIComponent(id)}/etcd-move-all`,
+    ),
   regionReadiness: (id: string) =>
     getJSON<RegionReadiness>(
       `/api/v1/admin/regions/${encodeURIComponent(id)}/readiness`,

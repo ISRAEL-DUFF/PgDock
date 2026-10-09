@@ -54,6 +54,7 @@ SELECT i.id, i.title, i.components, i.region_id, i.severity, i.status, i.started
   coalesce((SELECT u.body FROM incident_updates u WHERE u.incident_id = i.id ORDER BY u.posted_at DESC, u.id DESC LIMIT 1), '')::text AS latest
 FROM incidents i
 WHERE i.resolved_at IS NULL AND i.cancelled_at IS NULL AND i.started_at <= now()
+  AND NOT (i.severity = 'maintenance' AND i.announced_at IS NULL)
   AND (i.scheduled_start IS NULL OR i.scheduled_start <= now())
   AND EXISTS (
     SELECT 1 FROM projects p LEFT JOIN project_services ps ON ps.project_id = p.id

@@ -423,6 +423,7 @@ type Incident struct {
 	AnnouncedAt    *time.Time
 	CancelledAt    *time.Time
 	Replaces       *uuid.UUID
+	ProposedFor    *string
 }
 
 type IncidentScope struct {
