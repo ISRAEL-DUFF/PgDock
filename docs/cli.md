@@ -152,6 +152,10 @@ pgdock auth rotate-key <p>   # sign access tokens with a new key
 pgdock auth config <p>       # sign-in methods, phone caps and this month's spend
 pgdock auth set <p> '{"settings":{"phone_channels":["whatsapp"],"mfa_policy":"optional"}}'   # any AuthConfigUpdate
 pgdock auth hooks <p>        # recent auth webhook deliveries
+pgdock migrate supabase <p> [--step all|policies|users|storage] [--source <url>] \
+  [--s3-endpoint https://<ref>.supabase.co/storage/v1/s3 --s3-region <r> --s3-access-key <id> --s3-secret-key <secret>]
+                             # after importing a Supabase database (docs/migrate-from-supabase.md);
+                             # PGDOCK_SUPABASE_DB_URL and PGDOCK_SUPABASE_S3_SECRET keep secrets out of shell history
 
 pgdock billing show | plan free|pro|team [--annual] [--now] [--dry-run]   # owners and billing members
 pgdock billing invoices | invoice <number|id> [--pdf file.pdf]

@@ -221,6 +221,9 @@ func (a *App) commands() []command {
 			{name: "delete", summary: "Remove one: delete <p> <replica-id>", run: (*App).replicasDelete},
 			{name: "detach", summary: "Make one a standalone project: detach <p> <replica-id> --name <new>", run: (*App).replicasDetach},
 		}},
+		{name: "migrate", summary: "Move a project's users, files and policies across from another platform", sub: []command{
+			{name: "supabase", summary: "From Supabase, after importing its database: supabase <p> [--step …] [--source <url>] [--s3-…]", run: (*App).migrateSupabase},
+		}},
 		{name: "resume", summary: "Resume a paused Free project, or restore an archived one: resume <p>", run: (*App).resume},
 		{name: "upgrade", summary: "Upgrade to a newer Postgres major: upgrade <p> --to 18 [--check]", run: (*App).upgrade},
 		{name: "move", summary: "Move a project to another node (platform admin): move <p> --node <id>", run: (*App).move},
