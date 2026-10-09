@@ -3,6 +3,7 @@ import { Archive } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type Backup, type Project, type ProjectCredentials } from "../api/client";
+import { BackupAddOnsCard } from "../components/BackupAddOns";
 import { ConfirmDestroy } from "../components/ConfirmDelete";
 import { ProvisionProgress } from "../components/ProvisionProgress";
 import { useOperationToast } from "../components/Toasts";
@@ -17,6 +18,17 @@ const kindLabels: Record<string, string> = {
   final: "Final (before delete)",
   safety: "Safety (before restore)",
 };
+
+/** The project's nightly retention, in words. */
+function retentionText(p: Project, daily: number, weekly: number): string {
+  switch (p.settings.backup_retention) {
+    case "extended":
+      return "30 daily + 12 weekly (extended)";
+    case "long":
+      return "30 daily + 52 weekly (long)";
+  }
+  return `${daily} daily + ${weekly} weekly`;
+}
 
 /** True when the latest backup is missing or older than 26 hours (spec §8.3). */
 export function backupIsStale(lastBackupAt: string | null | undefined, now = Date.now()): boolean {
@@ -119,8 +131,8 @@ export function ProjectBackupsPage() {
                   [
                     "Retention",
                     p.tier === "dedicated"
-                      ? "7 full base backups (about 7 days of point-in-time recovery)"
-                      : `${ov.retention_daily} daily + ${ov.retention_weekly} weekly; final and safety backups 30 days`,
+                      ? `${p.instance?.pitr_days ?? 7} full base backups (about ${p.instance?.pitr_days ?? 7} days of point-in-time recovery)`
+                      : `${retentionText(p, ov.retention_daily, ov.retention_weekly)}; final and safety backups 30 days`,
                   ],
                   [
                     "Encryption",
@@ -134,6 +146,7 @@ export function ProjectBackupsPage() {
           ]}
         />
       </Panel>
+      <BackupAddOnsCard p={p} />
       {p.tier === "dedicated" && <PITRCard p={p} onCreated={setCreated} />}
       <Section title="All backups">
         {list.isPending && <TableSkeleton cols={5} />}

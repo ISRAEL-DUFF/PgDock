@@ -24,6 +24,7 @@ type SettingsPatch struct {
 	IdleInTransactionTimeout *string
 	DiskWarnBytes            *int64
 	ConsoleReadOnly          *bool
+	BackupRetention          *string
 }
 
 // UpdateParams describes a project update; nil fields stay as they are. An
@@ -79,6 +80,15 @@ func applyPatch(s store.ProjectSettings, p SettingsPatch) (store.ProjectSettings
 			return s, false, fmt.Errorf("%w: disk_warn_bytes must not be negative", ErrInvalid)
 		}
 		s.DiskWarnBytes = *p.DiskWarnBytes
+	}
+	if p.BackupRetention != nil {
+		if _, ok := store.BackupRetentionLevel(*p.BackupRetention); !ok {
+			return s, false, fmt.Errorf("%w: backup_retention must be standard, extended or long", ErrInvalid)
+		}
+		s.BackupRetention = *p.BackupRetention
+		if s.BackupRetention == store.RetentionStandard {
+			s.BackupRetention = ""
+		}
 	}
 	if p.ConsoleReadOnly != nil {
 		s.ConsoleReadOnly = *p.ConsoleReadOnly

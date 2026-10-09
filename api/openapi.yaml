@@ -1474,6 +1474,31 @@ paths:
                 $ref: "#/components/schemas/InstanceState"
         default:
           $ref: "#/components/responses/Error"
+    patch:
+      operationId: updateProjectInstance
+      summary: Change a dedicated project's instance settings
+      description: |
+        The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
+        as billed add-ons on Pro and Team. A longer window grows day by day
+        from now; a shorter one drops the older base backups at the next one.
+      tags: [projects]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstanceUpdate"
+      responses:
+        "200":
+          description: The instance.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstanceSummary"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/profiles:
     get:
       operationId: listProfiles
@@ -4923,7 +4948,7 @@ paths:
   /api/v1/orgs/{org}/billing/estimate:
     post:
       operationId: estimateOrgCost
-      summary: What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+      summary: What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
       tags: [billing]
       parameters:
         - $ref: "#/components/parameters/OrgID"
@@ -4949,6 +4974,15 @@ paths:
                 standby_only:
                   type: boolean
                   description: Price only what enabling HA adds to a running instance.
+                pitr_days:
+                  type: integer
+                  enum: [7, 14, 30]
+                  description: A dedicated instance's point-in-time recovery window (14 and 30 are add-ons).
+                backup_retention:
+                  $ref: "#/components/schemas/BackupRetention"
+                region:
+                  type: string
+                  description: The region, for its premium if the price book has one.
       responses:
         "200":
           description: The estimate (before VAT).
@@ -8589,6 +8623,15 @@ components:
           format: int64
         console_read_only:
           type: boolean
+        backup_retention:
+          $ref: "#/components/schemas/BackupRetention"
+    BackupRetention:
+      type: string
+      enum: [standard, extended, long]
+      description: |
+        How long nightly backups are kept: standard (7 daily, 4 weekly),
+        extended (30 daily, 12 weekly) or long (30 daily, 52 weekly). The
+        longer two are billed add-ons on Pro and Team (V4.1 §4.2).
     ProjectList:
       type: object
       required: [items]
@@ -9106,6 +9149,8 @@ components:
           minimum: 0
         console_read_only:
           type: boolean
+        backup_retention:
+          $ref: "#/components/schemas/BackupRetention"
     ProjectUpdated:
       type: object
       required: [project]
@@ -11270,6 +11315,12 @@ components:
             $ref: "#/components/schemas/FailoverEvent"
         availability:
           $ref: "#/components/schemas/Availability"
+    InstanceUpdate:
+      type: object
+      properties:
+        pitr_days:
+          type: integer
+          enum: [7, 14, 30]
     InstanceSummary:
       type: object
       required: [id, kind, status, node_id, node_name, pg_version]
@@ -11280,6 +11331,9 @@ components:
         ha_enabled:
           type: boolean
           description: A primary and a streaming standby on another node (V3 §2.2).
+        pitr_days:
+          type: integer
+          description: Dedicated only. The point-in-time recovery window in days (7, 14 or 30).
         pg_release:
           type: string
           nullable: true
@@ -14284,6 +14338,21 @@ components:
               $ref: "#/components/schemas/Decimal"
             sync_replication_hour:
               $ref: "#/components/schemas/Decimal"
+            message_margin_percent:
+              $ref: "#/components/schemas/Decimal"
+            pitr_14_hour:
+              $ref: "#/components/schemas/Decimal"
+            pitr_30_hour:
+              $ref: "#/components/schemas/Decimal"
+            backup_retention_extended_hour:
+              $ref: "#/components/schemas/Decimal"
+            backup_retention_long_hour:
+              $ref: "#/components/schemas/Decimal"
+            region_premium_percent:
+              type: object
+              description: A percentage added to a project's dedicated, HA, read replica and synchronous replication lines, by region ID.
+              additionalProperties:
+                $ref: "#/components/schemas/Decimal"
     PriceBook:
       type: object
       required: [version, effective_at, prices, created_at]

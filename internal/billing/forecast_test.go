@@ -114,3 +114,63 @@ func TestEstimateDedicated(t *testing.T) {
 		t.Errorf("HA on a running instance: %d a month, want %d", only.MonthlyMinor, want)
 	}
 }
+
+func TestEstimateAddOns(t *testing.T) {
+	s, db, _, _ := newService(t)
+	ctx := context.Background()
+	org := newOrg(t, db, "acme")
+	// Add-ons alone: 14-day PITR and long retention, an hour each.
+	e, err := s.EstimateDedicated(ctx, org, billing.EstimateRequest{PITRDays: 14, Retention: "long"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.HourlyMinor != 685+411 || len(e.Lines) != 2 {
+		t.Errorf("add-ons: %d an hour, lines %+v", e.HourlyMinor, e.Lines)
+	}
+	for _, bad := range []billing.EstimateRequest{{PITRDays: 10}, {Retention: "forever"}} {
+		if _, err := s.EstimateDedicated(ctx, org, bad); err == nil {
+			t.Errorf("%+v: estimated", bad)
+		}
+	}
+	// A region without a premium in the default book adds nothing.
+	plain, _ := s.EstimateDedicated(ctx, org, billing.EstimateRequest{CPUs: billing.D("2"), MemoryMB: 4096, DiskGB: 40})
+	lagos, _ := s.EstimateDedicated(ctx, org, billing.EstimateRequest{CPUs: billing.D("2"), MemoryMB: 4096, DiskGB: 40, Region: "ng-lagos"})
+	if plain.HourlyMinor != lagos.HourlyMinor {
+		t.Errorf("no premium set, yet Lagos is %d against %d", lagos.HourlyMinor, plain.HourlyMinor)
+	}
+}
+
+func TestAddOnRating(t *testing.T) {
+	s, db, clk, _ := newService(t)
+	ctx := context.Background()
+	org := newOrg(t, db, "acme")
+	clk.t = day(1)
+	if _, err := s.ChangePlan(ctx, org, billing.PlanRequest{Plan: billing.PlanPro}); err != nil {
+		t.Fatal(err)
+	}
+	p := uuid.New()
+	// Ten days of 30-day PITR, the whole month of extended retention.
+	usage(t, db, org, p, tenancy.MetricPITR30Hours, day(1), day(11), "1")
+	usage(t, db, org, p, tenancy.MetricRetentionExtendedHours, day(1), day(1).AddDate(0, 1, 0), "1")
+	r, err := s.Rate(ctx, org, day(31))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]int64{
+		"30-day point-in-time recovery": 240 * 1644,
+		"Extended backup retention":     billing.D("744").Mul(billing.D("205.5")).Round(),
+	}
+	for _, l := range r.Lines {
+		for prefix, amount := range want {
+			if strings.HasPrefix(l.Description, prefix) {
+				if l.Amount != amount || l.Revenue != billing.RevenueAddons {
+					t.Errorf("%s: %d to %s, want %d", l.Description, l.Amount, l.Revenue, amount)
+				}
+				delete(want, prefix)
+			}
+		}
+	}
+	if len(want) > 0 {
+		t.Errorf("missing lines %v in %+v", want, r.Lines)
+	}
+}

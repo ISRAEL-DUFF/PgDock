@@ -526,7 +526,7 @@ var specMatrix = map[authz.Action][]string{
 		// V3 §2.4: a major upgrade moves the project like a promotion does
 		"POST /api/v1/projects/{id}/upgrade/preflight", "POST /api/v1/projects/{id}/upgrade",
 		// V3 §2.2 HA: enable/disable, settings, planned switchover, visibility.
-		"POST /api/v1/projects/{id}/ha", "PATCH /api/v1/projects/{id}/ha",
+		"POST /api/v1/projects/{id}/ha", "PATCH /api/v1/projects/{id}/ha", "PATCH /api/v1/projects/{id}/instance",
 		"DELETE /api/v1/projects/{id}/ha", "POST /api/v1/projects/{id}/switchover",
 		// V3.1 §3.3 moving its Patroni state to its region's etcd cluster
 		"POST /api/v1/projects/{id}/ha/etcd-move",
@@ -624,7 +624,7 @@ var specMatrix = map[authz.Action][]string{
 		"POST /api/v1/nodes", "GET /api/v1/nodes/{id}", "PATCH /api/v1/nodes/{id}", "DELETE /api/v1/nodes/{id}",
 		// V3 §5 capacity automation, §5.4 and §7.2 costs and margins
 		// V3 §6.1 regions
-		"GET /api/v1/admin/regions", "PUT /api/v1/admin/regions/{region_id}",
+		"GET /api/v1/admin/regions", "PUT /api/v1/admin/regions/{region_id}", "GET /api/v1/admin/regions/{region_id}/readiness",
 		"GET /api/v1/admin/capacity", "PUT /api/v1/admin/capacity/settings", "POST /api/v1/admin/capacity/evaluate", "POST /api/v1/admin/capacity/proposals/{proposal_id}/approve", "POST /api/v1/admin/capacity/proposals/{proposal_id}/reject", "POST /api/v1/admin/capacity/rebalance", "POST /api/v1/admin/capacity/batches/{batch_id}", "GET /api/v1/admin/cloud/catalog", "POST /api/v1/nodes/{id}/drain", "DELETE /api/v1/nodes/{id}/drain", "PUT /api/v1/nodes/{id}/cost", "GET /api/v1/admin/costs", "POST /api/v1/admin/costs/attribute", "GET /api/v1/admin/costs/settings", "PUT /api/v1/admin/costs/settings", "GET /api/v1/admin/fx-rates", "POST /api/v1/admin/fx-rates",
 		"POST /api/v1/nodes/{id}/shared-cluster", "POST /api/v1/nodes/{id}/registration-token", "GET /api/v1/nodes/{id}/metrics",
 		"GET /api/v1/security/isolation-checks", "POST /api/v1/security/isolation-checks", "GET /api/v1/alerts",

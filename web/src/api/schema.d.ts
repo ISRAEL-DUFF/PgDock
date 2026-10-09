@@ -1193,7 +1193,13 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Change a dedicated project's instance settings
+         * @description The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
+         *     as billed add-ons on Pro and Team. A longer window grows day by day
+         *     from now; a shorter one drops the older base backups at the next one.
+         */
+        patch: operations["updateProjectInstance"];
         trace?: never;
     };
     "/api/v1/profiles": {
@@ -3577,7 +3583,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** What a dedicated instance, HA or synchronous replication would cost (shown before billable actions) */
+        /** What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions) */
         post: operations["estimateOrgCost"];
         delete?: never;
         options?: never;
@@ -5861,7 +5867,15 @@ export interface components {
             /** Format: int64 */
             disk_warn_bytes: number;
             console_read_only: boolean;
+            backup_retention?: components["schemas"]["BackupRetention"];
         };
+        /**
+         * @description How long nightly backups are kept: standard (7 daily, 4 weekly),
+         *     extended (30 daily, 12 weekly) or long (30 daily, 52 weekly). The
+         *     longer two are billed add-ons on Pro and Team (V4.1 §4.2).
+         * @enum {string}
+         */
+        BackupRetention: "standard" | "extended" | "long";
         ProjectList: {
             items: components["schemas"]["Project"][];
         };
@@ -6148,6 +6162,7 @@ export interface components {
             /** Format: int64 */
             disk_warn_bytes?: number;
             console_read_only?: boolean;
+            backup_retention?: components["schemas"]["BackupRetention"];
         };
         ProjectUpdated: {
             project: components["schemas"]["Project"];
@@ -7334,11 +7349,17 @@ export interface components {
             failovers: components["schemas"]["FailoverEvent"][];
             availability?: components["schemas"]["Availability"];
         };
+        InstanceUpdate: {
+            /** @enum {integer} */
+            pitr_days?: 7 | 14 | 30;
+        };
         InstanceSummary: {
             /** @description Postgres major version. */
             pg_version: number;
             /** @description A primary and a streaming standby on another node (V3 §2.2). */
             ha_enabled?: boolean;
+            /** @description Dedicated only. The point-in-time recovery window in days (7, 14 or 30). */
+            pitr_days?: number;
             /** @description The release the instance runs ("18.1"), as its agent last reported. */
             pg_release?: string | null;
             /** @description The release its image now holds; a newer minor is applied in the maintenance window. */
@@ -8908,6 +8929,15 @@ export interface components {
             addons: {
                 ha_premium_percent: components["schemas"]["Decimal"];
                 sync_replication_hour: components["schemas"]["Decimal"];
+                message_margin_percent?: components["schemas"]["Decimal"];
+                pitr_14_hour?: components["schemas"]["Decimal"];
+                pitr_30_hour?: components["schemas"]["Decimal"];
+                backup_retention_extended_hour?: components["schemas"]["Decimal"];
+                backup_retention_long_hour?: components["schemas"]["Decimal"];
+                /** @description A percentage added to a project's dedicated, HA, read replica and synchronous replication lines, by region ID. */
+                region_premium_percent?: {
+                    [key: string]: components["schemas"]["Decimal"];
+                };
             };
         };
         PriceBook: {
@@ -12050,6 +12080,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstanceState"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateProjectInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstanceUpdate"];
+            };
+        };
+        responses: {
+            /** @description The instance. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceSummary"];
                 };
             };
             default: components["responses"]["Error"];
@@ -16423,6 +16480,14 @@ export interface operations {
                     synchronous?: boolean;
                     /** @description Price only what enabling HA adds to a running instance. */
                     standby_only?: boolean;
+                    /**
+                     * @description A dedicated instance's point-in-time recovery window (14 and 30 are add-ons).
+                     * @enum {integer}
+                     */
+                    pitr_days?: 7 | 14 | 30;
+                    backup_retention?: components["schemas"]["BackupRetention"];
+                    /** @description The region, for its premium if the price book has one. */
+                    region?: string;
                 };
             };
         };

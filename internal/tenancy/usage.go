@@ -33,6 +33,12 @@ const (
 	MetricHARAM           = "ha_ram_gb_hours"
 	MetricHADisk          = "ha_disk_gb_hours"
 	MetricSyncReplication = "sync_replication_hours"
+	// Billing add-ons (V4.1 §4): hours with a longer PITR window or
+	// backup retention.
+	MetricPITR14Hours            = "pitr_14_hours"
+	MetricPITR30Hours            = "pitr_30_hours"
+	MetricRetentionExtendedHours = "backup_retention_extended_hours"
+	MetricRetentionLongHours     = "backup_retention_long_hours"
 	// Backend services (V4 §11.1), reported by pgdock-edge.
 	MetricAPIRequests = "api_requests"
 	MetricAPIEgress   = "api_egress_gb"
@@ -79,6 +85,10 @@ var UsageMetrics = []struct{ Name, Unit, Granularity string }{
 	{MetricHARAM, "GB-RAM-hours", "hour"},
 	{MetricHADisk, "GB-disk-hours", "hour"},
 	{MetricSyncReplication, "hours", "hour"},
+	{MetricPITR14Hours, "hours", "hour"},
+	{MetricPITR30Hours, "hours", "hour"},
+	{MetricRetentionExtendedHours, "hours", "hour"},
+	{MetricRetentionLongHours, "hours", "hour"},
 	{MetricAPIRequests, "requests", "hour"},
 	{MetricAPIEgress, "GB", "hour"},
 	{MetricAuthMAU, "users", "hour"},
@@ -248,10 +258,30 @@ func (s *Service) recordHours(ctx context.Context, from, to time.Time) error {
 		if r.SyncReplication {
 			vals[MetricSyncReplication] = f
 		}
+		switch r.PitrDays {
+		case 14:
+			vals[MetricPITR14Hours] = f
+		case 30:
+			vals[MetricPITR30Hours] = f
+		}
 		for metric, v := range vals {
 			if err := s.upsertUsage(ctx, q, r.OrgID, r.ProjectID, r.PlanID, metric, "hour", r.PeriodStart, v); err != nil {
 				return err
 			}
+		}
+	}
+	// Longer backup retention (V4.1 §4.2).
+	ret, err := q.HourlyBackupRetention(ctx, store.HourlyBackupRetentionParams{FromTs: from, LastHour: to.Add(-time.Hour)})
+	if err != nil {
+		return fmt.Errorf("backup retention: %w", err)
+	}
+	for _, r := range ret {
+		metric := MetricRetentionExtendedHours
+		if r.Retention == "long" {
+			metric = MetricRetentionLongHours
+		}
+		if err := s.upsertUsage(ctx, q, r.OrgID, r.ProjectID, r.PlanID, metric, "hour", r.PeriodStart, max(0, min(1, r.Fraction))); err != nil {
+			return err
 		}
 	}
 	// Read replicas, summed per project and hour.

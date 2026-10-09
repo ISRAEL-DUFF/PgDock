@@ -17,6 +17,12 @@ type Retention struct {
 // DefaultRetention is the shared-tier policy.
 var DefaultRetention = Retention{Daily: 7, Weekly: 4}
 
+// Longer policies, billed add-ons (V4.1 §4.2).
+var (
+	ExtendedRetention = Retention{Daily: 30, Weekly: 12}
+	LongRetention     = Retention{Daily: 30, Weekly: 52}
+)
+
 // Item is a succeeded backup, for retention.
 type Item struct {
 	ID         uuid.UUID

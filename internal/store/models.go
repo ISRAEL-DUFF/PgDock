@@ -465,6 +465,7 @@ type Instance struct {
 	LeaderMember       *uuid.UUID
 	PatroniSecret      []byte
 	EtcdRegion         *string
+	PitrDays           int32
 }
 
 type InstanceMember struct {

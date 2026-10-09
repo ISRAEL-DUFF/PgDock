@@ -53,6 +53,10 @@ func (s *Server) instanceSummaries(ctx context.Context) map[uuid.UUID]gen.Instan
 			NodeId: r.NodeID, NodeName: r.NodeName, Profile: r.Profile, MemoryMb: i32(r.MemLimitMb), VolumeGb: i32(r.VolumeGb),
 			PgVersion: int(r.PgVersion), PgRelease: r.PgRelease, PgReleaseAvailable: r.PgReleaseAvailable, HaEnabled: &r.HaEnabled,
 		}
+		if r.Kind == "dedicated" {
+			pd := int(r.PitrDays)
+			sum.PitrDays = &pd
+		}
 		if f, err := r.CpuLimit.Float64Value(); err == nil && f.Valid {
 			v := float32(f.Float64)
 			sum.Cpus = &v

@@ -21,6 +21,14 @@ bundle share one version (spec §11.5).
   services status` show what is in effect. On upgrading installs the
   limits start with the first full month. New migration 00044.
 - Fixed: the data API couldn't call functions in a schema with no tables.
+- Billing add-ons (V4.1-M3): 14- and 30-day point-in-time recovery for
+  dedicated projects and extended (30 daily, 12 weekly) or long (30
+  daily, 52 weekly) backup retention, on Pro and Team, billed by the hour
+  (Backups page, `pgdock pitr window`, `pgdock backup retention`); a price
+  book can set a per-region premium on dedicated, HA and read replica
+  lines. New migration 00045. Price books published before this have no
+  add-on prices until a new one is published.
+- Fixed: a price book saved through the API dropped its message margin.
 
 ### V4 (on feature/pgdock4)
 - Backend services' edge foundation (V4-M28): a project can turn on backend

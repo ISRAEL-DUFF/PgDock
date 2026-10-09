@@ -19,27 +19,34 @@ import (
 const (
 	RevenueDedicated = AccRevenuePrefix + "dedicated"
 	RevenueHA        = AccRevenuePrefix + "ha"
+	// RevenueAddons is longer PITR, longer retention and region premiums
+	// (V4.1 §4).
+	RevenueAddons = AccRevenuePrefix + "addons"
 )
 
 // metricLabels name the rated metrics on invoices.
 var metricLabels = map[string]string{
-	tenancy.MetricSharedStorage:   "Shared storage (GB-hours)",
-	tenancy.MetricBackupStorage:   "Backup storage (GB-hours)",
-	tenancy.MetricBranchHours:     "Branch hours",
-	tenancy.MetricPoolerTraffic:   "Data transfer (GB)",
-	tenancy.MetricWebhookSent:     "Webhook deliveries",
-	tenancy.MetricJobRunsSQL:      "SQL job runs",
-	tenancy.MetricJobRunsHTTP:     "HTTP job runs",
-	tenancy.MetricDedicatedCPU:    "vCPU-hours",
-	tenancy.MetricDedicatedRAM:    "RAM GB-hours",
-	tenancy.MetricDedicatedDisk:   "Disk GB-hours",
-	tenancy.MetricHACPU:           "vCPU-hours",
-	tenancy.MetricHARAM:           "RAM GB-hours",
-	tenancy.MetricHADisk:          "Disk GB-hours",
-	tenancy.MetricSyncReplication: "hours",
-	tenancy.MetricReplicaCPU:      "vCPU-hours",
-	tenancy.MetricReplicaRAM:      "RAM GB-hours",
-	tenancy.MetricReplicaDisk:     "Disk GB-hours",
+	tenancy.MetricSharedStorage:          "Shared storage (GB-hours)",
+	tenancy.MetricBackupStorage:          "Backup storage (GB-hours)",
+	tenancy.MetricBranchHours:            "Branch hours",
+	tenancy.MetricPoolerTraffic:          "Data transfer (GB)",
+	tenancy.MetricWebhookSent:            "Webhook deliveries",
+	tenancy.MetricJobRunsSQL:             "SQL job runs",
+	tenancy.MetricJobRunsHTTP:            "HTTP job runs",
+	tenancy.MetricDedicatedCPU:           "vCPU-hours",
+	tenancy.MetricDedicatedRAM:           "RAM GB-hours",
+	tenancy.MetricDedicatedDisk:          "Disk GB-hours",
+	tenancy.MetricHACPU:                  "vCPU-hours",
+	tenancy.MetricHARAM:                  "RAM GB-hours",
+	tenancy.MetricHADisk:                 "Disk GB-hours",
+	tenancy.MetricSyncReplication:        "hours",
+	tenancy.MetricPITR14Hours:            "hours",
+	tenancy.MetricPITR30Hours:            "hours",
+	tenancy.MetricRetentionExtendedHours: "hours",
+	tenancy.MetricRetentionLongHours:     "hours",
+	tenancy.MetricReplicaCPU:             "vCPU-hours",
+	tenancy.MetricReplicaRAM:             "RAM GB-hours",
+	tenancy.MetricReplicaDisk:            "Disk GB-hours",
 	// Backend services (V4 §12).
 	tenancy.MetricAPIRequests:          "Data API requests",
 	tenancy.MetricAPIEgress:            "Data API transfer (GB)",
@@ -171,7 +178,8 @@ func (s *Service) rate(ctx context.Context, orgID uuid.UUID, month time.Time, pr
 		switch r.Metric {
 		case tenancy.MetricDedicatedCPU, tenancy.MetricDedicatedRAM, tenancy.MetricDedicatedDisk,
 			tenancy.MetricHACPU, tenancy.MetricHARAM, tenancy.MetricHADisk, tenancy.MetricSyncReplication,
-			tenancy.MetricReplicaCPU, tenancy.MetricReplicaRAM, tenancy.MetricReplicaDisk:
+			tenancy.MetricReplicaCPU, tenancy.MetricReplicaRAM, tenancy.MetricReplicaDisk,
+			tenancy.MetricPITR14Hours, tenancy.MetricPITR30Hours, tenancy.MetricRetentionExtendedHours, tenancy.MetricRetentionLongHours:
 			if projUse[r.ProjectID] == nil {
 				projUse[r.ProjectID] = map[string]Dec{}
 			}
@@ -226,14 +234,14 @@ func (s *Service) rate(ctx context.Context, orgID uuid.UUID, month time.Time, pr
 	for id := range projUse {
 		ids = append(ids, id)
 	}
-	names := map[uuid.UUID]string{}
+	names, regions, regionNames := map[uuid.UUID]string{}, map[uuid.UUID]string{}, map[uuid.UUID]string{}
 	if len(ids) > 0 {
 		pn, err := q.ProjectNamesByID(ctx, ids)
 		if err != nil {
 			return Rated{}, err
 		}
 		for _, n := range pn {
-			names[n.ID] = n.Name
+			names[n.ID], regions[n.ID], regionNames[n.ID] = n.Name, n.Region, n.RegionName
 		}
 	}
 	sort.Slice(ids, func(i, j int) bool { return names[ids[i]]+ids[i].String() < names[ids[j]]+ids[j].String() })
@@ -255,25 +263,38 @@ func (s *Service) rate(ctx context.Context, orgID uuid.UUID, month time.Time, pr
 			})
 			return amount
 		}
-		add(KindDedicated, tenancy.MetricDedicatedCPU, "Dedicated", p.Dedicated.VCPUHour, RevenueDedicated)
-		add(KindDedicated, tenancy.MetricDedicatedRAM, "Dedicated", p.Dedicated.RAMGBHour, RevenueDedicated)
-		add(KindDedicated, tenancy.MetricDedicatedDisk, "Dedicated", p.Dedicated.DiskGBHour, RevenueDedicated)
+		// hardware is what a region premium applies to.
+		hardware := add(KindDedicated, tenancy.MetricDedicatedCPU, "Dedicated", p.Dedicated.VCPUHour, RevenueDedicated) +
+			add(KindDedicated, tenancy.MetricDedicatedRAM, "Dedicated", p.Dedicated.RAMGBHour, RevenueDedicated) +
+			add(KindDedicated, tenancy.MetricDedicatedDisk, "Dedicated", p.Dedicated.DiskGBHour, RevenueDedicated)
 		standby := add(KindAddon, tenancy.MetricHACPU, "HA standby", p.Dedicated.VCPUHour, RevenueHA) +
 			add(KindAddon, tenancy.MetricHARAM, "HA standby", p.Dedicated.RAMGBHour, RevenueHA) +
 			add(KindAddon, tenancy.MetricHADisk, "HA standby", p.Dedicated.DiskGBHour, RevenueHA)
+		hardware += standby
 		if pct := p.AddOns.HAPremiumPercent; standby > 0 && pct.Sign() > 0 {
 			if amount := DecInt(standby).Mul(pct).Frac(1, 100).Round(); amount > 0 {
 				out.Lines = append(out.Lines, Line{
 					Kind: KindAddon, ProjectID: &pid, Quantity: pct, UnitPrice: DecInt(standby).Frac(1, 100), Amount: amount, Revenue: RevenueHA,
 					Description: fmt.Sprintf("HA premium %s: %s%% of the standby", name, pct),
 				})
+				hardware += amount
 			}
 		}
-		add(KindAddon, tenancy.MetricSyncReplication, "Synchronous replication", p.AddOns.SyncReplicationHour, RevenueHA)
+		hardware += add(KindAddon, tenancy.MetricSyncReplication, "Synchronous replication", p.AddOns.SyncReplicationHour, RevenueHA)
 		// Read replicas bill like a dedicated instance of their size (V4 §7).
-		add(KindDedicated, tenancy.MetricReplicaCPU, "Read replicas", p.Dedicated.VCPUHour, RevenueDedicated)
-		add(KindDedicated, tenancy.MetricReplicaRAM, "Read replicas", p.Dedicated.RAMGBHour, RevenueDedicated)
-		add(KindDedicated, tenancy.MetricReplicaDisk, "Read replicas", p.Dedicated.DiskGBHour, RevenueDedicated)
+		hardware += add(KindDedicated, tenancy.MetricReplicaCPU, "Read replicas", p.Dedicated.VCPUHour, RevenueDedicated) +
+			add(KindDedicated, tenancy.MetricReplicaRAM, "Read replicas", p.Dedicated.RAMGBHour, RevenueDedicated) +
+			add(KindDedicated, tenancy.MetricReplicaDisk, "Read replicas", p.Dedicated.DiskGBHour, RevenueDedicated)
+		// Add-ons (V4.1 §4).
+		add(KindAddon, tenancy.MetricPITR14Hours, "14-day point-in-time recovery", p.AddOns.PITR14Hour, RevenueAddons)
+		add(KindAddon, tenancy.MetricPITR30Hours, "30-day point-in-time recovery", p.AddOns.PITR30Hour, RevenueAddons)
+		add(KindAddon, tenancy.MetricRetentionExtendedHours, "Extended backup retention", p.AddOns.RetentionExtendedHour, RevenueAddons)
+		add(KindAddon, tenancy.MetricRetentionLongHours, "Long backup retention", p.AddOns.RetentionLongHour, RevenueAddons)
+		if line, ok := regionPremium(p, regions[id], hardware); ok {
+			line.ProjectID = &pid
+			line.Description = fmt.Sprintf("%s region premium %s: %s%% of %s", regionNames[id], name, line.Quantity, Naira(hardware))
+			out.Lines = append(out.Lines, line)
+		}
 	}
 
 	// SMS and WhatsApp codes through the platform's accounts: their
@@ -414,4 +435,18 @@ func LineService(l Line) string {
 		return "plan"
 	}
 	return "database"
+}
+
+// regionPremium is the premium line on amount (kobo) of a project's
+// hardware lines in region, if the price book sets one (V4.1 §4.3).
+func regionPremium(p Prices, region string, amount int64) (Line, bool) {
+	pct, ok := p.AddOns.RegionPremiumPercent[region]
+	if !ok || pct.Sign() <= 0 || amount <= 0 {
+		return Line{}, false
+	}
+	v := DecInt(amount).Mul(pct).Frac(1, 100).Round()
+	if v <= 0 {
+		return Line{}, false
+	}
+	return Line{Kind: KindAddon, Quantity: pct, UnitPrice: DecInt(amount).Frac(1, 100), Amount: v, Revenue: RevenueAddons}, true
 }

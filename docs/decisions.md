@@ -719,3 +719,16 @@ The spec's own decisions log is §16.
 | 6 | What is exempt | Auth endpoints and `/data/v1/health` are never stopped by the request limit. | Users must still sign in (and an app learn why the rest is refused). |
 | 7 | A catalog fix | The data API's catalog skipped functions in a schema with no tables (`datacat.Introspect` returned early), so RPC to them answered `404 unknown_function`; found by this milestone's test. | A bug since V4-M30. |
 
+## V4.1-M3 — Billing add-ons
+
+| # | Topic | Decision | Why |
+| --- | --- | --- | --- |
+| 1 | PITR window | `instances.pitr_days` (7, 14, 30); a base backup keeps that many full backups when longer than 7 (`dedicated.Service.RetainFull`), so WAL-G's retention, and the WAL it keeps, follow. Set with `PATCH /projects/{id}/instance`, new; M4's resize will use it too. | V4.1 §4.1. Retention by count matches a daily schedule; a manual base backup counts as a day, which only shortens the window. |
+| 2 | Retention | `projects.settings.backup_retention` (standard, extended, long); a project's nightly retention reads it. It applies to logical backups; a dedicated project's base backups follow its PITR window instead, so the UI offers dedicated projects the window and shared ones the retention. | V4.1 §4.2. |
+| 3 | Plan gates | Quota limits `pitr_days_max` and `backup_retention_max` (a level: 0 standard, 1 extended, 2 long, since limits are numbers); 403 `plan_required` above them, and the spend cap refuses a new add-on. | The plan named `backup_retention_max` values as words; limits are integers everywhere else. |
+| 4 | Region premium | `addons.region_premium_percent` by region; rated per project on its dedicated, HA standby, HA premium, synchronous replication and read replica lines, with the region's name from the regions table. Shared projects pay none. | V4.1 §4.3 includes shared overage in a premium region "as a rule for later"; overage is rated per organisation, not per project, and Lagos shared isn't offered, so it waits until it is. A deviation. |
+| 5 | Revenue | Add-on and premium lines post to `revenue:addons`. | Kept apart from HA in the revenue dashboard. |
+| 6 | Older price books | Books published before V4.1 have zero add-on prices; the add-ons are free until an admin publishes a book with them. The admin price book editor shows the fields when a draft is started from a current book. | Published books can't change (the database refuses it); this is how the V4 message margin arrived too. |
+| 7 | A fix | The API's `Prices` schema listed only two add-on fields, so a book saved through the API dropped the message margin (and would have dropped the new prices); it lists them all now, and `TestBillingAddOns` checks a round trip. | A bug since V4-M37. |
+| 8 | Done-when | `TestBillingAddOns` takes 15 back-to-back base backups for 15 days (WAL-G's retention is by count) and restores to a point after the third, outside a 7-backup window; extended retention is checked over 40 copied nightly backups. | The test WAL-G target has no fake clock; the count is what decides what's kept. |
+

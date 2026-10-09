@@ -231,6 +231,7 @@ var routeRules = map[string]rule{
 	"GET /api/v1/projects/{id}/ha":                                 {scope: scopeProject, action: authz.ProjectView},
 	"POST /api/v1/projects/{id}/ha":                                {scope: scopeProject, action: authz.ProjectPromote},
 	"PATCH /api/v1/projects/{id}/ha":                               {scope: scopeProject, action: authz.ProjectPromote},
+	"PATCH /api/v1/projects/{id}/instance":                         {scope: scopeProject, action: authz.ProjectPromote},
 	"DELETE /api/v1/projects/{id}/ha":                              {scope: scopeProject, action: authz.ProjectPromote},
 	"POST /api/v1/projects/{id}/switchover":                        {scope: scopeProject, action: authz.ProjectPromote},
 	"POST /api/v1/projects/{id}/ha/etcd-move":                      {scope: scopeProject, action: authz.ProjectPromote},

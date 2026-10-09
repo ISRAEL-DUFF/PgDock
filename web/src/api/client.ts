@@ -92,6 +92,9 @@ export type EstimateRequest = {
   ha?: boolean;
   synchronous?: boolean;
   standby_only?: boolean;
+  pitr_days?: 7 | 14 | 30;
+  backup_retention?: S["BackupRetention"];
+  region?: string;
 };
 export type PaymentMethod = S["PaymentMethod"];
 export type Payment = S["Payment"];
@@ -872,6 +875,12 @@ export const api = {
     request<S["InstanceState"]>("POST", `/api/v1/projects/${id}/instance`, {
       action,
     }),
+  updateProjectInstance: (id: string, b: S["InstanceUpdate"]) =>
+    request<S["InstanceSummary"]>(
+      "PATCH",
+      `/api/v1/projects/${id}/instance`,
+      b,
+    ),
   updateProject: (id: string, b: S["UpdateProjectRequest"]) =>
     request<ProjectUpdated>("PATCH", `/api/v1/projects/${id}/settings`, b),
   resumeProject: (id: string) =>

@@ -509,6 +509,27 @@ func (e BackupKind) Valid() bool {
 	}
 }
 
+// Defines values for BackupRetention.
+const (
+	Extended BackupRetention = "extended"
+	Long     BackupRetention = "long"
+	Standard BackupRetention = "standard"
+)
+
+// Valid indicates whether the value is a known member of the BackupRetention enum.
+func (e BackupRetention) Valid() bool {
+	switch e {
+	case Extended:
+		return true
+	case Long:
+		return true
+	case Standard:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BillingAccountMode.
 const (
 	BillingAccountModePostpaid BillingAccountMode = "postpaid"
@@ -1226,6 +1247,27 @@ func (e InstanceSummaryKind) Valid() bool {
 	case InstanceSummaryKindDedicated:
 		return true
 	case InstanceSummaryKindShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceUpdatePitrDays.
+const (
+	InstanceUpdatePitrDaysN14 InstanceUpdatePitrDays = 14
+	InstanceUpdatePitrDaysN30 InstanceUpdatePitrDays = 30
+	InstanceUpdatePitrDaysN7  InstanceUpdatePitrDays = 7
+)
+
+// Valid indicates whether the value is a known member of the InstanceUpdatePitrDays enum.
+func (e InstanceUpdatePitrDays) Valid() bool {
+	switch e {
+	case InstanceUpdatePitrDaysN14:
+		return true
+	case InstanceUpdatePitrDaysN30:
+		return true
+	case InstanceUpdatePitrDaysN7:
 		return true
 	default:
 		return false
@@ -3521,6 +3563,27 @@ func (e StartCheckoutJSONBodyPurpose) Valid() bool {
 	}
 }
 
+// Defines values for EstimateOrgCostJSONBodyPitrDays.
+const (
+	EstimateOrgCostJSONBodyPitrDaysN14 EstimateOrgCostJSONBodyPitrDays = 14
+	EstimateOrgCostJSONBodyPitrDaysN30 EstimateOrgCostJSONBodyPitrDays = 30
+	EstimateOrgCostJSONBodyPitrDaysN7  EstimateOrgCostJSONBodyPitrDays = 7
+)
+
+// Valid indicates whether the value is a known member of the EstimateOrgCostJSONBodyPitrDays enum.
+func (e EstimateOrgCostJSONBodyPitrDays) Valid() bool {
+	switch e {
+	case EstimateOrgCostJSONBodyPitrDaysN14:
+		return true
+	case EstimateOrgCostJSONBodyPitrDaysN30:
+		return true
+	case EstimateOrgCostJSONBodyPitrDaysN7:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetOrgUsageParamsFormat.
 const (
 	GetOrgUsageParamsFormatCsv  GetOrgUsageParamsFormat = "csv"
@@ -4677,6 +4740,11 @@ type BackupOverview struct {
 	StorageConfigured  bool          `json:"storage_configured"`
 	WindowHourUtc      int           `json:"window_hour_utc"`
 }
+
+// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
+// extended (30 daily, 12 weekly) or long (30 daily, 52 weekly). The
+// longer two are billed add-ons on Pro and Team (V4.1 §4.2).
+type BackupRetention string
 
 // BatchDecision defines model for BatchDecision.
 type BatchDecision struct {
@@ -5930,14 +5998,25 @@ type InstanceSummary struct {
 	PgReleaseAvailable *string `json:"pg_release_available,omitempty"`
 
 	// PgVersion Postgres major version.
-	PgVersion int     `json:"pg_version"`
-	Profile   *string `json:"profile,omitempty"`
-	Status    string  `json:"status"`
-	VolumeGb  *int    `json:"volume_gb,omitempty"`
+	PgVersion int `json:"pg_version"`
+
+	// PitrDays Dedicated only. The point-in-time recovery window in days (7, 14 or 30).
+	PitrDays *int    `json:"pitr_days,omitempty"`
+	Profile  *string `json:"profile,omitempty"`
+	Status   string  `json:"status"`
+	VolumeGb *int    `json:"volume_gb,omitempty"`
 }
 
 // InstanceSummaryKind defines model for InstanceSummary.Kind.
 type InstanceSummaryKind string
+
+// InstanceUpdate defines model for InstanceUpdate.
+type InstanceUpdate struct {
+	PitrDays *InstanceUpdatePitrDays `json:"pitr_days,omitempty"`
+}
+
+// InstanceUpdatePitrDays defines model for InstanceUpdate.PitrDays.
+type InstanceUpdatePitrDays int
 
 // Invitation defines model for Invitation.
 type Invitation struct {
@@ -7084,10 +7163,38 @@ type PricePlan struct {
 // Prices defines model for Prices.
 type Prices struct {
 	Addons struct {
+		// BackupRetentionExtendedHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		BackupRetentionExtendedHour *Decimal `json:"backup_retention_extended_hour,omitempty"`
+
+		// BackupRetentionLongHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		BackupRetentionLongHour *Decimal `json:"backup_retention_long_hour,omitempty"`
+
 		// HaPremiumPercent An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 		//
 		// Example: 34.25
 		HaPremiumPercent Decimal `json:"ha_premium_percent"`
+
+		// MessageMarginPercent An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		MessageMarginPercent *Decimal `json:"message_margin_percent,omitempty"`
+
+		// Pitr14Hour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		Pitr14Hour *Decimal `json:"pitr_14_hour,omitempty"`
+
+		// Pitr30Hour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+		//
+		// Example: 34.25
+		Pitr30Hour *Decimal `json:"pitr_30_hour,omitempty"`
+
+		// RegionPremiumPercent A percentage added to a project's dedicated, HA, read replica and synchronous replication lines, by region ID.
+		RegionPremiumPercent *map[string]Decimal `json:"region_premium_percent,omitempty"`
 
 		// SyncReplicationHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 		//
@@ -7321,21 +7428,29 @@ type ProjectRoleRequest struct {
 
 // ProjectSettings defines model for ProjectSettings.
 type ProjectSettings struct {
-	ConnectionLimit                 int    `json:"connection_limit"`
-	ConsoleReadOnly                 bool   `json:"console_read_only"`
-	DiskWarnBytes                   int64  `json:"disk_warn_bytes"`
-	IdleInTransactionSessionTimeout string `json:"idle_in_transaction_session_timeout"`
-	PoolSize                        int    `json:"pool_size"`
-	StatementTimeout                string `json:"statement_timeout"`
+	// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
+	// extended (30 daily, 12 weekly) or long (30 daily, 52 weekly). The
+	// longer two are billed add-ons on Pro and Team (V4.1 §4.2).
+	BackupRetention                 *BackupRetention `json:"backup_retention,omitempty"`
+	ConnectionLimit                 int              `json:"connection_limit"`
+	ConsoleReadOnly                 bool             `json:"console_read_only"`
+	DiskWarnBytes                   int64            `json:"disk_warn_bytes"`
+	IdleInTransactionSessionTimeout string           `json:"idle_in_transaction_session_timeout"`
+	PoolSize                        int              `json:"pool_size"`
+	StatementTimeout                string           `json:"statement_timeout"`
 }
 
 // ProjectSettingsPatch defines model for ProjectSettingsPatch.
 type ProjectSettingsPatch struct {
-	ConnectionLimit                 *int    `json:"connection_limit,omitempty"`
-	ConsoleReadOnly                 *bool   `json:"console_read_only,omitempty"`
-	DiskWarnBytes                   *int64  `json:"disk_warn_bytes,omitempty"`
-	IdleInTransactionSessionTimeout *string `json:"idle_in_transaction_session_timeout,omitempty"`
-	PoolSize                        *int    `json:"pool_size,omitempty"`
+	// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
+	// extended (30 daily, 12 weekly) or long (30 daily, 52 weekly). The
+	// longer two are billed add-ons on Pro and Team (V4.1 §4.2).
+	BackupRetention                 *BackupRetention `json:"backup_retention,omitempty"`
+	ConnectionLimit                 *int             `json:"connection_limit,omitempty"`
+	ConsoleReadOnly                 *bool            `json:"console_read_only,omitempty"`
+	DiskWarnBytes                   *int64           `json:"disk_warn_bytes,omitempty"`
+	IdleInTransactionSessionTimeout *string          `json:"idle_in_transaction_session_timeout,omitempty"`
+	PoolSize                        *int             `json:"pool_size,omitempty"`
 
 	// StatementTimeout Postgres duration such as `60s`; empty to unset.
 	StatementTimeout *string `json:"statement_timeout,omitempty"`
@@ -9523,15 +9638,28 @@ type StartCheckoutJSONBodyPurpose string
 
 // EstimateOrgCostJSONBody defines parameters for EstimateOrgCost.
 type EstimateOrgCostJSONBody struct {
-	Cpus     *float32 `json:"cpus,omitempty"`
-	DiskGb   *int64   `json:"disk_gb,omitempty"`
-	Ha       *bool    `json:"ha,omitempty"`
-	MemoryMb *int64   `json:"memory_mb,omitempty"`
+	// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
+	// extended (30 daily, 12 weekly) or long (30 daily, 52 weekly). The
+	// longer two are billed add-ons on Pro and Team (V4.1 §4.2).
+	BackupRetention *BackupRetention `json:"backup_retention,omitempty"`
+	Cpus            *float32         `json:"cpus,omitempty"`
+	DiskGb          *int64           `json:"disk_gb,omitempty"`
+	Ha              *bool            `json:"ha,omitempty"`
+	MemoryMb        *int64           `json:"memory_mb,omitempty"`
+
+	// PitrDays A dedicated instance's point-in-time recovery window (14 and 30 are add-ons).
+	PitrDays *EstimateOrgCostJSONBodyPitrDays `json:"pitr_days,omitempty"`
+
+	// Region The region, for its premium if the price book has one.
+	Region *string `json:"region,omitempty"`
 
 	// StandbyOnly Price only what enabling HA adds to a running instance.
 	StandbyOnly *bool `json:"standby_only,omitempty"`
 	Synchronous *bool `json:"synchronous,omitempty"`
 }
+
+// EstimateOrgCostJSONBodyPitrDays defines parameters for EstimateOrgCost.
+type EstimateOrgCostJSONBodyPitrDays int
 
 // UploadWhtCertificateParams defines parameters for UploadWhtCertificate.
 type UploadWhtCertificateParams struct {
@@ -10158,6 +10286,9 @@ type EnableProjectHAJSONRequestBody = HAEnableRequest
 
 // ExplainInsightQueryJSONRequestBody defines body for ExplainInsightQuery for application/json ContentType.
 type ExplainInsightQueryJSONRequestBody = InsightExplainRequest
+
+// UpdateProjectInstanceJSONRequestBody defines body for UpdateProjectInstance for application/json ContentType.
+type UpdateProjectInstanceJSONRequestBody = InstanceUpdate
 
 // ProjectInstanceActionJSONRequestBody defines body for ProjectInstanceAction for application/json ContentType.
 type ProjectInstanceActionJSONRequestBody = InstanceActionRequest
@@ -10842,7 +10973,7 @@ type ServerInterface interface {
 	// RemoveBillingContact Remove a billing contact
 	// (DELETE /api/v1/orgs/{org}/billing/contacts/{email})
 	RemoveBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string)
-	// EstimateOrgCost What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+	// EstimateOrgCost What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	// (POST /api/v1/orgs/{org}/billing/estimate)
 	EstimateOrgCost(w http.ResponseWriter, r *http.Request, org OrgID)
 	// GetOrgForecast The current month so far and its forecast (V3 §3.10)
@@ -11139,6 +11270,9 @@ type ServerInterface interface {
 	// ListSlowQueries Statements over the slow-query threshold
 	// (GET /api/v1/projects/{id}/insights/slow)
 	ListSlowQueries(w http.ResponseWriter, r *http.Request, id ProjectID, params ListSlowQueriesParams)
+	// UpdateProjectInstance Change a dedicated project's instance settings
+	// (PATCH /api/v1/projects/{id}/instance)
+	UpdateProjectInstance(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// ProjectInstanceAction Start, stop, or restart a dedicated project's instance
 	// (POST /api/v1/projects/{id}/instance)
 	ProjectInstanceAction(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -12540,7 +12674,7 @@ func (_ Unimplemented) RemoveBillingContact(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// EstimateOrgCost What a dedicated instance, HA or synchronous replication would cost (shown before billable actions)
+// EstimateOrgCost What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 // (POST /api/v1/orgs/{org}/billing/estimate)
 func (_ Unimplemented) EstimateOrgCost(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -13131,6 +13265,12 @@ func (_ Unimplemented) GetInsightQuery(w http.ResponseWriter, r *http.Request, i
 // ListSlowQueries Statements over the slow-query threshold
 // (GET /api/v1/projects/{id}/insights/slow)
 func (_ Unimplemented) ListSlowQueries(w http.ResponseWriter, r *http.Request, id ProjectID, params ListSlowQueriesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateProjectInstance Change a dedicated project's instance settings
+// (PATCH /api/v1/projects/{id}/instance)
+func (_ Unimplemented) UpdateProjectInstance(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -21268,6 +21408,32 @@ func (siw *ServerInterfaceWrapper) ListSlowQueries(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// UpdateProjectInstance operation middleware
+func (siw *ServerInterfaceWrapper) UpdateProjectInstance(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateProjectInstance(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ProjectInstanceAction operation middleware
 func (siw *ServerInterfaceWrapper) ProjectInstanceAction(w http.ResponseWriter, r *http.Request) {
 
@@ -24793,6 +24959,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/demote", wrapper.DemoteProject)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/projects/{id}/instance", wrapper.UpdateProjectInstance)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/projects/{id}/instance", wrapper.ProjectInstanceAction)

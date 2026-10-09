@@ -1786,12 +1786,15 @@ func (q *Queries) PlanChangesIn(ctx context.Context, arg PlanChangesInParams) ([
 }
 
 const projectNamesByID = `-- name: ProjectNamesByID :many
-SELECT id, name FROM projects WHERE id = ANY($1::uuid[])
+SELECT p.id, p.name, p.region, COALESCE(r.name, p.region)::text AS region_name
+FROM projects p LEFT JOIN regions r ON r.id = p.region WHERE p.id = ANY($1::uuid[])
 `
 
 type ProjectNamesByIDRow struct {
-	ID   uuid.UUID
-	Name string
+	ID         uuid.UUID
+	Name       string
+	Region     string
+	RegionName string
 }
 
 // tenant: system - names for invoice lines (deleted projects included).
@@ -1804,7 +1807,12 @@ func (q *Queries) ProjectNamesByID(ctx context.Context, ids []uuid.UUID) ([]Proj
 	var items []ProjectNamesByIDRow
 	for rows.Next() {
 		var i ProjectNamesByIDRow
-		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Region,
+			&i.RegionName,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

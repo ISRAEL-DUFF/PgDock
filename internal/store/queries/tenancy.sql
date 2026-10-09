@@ -98,12 +98,25 @@ SELECT p.id AS project_id, p.org_id, o.plan_id, g.h::timestamptz AS period_start
        -- (read replicas are recorded on their own, V4 §7).
        (CASE WHEN i.ha_enabled THEN GREATEST((SELECT count(*) FROM instance_members m WHERE m.instance_id = i.id AND m.deleted_at IS NULL AND NOT m.replica) - 1, 0) ELSE 0 END)::int AS standbys,
        (i.ha_enabled AND i.sync_replication)::bool AS sync_replication,
+       i.pitr_days,
        (extract(epoch FROM LEAST(g.h + '1 hour'::interval, COALESCE(p.deleted_at, 'infinity'::timestamptz)) - GREATEST(g.h, p.created_at)) / 3600)::float8 AS fraction
 FROM projects p
 JOIN instances i ON i.id = p.instance_id
 JOIN organizations o ON o.id = p.org_id
 CROSS JOIN generate_series(@from_ts::timestamptz, @last_hour::timestamptz, '1 hour'::interval) AS g(h)
 WHERE p.tier = 'dedicated' AND i.kind = 'dedicated'
+  AND p.created_at < g.h + '1 hour'::interval AND (p.deleted_at IS NULL OR p.deleted_at > g.h);
+
+-- name: HourlyBackupRetention :many
+-- tenant: system - usage recording; rows carry org_id.
+-- Projects on a longer backup retention (V4.1 §4.2), for each hour from
+-- @from_ts to @last_hour they existed, with the fraction of the hour.
+SELECT p.id AS project_id, p.org_id, o.plan_id, g.h::timestamptz AS period_start, (p.settings->>'backup_retention')::text AS retention,
+       (extract(epoch FROM LEAST(g.h + '1 hour'::interval, COALESCE(p.deleted_at, 'infinity'::timestamptz)) - GREATEST(g.h, p.created_at)) / 3600)::float8 AS fraction
+FROM projects p
+JOIN organizations o ON o.id = p.org_id
+CROSS JOIN generate_series(@from_ts::timestamptz, @last_hour::timestamptz, '1 hour'::interval) AS g(h)
+WHERE p.settings->>'backup_retention' IN ('extended', 'long')
   AND p.created_at < g.h + '1 hour'::interval AND (p.deleted_at IS NULL OR p.deleted_at > g.h);
 
 -- name: DailyBackupBytes :many

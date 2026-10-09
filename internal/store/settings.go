@@ -20,6 +20,38 @@ type ProjectSettings struct {
 	DiskWarnBytes int64 `json:"disk_warn_bytes"`
 	// ConsoleReadOnly makes the SQL console read-only.
 	ConsoleReadOnly bool `json:"console_read_only"`
+	// BackupRetention is how long nightly backups are kept: standard
+	// (empty), extended or long (V4.1 §4.2, a billed add-on).
+	BackupRetention string `json:"backup_retention,omitempty"`
+}
+
+// Backup retention policies (V4.1 §4.2).
+const (
+	RetentionStandard = "standard"
+	RetentionExtended = "extended"
+	RetentionLong     = "long"
+)
+
+// BackupRetentionLevel orders the policies for the plan limit
+// backup_retention_max; ok is false for an unknown one.
+func BackupRetentionLevel(name string) (level int64, ok bool) {
+	switch name {
+	case "", RetentionStandard:
+		return 0, true
+	case RetentionExtended:
+		return 1, true
+	case RetentionLong:
+		return 2, true
+	}
+	return 0, false
+}
+
+// Retention is the project's policy name (standard when unset).
+func (s ProjectSettings) Retention() string {
+	if s.BackupRetention == "" {
+		return RetentionStandard
+	}
+	return s.BackupRetention
 }
 
 // DefaultSharedSettings are the shared-tier defaults from spec §4.3.

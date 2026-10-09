@@ -36,6 +36,11 @@ const (
 	LimitAPIRatePerIP   = "api_rate_per_ip_per_min"
 	LimitAPIRatePerKey  = "api_rate_per_key_per_min"
 	LimitSMSCodesPerDay = "sms_codes_per_day"
+	// Billing add-ons (V4.1 §4): the longest point-in-time recovery window
+	// in days, and the longest backup retention (0 standard, 1 extended,
+	// 2 long; see BackupRetentionLevel).
+	LimitPITRDaysMax        = "pitr_days_max"
+	LimitBackupRetentionMax = "backup_retention_max"
 )
 
 // LimitKeys are the known limits, in display order.
@@ -46,6 +51,7 @@ var LimitKeys = []string{
 	LimitFileStorageMB, LimitStorageEgressMBMo, LimitImageTransformsMo, LimitUploadMaxMB,
 	LimitRealtimeConnections, LimitRealtimeMessagesMo,
 	LimitAPIRequestsMo, LimitAuthMAUMo, LimitAPITimeoutMs, LimitAPIRatePerIP, LimitAPIRatePerKey, LimitSMSCodesPerDay,
+	LimitPITRDaysMax, LimitBackupRetentionMax,
 }
 
 // Limits are an organisation's effective quotas: its plan's limits with its

@@ -659,6 +659,20 @@ func (s *Service) Provisioned(ctx context.Context, p store.Project, log *jobs.St
 	return err
 }
 
+// DefaultPITRDays is the point-in-time recovery window every dedicated
+// instance has; 14 and 30 days are billed add-ons (V4.1 §4.1).
+const DefaultPITRDays = 7
+
+// RetainFull is how many daily base backups WAL-G keeps for inst: its
+// window in days when longer than the default, else the configured count.
+// WAL older than the oldest kept backup goes with it, so the window follows.
+func (s *Service) RetainFull(inst store.Instance) int {
+	if inst.PitrDays > DefaultPITRDays {
+		return int(inst.PitrDays)
+	}
+	return s.cfg.RetainFull
+}
+
 // BaseBackup takes a WAL-G base backup of a dedicated project (spec §6.4),
 // applies retention, and records it.
 func (s *Service) BaseBackup(ctx context.Context, p store.Project, opID *uuid.UUID, log *jobs.StepLogger) (store.Backup, error) {
@@ -686,7 +700,7 @@ func (s *Service) BaseBackup(ctx context.Context, p store.Project, opID *uuid.UU
 		return store.Backup{}, err
 	}
 	// From the leader (V3 §2.2: WAL-G runs from the current primary).
-	res, err := agent.BaseBackup(ctx, agentKey(inst), agentapi.WALGBackupRequest{RetainFull: s.cfg.RetainFull})
+	res, err := agent.BaseBackup(ctx, agentKey(inst), agentapi.WALGBackupRequest{RetainFull: s.RetainFull(inst)})
 	if err != nil {
 		return store.Backup{}, err
 	}

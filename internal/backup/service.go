@@ -293,7 +293,13 @@ func (s *Service) applyRetention(ctx context.Context, projectID *uuid.UUID, kind
 			byID[r.ID] = r
 		}
 	}
-	expired := s.cfg.Retention.Expired(items)
+	pol := s.cfg.Retention
+	if projectID != nil {
+		if pol, err = s.projectRetention(ctx, q, *projectID); err != nil {
+			return err
+		}
+	}
+	expired := pol.Expired(items)
 	if len(expired) == 0 {
 		return nil
 	}
@@ -305,7 +311,27 @@ func (s *Service) applyRetention(ctx context.Context, projectID *uuid.UUID, kind
 		}
 		deleted++
 	}
-	return log.Info(ctx, "retention", "dropped %d backup(s) outside %d daily + %d weekly", deleted, s.cfg.Retention.Daily, s.cfg.Retention.Weekly)
+	return log.Info(ctx, "retention", "dropped %d backup(s) outside %d daily + %d weekly", deleted, pol.Daily, pol.Weekly)
+}
+
+// projectRetention is the project's nightly backup policy: the configured
+// one when standard, else extended or long (V4.1 §4.2).
+func (s *Service) projectRetention(ctx context.Context, q *store.Queries, projectID uuid.UUID) (Retention, error) {
+	p, err := q.GetProject(ctx, projectID)
+	if err != nil {
+		return Retention{}, err
+	}
+	set, err := store.DecodeProjectSettings(p.Settings)
+	if err != nil {
+		return Retention{}, err
+	}
+	switch set.Retention() {
+	case store.RetentionExtended:
+		return ExtendedRetention, nil
+	case store.RetentionLong:
+		return LongRetention, nil
+	}
+	return s.cfg.Retention, nil
 }
 
 // deleteObject removes a backup's object from its target and marks it

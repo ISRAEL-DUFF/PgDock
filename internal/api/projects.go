@@ -266,6 +266,7 @@ func (s *Server) toAPIProject(p store.Project) (gen.Project, error) {
 			IdleInTransactionSessionTimeout: set.IdleInTransactionTimeout,
 			DiskWarnBytes:                   set.DiskWarnBytes,
 			ConsoleReadOnly:                 set.ConsoleReadOnly,
+			BackupRetention:                 ptrTo(gen.BackupRetention(set.Retention())),
 		},
 		Connection:             toAPIConnection(s.projects.ConnectionFor(p), ""),
 		Region:                 &p.Region,
@@ -361,6 +362,10 @@ func provisionUpdate(req gen.UpdateProjectRequest) provision.UpdateParams {
 			IdleInTransactionTimeout: st.IdleInTransactionSessionTimeout,
 			DiskWarnBytes:            st.DiskWarnBytes,
 			ConsoleReadOnly:          st.ConsoleReadOnly,
+		}
+		if st.BackupRetention != nil {
+			v := string(*st.BackupRetention)
+			p.Settings.BackupRetention = &v
 		}
 	}
 	return p

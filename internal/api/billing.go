@@ -611,6 +611,15 @@ func (s *Server) EstimateOrgCost(w http.ResponseWriter, r *http.Request, org gen
 	er.HA = req.Ha != nil && *req.Ha
 	er.Sync = req.Synchronous != nil && *req.Synchronous
 	er.StandbyOnly = req.StandbyOnly != nil && *req.StandbyOnly
+	if req.PitrDays != nil {
+		er.PITRDays = int(*req.PitrDays)
+	}
+	if req.BackupRetention != nil {
+		er.Retention = string(*req.BackupRetention)
+	}
+	if req.Region != nil {
+		er.Region = *req.Region
+	}
 	e, err := bs.EstimateDedicated(r.Context(), org, er)
 	if err != nil {
 		s.billingError(w, "estimate", err)

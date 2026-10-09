@@ -376,7 +376,7 @@ function PriceBooksTab() {
     setEdit({
       version,
       effective,
-      json: JSON.stringify(from.prices, null, 2),
+      json: JSON.stringify(withAddOnFields(from.prices), null, 2),
       notes: from.notes ?? "",
     });
   };
@@ -777,3 +777,19 @@ function LedgerTab() {
     </Panel>
   );
 }
+
+/** The add-on prices a book from before V4.1 lacks, at the default
+ * book's values, so a draft shows every field to set (V4.1 §4). */
+const addOnDefaults = {
+  message_margin_percent: "20",
+  pitr_14_hour: "685",
+  pitr_30_hour: "1644",
+  backup_retention_extended_hour: "205.5",
+  backup_retention_long_hour: "411",
+  region_premium_percent: {},
+};
+
+export function withAddOnFields(prices: PriceBook["prices"]): PriceBook["prices"] {
+  return { ...prices, addons: { ...addOnDefaults, ...prices.addons } };
+}
+

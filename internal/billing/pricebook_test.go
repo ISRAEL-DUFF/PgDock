@@ -63,6 +63,9 @@ func TestDefaultPricesValidate(t *testing.T) {
 		func(p *Prices) { pl := p.Plans[PlanPro]; pl.QuotaPlan = ""; p.Plans[PlanPro] = pl },
 		func(p *Prices) { p.Dedicated.VCPUHour = D("-1") },
 		func(p *Prices) { p.Plans["Big Plan"] = p.Plans[PlanPro] },
+		func(p *Prices) { p.AddOns.PITR14Hour = D("-1") },
+		func(p *Prices) { p.AddOns.RegionPremiumPercent = map[string]Dec{"ng-lagos": D("501")} },
+		func(p *Prices) { p.AddOns.RegionPremiumPercent = map[string]Dec{"NG Lagos": D("25")} },
 	}
 	for i, f := range bad {
 		p := DefaultPrices()
