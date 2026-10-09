@@ -482,7 +482,7 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/projects/{id}/queries/{query_id}", "PATCH /api/v1/projects/{id}/queries/{query_id}",
 		"DELETE /api/v1/projects/{id}/queries/{query_id}", "PUT /api/v1/projects/{id}/queries/{query_id}/favorite",
 		// V4 §3.6, §3.7: generated types and the security advisor read the schema
-		"GET /api/v1/projects/{id}/services/catalog", "GET /api/v1/projects/{id}/services/types", "GET /api/v1/projects/{id}/services/advisor",
+		"GET /api/v1/projects/{id}/services/catalog", "GET /api/v1/projects/{id}/services/usage", "GET /api/v1/projects/{id}/services/types", "GET /api/v1/projects/{id}/services/advisor",
 	},
 	// V4 §8.3 the request explorer runs requests as service, too: a write to the data
 	authz.ConsoleWrite: {"POST /api/v1/projects/{id}/services/explore"},

@@ -10,7 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/pgdock/internal/billing"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/test/testenv"
 )
@@ -75,6 +78,23 @@ func TestCLIPolicies(t *testing.T) {
 	}
 	if a := todos.Access["user"]; !a.Select || !a.Insert {
 		t.Fatalf("user's access to todos: %+v", todos.Access)
+	}
+
+	// Usage this month: the project's against the organisation's.
+	month := billing.MonthStart(time.Now())
+	other := e.CreateProject("other").Project.Id
+	for id, qty := range map[uuid.UUID]int{pid: 300, other: 100} {
+		if _, err := e.DB.Exec(ctx, `INSERT INTO usage_records (org_id, project_id, metric, granularity, period_start, quantity, plan_id)
+			VALUES ($1, $2, 'api_requests', 'hour', $3, $4, (SELECT plan_id FROM organizations WHERE id = $1))`, e.OrgID, id, month.Add(time.Hour), qty); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var use gen.ServicesUsage
+	if code := e.Do("GET", "/api/v1/projects/"+pid.String()+"/services/usage", nil, &use); code != http.StatusOK || use.Charges == nil {
+		t.Fatalf("usage: %d %+v", code, use)
+	}
+	if m := use.Metrics[0]; m.Metric != "api_requests" || m.Quantity != 300 || m.OrgQuantity != 400 {
+		t.Fatalf("requests this month: %+v", m)
 	}
 
 	bin := buildCLI(t)

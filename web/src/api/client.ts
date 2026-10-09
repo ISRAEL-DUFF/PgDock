@@ -1161,6 +1161,12 @@ export const api = {
     getJSON<S["ApiRequestLogList"]>(
       `/api/v1/projects/${id}/services/logs${qs({ before, limit: 100 })}`,
     ),
+  /** What the data API exposes, for the API docs (V4.1 §9.2). */
+  servicesCatalog: (id: string) =>
+    getJSON<S["ServicesCatalog"]>(`/api/v1/projects/${id}/services/catalog`),
+  /** This month's usage and charges (V4.1 §9.3). */
+  servicesUsage: (id: string) =>
+    getJSON<S["ServicesUsage"]>(`/api/v1/projects/${id}/services/usage`),
   /** Typed definitions of the exposed tables, views and functions. */
   serviceTypes: async (
     id: string,

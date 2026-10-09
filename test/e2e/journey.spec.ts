@@ -1899,6 +1899,32 @@ test.describe("with the saved session", () => {
     await explorer.getByRole("button", { name: "Send" }).click();
     await expect(explorer.getByTestId("explorer-result")).toContainText("200");
 
+    // V4.1-M8: the quick start and a table's docs carry the project's URL
+    // and publishable key, and "Try it" runs in the explorer.
+    const apiURL = (await page.getByTestId("services-url").innerText()).match(/https?:\/\/\S+/)![0];
+    const quick = page.getByTestId("services-quickstart");
+    await expect(quick.getByTestId("quickstart-values")).toContainText(apiURL);
+    await expect(quick.getByTestId("quickstart-values")).toContainText("pgd_pub_");
+    await expect(quick.locator("pre").last()).toContainText(`createClient("${apiURL}", "pgd_pub_`);
+    await quick.getByRole("radio", { name: "Dart" }).click();
+    await expect(quick.locator("pre").last()).toContainText(`PgdockClient('${apiURL}', 'pgd_pub_`);
+    await quick.getByRole("button", { name: "Hide" }).click();
+    await page.reload();
+    await expect(page.getByTestId("services-quickstart").getByRole("button", { name: "Show" })).toBeVisible();
+    const docs = page.getByTestId("services-docs");
+    await docs.getByLabel("Table or function").selectOption("t:notes");
+    await expect(docs.getByTestId("docs-table")).toContainText("owner_id");
+    await expect(docs.getByTestId("docs-table")).toContainText(/Row-level security\s*on/);
+    const read = docs.getByTestId("docs-example-read");
+    await expect(read).toContainText(`${apiURL}/data/v1/notes`);
+    await expect(read).toContainText("apikey: pgd_pub_");
+    await shot(page, "75-api-docs");
+    await read.getByRole("button", { name: "Try it" }).click();
+    await expect(explorer.getByLabel("Path")).toHaveValue(/^\/data\/v1\/notes\?select=/);
+    await explorer.getByRole("button", { name: "Send" }).click();
+    await expect(explorer.getByTestId("explorer-result")).toContainText("200");
+    await expect(page.getByTestId("services-usage").getByTestId("usage-row").first()).toContainText("Requests");
+
     // M36: the Supabase migration helper. The users and files steps need the
     // Supabase project's credentials; the policies step runs on its own.
     const mig = page.getByTestId("migrate-supabase");

@@ -131,6 +131,8 @@ function CreateBranchDialog({ p, onClose, onCreated }: { p: Project; onClose: ()
   const [source, setSource] = useState<"backup" | "live">(p.last_backup_at ? "backup" : "live");
   const [schemaOnly, setSchemaOnly] = useState(!!p.sensitive_data);
   const [ttl, setTtl] = useState(168);
+  const [copyFiles, setCopyFiles] = useState(false);
+  const services = useQuery({ queryKey: ["services", p.id], queryFn: () => api.backendServices(p.id), retry: false });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const sensitiveFull = !!p.sensitive_data && !schemaOnly;
@@ -139,7 +141,7 @@ function CreateBranchDialog({ p, onClose, onCreated }: { p: Project; onClose: ()
     setBusy(true);
     setErr(null);
     try {
-      const c = await api.createBranch(p.id, { name, source, schema_only: schemaOnly, ttl_hours: ttl });
+      const c = await api.createBranch(p.id, { name, source, schema_only: schemaOnly, ttl_hours: ttl, copy_files: services.data?.enabled ? copyFiles : undefined });
       await qc.invalidateQueries({ queryKey: ["branches", p.id] });
       await qc.invalidateQueries({ queryKey: ["projects"] });
       onCreated(c);
@@ -204,6 +206,17 @@ function CreateBranchDialog({ p, onClose, onCreated }: { p: Project; onClose: ()
             </Select>
           )}
         </Field>
+        {services.data?.enabled && (
+          <div className="flex flex-col gap-1 text-sm" data-testid="branch-services">
+            <p className="text-xs text-muted">
+              {p.name} has backend services: the branch gets its own API URL and keys, and {p.name}'s settings without its auth secrets (SMTP, SMS, OAuth and captcha), which you set on the branch.
+            </p>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={copyFiles} onChange={(e) => setCopyFiles(e.target.checked)} data-testid="branch-copy-files" />
+              Copy its stored files too (in the background; they count toward file storage)
+            </label>
+          </div>
+        )}
         <p className="text-xs text-muted">Webhooks and scheduled jobs are not copied to the branch. It counts toward your organisation's branch quota.</p>
         {err && <Alert>{err}</Alert>}
       </form>

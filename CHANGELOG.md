@@ -74,6 +74,24 @@ bundle share one version (spec §11.5).
   members with the pay link, no amounts), owners and billing members see
   the budget reaching 80% and 100%, and everyone sees open incidents
   affecting the organisation's projects.
+- API page (V4.1-M8): a **Quick start** with the project's URL and
+  publishable key in TypeScript, Dart and Go; **API docs** for each
+  exposed table, view and function (columns, row-level security, policies,
+  who may do what, and examples in curl, TypeScript, Dart and Go, with
+  **Try it** in the request explorer); and **Usage this month** against
+  the plan, with the project's share of the month's charges for owners and
+  billing members. New `GET /projects/{id}/services/catalog` and
+  `/services/usage`.
+- CLI: `pgdock policies list` and `pgdock policies lint` (exit 1 on a
+  danger finding, for CI); `pgdock logs api` with `--status`, `--path` and
+  `--follow`.
+- Branches of a project with backend services get their own API: a new
+  URL, keys and signing key, the parent's settings without its auth
+  secrets, and the users the copy brought, signed out. The create
+  response, the credentials panel, the .env download and
+  `pgdock branch create --env` give `PGDOCK_API_URL`,
+  `PGDOCK_PUBLISHABLE_KEY` and `PGDOCK_SECRET_KEY`; `copy_files` (or
+  `--copy-files`) copies the parent's stored files in the background.
 
 ### V4 (on feature/pgdock4)
 - Backend services' edge foundation (V4-M28): a project can turn on backend

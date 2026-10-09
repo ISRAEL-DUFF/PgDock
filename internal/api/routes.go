@@ -197,6 +197,7 @@ var routeRules = map[string]rule{
 	"GET /api/v1/projects/{id}/services/logs":             {scope: scopeProject, action: authz.ServicesLogs},
 	"GET /api/v1/projects/{id}/services/types":            {scope: scopeProject, action: authz.ConsoleRead},
 	"GET /api/v1/projects/{id}/services/catalog":          {scope: scopeProject, action: authz.ConsoleRead},
+	"GET /api/v1/projects/{id}/services/usage":            {scope: scopeProject, action: authz.ConsoleRead},
 	"GET /api/v1/projects/{id}/services/advisor":          {scope: scopeProject, action: authz.ConsoleRead},
 	"POST /api/v1/projects/{id}/services/explore":         {scope: scopeProject, action: authz.ConsoleWrite},
 	// Auth (V4 §4.9).

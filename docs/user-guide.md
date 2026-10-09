@@ -99,6 +99,18 @@ feature, or one per pull request in CI ([CLI guide](cli.md#a-database-branch-per
 - **Reset** refills it from the parent, keeping its name, URL and
   passwords, so `.env` files and pipelines keep working.
 - **Detach** makes it an ordinary project (which can then be promoted).
+- **With backend services** on the parent, the branch gets an API of its
+  own: a new URL (ref), new publishable and secret keys and a new signing
+  key, so neither's keys or users' tokens work on the other. It keeps the
+  parent's exposed schemas, public tables, CORS origins and auth settings
+  and templates, but not its secrets (SMTP password, SMS and OAuth
+  credentials, captcha and hook secrets): set those on the branch. Its
+  users are the ones the copy brought (none for a schema-only branch);
+  they sign in again there. The create response and
+  `pgdock branch create --env` give `PGDOCK_API_URL`,
+  `PGDOCK_PUBLISHABLE_KEY` and `PGDOCK_SECRET_KEY`. Stored files are not
+  copied unless you ask (**Copy its stored files too**, or `--copy-files`):
+  they are then copied in the background and count toward file storage.
 - A branch can't have branches. Its parent's webhooks and jobs are not
   copied. Branches count against your organisation's branch and storage
   quotas, and have no nightly backups unless you turn them on.

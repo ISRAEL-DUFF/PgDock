@@ -2622,6 +2622,42 @@ func (e SchemaRiskLevel) Valid() bool {
 	}
 }
 
+// Defines values for ServiceChargeService.
+const (
+	ServiceChargeServiceAuth         ServiceChargeService = "auth"
+	ServiceChargeServiceDataApi      ServiceChargeService = "data_api"
+	ServiceChargeServiceDatabase     ServiceChargeService = "database"
+	ServiceChargeServiceMessages     ServiceChargeService = "messages"
+	ServiceChargeServicePlan         ServiceChargeService = "plan"
+	ServiceChargeServiceReadReplicas ServiceChargeService = "read_replicas"
+	ServiceChargeServiceRealtime     ServiceChargeService = "realtime"
+	ServiceChargeServiceStorage      ServiceChargeService = "storage"
+)
+
+// Valid indicates whether the value is a known member of the ServiceChargeService enum.
+func (e ServiceChargeService) Valid() bool {
+	switch e {
+	case ServiceChargeServiceAuth:
+		return true
+	case ServiceChargeServiceDataApi:
+		return true
+	case ServiceChargeServiceDatabase:
+		return true
+	case ServiceChargeServiceMessages:
+		return true
+	case ServiceChargeServicePlan:
+		return true
+	case ServiceChargeServiceReadReplicas:
+		return true
+	case ServiceChargeServiceRealtime:
+		return true
+	case ServiceChargeServiceStorage:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ServiceSpendService.
 const (
 	ServiceSpendServiceAuth         ServiceSpendService = "auth"
@@ -2652,6 +2688,33 @@ func (e ServiceSpendService) Valid() bool {
 	case ServiceSpendServiceRealtime:
 		return true
 	case ServiceSpendServiceStorage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServicesUsageMetricService.
+const (
+	ServicesUsageMetricServiceAuth     ServicesUsageMetricService = "auth"
+	ServicesUsageMetricServiceDataApi  ServicesUsageMetricService = "data_api"
+	ServicesUsageMetricServiceMessages ServicesUsageMetricService = "messages"
+	ServicesUsageMetricServiceRealtime ServicesUsageMetricService = "realtime"
+	ServicesUsageMetricServiceStorage  ServicesUsageMetricService = "storage"
+)
+
+// Valid indicates whether the value is a known member of the ServicesUsageMetricService enum.
+func (e ServicesUsageMetricService) Valid() bool {
+	switch e {
+	case ServicesUsageMetricServiceAuth:
+		return true
+	case ServicesUsageMetricServiceDataApi:
+		return true
+	case ServicesUsageMetricServiceMessages:
+		return true
+	case ServicesUsageMetricServiceRealtime:
+		return true
+	case ServicesUsageMetricServiceStorage:
 		return true
 	default:
 		return false
@@ -8554,6 +8617,15 @@ type ServerPriceList struct {
 	Provider string        `json:"provider"`
 }
 
+// ServiceCharge defines model for ServiceCharge.
+type ServiceCharge struct {
+	AmountMinor int64                `json:"amount_minor"`
+	Service     ServiceChargeService `json:"service"`
+}
+
+// ServiceChargeService defines model for ServiceCharge.Service.
+type ServiceChargeService string
+
 // ServiceSpend defines model for ServiceSpend.
 type ServiceSpend struct {
 	// ProjectedMinor The whole month's, projected from usage so far.
@@ -8577,6 +8649,36 @@ type ServicesCatalog struct {
 	Schemas []string       `json:"schemas"`
 	Tables  []CatalogTable `json:"tables"`
 }
+
+// ServicesUsage defines model for ServicesUsage.
+type ServicesUsage struct {
+	// Charges The month's charges so far, before VAT, that fall to the project: its own lines, and of an allowance's overage the share its usage is of the organisation's. Absent without billing, or to a caller who can't see the organisation's billing.
+	Charges *[]ServiceCharge      `json:"charges,omitempty"`
+	Metrics []ServicesUsageMetric `json:"metrics"`
+
+	// Month The month (UTC), as 2006-01.
+	Month string `json:"month"`
+}
+
+// ServicesUsageMetric defines model for ServicesUsageMetric.
+type ServicesUsageMetric struct {
+	// Included The plan's allowance this month, above which usage is charged.
+	Included *float32 `json:"included,omitempty"`
+
+	// Limit The plan's hard limit this month, at which the service stops.
+	Limit  *float32 `json:"limit,omitempty"`
+	Metric string   `json:"metric"`
+
+	// OrgQuantity The organisation's, this month (allowances and limits are shared by its projects).
+	OrgQuantity float32 `json:"org_quantity"`
+
+	// Quantity The project's, this month.
+	Quantity float32                    `json:"quantity"`
+	Service  ServicesUsageMetricService `json:"service"`
+}
+
+// ServicesUsageMetricService defines model for ServicesUsageMetric.Service.
+type ServicesUsageMetricService string
 
 // SessionInfo defines model for SessionInfo.
 type SessionInfo struct {
@@ -14387,6 +14489,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/projects/{id}/services/types (the `GetServiceTypes` operationId).
 	GetServiceTypes(ctx context.Context, id ProjectID, params *GetServiceTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetServicesUsage This month's backend-services usage, against the plan, and the charges that fall to the project
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/usage (the `GetServicesUsage` operationId).
+	GetServicesUsage(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateProjectWithBody Update a project's name, description, or guardrails
 	//
@@ -23293,6 +23400,21 @@ func (c *Client) ListAPIRequestLogs(ctx context.Context, id ProjectID, params *L
 // Corresponds with GET /api/v1/projects/{id}/services/types (the `GetServiceTypes` operationId).
 func (c *Client) GetServiceTypes(ctx context.Context, id ProjectID, params *GetServiceTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetServiceTypesRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetServicesUsage This month's backend-services usage, against the plan, and the charges that fall to the project
+//
+// Corresponds with GET /api/v1/projects/{id}/services/usage (the `GetServicesUsage` operationId).
+func (c *Client) GetServicesUsage(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetServicesUsageRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -39499,6 +39621,40 @@ func NewGetServiceTypesRequest(server string, id ProjectID, params *GetServiceTy
 	return req, nil
 }
 
+// NewGetServicesUsageRequest constructs an http.Request for the GetServicesUsage method
+func NewGetServicesUsageRequest(server string, id ProjectID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/projects/%s/services/usage", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewUpdateProjectRequest calls the generic UpdateProject builder with application/json body
 func NewUpdateProjectRequest(server string, id ProjectID, body UpdateProjectJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -45938,6 +46094,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/projects/{id}/services/types (the `GetServiceTypes` operationId).
 	GetServiceTypesWithResponse(ctx context.Context, id ProjectID, params *GetServiceTypesParams, reqEditors ...RequestEditorFn) (*GetServiceTypesResponse, error)
+
+	// GetServicesUsageWithResponse This month's backend-services usage, against the plan, and the charges that fall to the project
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/projects/{id}/services/usage (the `GetServicesUsage` operationId).
+	GetServicesUsageWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetServicesUsageResponse, error)
 
 	// UpdateProjectWithBodyWithResponse Update a project's name, description, or guardrails
 	//
@@ -62716,6 +62879,54 @@ func (r GetServiceTypesResponse) ContentType() string {
 	return ""
 }
 
+type GetServicesUsageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *ServicesUsage
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetServicesUsageResponse) GetJSON200() *ServicesUsage {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetServicesUsageResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetServicesUsageResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetServicesUsageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetServicesUsageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetServicesUsageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type UpdateProjectResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -72130,6 +72341,19 @@ func (c *ClientWithResponses) GetServiceTypesWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseGetServiceTypesResponse(rsp)
+}
+
+// GetServicesUsageWithResponse This month's backend-services usage, against the plan, and the charges that fall to the project
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/projects/{id}/services/usage (the `GetServicesUsage` operationId).
+func (c *ClientWithResponses) GetServicesUsageWithResponse(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*GetServicesUsageResponse, error) {
+	rsp, err := c.GetServicesUsage(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetServicesUsageResponse(rsp)
 }
 
 // UpdateProjectWithBodyWithResponse Update a project's name, description, or guardrails
@@ -84409,6 +84633,39 @@ func ParseGetServiceTypesResponse(rsp *http.Response) (*GetServiceTypesResponse,
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetServicesUsageResponse parses an HTTP response from a GetServicesUsageWithResponse call
+func ParseGetServicesUsageResponse(rsp *http.Response) (*GetServicesUsageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetServicesUsageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ServicesUsage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

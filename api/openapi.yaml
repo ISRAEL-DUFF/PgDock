@@ -3795,6 +3795,22 @@ paths:
                 $ref: "#/components/schemas/ServicesCatalog"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/projects/{id}/services/usage:
+    get:
+      operationId: getServicesUsage
+      summary: This month's backend-services usage, against the plan, and the charges that fall to the project
+      tags: [services]
+      parameters:
+        - $ref: "#/components/parameters/ProjectID"
+      responses:
+        "200":
+          description: The month so far.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServicesUsage"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/projects/{id}/services/types:
     get:
       operationId: getServiceTypes
@@ -11697,6 +11713,60 @@ components:
           type: integer
           format: int64
           description: With after, the cursor to follow from next.
+    ServicesUsage:
+      type: object
+      required: [month, metrics]
+      properties:
+        month:
+          type: string
+          description: The month (UTC), as 2006-01.
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServicesUsageMetric"
+        charges:
+          type: array
+          nullable: true
+          description: >-
+            The month's charges so far, before VAT, that fall to the project:
+            its own lines, and of an allowance's overage the share its usage
+            is of the organisation's. Absent without billing, or to a caller
+            who can't see the organisation's billing.
+          items:
+            $ref: "#/components/schemas/ServiceCharge"
+    ServicesUsageMetric:
+      type: object
+      required: [metric, service, quantity, org_quantity]
+      properties:
+        metric:
+          type: string
+        service:
+          type: string
+          enum: [data_api, auth, messages, storage, realtime]
+        quantity:
+          type: number
+          description: The project's, this month.
+        org_quantity:
+          type: number
+          description: The organisation's, this month (allowances and limits are shared by its projects).
+        included:
+          type: number
+          nullable: true
+          description: The plan's allowance this month, above which usage is charged.
+        limit:
+          type: number
+          nullable: true
+          description: The plan's hard limit this month, at which the service stops.
+    ServiceCharge:
+      type: object
+      required: [service, amount_minor]
+      properties:
+        service:
+          type: string
+          enum: [plan, database, data_api, auth, messages, storage, realtime, read_replicas]
+        amount_minor:
+          type: integer
+          format: int64
     ServicesCatalog:
       type: object
       required: [schemas, tables, functions]

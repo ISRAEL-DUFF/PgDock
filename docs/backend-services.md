@@ -271,6 +271,33 @@ row-level security and writes the policies for one of three templates
 (owner only, members of an organisation through a membership table, public
 read with owner writes), showing the SQL before it runs.
 
+## The API page
+
+Project → Settings → **API**, once services are on:
+
+- **Quick start:** the project URL and publishable key filled into a first
+  program in TypeScript, Dart and Go (install, `createClient`, a read,
+  sign-in with a phone code), with a link to the generated types. Hide it
+  and it stays hidden for you in that browser.
+- **API docs:** each exposed table, view and function, from the same
+  catalog as the generated types: its columns (types, nullability,
+  defaults, identity, generated and enum values), whether row-level
+  security is on and its policies (in the request roles' names: anon,
+  user, service), what anon and a signed-in user may do, and examples of a
+  read (with a filter and the relations its foreign keys reach), insert,
+  update, delete, upsert and function call in curl, TypeScript, Dart and Go.
+  Examples only ever hold the publishable key. **Try it** puts the request
+  in the request explorer below. The same catalog is at
+  `GET /api/v1/projects/{id}/services/catalog`.
+- **Usage this month:** requests, transfer, monthly active users, SMS and
+  WhatsApp codes, file storage and downloads, image transforms and
+  realtime minutes and messages, for this project and for the whole
+  organisation, against the plan's allowance and its hard limits (which
+  the organisation's projects share). Owners and billing members also see
+  the month's charges so far that fall to this project: its own lines in
+  full, and of each allowance's overage the share its usage is of the
+  organisation's (`GET /api/v1/projects/{id}/services/usage`).
+
 ## Request explorer
 
 Project → Settings → API → Request explorer sends a data API request as

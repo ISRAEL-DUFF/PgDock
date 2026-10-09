@@ -2618,6 +2618,42 @@ func (e SchemaRiskLevel) Valid() bool {
 	}
 }
 
+// Defines values for ServiceChargeService.
+const (
+	ServiceChargeServiceAuth         ServiceChargeService = "auth"
+	ServiceChargeServiceDataApi      ServiceChargeService = "data_api"
+	ServiceChargeServiceDatabase     ServiceChargeService = "database"
+	ServiceChargeServiceMessages     ServiceChargeService = "messages"
+	ServiceChargeServicePlan         ServiceChargeService = "plan"
+	ServiceChargeServiceReadReplicas ServiceChargeService = "read_replicas"
+	ServiceChargeServiceRealtime     ServiceChargeService = "realtime"
+	ServiceChargeServiceStorage      ServiceChargeService = "storage"
+)
+
+// Valid indicates whether the value is a known member of the ServiceChargeService enum.
+func (e ServiceChargeService) Valid() bool {
+	switch e {
+	case ServiceChargeServiceAuth:
+		return true
+	case ServiceChargeServiceDataApi:
+		return true
+	case ServiceChargeServiceDatabase:
+		return true
+	case ServiceChargeServiceMessages:
+		return true
+	case ServiceChargeServicePlan:
+		return true
+	case ServiceChargeServiceReadReplicas:
+		return true
+	case ServiceChargeServiceRealtime:
+		return true
+	case ServiceChargeServiceStorage:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ServiceSpendService.
 const (
 	ServiceSpendServiceAuth         ServiceSpendService = "auth"
@@ -2648,6 +2684,33 @@ func (e ServiceSpendService) Valid() bool {
 	case ServiceSpendServiceRealtime:
 		return true
 	case ServiceSpendServiceStorage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ServicesUsageMetricService.
+const (
+	ServicesUsageMetricServiceAuth     ServicesUsageMetricService = "auth"
+	ServicesUsageMetricServiceDataApi  ServicesUsageMetricService = "data_api"
+	ServicesUsageMetricServiceMessages ServicesUsageMetricService = "messages"
+	ServicesUsageMetricServiceRealtime ServicesUsageMetricService = "realtime"
+	ServicesUsageMetricServiceStorage  ServicesUsageMetricService = "storage"
+)
+
+// Valid indicates whether the value is a known member of the ServicesUsageMetricService enum.
+func (e ServicesUsageMetricService) Valid() bool {
+	switch e {
+	case ServicesUsageMetricServiceAuth:
+		return true
+	case ServicesUsageMetricServiceDataApi:
+		return true
+	case ServicesUsageMetricServiceMessages:
+		return true
+	case ServicesUsageMetricServiceRealtime:
+		return true
+	case ServicesUsageMetricServiceStorage:
 		return true
 	default:
 		return false
@@ -8550,6 +8613,15 @@ type ServerPriceList struct {
 	Provider string        `json:"provider"`
 }
 
+// ServiceCharge defines model for ServiceCharge.
+type ServiceCharge struct {
+	AmountMinor int64                `json:"amount_minor"`
+	Service     ServiceChargeService `json:"service"`
+}
+
+// ServiceChargeService defines model for ServiceCharge.Service.
+type ServiceChargeService string
+
 // ServiceSpend defines model for ServiceSpend.
 type ServiceSpend struct {
 	// ProjectedMinor The whole month's, projected from usage so far.
@@ -8573,6 +8645,36 @@ type ServicesCatalog struct {
 	Schemas []string       `json:"schemas"`
 	Tables  []CatalogTable `json:"tables"`
 }
+
+// ServicesUsage defines model for ServicesUsage.
+type ServicesUsage struct {
+	// Charges The month's charges so far, before VAT, that fall to the project: its own lines, and of an allowance's overage the share its usage is of the organisation's. Absent without billing, or to a caller who can't see the organisation's billing.
+	Charges *[]ServiceCharge      `json:"charges,omitempty"`
+	Metrics []ServicesUsageMetric `json:"metrics"`
+
+	// Month The month (UTC), as 2006-01.
+	Month string `json:"month"`
+}
+
+// ServicesUsageMetric defines model for ServicesUsageMetric.
+type ServicesUsageMetric struct {
+	// Included The plan's allowance this month, above which usage is charged.
+	Included *float32 `json:"included,omitempty"`
+
+	// Limit The plan's hard limit this month, at which the service stops.
+	Limit  *float32 `json:"limit,omitempty"`
+	Metric string   `json:"metric"`
+
+	// OrgQuantity The organisation's, this month (allowances and limits are shared by its projects).
+	OrgQuantity float32 `json:"org_quantity"`
+
+	// Quantity The project's, this month.
+	Quantity float32                    `json:"quantity"`
+	Service  ServicesUsageMetricService `json:"service"`
+}
+
+// ServicesUsageMetricService defines model for ServicesUsageMetric.Service.
+type ServicesUsageMetricService string
 
 // SessionInfo defines model for SessionInfo.
 type SessionInfo struct {
@@ -11913,6 +12015,9 @@ type ServerInterface interface {
 	// GetServiceTypes Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
 	// (GET /api/v1/projects/{id}/services/types)
 	GetServiceTypes(w http.ResponseWriter, r *http.Request, id ProjectID, params GetServiceTypesParams)
+	// GetServicesUsage This month's backend-services usage, against the plan, and the charges that fall to the project
+	// (GET /api/v1/projects/{id}/services/usage)
+	GetServicesUsage(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// UpdateProject Update a project's name, description, or guardrails
 	// (PATCH /api/v1/projects/{id}/settings)
 	UpdateProject(w http.ResponseWriter, r *http.Request, id ProjectID)
@@ -14124,6 +14229,12 @@ func (_ Unimplemented) ListAPIRequestLogs(w http.ResponseWriter, r *http.Request
 // GetServiceTypes Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go)
 // (GET /api/v1/projects/{id}/services/types)
 func (_ Unimplemented) GetServiceTypes(w http.ResponseWriter, r *http.Request, id ProjectID, params GetServiceTypesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetServicesUsage This month's backend-services usage, against the plan, and the charges that fall to the project
+// (GET /api/v1/projects/{id}/services/usage)
+func (_ Unimplemented) GetServicesUsage(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -23851,6 +23962,32 @@ func (siw *ServerInterfaceWrapper) GetServiceTypes(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetServicesUsage operation middleware
+func (siw *ServerInterfaceWrapper) GetServicesUsage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id ProjectID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetServicesUsage(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // UpdateProject operation middleware
 func (siw *ServerInterfaceWrapper) UpdateProject(w http.ResponseWriter, r *http.Request) {
 
@@ -26151,6 +26288,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/services/catalog", wrapper.GetServicesCatalog)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/projects/{id}/services/usage", wrapper.GetServicesUsage)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/projects/{id}/services/types", wrapper.GetServiceTypes)

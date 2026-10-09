@@ -2784,6 +2784,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{id}/services/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** This month's backend-services usage, against the plan, and the charges that fall to the project */
+        get: operations["getServicesUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/services/types": {
         parameters: {
             query?: never;
@@ -7592,6 +7609,32 @@ export interface components {
              * @description With after, the cursor to follow from next.
              */
             next?: number;
+        };
+        ServicesUsage: {
+            /** @description The month (UTC), as 2006-01. */
+            month: string;
+            metrics: components["schemas"]["ServicesUsageMetric"][];
+            /** @description The month's charges so far, before VAT, that fall to the project: its own lines, and of an allowance's overage the share its usage is of the organisation's. Absent without billing, or to a caller who can't see the organisation's billing. */
+            charges?: components["schemas"]["ServiceCharge"][] | null;
+        };
+        ServicesUsageMetric: {
+            metric: string;
+            /** @enum {string} */
+            service: "data_api" | "auth" | "messages" | "storage" | "realtime";
+            /** @description The project's, this month. */
+            quantity: number;
+            /** @description The organisation's, this month (allowances and limits are shared by its projects). */
+            org_quantity: number;
+            /** @description The plan's allowance this month, above which usage is charged. */
+            included?: number | null;
+            /** @description The plan's hard limit this month, at which the service stops. */
+            limit?: number | null;
+        };
+        ServiceCharge: {
+            /** @enum {string} */
+            service: "plan" | "database" | "data_api" | "auth" | "messages" | "storage" | "realtime" | "read_replicas";
+            /** Format: int64 */
+            amount_minor: number;
         };
         ServicesCatalog: {
             /** @description The project's API ref (its URL's host), when services are on. */
@@ -15407,6 +15450,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ServicesCatalog"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getServicesUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The month so far. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicesUsage"];
                 };
             };
             default: components["responses"]["Error"];
