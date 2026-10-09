@@ -19,7 +19,7 @@ RUN --mount=type=secret,id=ca_bundle,required=false \
 COPY web/ ./
 RUN npm run build
 
-FROM ${REGISTRY}golang:1.25-alpine AS build
+FROM ${REGISTRY}golang:1.26-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN --mount=type=secret,id=ca_bundle,required=false \

@@ -12,6 +12,7 @@ import { CredentialPanel } from "../components/Credentials";
 import { DemoteCard } from "../components/DemoteCard";
 import { PromoteCard } from "../components/PromoteCard";
 import { HACard } from "../components/HACard";
+import { ReplicasCard } from "../components/ReplicasCard";
 import { MovesCard, UpgradeCard } from "../components/UpgradeCard";
 import { ProjectStorageCard } from "../components/StorageTargets";
 import { StorageCard, SwitchCredentialsCard } from "../components/TenancyCards";
@@ -111,6 +112,7 @@ export function ProjectComputePage() {
         <InstancePanel projectId={p.id} instance={p.instance} />
       )}
       <HACard p={p} />
+      <ReplicasCard p={p} />
       <UpgradeCard p={p} />
       {!p.parent_project_id && <PromoteCard p={p} />}
       <DemoteCard p={p} />

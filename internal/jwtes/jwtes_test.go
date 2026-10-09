@@ -53,3 +53,34 @@ func TestSignVerify(t *testing.T) {
 		t.Fatalf("malformed: %v", err)
 	}
 }
+
+func TestJWKRoundTrip(t *testing.T) {
+	for range 50 { // some keys have a coordinate with a leading zero byte
+		_, jwk, err := Generate("k")
+		if err != nil {
+			t.Fatal(err)
+		}
+		pub, err := jwk.Public()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if back := PublicJWK(pub, "k"); back != jwk {
+			t.Fatalf("round trip: %+v != %+v", back, jwk)
+		}
+		// A coordinate sent without its leading zero bytes still parses.
+		x, _ := b64.DecodeString(jwk.X)
+		if x[0] == 0 {
+			short := jwk
+			short.X = b64.EncodeToString(x[1:])
+			if p2, err := short.Public(); err != nil || !p2.Equal(pub) {
+				t.Fatalf("short coordinate: %v", err)
+			}
+		}
+	}
+	_, jwk, _ := Generate("k")
+	bad := jwk
+	bad.Y = jwk.X // not on the curve
+	if _, err := bad.Public(); err == nil {
+		t.Fatal("an off-curve point was accepted")
+	}
+}

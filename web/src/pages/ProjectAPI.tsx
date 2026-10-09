@@ -382,6 +382,9 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
   const [secretInBrowser, setSecretInBrowser] = useState(
     svc.settings.allow_secret_in_browser ?? false,
   );
+  const [replicaReads, setReplicaReads] = useState(
+    svc.settings.replica_reads ?? false,
+  );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -408,6 +411,7 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
           statement_timeout_ms: timeout,
           rate_per_ip: perIP,
           allow_secret_in_browser: secretInBrowser,
+          replica_reads: replicaReads,
         },
       });
       await qc.invalidateQueries({ queryKey: ["services", p.id] });
@@ -488,6 +492,18 @@ function SettingsPanel({ p, svc }: { p: Project; svc: Services }) {
             onCheckedChange={setSecretInBrowser}
           />
         </FormRow>
+        {p.tier === "dedicated" && (
+          <FormRow
+            label="Read from replicas by default"
+            description="Publishable-key reads (GET) go to the project's read replicas, which can trail writes by a few seconds. Any request can ask with the header Read-Replica: allowed, or opt out with Read-Replica: primary."
+          >
+            <Switch
+              aria-label="Read from replicas by default"
+              checked={replicaReads}
+              onCheckedChange={setReplicaReads}
+            />
+          </FormRow>
+        )}
         <div className="flex items-center justify-end gap-3 pt-3">
           {saved && (
             <span className="text-xs text-muted">

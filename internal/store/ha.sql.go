@@ -303,7 +303,7 @@ func (q *Queries) InsertFailoverEvent(ctx context.Context, arg InsertFailoverEve
 const insertInstanceMember = `-- name: InsertInstanceMember :one
 INSERT INTO instance_members (id, instance_id, node_id, role) VALUES ($1, $2, $3, $4)
 ON CONFLICT (id) DO UPDATE SET deleted_at = NULL, node_id = EXCLUDED.node_id, role = EXCLUDED.role, updated_at = now()
-RETURNING id, instance_id, node_id, role, state, host, port, rest_host, rest_port, admin_host, admin_port, lag_bytes, timeline, error, updated_at, created_at, deleted_at
+RETURNING id, instance_id, node_id, role, state, host, port, rest_host, rest_port, admin_host, admin_port, lag_bytes, timeline, error, updated_at, created_at, deleted_at, replica
 `
 
 type InsertInstanceMemberParams struct {
@@ -340,6 +340,7 @@ func (q *Queries) InsertInstanceMember(ctx context.Context, arg InsertInstanceMe
 		&i.UpdatedAt,
 		&i.CreatedAt,
 		&i.DeletedAt,
+		&i.Replica,
 	)
 	return i, err
 }
@@ -452,7 +453,7 @@ func (q *Queries) ListFailoverEvents(ctx context.Context, arg ListFailoverEvents
 }
 
 const listInstanceMembers = `-- name: ListInstanceMembers :many
-SELECT m.id, m.instance_id, m.node_id, m.role, m.state, m.host, m.port, m.rest_host, m.rest_port, m.admin_host, m.admin_port, m.lag_bytes, m.timeline, m.error, m.updated_at, m.created_at, m.deleted_at, n.name AS node_name, n.private_addr AS node_addr
+SELECT m.id, m.instance_id, m.node_id, m.role, m.state, m.host, m.port, m.rest_host, m.rest_port, m.admin_host, m.admin_port, m.lag_bytes, m.timeline, m.error, m.updated_at, m.created_at, m.deleted_at, m.replica, n.name AS node_name, n.private_addr AS node_addr
 FROM instance_members m JOIN nodes n ON n.id = m.node_id
 WHERE m.instance_id = $1 AND m.deleted_at IS NULL
 ORDER BY m.created_at, m.id
@@ -476,6 +477,7 @@ type ListInstanceMembersRow struct {
 	UpdatedAt  time.Time
 	CreatedAt  time.Time
 	DeletedAt  *time.Time
+	Replica    bool
 	NodeName   string
 	NodeAddr   string
 }
@@ -508,6 +510,7 @@ func (q *Queries) ListInstanceMembers(ctx context.Context, instanceID uuid.UUID)
 			&i.UpdatedAt,
 			&i.CreatedAt,
 			&i.DeletedAt,
+			&i.Replica,
 			&i.NodeName,
 			&i.NodeAddr,
 		); err != nil {

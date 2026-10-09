@@ -59,6 +59,16 @@ func freePort(addr string) (int, error) {
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
+// portFree reports whether port is free on addr.
+func portFree(addr string, port int) bool {
+	l, err := net.Listen("tcp", net.JoinHostPort(addr, strconv.Itoa(port)))
+	if err != nil {
+		return false
+	}
+	_ = l.Close()
+	return true
+}
+
 // applyPatroni turns cc, built for a plain instance with settings, into an
 // HA member's container. prev are the ports of the container it replaces.
 func (in *instances) applyPatroni(cc *docker.ContainerConfig, spec agentapi.InstanceSpec, name string, settings map[string]string, prev memberPorts) error {
@@ -75,6 +85,9 @@ func (in *instances) applyPatroni(cc *docker.ContainerConfig, spec agentapi.Inst
 	if publish {
 		host = in.cfg.PublishAddr
 		pg, rest = prev.pg, prev.rest
+		if pg == 0 && p.PreferPort > 0 && portFree(host, p.PreferPort) {
+			pg = p.PreferPort
+		}
 		if pg == 0 {
 			if pg, err = freePort(host); err != nil {
 				return err
@@ -185,6 +198,9 @@ func (in *instances) applyPatroni(cc *docker.ContainerConfig, spec agentapi.Inst
 		// Containers have no watchdog device: fencing is the leader lease
 		// (a primary that loses it demotes itself).
 		"watchdog": map[string]any{"mode": "off"},
+	}
+	if p.ReadReplica {
+		conf["tags"] = map[string]any{"nofailover": true, "nosync": true}
 	}
 	for k, v := range methods {
 		conf["postgresql"].(map[string]any)[k] = v

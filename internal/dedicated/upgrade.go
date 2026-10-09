@@ -72,6 +72,10 @@ func (s *Service) UpgradePreflight(ctx context.Context, p store.Project, to int)
 		add(CheckTarget, CheckBlocked, "turn HA off before a major upgrade, and on again after it")
 		return plan, nil
 	}
+	if err := s.HasReplicas(ctx, q, p.ID); err != nil {
+		add(CheckTarget, CheckBlocked, "delete the read replicas before a major upgrade, and create them again after it")
+		return plan, nil
+	}
 	if v, err := s.projects.CheckPGVersion(to); err != nil {
 		add(CheckVersion, CheckBlocked, "%v", err)
 		return plan, nil

@@ -68,6 +68,9 @@ type Config struct {
 	// only inside maintenance announced to it at least 72 hours before
 	// (V3.1 §4.3; PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT).
 	RequireAnnouncement bool
+	// ReplicaMaxLag is how far behind a read replica may fall before it
+	// leaves the pooler's read-only route (V4 §7; default 10 s).
+	ReplicaMaxLag time.Duration
 }
 
 // Service manages dedicated instances.
@@ -106,6 +109,9 @@ func New(db *pgxpool.Pool, keyring *crypto.Keyring, ns *nodes.Service, ps *provi
 	}
 	if cfg.ReadyTimeout <= 0 {
 		cfg.ReadyTimeout = 15 * time.Minute
+	}
+	if cfg.ReplicaMaxLag <= 0 {
+		cfg.ReplicaMaxLag = DefaultReplicaMaxLag
 	}
 	return &Service{db: db, keyring: keyring, nodes: ns, projects: ps, secrets: secrets, cfg: cfg, log: log}
 }
@@ -328,6 +334,11 @@ func (s *Service) Ensure(ctx context.Context, op store.Operation, p store.Projec
 	pitr, err := opPITR(op)
 	if err != nil {
 		return err
+	}
+	if d, err := opDetach(op); err != nil {
+		return err
+	} else if d != nil {
+		return s.ensureDetached(ctx, inst, p, d, log)
 	}
 	if inst.Status == "running" {
 		if err := s.adoptRestore(ctx, inst, p, pitr, log); err != nil {
@@ -768,6 +779,9 @@ func (s *Service) removeInstance(ctx context.Context, inst store.Instance) (node
 				return "", archived, err
 			}
 		}
+	}
+	if err := store.New(s.db).DeleteInstanceReplicas(ctx, inst.ID); err != nil {
+		return "", archived, err
 	}
 	if err := agent.DestroyInstance(ctx, agentKey(inst)); err != nil {
 		return "", archived, err

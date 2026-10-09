@@ -91,6 +91,24 @@ bundle share one version (spec §11.5).
   `realtime_connection_minutes`). Project → Realtime and
   `pgdock realtime status|enable|disable|history`.
 - New migration 00041 (realtime limits); project schema version 5.
+- Read replicas (V4-M35): up to two per dedicated project, on other nodes
+  (another region if wanted; data-residency projects stay in theirs).
+  Each is a Patroni member that is never promoted and never synchronous,
+  so it follows a new primary after a failover. The pooler's read-only
+  route `<db>_ro` balances reads across the replicas within 10 seconds of
+  the primary, and falls back to the primary, read-only, when none is.
+  Data API GETs go to replicas with `Read-Replica: allowed`, or by default
+  for publishable-key reads when the project turns that on. A replica can
+  be detached into a standalone project. Replicas bill like dedicated
+  instances of the primary's size (`replica_hours` and resource metrics).
+  Project → Settings → Read replicas, `pgdock replicas list|create|delete|detach`.
+  See docs/read-replicas.md.
+- New migration 00042 (read replicas). HA standby billing no longer counts
+  removed members.
+- Built with Go 1.26.9 (1.25 is out of support; html/template and net/http
+  fixes are only in 1.26), and linted with golangci-lint 2.14. ES256 keys
+  are encoded and parsed through `ecdsa.PublicKey.Bytes` and
+  `ParseUncompressedPublicKey` instead of the deprecated coordinates.
 - The Usage page lists file storage, downloads and image transforms (they
   were recorded but not shown).
 - pgdock-server's metadata connection pool defaults to 16 connections

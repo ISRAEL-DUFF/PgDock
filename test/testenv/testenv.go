@@ -316,7 +316,7 @@ func Start(t testing.TB, opts Options) *Env {
 	backups := backup.NewService(db, keyring, nodeSvc, svc, bcfg, log)
 	// The test server runs on the host: it reaches instances through the
 	// ports agents publish on 127.0.0.1.
-	ded := dedicated.New(db, keyring, nodeSvc, svc, backups, dedicated.Config{AdminVia: "published", ReadyTimeout: 3 * time.Minute, AfterFreeze: opts.AfterFreeze,
+	ded := dedicated.New(db, keyring, nodeSvc, svc, backups, dedicated.Config{AdminVia: "published", ReadyTimeout: 3 * time.Minute, AfterFreeze: opts.AfterFreeze, ReplicaMaxLag: 3 * time.Second,
 		MoveWait: dedicated.MoveWait{StableFor: 2 * time.Second, Poll: 250 * time.Millisecond}}, log)
 	ded.Snapshot = backups.Snapshot
 	svc.Instances = ded

@@ -676,6 +676,10 @@ test.describe("with the saved session", () => {
     await expect(page.getByTestId("instance-card")).toContainText("small");
     await expect(page.getByTestId("instance-card")).toContainText("5 GB volume");
     await shot(page, "19-dedicated-overview");
+    // V4-M35: the read replicas card (none yet: a replica needs another node).
+    await projectTab(page, "Compute");
+    await expect(page.getByTestId("replicas")).toContainText("Copies on other nodes that serve reads");
+    await expect(page.getByRole("button", { name: "Add replica…" })).toBeVisible();
 
     // 4. Point-in-time recovery into a new project, from the Backups tab.
     await projectTab(page, "Backups");

@@ -30,16 +30,18 @@ type Error struct {
 
 // call is one request's state.
 type call struct {
-	id     string
-	start  time.Time
-	w      *recorder
-	r      *http.Request
-	p      *project
-	ip     string
-	keyID  *uuid.UUID
-	role   string
-	userID *uuid.UUID
-	billed bool
+	id    string
+	start time.Time
+	w     *recorder
+	r     *http.Request
+	p     *project
+	ip    string
+	keyID *uuid.UUID
+	// publishable: the request came with the publishable key.
+	publishable bool
+	role        string
+	userID      *uuid.UUID
+	billed      bool
 	// storage marks a file download: its bytes are storage egress, and
 	// transforms counts image renders.
 	storage    bool
@@ -257,6 +259,7 @@ func (e *Edge) authorize(c *call) (Request, bool) {
 		c.role = req.Role
 		return req, true
 	}
+	c.publishable = true
 	req.Role, req.Claims = "anon", map[string]any{"role": "anon"}
 	if tok, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok && strings.TrimSpace(tok) != "" {
 		claims, err := jwtes.Verify(strings.TrimSpace(tok), p.jwks, p.cfg.Ref, time.Now())
@@ -282,6 +285,11 @@ func (e *Edge) authorize(c *call) (Request, bool) {
 // route sends a request to its service.
 func (e *Edge) route(c *call, req Request) {
 	path := c.r.URL.Path
+	if strings.HasPrefix(path, "/data/v1/") {
+		// Only the data API reads from replicas: auth and storage GETs
+		// can write (a verification link, a callback).
+		req.Replica = c.replicaRead()
+	}
 	switch {
 	case path == "/data/v1/health" && (c.r.Method == http.MethodGet || c.r.Method == http.MethodHead):
 		e.health(c, req)
@@ -313,14 +321,15 @@ func (e *Edge) health(c *call, req Request) {
 	defer cancel()
 	var role, dbRole string
 	var uid *string
+	var replica bool // served by a read replica
 	err := e.WithRequest(ctx, c.p, req, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `SELECT coalesce(pgd_auth.role(), ''), pgd_auth.uid()::text, current_user`).Scan(&role, &uid, &dbRole)
+		return tx.QueryRow(ctx, `SELECT coalesce(pgd_auth.role(), ''), pgd_auth.uid()::text, current_user, pg_is_in_recovery()`).Scan(&role, &uid, &dbRole, &replica)
 	})
 	if err != nil {
 		e.dbError(c, err)
 		return
 	}
-	out := map[string]any{"status": "ok", "project": c.p.cfg.Ref, "role": role, "region": c.p.cfg.Region}
+	out := map[string]any{"status": "ok", "project": c.p.cfg.Ref, "role": role, "region": c.p.cfg.Region, "replica": replica}
 	if uid != nil {
 		out["user_id"] = *uid
 	}
@@ -385,4 +394,23 @@ func (e *Edge) wake(ref string) {
 			e.cfg.Log.Warn("edge wake", "project", ref, "err", err)
 		}
 	}()
+}
+
+// replicaRead reports whether a request may read from the project's read
+// replicas (V4 §7): a GET or HEAD, when the project has some, that asks
+// with Read-Replica: allowed, or comes with the publishable key of a
+// project that sends those by default. Replicas trail the primary by up
+// to the lag threshold, so a client that must read its own writes leaves
+// the header off.
+func (c *call) replicaRead() bool {
+	if c.p.cfg.ReadDatabase == "" || (c.r.Method != http.MethodGet && c.r.Method != http.MethodHead) {
+		return false
+	}
+	switch strings.ToLower(c.r.Header.Get("Read-Replica")) {
+	case "allowed":
+		return true
+	case "", "default":
+		return c.publishable && c.p.cfg.Settings.ReplicaReads
+	}
+	return false // "primary", or anything else
 }

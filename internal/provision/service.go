@@ -257,6 +257,10 @@ type CreateParams struct {
 	NodeID   *uuid.UUID
 	Profile  string
 	VolumeGB int
+	// InstanceID, for a dedicated project, is its instance's id (default:
+	// new): a detached read replica's instance keeps its member's id,
+	// which names its container and volume (V4 §7).
+	InstanceID *uuid.UUID
 	// PgVersion is the Postgres major (0: the default, the newest).
 	PgVersion int
 	// Region is where the project runs (empty: the home region, or NodeID's
@@ -447,6 +451,9 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 			instanceID := inst.ID
 			if tier == TierDedicated {
 				iid := uuid.New()
+				if p.InstanceID != nil {
+					iid = *p.InstanceID
+				}
 				prefix := "instances/" + iid.String() + "/wal-g"
 				mem := int32(profile.MemoryMB)
 				vol := int32(p.VolumeGB)

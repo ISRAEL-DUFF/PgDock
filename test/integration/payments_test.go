@@ -112,8 +112,13 @@ func TestPaymentsAcrossProviders(t *testing.T) {
 		t.Fatal(err)
 	}
 	awaitPay(t, "the card payment", func() bool { return invoiceStatus(e, card.inv.Id) == "paid" })
+	// The card is saved just after the payment settles the invoice.
 	var methods struct{ Items []gen.PaymentMethod }
-	if e.Do("GET", "/api/v1/orgs/"+cid+"/billing/payment-methods", nil, &methods); len(methods.Items) != 1 || *methods.Items[0].Last4 != "4081" {
+	awaitPay(t, "the saved card", func() bool {
+		e.Do("GET", "/api/v1/orgs/"+cid+"/billing/payment-methods", nil, &methods)
+		return len(methods.Items) > 0
+	})
+	if len(methods.Items) != 1 || *methods.Items[0].Last4 != "4081" {
 		t.Fatalf("saved card: %+v", methods)
 	}
 	// A duplicate webhook changes nothing.
@@ -212,8 +217,13 @@ func TestPaymentsAcrossProviders(t *testing.T) {
 		t.Fatal(err)
 	}
 	awaitPay(t, "the wallet payment", func() bool { return invoiceStatus(e, wal.inv.Id) == "paid" })
-	mm, err := q.DefaultPaymentMethod(ctx, wal.id)
-	if err != nil || mm.Kind != "mandate" {
+	// The mandate is saved just after the payment settles the invoice.
+	var mm store.PaymentMethod
+	awaitPay(t, "the saved mandate", func() bool {
+		mm, err = q.DefaultPaymentMethod(ctx, wal.id)
+		return err == nil
+	})
+	if mm.Kind != "mandate" {
 		t.Fatalf("mandate: %+v %v", mm, err)
 	}
 	if out, err := e.Billing.ChargeMethod(ctx, mm, nil, 1_000_000); err != nil || !out.Succeeded {

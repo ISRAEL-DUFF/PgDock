@@ -66,9 +66,12 @@ func (s *Service) MoveToRegionEtcd(ctx context.Context, projectID uuid.UUID, by 
 			if err := s.Etcd.Ready(ctx, pr.Region); err != nil {
 				return nil, err
 			}
+			if err := s.HasReplicas(ctx, store.New(tx), pr.ID); err != nil {
+				return nil, err
+			}
 			out := etcdMoveParams{Instance: inst.ID, Region: pr.Region, HadHA: inst.HaEnabled}
 			if inst.HaEnabled {
-				n, err := s.standbyNode(ctx, inst.NodeID, nil)
+				n, err := s.standbyNode(ctx, inst, nil)
 				if err != nil {
 					return nil, err
 				}

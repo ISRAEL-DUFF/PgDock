@@ -280,6 +280,15 @@ type PatroniSpec struct {
 	Synchronous bool `json:"synchronous,omitempty"`
 	// PeerAllow are the CIDRs the other members connect from.
 	PeerAllow []string `json:"peer_allow"`
+	// ReadReplica tags the member nofailover and nosync (a read replica,
+	// V4 §7): it follows the leader but is never promoted and never a
+	// synchronous standby.
+	ReadReplica bool `json:"read_replica,omitempty"`
+	// PreferPort, when the member is published on the node's address, is
+	// the host port to try first for Postgres: an instance's replicas
+	// share one, so the pooler can balance across them in one route
+	// (PgBouncer takes one port for a host list). 0, or taken, means any.
+	PreferPort int `json:"prefer_port,omitempty"`
 }
 
 // PatroniREST is the user of Patroni's REST API.

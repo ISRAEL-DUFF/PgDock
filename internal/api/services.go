@@ -66,7 +66,8 @@ func (s *Server) backendServicesOut(r *http.Request, p store.Project, svc *store
 		User    *string `json:"user,omitempty"`
 	}{Anon: &anon, User: &user, Service: &service}
 	out.Settings = gen.BackendServicesSettings{StatementTimeoutMs: &st.StatementTimeoutMs, RatePerIp: &st.RatePerIP,
-		RatePerKey: &st.RatePerKey, AllowSecretInBrowser: &st.AllowSecretInBrowser, MaxQueryCost: &st.MaxQueryCost}
+		RatePerKey: &st.RatePerKey, AllowSecretInBrowser: &st.AllowSecretInBrowser, MaxQueryCost: &st.MaxQueryCost,
+		ReplicaReads: &st.ReplicaReads}
 	keys, err := store.New(s.db).ListAPIKeys(r.Context(), p.ID)
 	if err != nil {
 		return out, err
@@ -176,6 +177,9 @@ func (s *Server) UpdateBackendServices(w http.ResponseWriter, r *http.Request, i
 		}
 		if v.MaxQueryCost != nil {
 			st.MaxQueryCost = *v.MaxQueryCost
+		}
+		if v.ReplicaReads != nil {
+			st.ReplicaReads = *v.ReplicaReads
 		}
 	}
 	exposed, public := cur.ExposedSchemas, cur.PublicTables

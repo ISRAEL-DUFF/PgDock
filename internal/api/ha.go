@@ -147,6 +147,9 @@ func (s *Server) haStatus(w http.ResponseWriter, r *http.Request, id gen.Project
 		return gen.HAStatus{}, false
 	}
 	for _, m := range ms {
+		if m.Replica {
+			continue // read replicas have their own page (V4 §7)
+		}
 		updated := m.UpdatedAt
 		out.Members = append(out.Members, gen.HAMember{Id: m.ID, NodeId: m.NodeID, NodeName: m.NodeName, Role: gen.HAMemberRole(m.Role),
 			State: m.State, LagBytes: m.LagBytes, Timeline: i32(m.Timeline), UpdatedAt: &updated})

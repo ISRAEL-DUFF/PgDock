@@ -17,6 +17,7 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/edgeapi"
 	"github.com/israel-duff/pgdock/internal/files"
+	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
 	"github.com/israel-duff/pgdock/internal/tenancy"
@@ -158,7 +159,11 @@ func (s *Service) page(ctx context.Context, region string, since int64, rows []s
 		}
 		p.Settings = edgeapi.Settings{StatementTimeoutMs: or(st.StatementTimeoutMs, DefaultStatementTimeoutMs),
 			RatePerIP: or(st.RatePerIP, DefaultRatePerIP), RatePerKey: or(st.RatePerKey, DefaultRatePerKey),
-			AllowSecretInBrowser: st.AllowSecretInBrowser, MaxQueryCost: float64(or(st.MaxQueryCost, DefaultMaxQueryCost))}
+			AllowSecretInBrowser: st.AllowSecretInBrowser, MaxQueryCost: float64(or(st.MaxQueryCost, DefaultMaxQueryCost)),
+			ReplicaReads: st.ReplicaReads}
+		if r.HasReplicas {
+			p.ReadDatabase = r.DbName + pooler.ReadOnlySuffix
+		}
 		p.Storage = s.storageConfig(ctx, r, targets)
 		p.Realtime = edgeapi.RealtimeConfig{MessagesBlocked: r.RealtimeMessagesBlocked,
 			MaxChangesPerSecond: DefaultRealtimeChangesPerSecond, MaxGroups: DefaultRealtimeGroups}

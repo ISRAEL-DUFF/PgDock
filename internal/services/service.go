@@ -305,6 +305,9 @@ type Settings struct {
 	RatePerKey           int  `json:"rate_per_key,omitempty"`
 	AllowSecretInBrowser bool `json:"allow_secret_in_browser,omitempty"`
 	MaxQueryCost         int  `json:"max_query_cost,omitempty"`
+	// ReplicaReads sends publishable-key data API GETs to the read
+	// replicas by default (V4 §7).
+	ReplicaReads bool `json:"replica_reads,omitempty"`
 }
 
 // Defaults.

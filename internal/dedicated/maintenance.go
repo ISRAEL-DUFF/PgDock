@@ -249,6 +249,12 @@ func (s *Service) MinorUpgrade(ctx context.Context, inst store.Instance) (uuid.U
 		rerr = errors.Join(rerr, fmt.Errorf("pooler RESUME: %w", err))
 	}
 	pause := int32(time.Since(start).Milliseconds())
+	if rerr == nil && inst.Patroni {
+		// Read replicas of an instance without HA: onto the new release
+		// after the primary, one at a time (reads go to the primary or
+		// the other replica meanwhile).
+		rerr = s.recreateReplicas(ctx, inst)
+	}
 	if rerr != nil {
 		s.log.Error("minor upgrade failed", "instance", inst.ID, "from", from, "to", to, "err", rerr)
 		return finish(&pause, rerr)
@@ -372,8 +378,11 @@ func (s *Service) minorUpgradeHA(ctx context.Context, inst store.Instance, p sto
 		if res, err = recreate(m); err != nil {
 			return res, nil, fmt.Errorf("standby on %s: %w", m.NodeName, err)
 		}
-		id := m.ID
-		standby = &id
+		// Read replicas restart too, but are never promoted (V4 §7).
+		if !isReplica(m) {
+			id := m.ID
+			standby = &id
+		}
 	}
 	if standby == nil {
 		return res, nil, errors.New("no standby to switch over to")

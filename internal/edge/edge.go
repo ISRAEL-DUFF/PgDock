@@ -349,7 +349,7 @@ func (e *Edge) apply(ps []edgeapi.Project) {
 }
 
 func sameConn(a, b edgeapi.Project) bool {
-	if a.Database != b.Database || a.EdgeUser != b.EdgeUser || a.Password != b.Password ||
+	if a.Database != b.Database || a.ReadDatabase != b.ReadDatabase || a.EdgeUser != b.EdgeUser || a.Password != b.Password ||
 		a.PoolerHost != b.PoolerHost || a.PoolerPort != b.PoolerPort || len(a.Logins) != len(b.Logins) {
 		return false
 	}
@@ -381,19 +381,24 @@ func (e *Edge) lookup(ref string) *project {
 // dbPool is the project's pool, connecting as its edge login through the
 // pooler in transaction mode.
 func (e *Edge) dbPool(ctx context.Context, p *project) (*pgxpool.Pool, error) {
-	return e.loginPool(ctx, p, "")
+	return e.loginPool(ctx, p, "", false)
 }
 
 // loginPool is the project's pool for login: "" is the edge login; a
 // request role connects as itself when the feed gave its password.
-func (e *Edge) loginPool(ctx context.Context, p *project, login string) (*pgxpool.Pool, error) {
+func (e *Edge) loginPool(ctx context.Context, p *project, login string, replica bool) (*pgxpool.Pool, error) {
 	d := p.db
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.closed {
 		return nil, errConfigChanged
 	}
-	if pool := d.pools[login]; pool != nil {
+	database, key := p.cfg.Database, login
+	if replica && p.cfg.ReadDatabase != "" {
+		// The read-only route across the read replicas (V4 §7).
+		database, key = p.cfg.ReadDatabase, "ro:"+login
+	}
+	if pool := d.pools[key]; pool != nil {
 		return pool, nil
 	}
 	user, password, maxConns := p.cfg.EdgeUser, p.cfg.Password, int32(4)
@@ -420,7 +425,7 @@ func (e *Edge) loginPool(ctx context.Context, p *project, login string) (*pgxpoo
 		return nil, errors.New("no pooler address for the project's region")
 	}
 	u := url.URL{Scheme: "postgres", User: url.UserPassword(user, password),
-		Host: net.JoinHostPort(host, strconv.Itoa(port)), Path: "/" + p.cfg.Database,
+		Host: net.JoinHostPort(host, strconv.Itoa(port)), Path: "/" + database,
 		RawQuery: url.Values{"sslmode": {e.cfg.PoolerSSLMode}, "application_name": {"pgdock-edge"}}.Encode()}
 	cfg, err := pgxpool.ParseConfig(u.String())
 	if err != nil {
@@ -438,7 +443,7 @@ func (e *Edge) loginPool(ctx context.Context, p *project, login string) (*pgxpoo
 	if d.pools == nil {
 		d.pools = map[string]*pgxpool.Pool{}
 	}
-	d.pools[login] = pool
+	d.pools[key] = pool
 	return pool, nil
 }
 
@@ -448,10 +453,10 @@ var errNoLogin = errors.New("no login for the role")
 
 // rolePool is the pool a role's SQL runs in, and whether the transaction
 // must SET ROLE to it (only with an older server's feed).
-func (e *Edge) rolePool(ctx context.Context, p *project, role string) (*pgxpool.Pool, bool, error) {
-	pool, err := e.loginPool(ctx, p, role)
+func (e *Edge) rolePool(ctx context.Context, p *project, role string, replica bool) (*pgxpool.Pool, bool, error) {
+	pool, err := e.loginPool(ctx, p, role, replica)
 	if errors.Is(err, errNoLogin) {
-		pool, err = e.dbPool(ctx, p)
+		pool, err = e.loginPool(ctx, p, "", replica)
 		return pool, true, err
 	}
 	return pool, false, err
@@ -467,6 +472,8 @@ type Request struct {
 	Role    string         // anon | user | service
 	Claims  map[string]any // includes "role"
 	Timeout time.Duration
+	// Replica runs it on the project's read replicas (V4 §7): reads only.
+	Replica bool
 }
 
 // dbRole is the project role Role maps to.
@@ -491,7 +498,7 @@ func (e *Edge) WithRequest(ctx context.Context, p *project, req Request, fn func
 		return err
 	}
 	// The role's own login: tenant SQL that resets the role stays this role.
-	pool, setRole, err := e.rolePool(ctx, p, role)
+	pool, setRole, err := e.rolePool(ctx, p, role, req.Replica)
 	if err != nil {
 		return err
 	}

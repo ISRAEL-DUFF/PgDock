@@ -36,7 +36,19 @@ type Route struct {
 	// PoolSize and MaxDBConnections cap pooler-to-backend connections.
 	PoolSize         int
 	MaxDBConnections int
+	// MoreHosts are further backends on the same Port, balanced round-robin
+	// with Host (a read-only route across read replicas, V4 §7).
+	MoreHosts []string
+	// ReadOnly makes the route's server connections default to read-only
+	// transactions.
+	ReadOnly bool
 }
+
+// ReadOnlySuffix names a project's read-only route: <db>_ro (V4 §7).
+const ReadOnlySuffix = "_ro"
+
+// readOnlyQuery runs on each server connection of a read-only route.
+const readOnlyQuery = "SET default_transaction_read_only = on"
 
 // User is an auth file entry. Secret must be a SCRAM-SHA-256 verifier;
 // the pooler never sees plaintext passwords.
@@ -87,7 +99,17 @@ func Render(cfg Config) (databases, userlist []byte, err error) {
 		if !hostRe.MatchString(r.Host) || r.Port < 1 || r.Port > 65535 {
 			return nil, nil, fmt.Errorf("pooler: invalid backend address %q:%d for %q", r.Host, r.Port, r.Database)
 		}
-		fmt.Fprintf(&db, "%s = host=%s port=%d dbname=%s", r.Database, r.Host, r.Port, backend)
+		hosts := r.Host
+		for _, h := range r.MoreHosts {
+			if !hostRe.MatchString(h) {
+				return nil, nil, fmt.Errorf("pooler: invalid backend host %q for %q", h, r.Database)
+			}
+			hosts += "," + h
+		}
+		fmt.Fprintf(&db, "%s = host=%s port=%d dbname=%s", r.Database, hosts, r.Port, backend)
+		if r.ReadOnly {
+			fmt.Fprintf(&db, " connect_query='%s'", readOnlyQuery)
+		}
 		if r.PoolSize > 0 {
 			fmt.Fprintf(&db, " pool_size=%d", r.PoolSize)
 		}

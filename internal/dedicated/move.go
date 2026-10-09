@@ -76,6 +76,9 @@ func (s *Service) Move(ctx context.Context, mp MoveParams) (store.Operation, err
 			if src.HaEnabled {
 				return nil, fmt.Errorf("%w: turn HA off before moving this project (a switchover moves the primary between its nodes)", provision.ErrConflict)
 			}
+			if err := s.HasReplicas(ctx, q, pr.ID); err != nil {
+				return nil, err
+			}
 			if src.NodeID == mp.NodeID {
 				return nil, fmt.Errorf("%w: the project is already on that node", provision.ErrInvalid)
 			}

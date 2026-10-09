@@ -485,6 +485,7 @@ type InstanceMember struct {
 	UpdatedAt  time.Time
 	CreatedAt  time.Time
 	DeletedAt  *time.Time
+	Replica    bool
 }
 
 type Invitation struct {
@@ -1044,6 +1045,25 @@ type QuotaPlan struct {
 	Name      string
 	Limits    json.RawMessage
 	CreatedAt time.Time
+}
+
+type ReadReplica struct {
+	ID                uuid.UUID
+	ProjectID         uuid.UUID
+	InstanceMemberID  *uuid.UUID
+	NodeID            uuid.UUID
+	RegionID          *string
+	Size              string
+	Status            string
+	InRotation        bool
+	LagBytes          *int64
+	LagMs             *int64
+	Error             *string
+	DetachedProjectID *uuid.UUID
+	RotationChangedAt *time.Time
+	UpdatedAt         time.Time
+	CreatedAt         time.Time
+	DeletedAt         *time.Time
 }
 
 type ReapedSession struct {

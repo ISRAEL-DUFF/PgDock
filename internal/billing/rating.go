@@ -37,6 +37,9 @@ var metricLabels = map[string]string{
 	tenancy.MetricHARAM:           "RAM GB-hours",
 	tenancy.MetricHADisk:          "Disk GB-hours",
 	tenancy.MetricSyncReplication: "hours",
+	tenancy.MetricReplicaCPU:      "vCPU-hours",
+	tenancy.MetricReplicaRAM:      "RAM GB-hours",
+	tenancy.MetricReplicaDisk:     "Disk GB-hours",
 }
 
 // Rated is a month's invoice before it is saved: usage of the month in
@@ -150,7 +153,8 @@ func (s *Service) rate(ctx context.Context, orgID uuid.UUID, month time.Time, pr
 		}
 		switch r.Metric {
 		case tenancy.MetricDedicatedCPU, tenancy.MetricDedicatedRAM, tenancy.MetricDedicatedDisk,
-			tenancy.MetricHACPU, tenancy.MetricHARAM, tenancy.MetricHADisk, tenancy.MetricSyncReplication:
+			tenancy.MetricHACPU, tenancy.MetricHARAM, tenancy.MetricHADisk, tenancy.MetricSyncReplication,
+			tenancy.MetricReplicaCPU, tenancy.MetricReplicaRAM, tenancy.MetricReplicaDisk:
 			if projUse[r.ProjectID] == nil {
 				projUse[r.ProjectID] = map[string]Dec{}
 			}
@@ -247,6 +251,10 @@ func (s *Service) rate(ctx context.Context, orgID uuid.UUID, month time.Time, pr
 			}
 		}
 		add(KindAddon, tenancy.MetricSyncReplication, "Synchronous replication", p.AddOns.SyncReplicationHour, RevenueHA)
+		// Read replicas bill like a dedicated instance of their size (V4 §7).
+		add(KindDedicated, tenancy.MetricReplicaCPU, "Read replicas", p.Dedicated.VCPUHour, RevenueDedicated)
+		add(KindDedicated, tenancy.MetricReplicaRAM, "Read replicas", p.Dedicated.RAMGBHour, RevenueDedicated)
+		add(KindDedicated, tenancy.MetricReplicaDisk, "Read replicas", p.Dedicated.DiskGBHour, RevenueDedicated)
 	}
 
 	// The month's plan changes: proration, annual terms and renewals.

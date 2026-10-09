@@ -212,6 +212,8 @@ export type MaintenanceStatus = S["MaintenanceStatus"];
 export type MaintenanceWindow = S["MaintenanceWindow"];
 export type MinorUpgrade = S["MinorUpgrade"];
 export type HAStatus = S["HAStatus"];
+export type ReplicaList = S["ReplicaList"];
+export type ReadReplica = S["ReadReplica"];
 export type EtcdCluster = S["EtcdCluster"];
 export type CreateProjectRequest = S["CreateProjectRequest"];
 export type SqlResult = S["SqlResult"];
@@ -707,6 +709,19 @@ export const api = {
   moveProject: (id: string, b: S["MoveProjectRequest"]) =>
     request<Operation>("POST", `/api/v1/admin/projects/${id}/move`, b),
   projectHA: (id: string) => getJSON<HAStatus>(`/api/v1/projects/${id}/ha`),
+  /** A dedicated project's read replicas (V4 §7). */
+  replicas: (id: string) =>
+    getJSON<ReplicaList>(`/api/v1/projects/${id}/replicas`),
+  createReplica: (id: string, b: S["ReplicaCreateRequest"]) =>
+    request<Operation>("POST", `/api/v1/projects/${id}/replicas`, b),
+  deleteReplica: (id: string, replica: string) =>
+    request<Operation>("DELETE", `/api/v1/projects/${id}/replicas/${replica}`),
+  detachReplica: (id: string, replica: string, name: string) =>
+    request<ProjectCredentials>(
+      "POST",
+      `/api/v1/projects/${id}/replicas/${replica}/detach`,
+      { name },
+    ),
   enableHA: (id: string, b: S["HAEnableRequest"]) =>
     request<Operation>("POST", `/api/v1/projects/${id}/ha`, b),
   updateHA: (id: string, synchronous: boolean) =>
