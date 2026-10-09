@@ -6,9 +6,11 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	netmail "net/mail"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -106,19 +108,133 @@ WHERE confirm_hash = ? AND confirmed_at IS NULL AND confirm_sent_at >= ?`, now.U
 	return nil
 }
 
-// Unsubscribe removes the subscriber whose link carried token.
+// Unsubscribe removes the subscriber whose link carried token, and
+// remembers the address so the next managed sync doesn't add it back.
 func (s *Service) Unsubscribe(ctx context.Context, token string) error {
 	if token == "" {
 		return errBadToken
 	}
-	res, err := s.st.db.ExecContext(ctx, `DELETE FROM subscribers WHERE unsub_token = ?`, token)
+	tx, err := s.st.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	defer func() { _ = tx.Rollback() }()
+	var email string
+	err = tx.QueryRowContext(ctx, `DELETE FROM subscribers WHERE unsub_token = ? RETURNING email`, token).Scan(&email)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = tx.QueryRowContext(ctx, `DELETE FROM managed_subscribers WHERE unsub_token = ? RETURNING email`, token).Scan(&email)
+	}
+	if errors.Is(err, sql.ErrNoRows) {
 		return errBadToken
 	}
-	return nil
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO unsubscribed (email, at) VALUES (?, ?) ON CONFLICT (email) DO UPDATE SET at = excluded.at`,
+		email, s.Now().UTC().Unix()); err != nil {
+		return err
+	}
+	// The same address's other subscription goes too: one link, no more mail.
+	if _, err := tx.ExecContext(ctx, `DELETE FROM subscribers WHERE email = ?`, email); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM managed_subscribers WHERE email = ?`, email); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// PutManaged replaces the managed subscribers (V4.1 §7.1). They skip
+// double opt-in; an address that unsubscribed is skipped, and one that
+// subscribed itself keeps that subscription (and gets each email once).
+func (s *Service) PutManaged(ctx context.Context, m statusapi.ManagedSubscribers) error {
+	if err := m.Validate(); err != nil {
+		return err
+	}
+	now := s.Now().UTC()
+	tx, err := s.st.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	gone := map[string]bool{}
+	rows, err := tx.QueryContext(ctx, `SELECT email FROM unsubscribed`)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var e string
+		if err := rows.Scan(&e); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		gone[e] = true
+	}
+	_ = rows.Close()
+	if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE IF NOT EXISTS managed_keep (email TEXT PRIMARY KEY)`); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM managed_keep`); err != nil {
+		return err
+	}
+	for _, x := range m.Subscribers {
+		if gone[x.Email] {
+			continue
+		}
+		comps, _ := json.Marshal(x.Components)
+		regions, _ := json.Marshal(append([]string{}, x.Regions...))
+		if _, err := tx.ExecContext(ctx, `INSERT INTO managed_subscribers (email, components, regions, unsub_token, created_at) VALUES (?, ?, ?, ?, ?)
+ON CONFLICT (email) DO UPDATE SET components = excluded.components, regions = excluded.regions`,
+			x.Email, string(comps), string(regions), newToken(), now.Unix()); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO managed_keep (email) VALUES (?)`, x.Email); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM managed_subscribers WHERE email NOT IN (SELECT email FROM managed_keep)`); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// ManagedSubscriber is one managed address as stored.
+type ManagedSubscriber = statusapi.ManagedSubscriber
+
+// Managed lists the managed subscribers, by address.
+func (s *Service) Managed(ctx context.Context) ([]ManagedSubscriber, error) {
+	rows, err := s.st.db.QueryContext(ctx, `SELECT email, components, regions FROM managed_subscribers ORDER BY email`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []ManagedSubscriber
+	for rows.Next() {
+		var x ManagedSubscriber
+		var comps, regions string
+		if err := rows.Scan(&x.Email, &comps, &regions); err != nil {
+			return nil, err
+		}
+		_ = json.Unmarshal([]byte(comps), &x.Components)
+		_ = json.Unmarshal([]byte(regions), &x.Regions)
+		out = append(out, x)
+	}
+	return out, rows.Err()
+}
+
+// concerns reports whether an incident is one a managed subscriber asked
+// about: one of its components, in one of its regions (an incident with
+// no region is everywhere; a subscriber with none takes all).
+func concerns(in statusapi.Incident, components, regions []string) bool {
+	if in.Region != "" && len(regions) > 0 && !slices.Contains(regions, in.Region) {
+		return false
+	}
+	for _, c := range in.Components {
+		if slices.Contains(components, c) {
+			return true
+		}
+	}
+	return false
 }
 
 func enqueue(ctx context.Context, tx *sql.Tx, to, subject, body string, now time.Time) error {
@@ -132,19 +248,46 @@ func (s *Service) notify(ctx context.Context, tx *sql.Tx, in statusapi.Incident,
 	if !s.subscriptions() {
 		return nil
 	}
+	type sub struct {
+		email, token string
+		managed      bool
+	}
+	var subs []sub
+	seen := map[string]bool{}
 	rows, err := tx.QueryContext(ctx, `SELECT email, unsub_token FROM subscribers WHERE confirmed_at IS NOT NULL`)
 	if err != nil {
 		return err
 	}
-	type sub struct{ email, token string }
-	var subs []sub
 	for rows.Next() {
 		var x sub
 		if err := rows.Scan(&x.email, &x.token); err != nil {
 			_ = rows.Close()
 			return err
 		}
-		subs = append(subs, x)
+		subs, seen[x.email] = append(subs, x), true
+	}
+	_ = rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	rows, err = tx.QueryContext(ctx, `SELECT email, unsub_token, components, regions FROM managed_subscribers`)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var x sub
+		var comps, regions string
+		if err := rows.Scan(&x.email, &x.token, &comps, &regions); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		var cs, rs []string
+		_ = json.Unmarshal([]byte(comps), &cs)
+		_ = json.Unmarshal([]byte(regions), &rs)
+		if !seen[x.email] && concerns(in, cs, rs) {
+			x.managed = true
+			subs = append(subs, x)
+		}
 	}
 	_ = rows.Close()
 	if err := rows.Err(); err != nil {
@@ -152,6 +295,10 @@ func (s *Service) notify(ctx context.Context, tx *sql.Tx, in statusapi.Incident,
 	}
 	subject := fmt.Sprintf("[%s] %s: %s", s.cfg.Title, statusLabel(u.Status), in.Title)
 	for _, x := range subs {
+		why := "you subscribed to " + s.cfg.Title
+		if x.managed {
+			why = "your organisation's projects use the affected components (you are an owner or billing contact)"
+		}
 		body := fmt.Sprintf(`%s
 %s — %s
 
@@ -159,10 +306,10 @@ func (s *Service) notify(ctx context.Context, tx *sql.Tx, in statusapi.Incident,
 
 Details: %s/incidents/%s
 
-You get these emails because you subscribed to %s.
+You get these emails because %s.
 Unsubscribe: %s/unsubscribe?token=%s
 `, in.Title, statusLabel(u.Status), u.PostedAt.UTC().Format("2006-01-02 15:04 MST"), u.Body,
-			s.cfg.PublicURL, in.ID, s.cfg.Title, s.cfg.PublicURL, x.token)
+			s.cfg.PublicURL, in.ID, why, s.cfg.PublicURL, x.token)
 		if err := enqueue(ctx, tx, x.email, subject, body, now); err != nil {
 			return err
 		}

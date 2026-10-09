@@ -50,6 +50,19 @@ bundle share one version (spec §11.5).
 - The major upgrade preflight now checks dedicated projects too, restoring
   the schema into a temporary instance of the new major, and warns about
   features the new major removed.
+- Status page (V4.1-M6): paying organisations' owners and billing
+  contacts are subscribed to the incidents on the components and regions
+  their projects use, synced hourly (a per-contact *Status page emails*
+  toggle; an unsubscribe is kept). New **billing** and per-region
+  **backend services** components; pgdock-edge now reports at least every
+  30 seconds. Upgrade pgdock-status with pgdock-server and add the new
+  components to status.toml (see status.example.toml). New migration
+  00047.
+- Banners: every member of an organisation sees an overdue, restricted or
+  suspended billing state or a declined payment (owners and billing
+  members with the pay link, no amounts), owners and billing members see
+  the budget reaching 80% and 100%, and everyone sees open incidents
+  affecting the organisation's projects.
 
 ### V4 (on feature/pgdock4)
 - Backend services' edge foundation (V4-M28): a project can turn on backend

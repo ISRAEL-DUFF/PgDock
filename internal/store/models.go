@@ -222,10 +222,11 @@ type BillingAccount struct {
 }
 
 type BillingContact struct {
-	OrgID     uuid.UUID
-	Email     string
-	Name      *string
-	CreatedAt time.Time
+	OrgID        uuid.UUID
+	Email        string
+	Name         *string
+	CreatedAt    time.Time
+	StatusEmails bool
 }
 
 type BillingPlanChange struct {
@@ -339,6 +340,12 @@ type DunningStep struct {
 	Step    string
 	Detail  *string
 	TakenAt time.Time
+}
+
+type Edge struct {
+	Name         string
+	Region       string
+	LastReportAt time.Time
 }
 
 type EdgeReport struct {

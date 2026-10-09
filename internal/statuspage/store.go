@@ -48,6 +48,13 @@ CREATE TABLE IF NOT EXISTS subscribers (
   unsub_token TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS subscribers_confirm ON subscribers (confirm_hash);
+CREATE TABLE IF NOT EXISTS managed_subscribers (
+  email TEXT PRIMARY KEY, components TEXT NOT NULL, regions TEXT NOT NULL,
+  unsub_token TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS unsubscribed (
+  email TEXT PRIMARY KEY, at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS outbox (
   id INTEGER PRIMARY KEY AUTOINCREMENT, recipient TEXT NOT NULL, subject TEXT NOT NULL, body TEXT NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0, next_at INTEGER NOT NULL, last_error TEXT
@@ -200,19 +207,16 @@ type heartbeat struct {
 	At            time.Time
 }
 
-func (s *store) saveHeartbeat(ctx context.Context, hb statusapi.Heartbeat, known map[string]bool, now time.Time) error {
+func (s *store) saveHeartbeat(ctx context.Context, states map[string]statusapi.ComponentState, now time.Time) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	for _, c := range hb.Components {
-		if !known[c.ID] {
-			continue
-		}
+	for id, c := range states {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO heartbeats (component, state, detail, received_at) VALUES (?, ?, ?, ?)
 ON CONFLICT (component) DO UPDATE SET state = excluded.state, detail = excluded.detail, received_at = excluded.received_at`,
-			c.ID, c.Status, c.Detail, now.Unix()); err != nil {
+			id, c.Status, c.Detail, now.Unix()); err != nil {
 			return err
 		}
 	}

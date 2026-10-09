@@ -221,6 +221,7 @@ func (s *Service) Handler() http.Handler {
 	mux.HandleFunc("POST "+statusapi.PathHeartbeat, s.signed(s.pushHeartbeat))
 	mux.HandleFunc("PUT "+statusapi.PathSLATargets, s.signed(s.pushSLATargets))
 	mux.HandleFunc("POST "+statusapi.PathSLAResults, s.signed(s.slaResultsHandler))
+	mux.HandleFunc("PUT "+statusapi.PathManagedSubscribers, s.signed(s.pushManaged))
 	mux.HandleFunc("POST /subscribe", s.subscribe)
 	mux.HandleFunc("GET /subscribe/confirm", s.tokenForm("Confirm your subscription", "Confirm", "/subscribe/confirm"))
 	mux.HandleFunc("POST /subscribe/confirm", s.tokenAction(s.Confirm, "You're subscribed. We'll email you when incidents are opened, updated and resolved."))
@@ -349,7 +350,11 @@ func (s *Service) signed(h func(http.ResponseWriter, *http.Request, []byte)) htt
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "pushes are not enabled: set push_secret"})
 			return
 		}
-		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+		limit := int64(1 << 20)
+		if r.URL.Path == statusapi.PathManagedSubscribers {
+			limit = 32 << 20 // every paying organisation's contacts
+		}
+		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, limit))
 		if err != nil {
 			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "body too large"})
 			return
@@ -524,4 +529,17 @@ func (s *Service) tokenAction(do func(context.Context, string) error, done strin
 			s.render(w, http.StatusOK, "message", messageData{snapshot: snap, Heading: "Done", Text: done})
 		}
 	}
+}
+
+func (s *Service) pushManaged(w http.ResponseWriter, r *http.Request, body []byte) {
+	var m statusapi.ManagedSubscribers
+	if err := json.Unmarshal(body, &m); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	if err := s.PutManaged(r.Context(), m); err != nil {
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

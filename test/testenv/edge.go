@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,7 +24,13 @@ type Edge struct {
 	*edge.Edge
 	URL string // its listener; requests carry the project's Host
 	t   testing.TB
+	// stop ends the edge before the test does.
+	stop     func()
+	stopOnce sync.Once
 }
+
+// Stop stops the edge: it serves and reports no more.
+func (x *Edge) Stop() { x.stopOnce.Do(x.stop) }
 
 // StartEdge runs pgdock-edge against this environment's server and
 // poolers, and waits for its first configuration.
@@ -39,11 +46,8 @@ func (e *Env) StartEdge(opts ...func(*edge.Config)) *Edge {
 	done := make(chan struct{})
 	go func() { defer close(done); ed.Run(ctx) }()
 	srv := httptest.NewServer(ed)
-	e.t.Cleanup(func() {
-		srv.Close()
-		cancel()
-		<-done
-	})
+	x := &Edge{Edge: ed, URL: srv.URL, t: e.t, stop: func() { srv.Close(); cancel(); <-done }}
+	e.t.Cleanup(x.Stop)
 	deadline := time.Now().Add(30 * time.Second)
 	for !ed.Ready() {
 		if time.Now().After(deadline) {
@@ -51,7 +55,7 @@ func (e *Env) StartEdge(opts ...func(*edge.Config)) *Edge {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	return &Edge{Edge: ed, URL: srv.URL, t: e.t}
+	return x
 }
 
 // Do sends a request to project ref's API: method, path, headers (pairs),

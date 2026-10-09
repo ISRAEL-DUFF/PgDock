@@ -519,6 +519,7 @@ func run() error {
 		URL: cfg.Status.URL, Secret: cfg.Status.PushSecret, Components: cfg.Status.Components, Region: cfg.Status.Region,
 	}, log)
 	incidentSvc.SetMailer(mailSvc, cfg.Insight.PublicURL)
+	incidentSvc.Billing = billingSvc.Health
 	if cfg.Status.URL != "" {
 		log.Info("pushing heartbeats and incidents to the status page", "url", cfg.Status.URL)
 		bg.Add(1)

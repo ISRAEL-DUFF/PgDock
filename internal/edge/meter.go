@@ -33,6 +33,9 @@ type meter struct {
 	// pending are reports not yet accepted, retried in order with their
 	// batch ids.
 	pending []edgeapi.Report
+	// lastTaken is when the last report was made: an empty one is still
+	// sent every Config.AliveEvery, so pgdock-server sees the edge is up.
+	lastTaken time.Time
 }
 
 func newMeter() *meter {
@@ -94,13 +97,16 @@ func (m *meter) record(l edgeapi.Log, billed, files bool, transforms int64) {
 }
 
 // take moves what was collected into a new pending report.
-func (m *meter) take(edge string) {
+func (m *meter) take(edge, region string, aliveEvery time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if len(m.usage) == 0 && len(m.logs) == 0 && len(m.keys) == 0 && len(m.active) == 0 {
+	now := time.Now().UTC()
+	if len(m.usage) == 0 && len(m.logs) == 0 && len(m.keys) == 0 && len(m.active) == 0 &&
+		(now.Sub(m.lastTaken) < aliveEvery || len(m.pending) > 0) {
 		return
 	}
-	r := edgeapi.Report{BatchID: uuid.NewString(), Edge: edge, At: time.Now().UTC(), Logs: m.logs}
+	m.lastTaken = now
+	r := edgeapi.Report{BatchID: uuid.NewString(), Edge: edge, Region: region, At: now, Logs: m.logs}
 	for _, u := range m.usage {
 		r.Usage = append(r.Usage, *u)
 	}
@@ -151,7 +157,7 @@ func (e *Edge) report(ctx context.Context) {
 
 // flush sends what was collected (and any earlier reports not accepted).
 func (e *Edge) flush(ctx context.Context) {
-	e.meter.take(e.cfg.Name)
+	e.meter.take(e.cfg.Name, e.cfg.Region, e.cfg.AliveEvery)
 	for {
 		r, ok := e.meter.next()
 		if !ok {

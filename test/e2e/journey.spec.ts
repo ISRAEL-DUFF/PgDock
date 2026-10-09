@@ -2003,6 +2003,57 @@ test.describe("with the saved session", () => {
     await shot(page, "80-realtime");
   });
 
+  test("banners: a member sees the overdue invoice without amounts, and an incident affecting the projects", async ({ page, browser }) => {
+    await signedIn(page);
+    // The owner's personal organisation, where the earlier projects are.
+    const orgs = await page.evaluate(async () => (await (await fetch("/api/v1/orgs")).json()).items as { id: string; personal: boolean }[]);
+    const orgID = orgs.find((o) => o.personal)!.id;
+    await page.evaluate((id) => localStorage.setItem("pgdock.org", id), orgID);
+
+    // Dana joins as a plain member: no billing access.
+    const danaEmail = "dana@example.com";
+    await page.goto("/org/members");
+    await page.getByTestId("invite-member").click();
+    await page.getByLabel("Email").fill(danaEmail);
+    await page.getByLabel("Organisation role").selectOption("member");
+    await page.getByRole("button", { name: "Send invitation" }).click();
+    await expect(page.getByTestId("invitation-created")).toBeVisible();
+    await page.getByRole("button", { name: "Done" }).click();
+    const danaCtx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const dana = await danaCtx.newPage();
+    await acceptInvitation(dana, await mailLink(danaEmail, "invitation"), "Dana");
+    await dana.evaluate((id) => localStorage.setItem("pgdock.org", id), orgID);
+
+    // An overdue invoice: every member sees it; only the owner gets the pay link, and nobody sees an amount here.
+    expect(await apiStatus(page, `/api/v1/orgs/${orgID}/billing`)).toBe(200); // opens the billing account
+    await metadataSQL(`UPDATE billing_accounts SET dunning_state = 'overdue' WHERE org_id = '${orgID}'`);
+    await dana.goto("/projects");
+    const danaBanner = dana.getByTestId("billing-banner");
+    await expect(danaBanner).toContainText("has an overdue invoice");
+    await expect(danaBanner).toContainText("Ask an owner or a billing member");
+    await expect(danaBanner).not.toContainText("₦");
+    await expect(danaBanner.getByRole("link", { name: "Pay now" })).toHaveCount(0);
+    await page.goto("/projects");
+    await expect(page.getByTestId("billing-banner").getByRole("link", { name: "Pay now" })).toBeVisible();
+
+    // An open incident on the components the organisation's projects use.
+    const incidentID = await metadataSQL(`WITH i AS (INSERT INTO incidents (title, components, severity, status)
+      VALUES ('Connections are slow', ARRAY['shared-tier', 'dedicated'], 'major', 'investigating') RETURNING id),
+      u AS (INSERT INTO incident_updates (incident_id, status, body) SELECT id, 'investigating', 'We are looking into it.' FROM i)
+      SELECT id FROM i`);
+    await dana.reload();
+    await expect(dana.getByTestId("incident-banner")).toContainText("Connections are slow");
+    await expect(dana.getByTestId("incident-banner")).toContainText("We are looking into it.");
+    await shot(dana, "81-banners");
+
+    await metadataSQL(`UPDATE incidents SET status = 'resolved', resolved_at = now() WHERE id = '${incidentID}'`);
+    await metadataSQL(`UPDATE billing_accounts SET dunning_state = 'ok' WHERE org_id = '${orgID}'`);
+    await dana.reload();
+    await expect(dana.getByTestId("incident-banner")).toHaveCount(0);
+    await expect(dana.getByTestId("billing-banner")).toHaveCount(0);
+    await danaCtx.close();
+  });
+
   test("the shell: keyboard shortcuts, and the menu on a narrow screen", async ({ page }) => {
     await signedIn(page);
     await page.goto("/projects");

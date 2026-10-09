@@ -234,6 +234,7 @@ export type AlertSettingsRequest = S["AlertSettingsRequest"];
 export type IsolationCheck = S["IsolationCheck"];
 export type User = S["User"];
 export type Org = S["Org"];
+export type OrgIncident = S["OrgIncident"];
 export type OrgRole = S["OrgRole"];
 export type ProjectRole = S["ProjectRole"];
 export type OrgMember = S["OrgMember"];
@@ -1333,6 +1334,14 @@ export const api = {
     ),
   addBillingContact: (org: string, b: BillingContact) =>
     request<BillingContact>("POST", `/api/v1/orgs/${org}/billing/contacts`, b),
+  updateBillingContact: (org: string, email: string, statusEmails: boolean) =>
+    request<BillingContact>(
+      "PATCH",
+      `/api/v1/orgs/${org}/billing/contacts/${encodeURIComponent(email)}`,
+      { status_emails: statusEmails },
+    ),
+  orgIncidents: (org: string) =>
+    getJSON<S["OrgIncidentList"]>(`/api/v1/orgs/${org}/incidents`),
   removeBillingContact: (org: string, email: string) =>
     request<void>(
       "DELETE",

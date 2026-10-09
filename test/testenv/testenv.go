@@ -471,6 +471,7 @@ func Start(t testing.TB, opts Options) *Env {
 	incidentSvc := incidents.New(db, incidents.Config{URL: opts.StatusURL, Secret: opts.StatusSecret}, log)
 	incidentSvc.SetMailer(mailSvc, "https://pgdock.test")
 	billingSvc := billing.New(db, mailSvc, "https://pgdock.test", log)
+	incidentSvc.Billing = billingSvc.Health
 	costSvc := costs.New(db, billingSvc, "eu-central", log)
 	capacitySvc.SetConverter(costSvc)
 	if err := billingSvc.Init(ctx); err != nil {

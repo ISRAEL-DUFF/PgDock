@@ -3343,6 +3343,26 @@ paths:
                 $ref: "#/components/schemas/OrgDeletion"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/incidents:
+    get:
+      operationId: listOrgIncidents
+      summary: Open incidents affecting the organisation's projects
+      description: >-
+        Open status page incidents whose components and region match one of
+        the organisation's projects, or that name one of its projects or the
+        nodes they run on (V4.1 §7.3). Public fields only.
+      tags: [orgs]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: Matching incidents, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgIncidentList"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/orgs/{org}/members:
     get:
       operationId: listOrgMembers
@@ -4868,6 +4888,41 @@ paths:
         default:
           $ref: "#/components/responses/Error"
   /api/v1/orgs/{org}/billing/contacts/{email}:
+    patch:
+      operationId: updateBillingContact
+      summary: Turn a billing contact's status page emails on or off
+      description: >-
+        Paying organisations' owners and billing contacts get the status page's
+        incident emails for the components and regions their projects use
+        (V4.1 §7.1). Turning them off removes the contact at the next hourly
+        sync.
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status_emails]
+              properties:
+                status_emails:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingContact"
+        default:
+          $ref: "#/components/responses/Error"
     delete:
       operationId: removeBillingContact
       summary: Remove a billing contact
@@ -13311,6 +13366,45 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/IncidentUpdate"
+    OrgIncidentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrgIncident"
+    OrgIncident:
+      type: object
+      required: [id, title, components, severity, status, started_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        components:
+          type: array
+          items:
+            type: string
+        region:
+          type: string
+          nullable: true
+        severity:
+          $ref: "#/components/schemas/IncidentSeverity"
+        status:
+          $ref: "#/components/schemas/IncidentStatus"
+        started_at:
+          type: string
+          format: date-time
+        latest_update:
+          type: string
+          nullable: true
+          description: The newest update's text.
+        url:
+          type: string
+          nullable: true
+          description: The incident on the status page, when one is configured.
     IncidentUpdate:
       type: object
       required: [id, status, body, posted_at]
@@ -13973,6 +14067,20 @@ components:
           format: date-time
           nullable: true
           description: Set while the organisation is being deleted.
+        billing_state:
+          type: string
+          nullable: true
+          enum: [overdue, restricted, suspended, payment_failed, null]
+          description: >-
+            The organisation's billing standing when it needs attention (V4.1
+            §7.3), shown to every member; amounts are on the billing page, for
+            owners and billing members.
+        budget_alert_percent:
+          type: integer
+          nullable: true
+          description: >-
+            The highest budget threshold (80 or 100) this month's spend has
+            reached; only for owners and billing members.
         break_glass:
           type: array
           description: Open break-glass sessions (V2 §2.4), shown to everyone in the organisation.
@@ -15157,6 +15265,9 @@ components:
         name:
           type: string
           nullable: true
+        status_emails:
+          type: boolean
+          description: Gets the status page's incident emails while the organisation is on a paid plan (default true).
     LegalDocument:
       type: object
       required: [id, kind, version, title, body_md, published_at]

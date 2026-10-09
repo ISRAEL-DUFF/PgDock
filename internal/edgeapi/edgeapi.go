@@ -368,6 +368,7 @@ type Log struct {
 type Report struct {
 	BatchID  string      `json:"batch_id"`
 	Edge     string      `json:"edge"`
+	Region   string      `json:"region,omitempty"` // the edge's PGDOCK_EDGE_REGION
 	At       time.Time   `json:"at"`
 	Usage    []Usage     `json:"usage,omitempty"`
 	Logs     []Log       `json:"logs,omitempty"`

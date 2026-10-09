@@ -546,7 +546,7 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/orgs/{org}/support/phones",
 		// V3 §7.3: members read the documents in effect
 		"GET /api/v1/orgs/{org}/legal",
-		"GET /api/v1/orgs/{org}", "GET /api/v1/orgs/{org}/members", "POST /api/v1/orgs/{org}/leave",
+		"GET /api/v1/orgs/{org}", "GET /api/v1/orgs/{org}/members", "GET /api/v1/orgs/{org}/incidents", "POST /api/v1/orgs/{org}/leave",
 		"GET /api/v1/projects", "GET /api/v1/operations", "GET /api/v1/backups", "GET /api/v1/backups/overview",
 		// §13 "projects list ... with quota usage bars": every member sees the limits
 		"GET /api/v1/orgs/{org}/quotas",
@@ -582,7 +582,7 @@ var specMatrix = map[authz.Action][]string{
 	authz.OrgBillingManage: {
 		"GET /api/v1/orgs/{org}/billing", "PATCH /api/v1/orgs/{org}/billing", "POST /api/v1/orgs/{org}/billing/plan",
 		"GET /api/v1/orgs/{org}/billing/contacts", "POST /api/v1/orgs/{org}/billing/contacts",
-		"DELETE /api/v1/orgs/{org}/billing/contacts/{email}", "GET /api/v1/orgs/{org}/billing/invoices",
+		"DELETE /api/v1/orgs/{org}/billing/contacts/{email}", "PATCH /api/v1/orgs/{org}/billing/contacts/{email}", "GET /api/v1/orgs/{org}/billing/invoices",
 		"GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}", "GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf",
 		"GET /api/v1/orgs/{org}/billing/forecast",
 		// V3 §3.4: paying, methods, receipts, WHT credit notes

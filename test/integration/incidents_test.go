@@ -77,7 +77,7 @@ func TestIncidentsReachTheStatusPage(t *testing.T) {
 	ctx := context.Background()
 
 	var list gen.IncidentList
-	if code := e.Do("GET", "/api/v1/incidents", nil, &list); code != http.StatusOK || !list.StatusPageConfigured || len(list.Components) != 6 {
+	if code := e.Do("GET", "/api/v1/incidents", nil, &list); code != http.StatusOK || !list.StatusPageConfigured || len(list.Components) != 8 {
 		t.Fatalf("list: %d %+v", code, list)
 	}
 	var apiErr gen.Error

@@ -1799,6 +1799,33 @@ func (e OperationStatus) Valid() bool {
 	}
 }
 
+// Defines values for OrgBillingState.
+const (
+	OrgBillingStateLessThannil   OrgBillingState = "<nil>"
+	OrgBillingStateOverdue       OrgBillingState = "overdue"
+	OrgBillingStatePaymentFailed OrgBillingState = "payment_failed"
+	OrgBillingStateRestricted    OrgBillingState = "restricted"
+	OrgBillingStateSuspended     OrgBillingState = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the OrgBillingState enum.
+func (e OrgBillingState) Valid() bool {
+	switch e {
+	case OrgBillingStateLessThannil:
+		return true
+	case OrgBillingStateOverdue:
+		return true
+	case OrgBillingStatePaymentFailed:
+		return true
+	case OrgBillingStateRestricted:
+		return true
+	case OrgBillingStateSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OrgStatus.
 const (
 	OrgStatusActive    OrgStatus = "active"
@@ -4887,6 +4914,9 @@ type BillingAccountTerm string
 type BillingContact struct {
 	Email string  `json:"email"`
 	Name  *string `json:"name,omitempty"`
+
+	// StatusEmails Gets the status page's incident emails while the organisation is on a paid plan (default true).
+	StatusEmails *bool `json:"status_emails,omitempty"`
 }
 
 // BillingDetailsUpdate defines model for BillingDetailsUpdate.
@@ -6860,9 +6890,15 @@ type OrderFormPublish struct {
 
 // Org defines model for Org.
 type Org struct {
+	// BillingState The organisation's billing standing when it needs attention (V4.1 §7.3), shown to every member; amounts are on the billing page, for owners and billing members.
+	BillingState *OrgBillingState `json:"billing_state,omitempty"`
+
 	// BreakGlass Open break-glass sessions (V2 §2.4), shown to everyone in the organisation.
 	BreakGlass *[]BreakGlassSession `json:"break_glass,omitempty"`
-	CreatedAt  time.Time            `json:"created_at"`
+
+	// BudgetAlertPercent The highest budget threshold (80 or 100) this month's spend has reached; only for owners and billing members.
+	BudgetAlertPercent *int      `json:"budget_alert_percent,omitempty"`
+	CreatedAt          time.Time `json:"created_at"`
 
 	// DeleteAfter Set while the organisation is being deleted.
 	DeleteAfter              *time.Time         `json:"delete_after,omitempty"`
@@ -6884,12 +6920,37 @@ type Org struct {
 	SuspendedReason    *string   `json:"suspended_reason,omitempty"`
 }
 
+// OrgBillingState The organisation's billing standing when it needs attention (V4.1 §7.3), shown to every member; amounts are on the billing page, for owners and billing members.
+type OrgBillingState string
+
 // OrgStatus defines model for Org.Status.
 type OrgStatus string
 
 // OrgDeletion defines model for OrgDeletion.
 type OrgDeletion struct {
 	DeleteAfter time.Time `json:"delete_after"`
+}
+
+// OrgIncident defines model for OrgIncident.
+type OrgIncident struct {
+	Components []string           `json:"components"`
+	Id         openapi_types.UUID `json:"id"`
+
+	// LatestUpdate The newest update's text.
+	LatestUpdate *string          `json:"latest_update,omitempty"`
+	Region       *string          `json:"region,omitempty"`
+	Severity     IncidentSeverity `json:"severity"`
+	StartedAt    time.Time        `json:"started_at"`
+	Status       IncidentStatus   `json:"status"`
+	Title        string           `json:"title"`
+
+	// Url The incident on the status page, when one is configured.
+	Url *string `json:"url,omitempty"`
+}
+
+// OrgIncidentList defines model for OrgIncidentList.
+type OrgIncidentList struct {
+	Items []OrgIncident `json:"items"`
 }
 
 // OrgLegal defines model for OrgLegal.
@@ -9795,6 +9856,11 @@ type StartCheckoutJSONBodyChannel string
 // StartCheckoutJSONBodyPurpose defines parameters for StartCheckout.
 type StartCheckoutJSONBodyPurpose string
 
+// UpdateBillingContactJSONBody defines parameters for UpdateBillingContact.
+type UpdateBillingContactJSONBody struct {
+	StatusEmails bool `json:"status_emails"`
+}
+
 // EstimateOrgCostJSONBody defines parameters for EstimateOrgCost.
 type EstimateOrgCostJSONBody struct {
 	// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
@@ -10361,6 +10427,9 @@ type StartCheckoutJSONRequestBody StartCheckoutJSONBody
 
 // AddBillingContactJSONRequestBody defines body for AddBillingContact for application/json ContentType.
 type AddBillingContactJSONRequestBody = BillingContact
+
+// UpdateBillingContactJSONRequestBody defines body for UpdateBillingContact for application/json ContentType.
+type UpdateBillingContactJSONRequestBody UpdateBillingContactJSONBody
 
 // EstimateOrgCostJSONRequestBody defines body for EstimateOrgCost for application/json ContentType.
 type EstimateOrgCostJSONRequestBody EstimateOrgCostJSONBody
@@ -11141,6 +11210,9 @@ type ServerInterface interface {
 	// RemoveBillingContact Remove a billing contact
 	// (DELETE /api/v1/orgs/{org}/billing/contacts/{email})
 	RemoveBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string)
+	// UpdateBillingContact Turn a billing contact's status page emails on or off
+	// (PATCH /api/v1/orgs/{org}/billing/contacts/{email})
+	UpdateBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string)
 	// EstimateOrgCost What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	// (POST /api/v1/orgs/{org}/billing/estimate)
 	EstimateOrgCost(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -11189,6 +11261,9 @@ type ServerInterface interface {
 	// ListOrgDedicatedRequests The organisation's dedicated instance requests
 	// (GET /api/v1/orgs/{org}/dedicated-requests)
 	ListOrgDedicatedRequests(w http.ResponseWriter, r *http.Request, org OrgID)
+	// ListOrgIncidents Open incidents affecting the organisation's projects
+	// (GET /api/v1/orgs/{org}/incidents)
+	ListOrgIncidents(w http.ResponseWriter, r *http.Request, org OrgID)
 	// ListOrgInvitations Pending invitations
 	// (GET /api/v1/orgs/{org}/invitations)
 	ListOrgInvitations(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -12854,6 +12929,12 @@ func (_ Unimplemented) RemoveBillingContact(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// UpdateBillingContact Turn a billing contact's status page emails on or off
+// (PATCH /api/v1/orgs/{org}/billing/contacts/{email})
+func (_ Unimplemented) UpdateBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // EstimateOrgCost What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 // (POST /api/v1/orgs/{org}/billing/estimate)
 func (_ Unimplemented) EstimateOrgCost(w http.ResponseWriter, r *http.Request, org OrgID) {
@@ -12947,6 +13028,12 @@ func (_ Unimplemented) CancelOrgDeletion(w http.ResponseWriter, r *http.Request,
 // ListOrgDedicatedRequests The organisation's dedicated instance requests
 // (GET /api/v1/orgs/{org}/dedicated-requests)
 func (_ Unimplemented) ListOrgDedicatedRequests(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOrgIncidents Open incidents affecting the organisation's projects
+// (GET /api/v1/orgs/{org}/incidents)
+func (_ Unimplemented) ListOrgIncidents(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -18409,6 +18496,41 @@ func (siw *ServerInterfaceWrapper) RemoveBillingContact(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// UpdateBillingContact operation middleware
+func (siw *ServerInterfaceWrapper) UpdateBillingContact(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "email" -------------
+	var email string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "email", chi.URLParam(r, "email"), &email, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "email", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateBillingContact(w, r, org, email)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // EstimateOrgCost operation middleware
 func (siw *ServerInterfaceWrapper) EstimateOrgCost(w http.ResponseWriter, r *http.Request) {
 
@@ -18895,6 +19017,32 @@ func (siw *ServerInterfaceWrapper) ListOrgDedicatedRequests(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListOrgDedicatedRequests(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOrgIncidents operation middleware
+func (siw *ServerInterfaceWrapper) ListOrgIncidents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOrgIncidents(w, r, org)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25457,6 +25605,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/api/v1/orgs/{org}", wrapper.UpdateOrg)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/incidents", wrapper.ListOrgIncidents)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/members", wrapper.ListOrgMembers)
 	})
 	r.Group(func(r chi.Router) {
@@ -25689,6 +25840,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/billing/contacts/{email}", wrapper.RemoveBillingContact)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/orgs/{org}/billing/contacts/{email}", wrapper.UpdateBillingContact)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/invoices", wrapper.ListOrgInvoices)

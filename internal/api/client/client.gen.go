@@ -1803,6 +1803,33 @@ func (e OperationStatus) Valid() bool {
 	}
 }
 
+// Defines values for OrgBillingState.
+const (
+	OrgBillingStateLessThannil   OrgBillingState = "<nil>"
+	OrgBillingStateOverdue       OrgBillingState = "overdue"
+	OrgBillingStatePaymentFailed OrgBillingState = "payment_failed"
+	OrgBillingStateRestricted    OrgBillingState = "restricted"
+	OrgBillingStateSuspended     OrgBillingState = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the OrgBillingState enum.
+func (e OrgBillingState) Valid() bool {
+	switch e {
+	case OrgBillingStateLessThannil:
+		return true
+	case OrgBillingStateOverdue:
+		return true
+	case OrgBillingStatePaymentFailed:
+		return true
+	case OrgBillingStateRestricted:
+		return true
+	case OrgBillingStateSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OrgStatus.
 const (
 	OrgStatusActive    OrgStatus = "active"
@@ -4891,6 +4918,9 @@ type BillingAccountTerm string
 type BillingContact struct {
 	Email string  `json:"email"`
 	Name  *string `json:"name,omitempty"`
+
+	// StatusEmails Gets the status page's incident emails while the organisation is on a paid plan (default true).
+	StatusEmails *bool `json:"status_emails,omitempty"`
 }
 
 // BillingDetailsUpdate defines model for BillingDetailsUpdate.
@@ -6864,9 +6894,15 @@ type OrderFormPublish struct {
 
 // Org defines model for Org.
 type Org struct {
+	// BillingState The organisation's billing standing when it needs attention (V4.1 §7.3), shown to every member; amounts are on the billing page, for owners and billing members.
+	BillingState *OrgBillingState `json:"billing_state,omitempty"`
+
 	// BreakGlass Open break-glass sessions (V2 §2.4), shown to everyone in the organisation.
 	BreakGlass *[]BreakGlassSession `json:"break_glass,omitempty"`
-	CreatedAt  time.Time            `json:"created_at"`
+
+	// BudgetAlertPercent The highest budget threshold (80 or 100) this month's spend has reached; only for owners and billing members.
+	BudgetAlertPercent *int      `json:"budget_alert_percent,omitempty"`
+	CreatedAt          time.Time `json:"created_at"`
 
 	// DeleteAfter Set while the organisation is being deleted.
 	DeleteAfter              *time.Time         `json:"delete_after,omitempty"`
@@ -6888,12 +6924,37 @@ type Org struct {
 	SuspendedReason    *string   `json:"suspended_reason,omitempty"`
 }
 
+// OrgBillingState The organisation's billing standing when it needs attention (V4.1 §7.3), shown to every member; amounts are on the billing page, for owners and billing members.
+type OrgBillingState string
+
 // OrgStatus defines model for Org.Status.
 type OrgStatus string
 
 // OrgDeletion defines model for OrgDeletion.
 type OrgDeletion struct {
 	DeleteAfter time.Time `json:"delete_after"`
+}
+
+// OrgIncident defines model for OrgIncident.
+type OrgIncident struct {
+	Components []string           `json:"components"`
+	Id         openapi_types.UUID `json:"id"`
+
+	// LatestUpdate The newest update's text.
+	LatestUpdate *string          `json:"latest_update,omitempty"`
+	Region       *string          `json:"region,omitempty"`
+	Severity     IncidentSeverity `json:"severity"`
+	StartedAt    time.Time        `json:"started_at"`
+	Status       IncidentStatus   `json:"status"`
+	Title        string           `json:"title"`
+
+	// Url The incident on the status page, when one is configured.
+	Url *string `json:"url,omitempty"`
+}
+
+// OrgIncidentList defines model for OrgIncidentList.
+type OrgIncidentList struct {
+	Items []OrgIncident `json:"items"`
 }
 
 // OrgLegal defines model for OrgLegal.
@@ -9799,6 +9860,11 @@ type StartCheckoutJSONBodyChannel string
 // StartCheckoutJSONBodyPurpose defines parameters for StartCheckout.
 type StartCheckoutJSONBodyPurpose string
 
+// UpdateBillingContactJSONBody defines parameters for UpdateBillingContact.
+type UpdateBillingContactJSONBody struct {
+	StatusEmails bool `json:"status_emails"`
+}
+
 // EstimateOrgCostJSONBody defines parameters for EstimateOrgCost.
 type EstimateOrgCostJSONBody struct {
 	// BackupRetention How long nightly backups are kept: standard (7 daily, 4 weekly),
@@ -10365,6 +10431,9 @@ type StartCheckoutJSONRequestBody StartCheckoutJSONBody
 
 // AddBillingContactJSONRequestBody defines body for AddBillingContact for application/json ContentType.
 type AddBillingContactJSONRequestBody = BillingContact
+
+// UpdateBillingContactJSONRequestBody defines body for UpdateBillingContact for application/json ContentType.
+type UpdateBillingContactJSONRequestBody UpdateBillingContactJSONBody
 
 // EstimateOrgCostJSONRequestBody defines body for EstimateOrgCost for application/json ContentType.
 type EstimateOrgCostJSONRequestBody EstimateOrgCostJSONBody
@@ -12508,6 +12577,24 @@ type ClientInterface interface {
 	// Corresponds with DELETE /api/v1/orgs/{org}/billing/contacts/{email} (the `RemoveBillingContact` operationId).
 	RemoveBillingContact(ctx context.Context, org OrgID, email string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// UpdateBillingContactWithBody Turn a billing contact's status page emails on or off
+	//
+	// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+	UpdateBillingContactWithBody(ctx context.Context, org OrgID, email string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateBillingContact Turn a billing contact's status page emails on or off
+	//
+	// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+	UpdateBillingContact(ctx context.Context, org OrgID, email string, body UpdateBillingContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// EstimateOrgCostWithBody What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	//
 	// Takes any type of body and a specified content type.
@@ -12607,6 +12694,13 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/orgs/{org}/dedicated-requests (the `ListOrgDedicatedRequests` operationId).
 	ListOrgDedicatedRequests(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListOrgIncidents Open incidents affecting the organisation's projects
+	//
+	// Open status page incidents whose components and region match one of the organisation's projects, or that name one of its projects or the nodes they run on (V4.1 §7.3). Public fields only.
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/incidents (the `ListOrgIncidents` operationId).
+	ListOrgIncidents(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListOrgInvitations Pending invitations
 	//
@@ -19199,6 +19293,44 @@ func (c *Client) RemoveBillingContact(ctx context.Context, org OrgID, email stri
 	return c.Client.Do(req)
 }
 
+// UpdateBillingContactWithBody Turn a billing contact's status page emails on or off
+//
+// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+func (c *Client) UpdateBillingContactWithBody(ctx context.Context, org OrgID, email string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateBillingContactRequestWithBody(c.Server, org, email, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateBillingContact Turn a billing contact's status page emails on or off
+//
+// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+func (c *Client) UpdateBillingContact(ctx context.Context, org OrgID, email string, body UpdateBillingContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateBillingContactRequest(c.Server, org, email, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // EstimateOrgCostWithBody What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 //
 // Takes any type of body and a specified content type.
@@ -19469,6 +19601,23 @@ func (c *Client) CancelOrgDeletion(ctx context.Context, org OrgID, reqEditors ..
 // Corresponds with GET /api/v1/orgs/{org}/dedicated-requests (the `ListOrgDedicatedRequests` operationId).
 func (c *Client) ListOrgDedicatedRequests(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListOrgDedicatedRequestsRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListOrgIncidents Open incidents affecting the organisation's projects
+//
+// Open status page incidents whose components and region match one of the organisation's projects, or that name one of its projects or the nodes they run on (V4.1 §7.3). Public fields only.
+//
+// Corresponds with GET /api/v1/orgs/{org}/incidents (the `ListOrgIncidents` operationId).
+func (c *Client) ListOrgIncidents(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOrgIncidentsRequest(c.Server, org)
 	if err != nil {
 		return nil, err
 	}
@@ -31789,6 +31938,60 @@ func NewRemoveBillingContactRequest(server string, org OrgID, email string) (*ht
 	return req, nil
 }
 
+// NewUpdateBillingContactRequest calls the generic UpdateBillingContact builder with application/json body
+func NewUpdateBillingContactRequest(server string, org OrgID, email string, body UpdateBillingContactJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateBillingContactRequestWithBody(server, org, email, "application/json", bodyReader)
+}
+
+// NewUpdateBillingContactRequestWithBody constructs an http.Request for the UpdateBillingContact method, with any body, and a specified content type
+func NewUpdateBillingContactRequestWithBody(server string, org OrgID, email string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "email", email, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/contacts/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewEstimateOrgCostRequest calls the generic EstimateOrgCost builder with application/json body
 func NewEstimateOrgCostRequest(server string, org OrgID, body EstimateOrgCostJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -32416,6 +32619,40 @@ func NewListOrgDedicatedRequestsRequest(server string, org OrgID) (*http.Request
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/orgs/%s/dedicated-requests", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListOrgIncidentsRequest constructs an http.Request for the ListOrgIncidents method
+func NewListOrgIncidentsRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/incidents", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -43263,6 +43500,24 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /api/v1/orgs/{org}/billing/contacts/{email} (the `RemoveBillingContact` operationId).
 	RemoveBillingContactWithResponse(ctx context.Context, org OrgID, email string, reqEditors ...RequestEditorFn) (*RemoveBillingContactResponse, error)
 
+	// UpdateBillingContactWithBodyWithResponse Turn a billing contact's status page emails on or off
+	//
+	// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+	UpdateBillingContactWithBodyWithResponse(ctx context.Context, org OrgID, email string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateBillingContactResponse, error)
+
+	// UpdateBillingContactWithResponse Turn a billing contact's status page emails on or off
+	//
+	// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+	UpdateBillingContactWithResponse(ctx context.Context, org OrgID, email string, body UpdateBillingContactJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBillingContactResponse, error)
+
 	// EstimateOrgCostWithBodyWithResponse What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -43388,6 +43643,15 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/orgs/{org}/dedicated-requests (the `ListOrgDedicatedRequests` operationId).
 	ListOrgDedicatedRequestsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListOrgDedicatedRequestsResponse, error)
+
+	// ListOrgIncidentsWithResponse Open incidents affecting the organisation's projects
+	//
+	// Open status page incidents whose components and region match one of the organisation's projects, or that name one of its projects or the nodes they run on (V4.1 §7.3). Public fields only.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/incidents (the `ListOrgIncidents` operationId).
+	ListOrgIncidentsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListOrgIncidentsResponse, error)
 
 	// ListOrgInvitationsWithResponse Pending invitations
 	//
@@ -54264,6 +54528,54 @@ func (r RemoveBillingContactResponse) ContentType() string {
 	return ""
 }
 
+type UpdateBillingContactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BillingContact
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateBillingContactResponse) GetJSON200() *BillingContact {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdateBillingContactResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateBillingContactResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateBillingContactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateBillingContactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateBillingContactResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type EstimateOrgCostResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -54993,6 +55305,54 @@ func (r ListOrgDedicatedRequestsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ListOrgDedicatedRequestsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListOrgIncidentsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *OrgIncidentList
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListOrgIncidentsResponse) GetJSON200() *OrgIncidentList {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListOrgIncidentsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListOrgIncidentsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListOrgIncidentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListOrgIncidentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListOrgIncidentsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -67696,6 +68056,36 @@ func (c *ClientWithResponses) RemoveBillingContactWithResponse(ctx context.Conte
 	return ParseRemoveBillingContactResponse(rsp)
 }
 
+// UpdateBillingContactWithBodyWithResponse Turn a billing contact's status page emails on or off
+//
+// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+func (c *ClientWithResponses) UpdateBillingContactWithBodyWithResponse(ctx context.Context, org OrgID, email string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateBillingContactResponse, error) {
+	rsp, err := c.UpdateBillingContactWithBody(ctx, org, email, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateBillingContactResponse(rsp)
+}
+
+// UpdateBillingContactWithResponse Turn a billing contact's status page emails on or off
+//
+// Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
+func (c *ClientWithResponses) UpdateBillingContactWithResponse(ctx context.Context, org OrgID, email string, body UpdateBillingContactJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBillingContactResponse, error) {
+	rsp, err := c.UpdateBillingContact(ctx, org, email, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateBillingContactResponse(rsp)
+}
+
 // EstimateOrgCostWithBodyWithResponse What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -67928,6 +68318,21 @@ func (c *ClientWithResponses) ListOrgDedicatedRequestsWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseListOrgDedicatedRequestsResponse(rsp)
+}
+
+// ListOrgIncidentsWithResponse Open incidents affecting the organisation's projects
+//
+// Open status page incidents whose components and region match one of the organisation's projects, or that name one of its projects or the nodes they run on (V4.1 §7.3). Public fields only.
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/incidents (the `ListOrgIncidents` operationId).
+func (c *ClientWithResponses) ListOrgIncidentsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListOrgIncidentsResponse, error) {
+	rsp, err := c.ListOrgIncidents(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListOrgIncidentsResponse(rsp)
 }
 
 // ListOrgInvitationsWithResponse Pending invitations
@@ -77763,6 +78168,39 @@ func ParseRemoveBillingContactResponse(rsp *http.Response) (*RemoveBillingContac
 	return response, nil
 }
 
+// ParseUpdateBillingContactResponse parses an HTTP response from a UpdateBillingContactWithResponse call
+func ParseUpdateBillingContactResponse(rsp *http.Response) (*UpdateBillingContactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateBillingContactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BillingContact
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseEstimateOrgCostResponse parses an HTTP response from a EstimateOrgCostWithResponse call
 func ParseEstimateOrgCostResponse(rsp *http.Response) (*EstimateOrgCostResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -78248,6 +78686,39 @@ func ParseListOrgDedicatedRequestsResponse(rsp *http.Response) (*ListOrgDedicate
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest DedicatedRequestList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListOrgIncidentsResponse parses an HTTP response from a ListOrgIncidentsWithResponse call
+func ParseListOrgIncidentsResponse(rsp *http.Response) (*ListOrgIncidentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListOrgIncidentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OrgIncidentList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

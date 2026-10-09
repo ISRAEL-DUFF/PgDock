@@ -59,6 +59,10 @@ type Config struct {
 	PollWait    time.Duration
 	ResyncEvery time.Duration
 	ReportEvery time.Duration
+	// AliveEvery is the longest the edge goes without a report, sending an
+	// empty one when it has nothing to say (default 30s), so pgdock-server
+	// sees it is up (V4.1 §7.2).
+	AliveEvery time.Duration
 	// AuthRateScale multiplies the per-IP limits on auth endpoints (tests
 	// sign in many times from one address); 0 means 1.
 	AuthRateScale int
@@ -82,6 +86,9 @@ func (c *Config) defaults() {
 	}
 	if c.ReportEvery == 0 {
 		c.ReportEvery = 10 * time.Second
+	}
+	if c.AliveEvery == 0 {
+		c.AliveEvery = 30 * time.Second
 	}
 	if c.PoolerSSLMode == "" {
 		c.PoolerSSLMode = "require"

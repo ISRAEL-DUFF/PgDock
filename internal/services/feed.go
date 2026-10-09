@@ -250,6 +250,11 @@ func (s *Service) Report(ctx context.Context, r edgeapi.Report) error {
 	if r.BatchID == "" || len(r.BatchID) > 100 {
 		return fmt.Errorf("%w: a report needs a batch id", ErrInvalid)
 	}
+	if r.Edge != "" && len(r.Edge) <= 200 && len(r.Region) <= 64 {
+		if err := store.New(s.db).TouchEdge(ctx, store.TouchEdgeParams{Name: r.Edge, Region: r.Region}); err != nil {
+			return err
+		}
+	}
 	return pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		q := store.New(tx)
 		n, err := q.InsertEdgeReport(ctx, store.InsertEdgeReportParams{BatchID: r.BatchID, Edge: r.Edge})

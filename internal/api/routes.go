@@ -128,6 +128,7 @@ var routeRules = map[string]rule{
 	// Organisations.
 	"GET /api/v1/orgs/{org}":                                                {scope: scopeOrgPath, action: authz.OrgView},
 	"PATCH /api/v1/orgs/{org}":                                              {scope: scopeOrgPath, action: authz.OrgManage},
+	"GET /api/v1/orgs/{org}/incidents":                                      {scope: scopeOrgPath, action: authz.OrgView},
 	"GET /api/v1/orgs/{org}/members":                                        {scope: scopeOrgPath, action: authz.OrgView},
 	"POST /api/v1/orgs/{org}/members":                                       {scope: scopeOrgPath, action: authz.OrgManage},
 	"PATCH /api/v1/orgs/{org}/members/{user}":                               {scope: scopeOrgPath, action: authz.OrgManage},
@@ -147,6 +148,7 @@ var routeRules = map[string]rule{
 	"GET /api/v1/orgs/{org}/billing/contacts":                               {scope: scopeOrgPath, action: authz.OrgBillingManage},
 	"POST /api/v1/orgs/{org}/billing/contacts":                              {scope: scopeOrgPath, action: authz.OrgBillingManage},
 	"DELETE /api/v1/orgs/{org}/billing/contacts/{email}":                    {scope: scopeOrgPath, action: authz.OrgBillingManage},
+	"PATCH /api/v1/orgs/{org}/billing/contacts/{email}":                     {scope: scopeOrgPath, action: authz.OrgBillingManage},
 	"GET /api/v1/orgs/{org}/billing/invoices":                               {scope: scopeOrgPath, action: authz.OrgBillingManage},
 	"POST /api/v1/orgs/{org}/billing/checkout":                              {scope: scopeOrgPath, action: authz.OrgBillingManage},
 	"POST /api/v1/orgs/{org}/billing/virtual-account":                       {scope: scopeOrgPath, action: authz.OrgBillingManage},

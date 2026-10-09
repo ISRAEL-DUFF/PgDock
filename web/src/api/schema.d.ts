@@ -2498,6 +2498,26 @@ export interface paths {
         patch: operations["updateOrg"];
         trace?: never;
     };
+    "/api/v1/orgs/{org}/incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open incidents affecting the organisation's projects
+         * @description Open status page incidents whose components and region match one of the organisation's projects, or that name one of its projects or the nodes they run on (V4.1 §7.3). Public fields only.
+         */
+        get: operations["listOrgIncidents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{org}/members": {
         parameters: {
             query?: never;
@@ -3509,7 +3529,11 @@ export interface paths {
         delete: operations["removeBillingContact"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Turn a billing contact's status page emails on or off
+         * @description Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+         */
+        patch: operations["updateBillingContact"];
         trace?: never;
     };
     "/api/v1/orgs/{org}/billing/invoices": {
@@ -8420,6 +8444,24 @@ export interface components {
             push_error?: string;
             updates: components["schemas"]["IncidentUpdate"][];
         };
+        OrgIncidentList: {
+            items: components["schemas"]["OrgIncident"][];
+        };
+        OrgIncident: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            components: string[];
+            region?: string | null;
+            severity: components["schemas"]["IncidentSeverity"];
+            status: components["schemas"]["IncidentStatus"];
+            /** Format: date-time */
+            started_at: string;
+            /** @description The newest update's text. */
+            latest_update?: string | null;
+            /** @description The incident on the status page, when one is configured. */
+            url?: string | null;
+        };
         IncidentUpdate: {
             /** Format: int64 */
             id: number;
@@ -8750,6 +8792,13 @@ export interface components {
              * @description Set while the organisation is being deleted.
              */
             delete_after?: string | null;
+            /**
+             * @description The organisation's billing standing when it needs attention (V4.1 §7.3), shown to every member; amounts are on the billing page, for owners and billing members.
+             * @enum {string|null}
+             */
+            billing_state?: "overdue" | "restricted" | "suspended" | "payment_failed" | null;
+            /** @description The highest budget threshold (80 or 100) this month's spend has reached; only for owners and billing members. */
+            budget_alert_percent?: number | null;
             /** @description Open break-glass sessions (V2 §2.4), shown to everyone in the organisation. */
             break_glass?: components["schemas"]["BreakGlassSession"][];
             /** Format: date-time */
@@ -9406,6 +9455,8 @@ export interface components {
         BillingContact: {
             email: string;
             name?: string | null;
+            /** @description Gets the status page's incident emails while the organisation is on a paid plan (default true). */
+            status_emails?: boolean;
         };
         LegalDocument: {
             /** Format: uuid */
@@ -14506,6 +14557,29 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listOrgIncidents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matching incidents, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgIncidentList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listOrgMembers: {
         parameters: {
             query?: never;
@@ -16475,6 +16549,36 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateBillingContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                email: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    status_emails: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingContact"];
+                };
             };
             default: components["responses"]["Error"];
         };

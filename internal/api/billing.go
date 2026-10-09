@@ -246,7 +246,8 @@ func (s *Server) ListBillingContacts(w http.ResponseWriter, r *http.Request, org
 		Items []gen.BillingContact `json:"items"`
 	}{Items: []gen.BillingContact{}}
 	for _, c := range rows {
-		out.Items = append(out.Items, gen.BillingContact{Email: c.Email, Name: c.Name})
+		on := c.StatusEmails
+		out.Items = append(out.Items, gen.BillingContact{Email: c.Email, Name: c.Name, StatusEmails: &on})
 	}
 	writeJSON(w, http.StatusOK, out)
 }
