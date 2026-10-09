@@ -46,9 +46,9 @@ func (l *lockedBuffer) String() string {
 	return l.b.String()
 }
 
-// StartEdgeProcess builds pgdock-edge (once per test binary) and runs it
-// against this environment, waiting until it serves.
-func (e *Env) StartEdgeProcess(name string) *EdgeProcess {
+// EdgeBinary builds pgdock-edge once per test binary and returns its path
+// (render workers run it, V4.1 §12.4).
+func (e *Env) EdgeBinary() string {
 	e.t.Helper()
 	edgeBinOnce.Do(func() {
 		_, file, _, _ := runtime.Caller(0)
@@ -64,6 +64,14 @@ func (e *Env) StartEdgeProcess(name string) *EdgeProcess {
 	if edgeBinErr != nil {
 		e.t.Fatal(edgeBinErr)
 	}
+	return edgeBin
+}
+
+// StartEdgeProcess builds pgdock-edge (once per test binary) and runs it
+// against this environment, waiting until it serves.
+func (e *Env) StartEdgeProcess(name string) *EdgeProcess {
+	e.t.Helper()
+	e.EdgeBinary()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		e.t.Fatal(err)

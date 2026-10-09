@@ -827,3 +827,17 @@ The spec's own decisions log is §16.
 | 8 | The edge secret in user data | The edge secret is in the server's cloud-init (as every edge needs it). The provider keeps user data with the server; anyone with the provider project's API token can read it. | Same trust as the provider token, which can already reach the server. Recorded so a per-edge credential can replace it. |
 | 9 | Not empty | The empty-node sweep skips edge nodes; they hold no databases by design. | Otherwise every edge node would be deleted a day after joining. |
 
+## V4.1-M11 — Tests and hardening
+
+| # | Topic | Decision | Why |
+| --- | --- | --- | --- |
+| 1 | The todo app | A new `TestRLSTodoApp` (sharing a list, a stranger and an anonymous user, across data, storage and realtime) beside `TestRLSMarketplace` and `TestRLSChat`, instead of extending `TestDataAPIReads`. | `TestDataAPIReads` checks the data API alone; the sample apps check one policy set through every service, which reads better as its own test. A deviation in layout only. |
+| 2 | Used-up codes | A sign-in or phone code that has had five wrong tries stays in the table, refused, until it expires, instead of being deleted. | Deleting it freed the address from the one-code-a-minute rule, so a new code (and five more guesses) could be had at once. Found by `TestAuthCodeBruteForce`. |
+| 3 | MFA phone codes | Wrong tries on an MFA phone challenge answer `422 mfa_verification_failed` (as GoTrue does), not `otp_expired`; after five the challenge is refused even with the right code. | Clients already handle GoTrue's MFA errors. |
+| 4 | Password change | `PUT /auth/v1/user` with a new password ends every session of the user but the one that made the change. | ASVS 3.3.3; found in the review. |
+| 5 | Render workers | Image transforms run in `pgdock-edge render-worker` child processes over stdin/stdout, a pool of half the CPUs, each started on first use and replaced when it dies; a render that overruns its deadline kills its worker. `PGDOCK_EDGE_RENDER_IN_PROCESS` keeps the old in-process path. | V4.1 §12.4: a decoder crash must cost one request, not the edge. |
+| 6 | Worker memory | `PGDOCK_EDGE_RENDER_MEMORY_MB` sets the worker's `GOMEMLIMIT` and, on Linux, an address-space limit of 16 times it. | The WebP and AVIF decoders run in wazero, which reserves large virtual ranges; a tight address-space cap would refuse every AVIF. The cap still stops a runaway allocation. |
+| 7 | No recover | Workers don't recover panics; the edge sees the closed pipe and answers `500 transform_failed`. | A recovered decoder may have left shared state broken; a new process is clean. |
+| 8 | Crash seam | `PGDOCK_RENDER_CRASH_MARKER`, unset in service, makes a worker panic on an image containing the marker, so `TestRenderWorkerCrash` can crash a real worker. | No real image reliably crashes the current decoders. |
+| 9 | ASVS gaps accepted | Default minimum password length 8, no breached-password check, no default idle or any absolute session timeout, sign-up reveals a taken address. | See docs/security-review.md; each is a compatibility or privacy-of-design choice projects can tighten. |
+

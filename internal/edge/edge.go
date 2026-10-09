@@ -76,7 +76,14 @@ type Config struct {
 	GarbageGrace time.Duration
 	// CacheBytes bounds the anonymous-read cache (default 64 MB).
 	CacheBytes int
-	Log        *slog.Logger
+	// RenderWorker is the command a render worker runs as (V4.1 §12.4),
+	// e.g. {"/usr/local/bin/pgdock-edge", "render-worker"}; empty renders
+	// in the edge's own process.
+	RenderWorker []string
+	// RenderWorkerEnv is added to the workers' environment (GOMEMLIMIT,
+	// the address-space cap, a test's crash marker).
+	RenderWorkerEnv []string
+	Log             *slog.Logger
 }
 
 func (c *Config) defaults() {
@@ -117,8 +124,10 @@ type Edge struct {
 	limits *limiter
 	cache  *respCache
 	cpu    cpuSampler
-	mau    mauSeen
-	waking sync.Map // ref -> time.Time of the last wake asked
+	// renders are the render workers; nil renders in process.
+	renders *renderPool
+	mau     mauSeen
+	waking  sync.Map // ref -> time.Time of the last wake asked
 	// hashSlots bound concurrent password hashes, renderSlots image
 	// transforms.
 	hashSlots   chan struct{}
@@ -184,7 +193,7 @@ func (d *dbconn) close() {
 // New returns an edge; Run starts following the feed and reporting.
 func New(cfg Config) *Edge {
 	cfg.defaults()
-	return &Edge{
+	e := &Edge{
 		cfg:         cfg,
 		client:      &edgeapi.Client{URL: cfg.ControlURL, Secret: cfg.Secret},
 		byRef:       map[string]*project{},
@@ -194,6 +203,19 @@ func New(cfg Config) *Edge {
 		hashSlots:   make(chan struct{}, max(2, runtime.GOMAXPROCS(0))),
 		renderSlots: make(chan struct{}, max(1, runtime.GOMAXPROCS(0)/2)),
 	}
+	if len(cfg.RenderWorker) > 0 {
+		e.renders = newRenderPool(cfg.RenderWorker, cfg.RenderWorkerEnv, cap(e.renderSlots), cfg.Log)
+	}
+	return e
+}
+
+// RenderWorkersStarted is how many render workers the edge has started
+// (tests watch a crashed one replaced).
+func (e *Edge) RenderWorkersStarted() int {
+	if e.renders == nil {
+		return 0
+	}
+	return e.renders.Started()
 }
 
 func (e *Edge) httpClient() *http.Client {
@@ -232,6 +254,9 @@ func (e *Edge) Run(ctx context.Context) {
 	}()
 	wg.Wait()
 	e.closePools()
+	if e.renders != nil {
+		e.renders.close()
+	}
 	e.flush(context.Background())
 }
 

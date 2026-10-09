@@ -251,7 +251,9 @@ func (e *Edge) serveRender(c *call, sc *edgeapi.StorageConfig, body io.Reader, n
 	}
 }
 
-// renderImage decodes the source, resizes it and encodes it as format.
+// renderImage fetches the source and renders it: in a render worker when
+// the edge has them (V4.1 §12.4), so a decoder crash or a memory blow-up
+// ends a worker, not the edge.
 func (e *Edge) renderImage(ctx context.Context, cl *storage.Client, src string, t files.Transform, format string) ([]byte, error) {
 	obj, err := cl.Get(ctx, src, "")
 	if err != nil {
@@ -262,6 +264,14 @@ func (e *Edge) renderImage(ctx context.Context, cl *storage.Client, src string, 
 	if err != nil {
 		return nil, storeErr(err)
 	}
+	if e.renders != nil {
+		return e.renders.render(ctx, data, t, format)
+	}
+	return renderBytes(data, t, format)
+}
+
+// renderBytes decodes an image, resizes it and encodes it as format.
+func renderBytes(data []byte, t files.Transform, format string) ([]byte, error) {
 	cfg, kind, err := decodeConfig(data)
 	if err != nil {
 		return nil, refuse(http.StatusBadRequest, "invalid_image", "the image can't be read: "+err.Error())

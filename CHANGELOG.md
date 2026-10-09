@@ -109,6 +109,15 @@ bundle share one version (spec §11.5).
   a region proposes an edge node, which runs pgdock-edge only
   (`PGDOCK_CLOUD_EDGE_IMAGE`). Upgrade pgdock-edge with pgdock-server. New
   migration 00049.
+- Tests and hardening (V4.1-M11): image transforms run in separate
+  `pgdock-edge render-worker` processes, so a bad image costs one request
+  (`500 transform_failed`) rather than the edge
+  (`PGDOCK_EDGE_RENDER_MEMORY_MB`, 512 by default). Fixed: a sign-in code
+  used up by five wrong tries no longer lets a new one be sent at once;
+  changing a password now signs out the user's other sessions. Project
+  auth was reviewed against ASVS 4.0 level 2 (docs/security-review.md),
+  and new tests run three sample apps' RLS policies through the data API,
+  storage and realtime. Upgrade pgdock-edge with pgdock-server.
 
 ### V4 (on feature/pgdock4)
 - Backend services' edge foundation (V4-M28): a project can turn on backend

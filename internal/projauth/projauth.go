@@ -681,12 +681,14 @@ func VerifyCode(ctx context.Context, q Querier, target string, kinds []string, c
 	if err != nil {
 		return Verified{}, err
 	}
+	if attempts >= MaxCodeTries {
+		// Used up: refused even when right. It stays until it expires, so the
+		// one-code-a-minute rule (LastCodeAt) still sees it and a new code
+		// can't be had at once for five more guesses.
+		return Verified{}, nil
+	}
 	if subtle.ConstantTimeCompare([]byte(codeHash(id, strings.TrimSpace(code))), []byte(hash)) != 1 {
-		if attempts+1 >= MaxCodeTries {
-			_, err = q.Exec(ctx, `DELETE FROM pgd_auth.one_time_codes WHERE id = $1`, id)
-		} else {
-			_, err = q.Exec(ctx, `UPDATE pgd_auth.one_time_codes SET attempts = attempts + 1 WHERE id = $1`, id)
-		}
+		_, err = q.Exec(ctx, `UPDATE pgd_auth.one_time_codes SET attempts = attempts + 1 WHERE id = $1`, id)
 		return Verified{}, err
 	}
 	_, err = q.Exec(ctx, `DELETE FROM pgd_auth.one_time_codes WHERE id = $1`, id)

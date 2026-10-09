@@ -706,6 +706,13 @@ downloads' bytes (5 GB on Personal); once either allowance is used up,
 renders answer `429 transform_limit` or downloads `429
 storage_egress_limit` until the month turns.
 
+Renders run in separate worker processes (`pgdock-edge render-worker`), one
+image at a time each, as many as half the edge's CPUs. A worker has its own
+memory limit (`PGDOCK_EDGE_RENDER_MEMORY_MB`, 512 by default); an image
+that crashes its decoder or runs it out of memory ends only that worker:
+the request gets `500 transform_failed` and the next render starts a new
+worker.
+
 ### Behind the scenes
 
 - **Versions.** Each upload writes a new object under a new version, and
@@ -957,6 +964,8 @@ Run one pgdock-edge per region, on the region's nodes. It keeps no state.
 | `PGDOCK_EDGE_SESSION_ADDR` | Optional: the session-mode pooler as the edge reaches it (realtime's `LISTEN` connections). |
 | `PGDOCK_EDGE_TRUSTED_PROXIES` | Optional: CIDRs allowed to set `X-Forwarded-For`. |
 | `PGDOCK_EDGE_CACHE_MB` | Optional: the anonymous-read cache's size per edge process (default 64). |
+| `PGDOCK_EDGE_RENDER_MEMORY_MB` | Optional: each image render worker's memory limit (default 512, at least 64). |
+| `PGDOCK_EDGE_RENDER_IN_PROCESS` | Optional: set to render images inside the edge process instead of in workers (not recommended; a bad image can then take the edge down). |
 
 `deploy/edge/Dockerfile` builds the image, and `deploy/edge/edge.env.example`
 lists the settings.

@@ -113,7 +113,8 @@ type storageProject struct {
 	anon, admin files
 	alice, bob  string
 	aliceID     uuid.UUID
-	bobID       uuid.UUID
+	bobID       uuid.UUID // owner is the project owner's pooled URL.
+	owner       string
 }
 
 func newStorageProject(t *testing.T, name string, onDisk bool) *storageProject {
@@ -153,7 +154,7 @@ func newStorageProject(t *testing.T, name string, onDisk bool) *storageProject {
 	}
 	ref := *en.Services.Ref
 	ed := e.StartEdge(func(c *edge.Config) { c.GarbageGrace = time.Millisecond })
-	sp := &storageProject{e: e, ed: ed, ref: ref, pid: pid, db: p.DbName, instance: p.InstanceID,
+	sp := &storageProject{e: e, ed: ed, ref: ref, pid: pid, db: p.DbName, instance: p.InstanceID, owner: creds.Connection.PooledUrl,
 		anon: files{t: t, ed: ed, ref: ref, key: pub}, admin: files{t: t, ed: ed, ref: ref, key: sec}}
 	waitFor(t, 30*time.Second, "the edge reaches the project's database", func() bool {
 		return sp.anon.do("GET", "/data/v1/health", nil, "").Code == 200
