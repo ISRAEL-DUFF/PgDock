@@ -1,8 +1,11 @@
 package integration
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -197,4 +200,179 @@ func TestSMSProviderOutage(t *testing.T) {
 	if n, _ := billed(); n != 4 {
 		t.Fatalf("billed %d messages, want 4", n)
 	}
+}
+
+// TestEdgeCrashMidUpload is V4-M37's edge failure injection (V4 §13): a
+// pgdock-edge process killed (SIGKILL) while a file streams through it
+// leaves no object row and, after the storage sweep, no stored bytes; the
+// client sees the connection drop; another edge serves the same upload
+// when retried, and the file reads back whole.
+func TestEdgeCrashMidUpload(t *testing.T) {
+	sp := newStorageProject(t, "edge-crash", false)
+	e, ctx := sp.e, context.Background()
+	if r := sp.admin.do("POST", "/storage/v1/bucket", strings.NewReader(`{"id":"uploads"}`), "", "Content-Type", "application/json"); r.Code != 201 {
+		t.Fatalf("bucket: %s", r)
+	}
+	if err := e.Services.StorageSweep(ctx); err != nil {
+		t.Fatal(err)
+	}
+	before := len(objectKeys(t, sp))
+	victim := e.StartEdgeProcess("edge-victim")
+	waitFor(t, 30*time.Second, "the edge process reaches the project", func() bool {
+		req, _ := http.NewRequest(http.MethodGet, victim.URL+"/data/v1/health", nil)
+		req.Host = sp.ref + "." + testenv.EdgeDomain
+		req.Header.Set("apikey", sp.admin.key)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return false
+		}
+		_ = res.Body.Close()
+		return res.StatusCode == 200
+	})
+
+	const size = 8 << 20
+	content := bytes.Repeat([]byte("pgdock-crash-test-"), size/18+1)[:size]
+	pr, pw := io.Pipe()
+	req, _ := http.NewRequest(http.MethodPost, victim.URL+"/storage/v1/object/uploads/big.bin", pr)
+	req.Host = sp.ref + "." + testenv.EdgeDomain
+	req.ContentLength = size
+	req.Header.Set("apikey", sp.admin.key)
+	req.Header.Set("Content-Type", "application/octet-stream")
+	errc := make(chan error, 1)
+	go func() {
+		res, err := http.DefaultClient.Do(req)
+		if err == nil {
+			_ = res.Body.Close()
+			err = fmt.Errorf("the upload finished: %d", res.StatusCode)
+		}
+		errc <- err
+	}()
+	// A third of the file has gone through when the edge dies.
+	if _, err := pw.Write(content[:size/3]); err != nil {
+		t.Fatal(err)
+	}
+	victim.Kill()
+	_ = pw.CloseWithError(errors.New("the client gave up"))
+	select {
+	case err := <-errc:
+		if err == nil || strings.Contains(err.Error(), "finished") {
+			t.Fatalf("the client's upload: %v", err)
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("the client never saw the edge go")
+	}
+
+	adm := sp.adminConn(t)
+	defer adm.Close(ctx)
+	var rows int
+	if err := adm.QueryRow(ctx, `SELECT count(*) FROM pgd_storage.objects WHERE bucket = 'uploads'`).Scan(&rows); err != nil {
+		t.Fatal(err)
+	}
+	if rows != 0 {
+		t.Fatalf("%d object rows after the crash", rows)
+	}
+	if err := e.Services.StorageSweep(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(objectKeys(t, sp)); n != before {
+		t.Fatalf("stored objects after the crash and a sweep: %d, before %d", n, before)
+	}
+
+	// The client retries through the edge still running.
+	if r := sp.admin.do("POST", "/storage/v1/object/uploads/big.bin", bytes.NewReader(content), "", "Content-Type", "application/octet-stream"); r.Code != 200 {
+		t.Fatalf("the retried upload: %s", r)
+	}
+	if r := sp.admin.do("GET", "/storage/v1/object/uploads/big.bin", nil, ""); r.Code != 200 || !bytes.Equal(r.Body, content) {
+		t.Fatalf("read back: %d, %d bytes", r.Code, len(r.Body))
+	}
+}
+
+// TestRealtimeNodeLoss is V4-M37's realtime failure injection (V4 §6.5,
+// §13): of a project's two edge processes, one is killed (SIGKILL) with
+// clients on it. Clients on the other keep their changes and broadcasts;
+// the dead process's presence leaves within the peer expiry (it never
+// said goodbye); its clients see the connection drop, reconnect to the
+// survivor and pick up where they were.
+func TestRealtimeNodeLoss(t *testing.T) {
+	rp := newRealtimeProject(t, "rt-node-loss")
+	ctx := context.Background()
+	victim := rp.e.StartEdgeProcess("rt-victim")
+	waitFor(t, 30*time.Second, "the edge process reaches the project", func() bool {
+		req, _ := http.NewRequest(http.MethodGet, victim.URL+"/data/v1/health", nil)
+		req.Host = rp.ref + "." + testenv.EdgeDomain
+		req.Header.Set("apikey", rp.pub)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return false
+		}
+		_ = res.Body.Close()
+		return res.StatusCode == 200
+	})
+	room := func(key string) map[string]any {
+		return map[string]any{"broadcast": map[string]any{"self": false}, "presence": map[string]any{"key": key},
+			"postgres_changes": []map[string]any{{"event": "*", "schema": "public", "table": "todos"}}}
+	}
+	alice := connectRT(t, rp.ed, rp.ref, rp.pub)
+	if st, resp := alice.join("realtime:room1", room("alice"), rp.alice); st != "ok" {
+		t.Fatalf("alice joins: %s", resp)
+	}
+	bob := connectRTAt(t, victim.URL, rp.ref, rp.pub)
+	if st, resp := bob.join("realtime:room1", room("bob"), rp.bob); st != "ok" {
+		t.Fatalf("bob joins: %s", resp)
+	}
+	waitFor(t, 30*time.Second, "the two processes hear each other", func() bool {
+		alice.send("realtime:room1", "broadcast", map[string]any{"type": "broadcast", "event": "ping", "payload": map[string]any{}})
+		select {
+		case m := <-bob.in:
+			return isBroadcast("ping")(m)
+		case <-time.After(500 * time.Millisecond):
+			return false
+		}
+	})
+	bob.send("realtime:room1", "presence", map[string]any{"type": "presence", "event": "track", "payload": map[string]any{"status": "online"}})
+	alice.next(10*time.Second, "bob's presence at alice", func(m rtMessage) bool {
+		return m.Event == "presence_diff" && strings.Contains(string(m.Payload), `"joins":{"bob"`)
+	})
+
+	killed := time.Now()
+	victim.Kill()
+	select {
+	case <-bob.done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("bob's connection outlived its edge")
+	}
+
+	// Alice, on the survivor, carries on.
+	app := rp.ownerConn(t)
+	defer app.Close(ctx)
+	if _, err := app.Exec(ctx, `INSERT INTO todos (owner, body) VALUES ($1, 'after the loss')`, rp.aliceID); err != nil {
+		t.Fatal(err)
+	}
+	alice.next(10*time.Second, "alice's change after the loss", isChange("INSERT", "after the loss"))
+	carol := connectRT(t, rp.ed, rp.ref, rp.pub)
+	if st, _ := carol.join("realtime:room1", map[string]any{"broadcast": map[string]any{"self": false}}, ""); st != "ok" {
+		t.Fatal("carol joins")
+	}
+	alice.send("realtime:room1", "broadcast", map[string]any{"type": "broadcast", "event": "still-here", "payload": map[string]any{}})
+	carol.next(5*time.Second, "a broadcast on the survivor", isBroadcast("still-here"))
+
+	// The dead process's presence goes once it has been silent long enough.
+	alice.next(60*time.Second, "bob's presence leaving", func(m rtMessage) bool {
+		return m.Event == "presence_diff" && strings.Contains(string(m.Payload), `"leaves":{"bob"`)
+	})
+	t.Logf("bob's presence left %s after the kill", time.Since(killed).Round(time.Second))
+
+	// Bob reconnects to the survivor and is back: presence and changes.
+	bob2 := connectRT(t, rp.ed, rp.ref, rp.pub)
+	if st, resp := bob2.join("realtime:room1", room("bob"), rp.bob); st != "ok" {
+		t.Fatalf("bob rejoins: %s", resp)
+	}
+	bob2.send("realtime:room1", "presence", map[string]any{"type": "presence", "event": "track", "payload": map[string]any{"status": "back"}})
+	alice.next(10*time.Second, "bob back at alice", func(m rtMessage) bool {
+		return m.Event == "presence_diff" && strings.Contains(string(m.Payload), `"joins":{"bob"`) && strings.Contains(string(m.Payload), "back")
+	})
+	if _, err := app.Exec(ctx, `INSERT INTO todos (owner, body) VALUES ($1, 'bob is back')`, rp.bobID); err != nil {
+		t.Fatal(err)
+	}
+	bob2.next(10*time.Second, "bob's change after reconnecting", isChange("INSERT", "bob is back"))
 }

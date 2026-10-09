@@ -96,7 +96,7 @@ func TestFailover(t *testing.T) {
 	now := time.Unix(1_800_000_000, 0)
 	var alerts []string
 	f := &Failover{Providers: []Provider{a, b}, Cooldown: time.Minute, now: func() time.Time { return now },
-		OnFail: func(p string, err error) { alerts = append(alerts, p) }}
+		OnFail: func(p string, _ error) { alerts = append(alerts, p) }}
 	msg := Message{Channel: SMS, To: "+2348031234567", Body: "123456"}
 	if s, err := f.Send(context.Background(), msg); err != nil || s.Provider != "termii" {
 		t.Fatalf("healthy: %+v %v", s, err)
