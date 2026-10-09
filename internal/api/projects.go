@@ -114,6 +114,7 @@ func (s *Server) CreateProject(w http.ResponseWriter, r *http.Request) {
 	if req.Profile != nil {
 		cp.Profile = *req.Profile
 	}
+	cp.Preview = req.Preview != nil && *req.Preview
 	if req.PgVersion != nil {
 		cp.PgVersion = *req.PgVersion
 	}

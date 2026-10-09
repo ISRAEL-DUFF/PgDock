@@ -47,6 +47,14 @@ func (s *Server) instanceSummaries(ctx context.Context) map[uuid.UUID]gen.Instan
 		s.log.Warn("instance summaries", "err", err)
 		return out
 	}
+	life := map[int]provision.PGVersion{}
+	if s.projects != nil {
+		if vs, err := s.projects.Versions(ctx); err == nil {
+			for _, v := range vs {
+				life[v.Major] = v
+			}
+		}
+	}
 	for _, r := range rows {
 		sum := gen.InstanceSummary{
 			Id: r.ID, Kind: gen.InstanceSummaryKind(r.Kind), Status: r.Status, Error: r.Error,
@@ -56,6 +64,10 @@ func (s *Server) instanceSummaries(ctx context.Context) map[uuid.UUID]gen.Instan
 		if r.Kind == "dedicated" {
 			pd := int(r.PitrDays)
 			sum.PitrDays = &pd
+		}
+		if v, ok := life[int(r.PgVersion)]; ok {
+			st := gen.InstanceSummaryPgVersionStatus(v.Status)
+			sum.PgVersionStatus, sum.PgVersionRetiresAt = &st, v.RetiresAt
 		}
 		if f, err := r.CpuLimit.Float64Value(); err == nil && f.Valid {
 			v := float32(f.Float64)
@@ -67,11 +79,31 @@ func (s *Server) instanceSummaries(ctx context.Context) map[uuid.UUID]gen.Instan
 }
 
 // ListProfiles implements GET /api/v1/profiles.
-func (s *Server) ListProfiles(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) ListProfiles(w http.ResponseWriter, r *http.Request) {
 	out := gen.ProfileList{DefaultProfile: dedicated.DefaultProfile, DefaultVolumeGb: dedicated.DefaultVolumeGB,
 		PgVersions: provision.DefaultPGVersions, DefaultPgVersion: provision.DefaultPGVersions[len(provision.DefaultPGVersions)-1]}
 	if s.projects != nil {
-		out.PgVersions, out.DefaultPgVersion = s.projects.PGVersions(), s.projects.DefaultPGVersion()
+		// Open for new projects: installed, not retired, not in preview.
+		vs, err := s.projects.Versions(r.Context())
+		if err != nil {
+			s.internalError(w, "profiles", err)
+			return
+		}
+		out.PgVersions = []int{}
+		var life []gen.PgVersionInfo
+		for _, v := range vs {
+			if !v.Installed {
+				continue
+			}
+			life = append(life, toAPIPgVersion(v, false))
+			if v.Status == provision.VersionSupported || v.Status == provision.VersionDeprecated {
+				out.PgVersions = append(out.PgVersions, v.Major)
+			}
+		}
+		out.PgVersionLifecycle = &life
+		if d, err := s.projects.DefaultVersion(r.Context()); err == nil {
+			out.DefaultPgVersion = d
+		}
 	}
 	for _, p := range dedicated.Profiles {
 		out.Items = append(out.Items, gen.Profile{Name: p.Name, Cpus: float32(p.CPUs), MemoryMb: p.MemoryMB})

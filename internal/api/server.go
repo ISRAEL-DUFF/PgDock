@@ -35,6 +35,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/orgs"
 	"github.com/israel-duff/pgdock/internal/outbound"
+	"github.com/israel-duff/pgdock/internal/pgversions"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/regions"
@@ -76,21 +77,22 @@ type Server struct {
 	tenancy   *tenancy.Service
 	tokens    *tokens.Service
 	// services is backend services (V4 §2); nil when not set up.
-	services  *services.Service
-	branches  *branching.Service
-	freetier  *freetier.Service
-	support   *support.Service
-	legal     *legal.Service
-	capacity  *capacity.Service
-	costs     *costs.Service
-	regions   *regions.Service
-	insights  *insights.Service
-	webhooks  *webhooks.Service
-	jobs      *schedjobs.Service
-	outbound  *outbound.Service
-	incidents *incidents.Service
-	arbiter   *pooler.Arbiter
-	billing   *billing.Service
+	services   *services.Service
+	branches   *branching.Service
+	freetier   *freetier.Service
+	support    *support.Service
+	legal      *legal.Service
+	capacity   *capacity.Service
+	costs      *costs.Service
+	regions    *regions.Service
+	pgversions *pgversions.Service
+	insights   *insights.Service
+	webhooks   *webhooks.Service
+	jobs       *schedjobs.Service
+	outbound   *outbound.Service
+	incidents  *incidents.Service
+	arbiter    *pooler.Arbiter
+	billing    *billing.Service
 
 	tokenLimit    *auth.Limiter
 	orgTokenLimit *auth.Limiter
@@ -164,6 +166,8 @@ type Options struct {
 	Costs    *costs.Service
 	// Regions are the platform's regions (V3 §6).
 	Regions *regions.Service
+	// PGVersions runs the Postgres version lifecycle (V4.1 §6.1).
+	PGVersions *pgversions.Service
 	// Insights is query insights (V3 §8).
 	Insights *insights.Service
 	// Webhooks, Jobs and Outbound run database webhooks, scheduled jobs and
@@ -204,7 +208,7 @@ func NewHandler(opts Options) http.Handler {
 	s := &Server{
 		log: opts.Logger, db: opts.DB, dev: opts.DevEndpoints, projects: opts.Projects,
 		auth: opts.Auth, sec: opts.Security, settings: opts.Settings, publicIPs: opts.PublicIPs, tls: opts.TLS,
-		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, incidents: opts.Incidents, arbiter: opts.PoolerArbiter, orgs: opts.Orgs, mail: opts.Mail, tenancy: opts.Tenancy, branches: opts.Branches, freetier: opts.FreeTier, support: opts.Support, legal: opts.Legal, capacity: opts.Capacity, costs: opts.Costs, regions: opts.Regions, insights: opts.Insights,
+		backups: opts.Backups, nodes: opts.Nodes, console: opts.Console, isochecks: opts.IsoChecks, alerts: opts.Alerts, incidents: opts.Incidents, arbiter: opts.PoolerArbiter, orgs: opts.Orgs, mail: opts.Mail, tenancy: opts.Tenancy, branches: opts.Branches, freetier: opts.FreeTier, support: opts.Support, legal: opts.Legal, capacity: opts.Capacity, costs: opts.Costs, regions: opts.Regions, pgversions: opts.PGVersions, insights: opts.Insights,
 		webhooks: opts.Webhooks, jobs: opts.Jobs, outbound: opts.Outbound, billing: opts.Billing,
 		metricsInterval: opts.MetricsInterval, metricsToken: opts.MetricsToken,
 		tokens: opts.Tokens, services: opts.Services, publicBase: strings.TrimRight(opts.PublicURL, "/"), clock: opts.Now,

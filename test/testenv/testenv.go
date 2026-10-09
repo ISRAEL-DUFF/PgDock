@@ -71,6 +71,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/orgs"
 	"github.com/israel-duff/pgdock/internal/outbound"
+	"github.com/israel-duff/pgdock/internal/pgversions"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/regions"
@@ -143,7 +144,10 @@ type Env struct {
 	Costs    *costs.Service
 	Hetzner  *cloud.FakeHetzner
 	// Regions are the platform's regions (V3 §6).
-	Regions              *regions.Service
+	Regions *regions.Service
+	// PGVersions is the Postgres version lifecycle (V4.1 §6.1); tests
+	// call its Sweep and move its clock.
+	PGVersions           *pgversions.Service
 	Insights             *insights.Service
 	SupportInboundSecret string
 	// Flutterwave and ISpend are the payment providers' fake sandboxes.
@@ -341,6 +345,7 @@ func Start(t testing.TB, opts Options) *Env {
 		kinds[name] = k
 	}
 	mailSvc := mail.New(db, keyring)
+	pgVersionSvc := pgversions.New(db, svc, mailSvc, pgversions.Config{PublicURL: "https://pgdock.test"}, log)
 	e := &Env{}
 	branchSvc := branching.New(db, svc, backups, nodeSvc, mailSvc, branching.Config{
 		PublicURL: "https://pgdock.test",
@@ -495,7 +500,7 @@ func Start(t testing.TB, opts Options) *Env {
 	t.Cleanup(waSrv.Close)
 	supportSvc.SetWhatsApp(support.CloudAPI{BaseURL: waSrv.URL, PhoneNumberID: wa.PhoneNumberID, AccessToken: wa.AccessToken, AppSecret: wa.AppSecret, VerifyToken: "wa-verify"})
 	ts := httptest.NewUnstartedServer(api.NewHandler(api.Options{
-		Incidents: incidentSvc, Billing: billingSvc, FreeTier: freeSvc, Support: supportSvc, Legal: legalSvc, Capacity: capacitySvc, Costs: costSvc, Regions: regionSvc, Insights: insightSvc,
+		Incidents: incidentSvc, Billing: billingSvc, FreeTier: freeSvc, Support: supportSvc, Legal: legalSvc, Capacity: capacitySvc, Costs: costSvc, Regions: regionSvc, PGVersions: pgVersionSvc, Insights: insightSvc,
 		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
 		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
 		Tokens: tokenSvc, Services: servicesSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://pgdock.test",
@@ -520,7 +525,7 @@ func Start(t testing.TB, opts Options) *Env {
 
 	*e = Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Services: servicesSvc, Tokens: tokenSvc, Branches: branchSvc,
-		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Phone: phone, PhoneFallback: phoneFallback, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, wakerLn: wakerLn, wakerAddr: wakerLn.Addr().String(), wakerCtx: ctx, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, Insights: insightSvc,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Phone: phone, PhoneFallback: phoneFallback, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, wakerLn: wakerLn, wakerAddr: wakerLn.Addr().String(), wakerCtx: ctx, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, PGVersions: pgVersionSvc, Insights: insightSvc,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,

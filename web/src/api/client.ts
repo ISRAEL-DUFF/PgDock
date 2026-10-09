@@ -875,6 +875,14 @@ export const api = {
     request<S["InstanceState"]>("POST", `/api/v1/projects/${id}/instance`, {
       action,
     }),
+  adminPgVersions: () =>
+    getJSON<{ items: S["PgVersionInfo"][] }>("/api/v1/admin/pg-versions"),
+  updatePgVersion: (major: number, b: S["PgVersionUpdate"]) =>
+    request<S["PgVersionInfo"]>(
+      "PATCH",
+      `/api/v1/admin/pg-versions/${major}`,
+      b,
+    ),
   updateProjectInstance: (id: string, b: S["InstanceUpdate"]) =>
     request<S["InstanceUpdated"]>(
       "PATCH",

@@ -75,11 +75,11 @@ func sharedSpec(inst store.Instance, secret provision.AdminSecret) agentapi.Inst
 
 // checkPGVersion resolves a requested major against the supported ones
 // (without a projects service, as in unit tests, it takes v as given).
-func (s *Service) checkPGVersion(v int) (int, error) {
+func (s *Service) checkPGVersion(ctx context.Context, v int) (int, error) {
 	if s.projects == nil {
 		return v, nil
 	}
-	return s.projects.CheckPGVersion(v)
+	return s.projects.CheckVersion(ctx, v, provision.ForCluster)
 }
 
 // AddSharedCluster records a shared cluster on node and queues its
@@ -113,7 +113,7 @@ func (s *Service) AddSharedCluster(ctx context.Context, nodeID uuid.UUID, memory
 		} else if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		if pgVersion, err = s.checkPGVersion(pgVersion); err != nil {
+		if pgVersion, err = s.checkPGVersion(ctx, pgVersion); err != nil {
 			return err
 		}
 		mem := int32(memoryMB)

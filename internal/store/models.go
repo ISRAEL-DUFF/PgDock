@@ -828,6 +828,22 @@ type PaymentMethod struct {
 	CreatedAt    time.Time
 }
 
+type PgVersion struct {
+	Major        int32
+	Status       string
+	DeprecatedAt *time.Time
+	RetiresAt    *time.Time
+	Notes        string
+	UpdatedAt    time.Time
+}
+
+type PgVersionNotice struct {
+	Major      int32
+	OrgID      uuid.UUID
+	DaysBefore int32
+	SentAt     time.Time
+}
+
 type PlanLimitNotice struct {
 	OrgID    uuid.UUID
 	LimitKey string

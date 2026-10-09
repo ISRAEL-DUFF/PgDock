@@ -60,6 +60,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/orgs"
 	"github.com/israel-duff/pgdock/internal/outbound"
+	"github.com/israel-duff/pgdock/internal/pgversions"
 	"github.com/israel-duff/pgdock/internal/pooler"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/regions"
@@ -422,6 +423,13 @@ func run() error {
 	costSvc := costs.New(pool, billingSvc, cfg.Cloud.Region, log)
 	bg.Add(1)
 	go func() { defer bg.Done(); costSvc.Run(bgCtx, time.Hour) }()
+	// The Postgres version lifecycle's notices (V4.1 §6.1).
+	var pgVersionSvc *pgversions.Service
+	if projects != nil {
+		pgVersionSvc = pgversions.New(pool, projects, mailSvc, pgversions.Config{PublicURL: cfg.Insight.PublicURL}, log)
+		bg.Add(1)
+		go func() { defer bg.Done(); pgVersionSvc.Run(bgCtx, time.Hour) }()
+	}
 	var capacitySvc *capacity.Service
 	if backups != nil {
 		capacitySvc = capacity.New(pool, nodeSvc, backups.Dedicated, cloudProvider(cfg.Cloud), costSvc, capacity.Config{
@@ -580,6 +588,7 @@ func run() error {
 		Capacity:        capacitySvc,
 		Costs:           costSvc,
 		Regions:         regionSvc,
+		PGVersions:      pgVersionSvc,
 		Webhooks:        webhookSvc,
 		Jobs:            jobSvc,
 		Outbound:        outboundSvc,

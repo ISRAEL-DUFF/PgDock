@@ -1253,6 +1253,30 @@ func (e InstanceSummaryKind) Valid() bool {
 	}
 }
 
+// Defines values for InstanceSummaryPgVersionStatus.
+const (
+	InstanceSummaryPgVersionStatusDeprecated InstanceSummaryPgVersionStatus = "deprecated"
+	InstanceSummaryPgVersionStatusPreview    InstanceSummaryPgVersionStatus = "preview"
+	InstanceSummaryPgVersionStatusRetired    InstanceSummaryPgVersionStatus = "retired"
+	InstanceSummaryPgVersionStatusSupported  InstanceSummaryPgVersionStatus = "supported"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSummaryPgVersionStatus enum.
+func (e InstanceSummaryPgVersionStatus) Valid() bool {
+	switch e {
+	case InstanceSummaryPgVersionStatusDeprecated:
+		return true
+	case InstanceSummaryPgVersionStatusPreview:
+		return true
+	case InstanceSummaryPgVersionStatusRetired:
+		return true
+	case InstanceSummaryPgVersionStatusSupported:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceUpdatePitrDays.
 const (
 	InstanceUpdatePitrDaysN14 InstanceUpdatePitrDays = 14
@@ -1871,6 +1895,54 @@ func (e PersonalCredentialsInfoAccess) Valid() bool {
 	case PersonalCredentialsInfoAccessReadOnly:
 		return true
 	case PersonalCredentialsInfoAccessReadWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PgVersionInfoStatus.
+const (
+	PgVersionInfoStatusDeprecated PgVersionInfoStatus = "deprecated"
+	PgVersionInfoStatusPreview    PgVersionInfoStatus = "preview"
+	PgVersionInfoStatusRetired    PgVersionInfoStatus = "retired"
+	PgVersionInfoStatusSupported  PgVersionInfoStatus = "supported"
+)
+
+// Valid indicates whether the value is a known member of the PgVersionInfoStatus enum.
+func (e PgVersionInfoStatus) Valid() bool {
+	switch e {
+	case PgVersionInfoStatusDeprecated:
+		return true
+	case PgVersionInfoStatusPreview:
+		return true
+	case PgVersionInfoStatusRetired:
+		return true
+	case PgVersionInfoStatusSupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PgVersionUpdateStatus.
+const (
+	PgVersionUpdateStatusDeprecated PgVersionUpdateStatus = "deprecated"
+	PgVersionUpdateStatusPreview    PgVersionUpdateStatus = "preview"
+	PgVersionUpdateStatusRetired    PgVersionUpdateStatus = "retired"
+	PgVersionUpdateStatusSupported  PgVersionUpdateStatus = "supported"
+)
+
+// Valid indicates whether the value is a known member of the PgVersionUpdateStatus enum.
+func (e PgVersionUpdateStatus) Valid() bool {
+	switch e {
+	case PgVersionUpdateStatusDeprecated:
+		return true
+	case PgVersionUpdateStatusPreview:
+		return true
+	case PgVersionUpdateStatusRetired:
+		return true
+	case PgVersionUpdateStatusSupported:
 		return true
 	default:
 		return false
@@ -3025,6 +3097,7 @@ func (e UpdateUserRequestPlatformRole) Valid() bool {
 
 // Defines values for UpgradeCheckName.
 const (
+	UpgradeCheckNameDeprecated  UpgradeCheckName = "deprecated"
 	UpgradeCheckNameExtensions  UpgradeCheckName = "extensions"
 	UpgradeCheckNameReplication UpgradeCheckName = "replication"
 	UpgradeCheckNameSchema      UpgradeCheckName = "schema"
@@ -3035,6 +3108,8 @@ const (
 // Valid indicates whether the value is a known member of the UpgradeCheckName enum.
 func (e UpgradeCheckName) Valid() bool {
 	switch e {
+	case UpgradeCheckNameDeprecated:
+		return true
 	case UpgradeCheckNameExtensions:
 		return true
 	case UpgradeCheckNameReplication:
@@ -5137,6 +5212,9 @@ type CreateProjectRequest struct {
 	// PgVersion Postgres major version (see /profiles); default the newest.
 	PgVersion *int `json:"pg_version,omitempty"`
 
+	// Preview Allow a Postgres major in preview (V4.1 §6.1).
+	Preview *bool `json:"preview,omitempty"`
+
 	// Profile Dedicated only (see /profiles); default small.
 	Profile *string `json:"profile,omitempty"`
 
@@ -6007,6 +6085,12 @@ type InstanceSummary struct {
 	// PgVersion Postgres major version.
 	PgVersion int `json:"pg_version"`
 
+	// PgVersionRetiresAt When its deprecated major retires.
+	PgVersionRetiresAt *time.Time `json:"pg_version_retires_at,omitempty"`
+
+	// PgVersionStatus Where its Postgres major is in its life (V4.1 §6.1).
+	PgVersionStatus *InstanceSummaryPgVersionStatus `json:"pg_version_status,omitempty"`
+
 	// PitrDays Dedicated only. The point-in-time recovery window in days (7, 14 or 30).
 	PitrDays *int    `json:"pitr_days,omitempty"`
 	Profile  *string `json:"profile,omitempty"`
@@ -6016,6 +6100,9 @@ type InstanceSummary struct {
 
 // InstanceSummaryKind defines model for InstanceSummary.Kind.
 type InstanceSummaryKind string
+
+// InstanceSummaryPgVersionStatus Where its Postgres major is in its life (V4.1 §6.1).
+type InstanceSummaryPgVersionStatus string
 
 // InstanceUpdate defines model for InstanceUpdate.
 type InstanceUpdate struct {
@@ -6999,6 +7086,38 @@ type PersonalCredentialsInfo struct {
 // PersonalCredentialsInfoAccess What your role allows (the access a new login would get).
 type PersonalCredentialsInfoAccess string
 
+// PgVersionInfo defines model for PgVersionInfo.
+type PgVersionInfo struct {
+	DeprecatedAt *time.Time `json:"deprecated_at,omitempty"`
+
+	// Installed The server has an image for it (PGDOCK_PG_VERSIONS).
+	Installed bool   `json:"installed"`
+	Major     int    `json:"major"`
+	Notes     string `json:"notes"`
+
+	// Projects Live projects on it (the admin list only).
+	Projects  *int       `json:"projects,omitempty"`
+	RetiresAt *time.Time `json:"retires_at,omitempty"`
+
+	// Status A deprecated major past its retirement date is retired.
+	Status PgVersionInfoStatus `json:"status"`
+}
+
+// PgVersionInfoStatus A deprecated major past its retirement date is retired.
+type PgVersionInfoStatus string
+
+// PgVersionUpdate defines model for PgVersionUpdate.
+type PgVersionUpdate struct {
+	Notes *string `json:"notes,omitempty"`
+
+	// RetiresAt Required to deprecate, at least 180 days ahead.
+	RetiresAt *time.Time            `json:"retires_at,omitempty"`
+	Status    PgVersionUpdateStatus `json:"status"`
+}
+
+// PgVersionUpdateStatus defines model for PgVersionUpdate.Status.
+type PgVersionUpdateStatus string
+
 // PitrRequest defines model for PitrRequest.
 type PitrRequest struct {
 	Name string `json:"name"`
@@ -7280,7 +7399,10 @@ type ProfileList struct {
 	DefaultVolumeGb  int       `json:"default_volume_gb"`
 	Items            []Profile `json:"items"`
 
-	// PgVersions Supported Postgres major versions, oldest first (V3 §2.4).
+	// PgVersionLifecycle Where each major is in its life (V4.1 §6.1).
+	PgVersionLifecycle *[]PgVersionInfo `json:"pg_version_lifecycle,omitempty"`
+
+	// PgVersions Postgres majors open for new projects, oldest first (V3 §2.4); a preview needs `preview` on the create request.
 	PgVersions []int `json:"pg_versions"`
 }
 
@@ -10066,6 +10188,9 @@ type AdminRecordPaymentJSONRequestBody AdminRecordPaymentJSONBody
 // AdminRefundPaymentJSONRequestBody defines body for AdminRefundPayment for application/json ContentType.
 type AdminRefundPaymentJSONRequestBody AdminRefundPaymentJSONBody
 
+// UpdatePgVersionJSONRequestBody defines body for UpdatePgVersion for application/json ContentType.
+type UpdatePgVersionJSONRequestBody = PgVersionUpdate
+
 // CreatePlanJSONRequestBody defines body for CreatePlan for application/json ContentType.
 type CreatePlanJSONRequestBody = PlanRequest
 
@@ -10668,6 +10793,12 @@ type ServerInterface interface {
 	// AdminRefundPayment Refund part of a payment from the organisation's credit balance
 	// (POST /api/v1/admin/payments/{payment_id}/refund)
 	AdminRefundPayment(w http.ResponseWriter, r *http.Request, paymentId PaymentID)
+	// ListPgVersions Postgres majors and where each is in its life (V4.1 §6.1)
+	// (GET /api/v1/admin/pg-versions)
+	ListPgVersions(w http.ResponseWriter, r *http.Request)
+	// UpdatePgVersion Promote, deprecate or retire a Postgres major
+	// (PATCH /api/v1/admin/pg-versions/{major})
+	UpdatePgVersion(w http.ResponseWriter, r *http.Request, major int)
 	// ListPlans Quota plan templates (platform admin)
 	// (GET /api/v1/admin/plans)
 	ListPlans(w http.ResponseWriter, r *http.Request)
@@ -12024,6 +12155,18 @@ func (_ Unimplemented) AdminRecordPayment(w http.ResponseWriter, r *http.Request
 // AdminRefundPayment Refund part of a payment from the organisation's credit balance
 // (POST /api/v1/admin/payments/{payment_id}/refund)
 func (_ Unimplemented) AdminRefundPayment(w http.ResponseWriter, r *http.Request, paymentId PaymentID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListPgVersions Postgres majors and where each is in its life (V4.1 §6.1)
+// (GET /api/v1/admin/pg-versions)
+func (_ Unimplemented) ListPgVersions(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdatePgVersion Promote, deprecate or retire a Postgres major
+// (PATCH /api/v1/admin/pg-versions/{major})
+func (_ Unimplemented) UpdatePgVersion(w http.ResponseWriter, r *http.Request, major int) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -15525,6 +15668,46 @@ func (siw *ServerInterfaceWrapper) AdminRefundPayment(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AdminRefundPayment(w, r, paymentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPgVersions operation middleware
+func (siw *ServerInterfaceWrapper) ListPgVersions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPgVersions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdatePgVersion operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePgVersion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "major" -------------
+	var major int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "major", chi.URLParam(r, "major"), &major, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "major", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdatePgVersion(w, r, major)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25824,6 +26007,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/regions", wrapper.ListRegions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/admin/pg-versions", wrapper.ListPgVersions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/admin/pg-versions/{major}", wrapper.UpdatePgVersion)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/admin/regions", wrapper.ListAdminRegions)

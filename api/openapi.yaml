@@ -7088,6 +7088,58 @@ paths:
                 $ref: "#/components/schemas/RegionList"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/admin/pg-versions:
+    get:
+      operationId: listPgVersions
+      summary: Postgres majors and where each is in its life (V4.1 §6.1)
+      tags: [admin]
+      responses:
+        "200":
+          description: The majors.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PgVersionInfo"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/pg-versions/{major}:
+    patch:
+      operationId: updatePgVersion
+      summary: Promote, deprecate or retire a Postgres major
+      description: |
+        Deprecating sets a retirement date at least 180 days ahead and emails
+        the owners and admins of every organisation with a project on it
+        (again at 90, 30 and 7 days). Retiring early is refused while
+        projects are on it. Retired: no new projects; existing ones keep
+        running, unsupported.
+      tags: [admin]
+      parameters:
+        - name: major
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PgVersionUpdate"
+      responses:
+        "200":
+          description: The major.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PgVersionInfo"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/admin/regions:
     get:
       operationId: listAdminRegions
@@ -8820,6 +8872,9 @@ components:
       type: object
       required: [name]
       properties:
+        preview:
+          type: boolean
+          description: Allow a Postgres major in preview (V4.1 §6.1).
         org_id:
           type: string
           format: uuid
@@ -11392,6 +11447,14 @@ components:
         pitr_days:
           type: integer
           description: Dedicated only. The point-in-time recovery window in days (7, 14 or 30).
+        pg_version_status:
+          type: string
+          enum: [preview, supported, deprecated, retired]
+          description: Where its Postgres major is in its life (V4.1 §6.1).
+        pg_version_retires_at:
+          type: string
+          format: date-time
+          description: When its deprecated major retires.
         pg_release:
           type: string
           nullable: true
@@ -11492,11 +11555,54 @@ components:
           type: integer
         pg_versions:
           type: array
-          description: Supported Postgres major versions, oldest first (V3 §2.4).
+          description: Postgres majors open for new projects, oldest first (V3 §2.4); a preview needs `preview` on the create request.
           items:
             type: integer
         default_pg_version:
           type: integer
+        pg_version_lifecycle:
+          type: array
+          description: Where each major is in its life (V4.1 §6.1).
+          items:
+            $ref: "#/components/schemas/PgVersionInfo"
+    PgVersionInfo:
+      type: object
+      required: [major, status, notes, installed]
+      properties:
+        major:
+          type: integer
+        status:
+          type: string
+          enum: [preview, supported, deprecated, retired]
+          description: A deprecated major past its retirement date is retired.
+        deprecated_at:
+          type: string
+          format: date-time
+        retires_at:
+          type: string
+          format: date-time
+        notes:
+          type: string
+        installed:
+          type: boolean
+          description: The server has an image for it (PGDOCK_PG_VERSIONS).
+        projects:
+          type: integer
+          description: Live projects on it (the admin list only).
+    PgVersionUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [preview, supported, deprecated, retired]
+        retires_at:
+          type: string
+          format: date-time
+          description: Required to deprecate, at least 180 days ahead.
+        notes:
+          type: string
+          maxLength: 2000
     CreateNodeRequest:
       type: object
       required: [name, private_addr, role]
@@ -11650,7 +11756,7 @@ components:
       properties:
         name:
           type: string
-          enum: [version, target, replication, schema, extensions]
+          enum: [version, target, replication, schema, extensions, deprecated]
         status:
           type: string
           enum: [ok, warning, blocked]

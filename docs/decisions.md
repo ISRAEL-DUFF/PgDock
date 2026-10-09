@@ -746,3 +746,16 @@ The spec's own decisions log is §16.
 | 8 | A test change | `TestMultiNodeSharedPlacement` expected `503 no_capacity` for a dedicated create with no dedicated node; the harness has an automated provider and no budget, so it now gets `409 capacity_pending_approval`. | The behaviour changed on purpose. |
 | 9 | Response | `PATCH /projects/{id}/instance` answers `InstanceUpdated` (the instance, the queued operation, the plan) instead of the bare instance. | A resize returns an operation to follow; V4.1-M3's PITR callers read `instance`. |
 
+## V4.1-M5 — Postgres version lifecycle
+
+| # | Topic | Decision | Why |
+| --- | --- | --- | --- |
+| 1 | Seeding | Every major in `PGDOCK_PG_VERSIONS` gets a `pg_versions` row as `supported` the first time the server looks (`ON CONFLICT DO NOTHING`); a major dropped from the setting keeps its row and shows as not installed. | Upgrading installs keep today's behaviour; an operator's statuses are never overwritten. |
+| 2 | Deprecated majors | Still open for new projects, never the default while a supported one exists, and not an upgrade target. | V4.1 §6.1 only closes retired ones; refusing deprecated ones earlier would surprise owners mid-migration. |
+| 3 | Retirement | A deprecated major counts as retired once `retires_at` passes, with no job flipping the row; an admin retiring it early is refused while projects run on it. Retired projects are not upgraded automatically. | Nothing can be missed by a job that didn't run; the spec's recommendation on auto-upgrade. |
+| 4 | Preview | Applies to new majors added as preview by an admin; seeded majors start supported. A preview project is a normal project on that major. | Preview is a promise about the major, not about the project. |
+| 5 | Notices | Sent to owners and admins on deprecation and at 90, 30 and 7 days, at most once per org per step (`pg_version_notices`), by an hourly sweep that sends the nearest step only. | A server that was down past one step doesn't send several mails at once. |
+| 6 | Clock in the test | The lifecycle service has its own clock for reminders; "the date passes" is simulated by moving `retires_at`, since creation checks use the real time. | Keeps a test clock out of provisioning. |
+| 7 | Dedicated preflight | One temporary instance per preflight call, on the project's node, as an instance row with profile `scratch` (so the agent manages it like any other), removed and marked deleted when the check ends, success or not. | V4.1 §6.2; an instance row gives the scratch Postgres a port and cleanup the agent already knows. |
+| 8 | Removed features | Matched by word in function bodies, view definitions and per-database settings; warnings only. The schema restore is what blocks. | §6.2 asks for warnings; a word match can be a false positive. |
+| 9 | API shape | `PATCH /admin/pg-versions/{major}` with the new status (and `retires_at`, `notes`) instead of a `POST …/deprecate`; one endpoint covers promoting a preview, deprecating and retiring. | Fewer endpoints for one state machine; the 180-day and live-project rules are enforced the same way. |

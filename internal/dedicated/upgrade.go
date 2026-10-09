@@ -52,6 +52,7 @@ const (
 	CheckReplication  = "replication"
 	CheckSchemaTrial  = "schema"
 	CheckExtensionsUp = "extensions"
+	CheckDeprecated   = "deprecated"
 )
 
 // UpgradePreflight checks an upgrade of p to Postgres `to` without changing
@@ -76,7 +77,7 @@ func (s *Service) UpgradePreflight(ctx context.Context, p store.Project, to int)
 		add(CheckTarget, CheckBlocked, "delete the read replicas before a major upgrade, and create them again after it")
 		return plan, nil
 	}
-	if v, err := s.projects.CheckPGVersion(to); err != nil {
+	if v, err := s.projects.CheckVersion(ctx, to, provision.ForUpgrade); err != nil {
 		add(CheckVersion, CheckBlocked, "%v", err)
 		return plan, nil
 	} else if v <= plan.From {
@@ -147,20 +148,94 @@ func (s *Service) UpgradePreflight(ctx context.Context, p store.Project, to int)
 		add(CheckReplication, CheckOK, "logical replication; writes pause for a few seconds")
 	}
 
-	if target != nil && len(plan.Blocked()) == 0 {
-		errs, err := s.schemaTrial(ctx, p, db, *plan.TargetID)
+	// What the new major removed, if the schema uses it (V4.1 §6.2).
+	if found, err := logical.ScanDeprecated(ctx, db, plan.From, to); err != nil {
+		add(CheckDeprecated, CheckWarning, "couldn't scan the schema for removed features: %v", err)
+	} else if len(found) > 0 {
+		msgs := make([]string, 0, len(found))
+		for _, f := range found {
+			msgs = append(msgs, f.String())
+		}
+		add(CheckDeprecated, CheckWarning, "%s", strings.Join(msgs, "; "))
+	} else {
+		add(CheckDeprecated, CheckOK, "nothing in the schema uses what Postgres %d removed (that PGDock knows of)", to)
+	}
+
+	if len(plan.Blocked()) == 0 {
+		var errs []string
+		var err error
+		switch {
+		case target != nil:
+			errs, err = s.schemaTrial(ctx, p, db, *plan.TargetID)
+		case p.Tier == provision.TierDedicated:
+			// A temporary instance of the new major on the project's node
+			// (V4.1 §6.2), removed after.
+			errs, err = s.scratchTrial(ctx, p, db, src.NodeID, to)
+		}
 		switch {
 		case err != nil:
 			add(CheckSchemaTrial, CheckBlocked, "couldn't test the schema on Postgres %d: %v", to, err)
 		case len(errs) > 0:
 			add(CheckSchemaTrial, CheckBlocked, "the schema doesn't restore on Postgres %d: %s", to, strings.Join(errs, "; "))
-		default:
+		case target != nil || p.Tier == provision.TierDedicated:
 			add(CheckSchemaTrial, CheckOK, "the schema restores cleanly on Postgres %d", to)
 		}
-	} else if p.Tier == provision.TierDedicated {
-		add(CheckSchemaTrial, CheckOK, "the schema is restored first on the new instance; any error stops the upgrade with the project untouched")
 	}
 	return plan, nil
+}
+
+// scratchTrial restores p's schema into a temporary instance of Postgres
+// version on node, as a non-superuser, and removes the instance after.
+func (s *Service) scratchTrial(ctx context.Context, p store.Project, src *pgx.Conn, node uuid.UUID, version int) ([]string, error) {
+	q := store.New(s.db)
+	id := uuid.New()
+	mem, vol, name := int32(512), int32(1), "scratch"
+	inst, err := q.InsertInstance(ctx, store.InsertInstanceParams{ID: id, NodeID: node, Kind: provision.TierDedicated, PgVersion: int32(version),
+		CpuLimit: numeric(0.5), MemLimitMb: &mem, VolumeGb: &vol, Profile: &name})
+	if err != nil {
+		return nil, err
+	}
+	agent, err := s.nodes.ForNode(ctx, node)
+	if err != nil {
+		_ = q.MarkInstanceDeleted(context.WithoutCancel(ctx), id)
+		return nil, err
+	}
+	defer func() {
+		c := context.WithoutCancel(ctx)
+		if err := agent.DestroyInstance(c, id.String()); err != nil {
+			s.log.Warn("scratch instance", "instance", id, "err", err) // the reaper retries
+			return
+		}
+		_ = q.MarkInstanceDeleted(c, id)
+	}()
+	secret := provision.AdminSecret{User: "pgdock_admin", Password: randomPassword()}
+	sealed, err := provision.SealInstanceSecret(s.keyring, id, secret)
+	if err != nil {
+		return nil, err
+	}
+	if err := q.SetInstanceAdminSecret(ctx, store.SetInstanceAdminSecretParams{ID: id, AdminSecret: sealed}); err != nil {
+		return nil, err
+	}
+	prof := provision.Profile{Name: name, CPUs: 0.5, MemoryMB: int(mem)}
+	res, err := agent.CreateInstance(ctx, agentapi.InstanceSpec{
+		ID: id.String(), Kind: agentapi.InstanceDedicated, CPUs: prof.CPUs, MemoryMB: prof.MemoryMB,
+		AdminUser: secret.User, AdminPassword: secret.Password, Settings: settings(prof), PGVersion: version,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("start a Postgres %d instance to test on: %w", version, err)
+	}
+	if err := s.recordRunning(ctx, inst, agent, res); err != nil {
+		return nil, err
+	}
+	if inst, err = q.GetInstance(ctx, id); err != nil {
+		return nil, err
+	}
+	conn, err := s.waitConn(ctx, inst)
+	if err != nil {
+		return nil, err
+	}
+	_ = conn.Close(context.Background())
+	return s.schemaTrial(ctx, p, src, id)
 }
 
 // schemaTrial restores p's schema into a scratch database on target (a

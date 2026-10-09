@@ -127,6 +127,30 @@ newest is the default for new projects. Each needs its image on every node
 one per version you offer (Nodes → a node → **Run a shared cluster here**,
 choosing the version).
 
+### Version lifecycle
+
+Each major has a status, kept in the `pg_versions` table (seeded from
+`PGDOCK_PG_VERSIONS`) and set under Admin → Platform → **Postgres
+versions** (`GET /api/v1/admin/pg-versions`, `PATCH …/{major}`):
+
+| Status | New projects | Upgrade target | Default |
+| --- | --- | --- | --- |
+| preview | only with **Preview** ticked on the create form | no | never |
+| supported | yes | yes | the newest one |
+| deprecated | yes | no | only if nothing is supported |
+| retired | no | no | no |
+
+- **Deprecating** needs a retirement date at least **180 days** ahead.
+  Owners and admins of every organisation with a project on that major
+  are emailed at once, with their projects and the link to each one's
+  upgrade, and again at 90, 30 and 7 days before the date (once per step).
+  Those projects show a banner on their overview and Compute pages.
+- **Retired:** a deprecated major is retired once its date passes (or
+  when an admin retires it, which is refused while projects still run on
+  it). Existing projects keep running, marked unsupported; they are never
+  upgraded automatically, since a new major can break an application.
+  Shared clusters of the major can still be created for them.
+
 ### Major upgrades
 
 Project Settings → Compute → **Postgres version → Upgrade…** (or
@@ -135,10 +159,15 @@ Project Settings → Compute → **Postgres version → Upgrade…** (or
 - checks the version is newer and supported, and where the project would
   go: the least-loaded shared cluster of the new version, or a new
   dedicated instance of the same size on the same node;
-- for a shared target, **restores the schema into a scratch database on
-  the new version** as an ordinary user, and reports anything that fails
-  (removed functions, changed syntax, missing extensions). Nothing is
-  changed;
+- **restores the schema on the new version** as an ordinary user, and
+  reports anything that fails (removed functions, changed syntax, missing
+  extensions): into a scratch database on the target cluster for a shared
+  target; into a temporary instance of the new major (0.5 vCPU, 512 MB,
+  no WAL archiving) started on the project's node for a dedicated one,
+  removed afterwards. Nothing is changed. A failure blocks the upgrade;
+- **scans for features removed in the new major** (functions, views and
+  database settings that use them; the list is in
+  `internal/logical/deprecated.go`) and warns;
 - estimates the pause, and says whether logical replication can be used.
 
 The upgrade is then a move as above. Test the application against the new

@@ -5034,6 +5034,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/pg-versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Postgres majors and where each is in its life (V4.1 §6.1) */
+        get: operations["listPgVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/pg-versions/{major}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Promote, deprecate or retire a Postgres major
+         * @description Deprecating sets a retirement date at least 180 days ahead and emails
+         *     the owners and admins of every organisation with a project on it
+         *     (again at 90, 30 and 7 days). Retiring early is refused while
+         *     projects are on it. Retired: no new projects; existing ones keep
+         *     running, unsupported.
+         */
+        patch: operations["updatePgVersion"];
+        trace?: never;
+    };
     "/api/v1/admin/regions": {
         parameters: {
             query?: never;
@@ -5980,6 +6021,8 @@ export interface components {
             removed_copies: number;
         };
         CreateProjectRequest: {
+            /** @description Allow a Postgres major in preview (V4.1 §6.1). */
+            preview?: boolean;
             /**
              * Format: uuid
              * @description The organisation; your personal organisation when omitted.
@@ -7392,6 +7435,16 @@ export interface components {
             ha_enabled?: boolean;
             /** @description Dedicated only. The point-in-time recovery window in days (7, 14 or 30). */
             pitr_days?: number;
+            /**
+             * @description Where its Postgres major is in its life (V4.1 §6.1).
+             * @enum {string}
+             */
+            pg_version_status?: "preview" | "supported" | "deprecated" | "retired";
+            /**
+             * Format: date-time
+             * @description When its deprecated major retires.
+             */
+            pg_version_retires_at?: string;
             /** @description The release the instance runs ("18.1"), as its agent last reported. */
             pg_release?: string | null;
             /** @description The release its image now holds; a newer minor is applied in the maintenance window. */
@@ -7443,9 +7496,38 @@ export interface components {
             items: components["schemas"]["Profile"][];
             default_profile: string;
             default_volume_gb: number;
-            /** @description Supported Postgres major versions, oldest first (V3 §2.4). */
+            /** @description Postgres majors open for new projects, oldest first (V3 §2.4); a preview needs `preview` on the create request. */
             pg_versions: number[];
             default_pg_version: number;
+            /** @description Where each major is in its life (V4.1 §6.1). */
+            pg_version_lifecycle?: components["schemas"]["PgVersionInfo"][];
+        };
+        PgVersionInfo: {
+            major: number;
+            /**
+             * @description A deprecated major past its retirement date is retired.
+             * @enum {string}
+             */
+            status: "preview" | "supported" | "deprecated" | "retired";
+            /** Format: date-time */
+            deprecated_at?: string;
+            /** Format: date-time */
+            retires_at?: string;
+            notes: string;
+            /** @description The server has an image for it (PGDOCK_PG_VERSIONS). */
+            installed: boolean;
+            /** @description Live projects on it (the admin list only). */
+            projects?: number;
+        };
+        PgVersionUpdate: {
+            /** @enum {string} */
+            status: "preview" | "supported" | "deprecated" | "retired";
+            /**
+             * Format: date-time
+             * @description Required to deprecate, at least 180 days ahead.
+             */
+            retires_at?: string;
+            notes?: string;
         };
         CreateNodeRequest: {
             /** @example node-b */
@@ -7538,7 +7620,7 @@ export interface components {
         };
         UpgradeCheck: {
             /** @enum {string} */
-            name: "version" | "target" | "replication" | "schema" | "extensions";
+            name: "version" | "target" | "replication" | "schema" | "extensions" | "deprecated";
             /** @enum {string} */
             status: "ok" | "warning" | "blocked";
             message: string;
@@ -19114,6 +19196,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegionList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listPgVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The majors. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["PgVersionInfo"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePgVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                major: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PgVersionUpdate"];
+            };
+        };
+        responses: {
+            /** @description The major. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PgVersionInfo"];
                 };
             };
             default: components["responses"]["Error"];

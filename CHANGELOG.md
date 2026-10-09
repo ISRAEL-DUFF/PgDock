@@ -39,6 +39,17 @@ bundle share one version (spec §11.5).
   that creates servers, a dedicated create provisions a host within the
   infrastructure budget and waits for it; over the budget it is refused
   with `409 capacity_pending_approval` while the proposal waits.
+- Postgres version lifecycle (V4.1-M5): Admin → Platform → Postgres
+  versions sets each major to preview, supported, deprecated (with a
+  retirement date at least 180 days out) or retired. Deprecation emails
+  the owners and admins of affected organisations, with reminders at 90,
+  30 and 7 days, and puts a banner on their projects; retired majors take
+  no new projects, while existing ones keep running. Preview majors can be
+  chosen on the create form. The terms template has a Postgres versions
+  section. New migration 00046.
+- The major upgrade preflight now checks dedicated projects too, restoring
+  the schema into a temporary instance of the new major, and warns about
+  features the new major removed.
 
 ### V4 (on feature/pgdock4)
 - Backend services' edge foundation (V4-M28): a project can turn on backend

@@ -36,6 +36,7 @@ import { setCurrentOrg, useCurrentOrg } from "../lib/org";
 import { useOperationStream } from "../lib/useOperationStream";
 import { InstancePanel } from "./ProjectOverview";
 import { ResizeCard } from "../components/ResizeCard";
+import { VersionBanner } from "../components/VersionBanner";
 import { useProject } from "./ProjectOverview";
 
 // Project Settings (docs/ui-redesign.md, phase 4), in Studio's layout:
@@ -91,6 +92,7 @@ export function ProjectComputePage() {
       description="Where the database runs, and moving it between the shared and dedicated tiers."
       testId="settings-compute"
     >
+      <VersionBanner p={p} />
       <Panel title="Tier">
         <KeyValues
           items={[

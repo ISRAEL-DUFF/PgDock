@@ -1257,6 +1257,30 @@ func (e InstanceSummaryKind) Valid() bool {
 	}
 }
 
+// Defines values for InstanceSummaryPgVersionStatus.
+const (
+	InstanceSummaryPgVersionStatusDeprecated InstanceSummaryPgVersionStatus = "deprecated"
+	InstanceSummaryPgVersionStatusPreview    InstanceSummaryPgVersionStatus = "preview"
+	InstanceSummaryPgVersionStatusRetired    InstanceSummaryPgVersionStatus = "retired"
+	InstanceSummaryPgVersionStatusSupported  InstanceSummaryPgVersionStatus = "supported"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSummaryPgVersionStatus enum.
+func (e InstanceSummaryPgVersionStatus) Valid() bool {
+	switch e {
+	case InstanceSummaryPgVersionStatusDeprecated:
+		return true
+	case InstanceSummaryPgVersionStatusPreview:
+		return true
+	case InstanceSummaryPgVersionStatusRetired:
+		return true
+	case InstanceSummaryPgVersionStatusSupported:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceUpdatePitrDays.
 const (
 	InstanceUpdatePitrDaysN14 InstanceUpdatePitrDays = 14
@@ -1875,6 +1899,54 @@ func (e PersonalCredentialsInfoAccess) Valid() bool {
 	case PersonalCredentialsInfoAccessReadOnly:
 		return true
 	case PersonalCredentialsInfoAccessReadWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PgVersionInfoStatus.
+const (
+	PgVersionInfoStatusDeprecated PgVersionInfoStatus = "deprecated"
+	PgVersionInfoStatusPreview    PgVersionInfoStatus = "preview"
+	PgVersionInfoStatusRetired    PgVersionInfoStatus = "retired"
+	PgVersionInfoStatusSupported  PgVersionInfoStatus = "supported"
+)
+
+// Valid indicates whether the value is a known member of the PgVersionInfoStatus enum.
+func (e PgVersionInfoStatus) Valid() bool {
+	switch e {
+	case PgVersionInfoStatusDeprecated:
+		return true
+	case PgVersionInfoStatusPreview:
+		return true
+	case PgVersionInfoStatusRetired:
+		return true
+	case PgVersionInfoStatusSupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PgVersionUpdateStatus.
+const (
+	PgVersionUpdateStatusDeprecated PgVersionUpdateStatus = "deprecated"
+	PgVersionUpdateStatusPreview    PgVersionUpdateStatus = "preview"
+	PgVersionUpdateStatusRetired    PgVersionUpdateStatus = "retired"
+	PgVersionUpdateStatusSupported  PgVersionUpdateStatus = "supported"
+)
+
+// Valid indicates whether the value is a known member of the PgVersionUpdateStatus enum.
+func (e PgVersionUpdateStatus) Valid() bool {
+	switch e {
+	case PgVersionUpdateStatusDeprecated:
+		return true
+	case PgVersionUpdateStatusPreview:
+		return true
+	case PgVersionUpdateStatusRetired:
+		return true
+	case PgVersionUpdateStatusSupported:
 		return true
 	default:
 		return false
@@ -3029,6 +3101,7 @@ func (e UpdateUserRequestPlatformRole) Valid() bool {
 
 // Defines values for UpgradeCheckName.
 const (
+	UpgradeCheckNameDeprecated  UpgradeCheckName = "deprecated"
 	UpgradeCheckNameExtensions  UpgradeCheckName = "extensions"
 	UpgradeCheckNameReplication UpgradeCheckName = "replication"
 	UpgradeCheckNameSchema      UpgradeCheckName = "schema"
@@ -3039,6 +3112,8 @@ const (
 // Valid indicates whether the value is a known member of the UpgradeCheckName enum.
 func (e UpgradeCheckName) Valid() bool {
 	switch e {
+	case UpgradeCheckNameDeprecated:
+		return true
 	case UpgradeCheckNameExtensions:
 		return true
 	case UpgradeCheckNameReplication:
@@ -5141,6 +5216,9 @@ type CreateProjectRequest struct {
 	// PgVersion Postgres major version (see /profiles); default the newest.
 	PgVersion *int `json:"pg_version,omitempty"`
 
+	// Preview Allow a Postgres major in preview (V4.1 §6.1).
+	Preview *bool `json:"preview,omitempty"`
+
 	// Profile Dedicated only (see /profiles); default small.
 	Profile *string `json:"profile,omitempty"`
 
@@ -6011,6 +6089,12 @@ type InstanceSummary struct {
 	// PgVersion Postgres major version.
 	PgVersion int `json:"pg_version"`
 
+	// PgVersionRetiresAt When its deprecated major retires.
+	PgVersionRetiresAt *time.Time `json:"pg_version_retires_at,omitempty"`
+
+	// PgVersionStatus Where its Postgres major is in its life (V4.1 §6.1).
+	PgVersionStatus *InstanceSummaryPgVersionStatus `json:"pg_version_status,omitempty"`
+
 	// PitrDays Dedicated only. The point-in-time recovery window in days (7, 14 or 30).
 	PitrDays *int    `json:"pitr_days,omitempty"`
 	Profile  *string `json:"profile,omitempty"`
@@ -6020,6 +6104,9 @@ type InstanceSummary struct {
 
 // InstanceSummaryKind defines model for InstanceSummary.Kind.
 type InstanceSummaryKind string
+
+// InstanceSummaryPgVersionStatus Where its Postgres major is in its life (V4.1 §6.1).
+type InstanceSummaryPgVersionStatus string
 
 // InstanceUpdate defines model for InstanceUpdate.
 type InstanceUpdate struct {
@@ -7003,6 +7090,38 @@ type PersonalCredentialsInfo struct {
 // PersonalCredentialsInfoAccess What your role allows (the access a new login would get).
 type PersonalCredentialsInfoAccess string
 
+// PgVersionInfo defines model for PgVersionInfo.
+type PgVersionInfo struct {
+	DeprecatedAt *time.Time `json:"deprecated_at,omitempty"`
+
+	// Installed The server has an image for it (PGDOCK_PG_VERSIONS).
+	Installed bool   `json:"installed"`
+	Major     int    `json:"major"`
+	Notes     string `json:"notes"`
+
+	// Projects Live projects on it (the admin list only).
+	Projects  *int       `json:"projects,omitempty"`
+	RetiresAt *time.Time `json:"retires_at,omitempty"`
+
+	// Status A deprecated major past its retirement date is retired.
+	Status PgVersionInfoStatus `json:"status"`
+}
+
+// PgVersionInfoStatus A deprecated major past its retirement date is retired.
+type PgVersionInfoStatus string
+
+// PgVersionUpdate defines model for PgVersionUpdate.
+type PgVersionUpdate struct {
+	Notes *string `json:"notes,omitempty"`
+
+	// RetiresAt Required to deprecate, at least 180 days ahead.
+	RetiresAt *time.Time            `json:"retires_at,omitempty"`
+	Status    PgVersionUpdateStatus `json:"status"`
+}
+
+// PgVersionUpdateStatus defines model for PgVersionUpdate.Status.
+type PgVersionUpdateStatus string
+
 // PitrRequest defines model for PitrRequest.
 type PitrRequest struct {
 	Name string `json:"name"`
@@ -7284,7 +7403,10 @@ type ProfileList struct {
 	DefaultVolumeGb  int       `json:"default_volume_gb"`
 	Items            []Profile `json:"items"`
 
-	// PgVersions Supported Postgres major versions, oldest first (V3 §2.4).
+	// PgVersionLifecycle Where each major is in its life (V4.1 §6.1).
+	PgVersionLifecycle *[]PgVersionInfo `json:"pg_version_lifecycle,omitempty"`
+
+	// PgVersions Postgres majors open for new projects, oldest first (V3 §2.4); a preview needs `preview` on the create request.
 	PgVersions []int `json:"pg_versions"`
 }
 
@@ -10070,6 +10192,9 @@ type AdminRecordPaymentJSONRequestBody AdminRecordPaymentJSONBody
 // AdminRefundPaymentJSONRequestBody defines body for AdminRefundPayment for application/json ContentType.
 type AdminRefundPaymentJSONRequestBody AdminRefundPaymentJSONBody
 
+// UpdatePgVersionJSONRequestBody defines body for UpdatePgVersion for application/json ContentType.
+type UpdatePgVersionJSONRequestBody = PgVersionUpdate
+
 // CreatePlanJSONRequestBody defines body for CreatePlan for application/json ContentType.
 type CreatePlanJSONRequestBody = PlanRequest
 
@@ -11139,6 +11264,37 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/admin/payments/{payment_id}/refund (the `AdminRefundPayment` operationId).
 	AdminRefundPayment(ctx context.Context, paymentId PaymentID, body AdminRefundPaymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPgVersions Postgres majors and where each is in its life (V4.1 §6.1)
+	//
+	// Corresponds with GET /api/v1/admin/pg-versions (the `ListPgVersions` operationId).
+	ListPgVersions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdatePgVersionWithBody Promote, deprecate or retire a Postgres major
+	//
+	// Deprecating sets a retirement date at least 180 days ahead and emails
+	// the owners and admins of every organisation with a project on it
+	// (again at 90, 30 and 7 days). Retiring early is refused while
+	// projects are on it. Retired: no new projects; existing ones keep
+	// running, unsupported.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+	UpdatePgVersionWithBody(ctx context.Context, major int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdatePgVersion Promote, deprecate or retire a Postgres major
+	//
+	// Deprecating sets a retirement date at least 180 days ahead and emails
+	// the owners and admins of every organisation with a project on it
+	// (again at 90, 30 and 7 days). Retiring early is refused while
+	// projects are on it. Retired: no new projects; existing ones keep
+	// running, unsupported.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+	UpdatePgVersion(ctx context.Context, major int, body UpdatePgVersionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPlans Quota plan templates (platform admin)
 	//
@@ -16050,6 +16206,67 @@ func (c *Client) AdminRefundPaymentWithBody(ctx context.Context, paymentId Payme
 // Corresponds with POST /api/v1/admin/payments/{payment_id}/refund (the `AdminRefundPayment` operationId).
 func (c *Client) AdminRefundPayment(ctx context.Context, paymentId PaymentID, body AdminRefundPaymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAdminRefundPaymentRequest(c.Server, paymentId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListPgVersions Postgres majors and where each is in its life (V4.1 §6.1)
+//
+// Corresponds with GET /api/v1/admin/pg-versions (the `ListPgVersions` operationId).
+func (c *Client) ListPgVersions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPgVersionsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdatePgVersionWithBody Promote, deprecate or retire a Postgres major
+//
+// Deprecating sets a retirement date at least 180 days ahead and emails
+// the owners and admins of every organisation with a project on it
+// (again at 90, 30 and 7 days). Retiring early is refused while
+// projects are on it. Retired: no new projects; existing ones keep
+// running, unsupported.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+func (c *Client) UpdatePgVersionWithBody(ctx context.Context, major int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePgVersionRequestWithBody(c.Server, major, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdatePgVersion Promote, deprecate or retire a Postgres major
+//
+// Deprecating sets a retirement date at least 180 days ahead and emails
+// the owners and admins of every organisation with a project on it
+// (again at 90, 30 and 7 days). Retiring early is refused while
+// projects are on it. Retired: no new projects; existing ones keep
+// running, unsupported.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+func (c *Client) UpdatePgVersion(ctx context.Context, major int, body UpdatePgVersionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePgVersionRequest(c.Server, major, body)
 	if err != nil {
 		return nil, err
 	}
@@ -26724,6 +26941,80 @@ func NewAdminRefundPaymentRequestWithBody(server string, paymentId PaymentID, co
 	}
 
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListPgVersionsRequest constructs an http.Request for the ListPgVersions method
+func NewListPgVersionsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/pg-versions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdatePgVersionRequest calls the generic UpdatePgVersion builder with application/json body
+func NewUpdatePgVersionRequest(server string, major int, body UpdatePgVersionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdatePgVersionRequestWithBody(server, major, "application/json", bodyReader)
+}
+
+// NewUpdatePgVersionRequestWithBody constructs an http.Request for the UpdatePgVersion method, with any body, and a specified content type
+func NewUpdatePgVersionRequestWithBody(server string, major int, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "major", major, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/admin/pg-versions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -41613,6 +41904,39 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/admin/payments/{payment_id}/refund (the `AdminRefundPayment` operationId).
 	AdminRefundPaymentWithResponse(ctx context.Context, paymentId PaymentID, body AdminRefundPaymentJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRefundPaymentResponse, error)
 
+	// ListPgVersionsWithResponse Postgres majors and where each is in its life (V4.1 §6.1)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/admin/pg-versions (the `ListPgVersions` operationId).
+	ListPgVersionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPgVersionsResponse, error)
+
+	// UpdatePgVersionWithBodyWithResponse Promote, deprecate or retire a Postgres major
+	//
+	// Deprecating sets a retirement date at least 180 days ahead and emails
+	// the owners and admins of every organisation with a project on it
+	// (again at 90, 30 and 7 days). Retiring early is refused while
+	// projects are on it. Retired: no new projects; existing ones keep
+	// running, unsupported.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+	UpdatePgVersionWithBodyWithResponse(ctx context.Context, major int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePgVersionResponse, error)
+
+	// UpdatePgVersionWithResponse Promote, deprecate or retire a Postgres major
+	//
+	// Deprecating sets a retirement date at least 180 days ahead and emails
+	// the owners and admins of every organisation with a project on it
+	// (again at 90, 30 and 7 days). Retiring early is refused while
+	// projects are on it. Retired: no new projects; existing ones keep
+	// running, unsupported.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+	UpdatePgVersionWithResponse(ctx context.Context, major int, body UpdatePgVersionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePgVersionResponse, error)
+
 	// ListPlansWithResponse Quota plan templates (platform admin)
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -48432,6 +48756,106 @@ func (r AdminRefundPaymentResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r AdminRefundPaymentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListPgVersionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Items []PgVersionInfo `json:"items"`
+	}
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPgVersionsResponse) GetJSON200() *struct {
+	Items []PgVersionInfo `json:"items"`
+} {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r ListPgVersionsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPgVersionsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPgVersionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPgVersionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPgVersionsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdatePgVersionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PgVersionInfo
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdatePgVersionResponse) GetJSON200() *PgVersionInfo {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r UpdatePgVersionResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdatePgVersionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdatePgVersionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdatePgVersionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdatePgVersionResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -64869,6 +65293,57 @@ func (c *ClientWithResponses) AdminRefundPaymentWithResponse(ctx context.Context
 	return ParseAdminRefundPaymentResponse(rsp)
 }
 
+// ListPgVersionsWithResponse Postgres majors and where each is in its life (V4.1 §6.1)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/admin/pg-versions (the `ListPgVersions` operationId).
+func (c *ClientWithResponses) ListPgVersionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPgVersionsResponse, error) {
+	rsp, err := c.ListPgVersions(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPgVersionsResponse(rsp)
+}
+
+// UpdatePgVersionWithBodyWithResponse Promote, deprecate or retire a Postgres major
+//
+// Deprecating sets a retirement date at least 180 days ahead and emails
+// the owners and admins of every organisation with a project on it
+// (again at 90, 30 and 7 days). Retiring early is refused while
+// projects are on it. Retired: no new projects; existing ones keep
+// running, unsupported.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+func (c *ClientWithResponses) UpdatePgVersionWithBodyWithResponse(ctx context.Context, major int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePgVersionResponse, error) {
+	rsp, err := c.UpdatePgVersionWithBody(ctx, major, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdatePgVersionResponse(rsp)
+}
+
+// UpdatePgVersionWithResponse Promote, deprecate or retire a Postgres major
+//
+// Deprecating sets a retirement date at least 180 days ahead and emails
+// the owners and admins of every organisation with a project on it
+// (again at 90, 30 and 7 days). Retiring early is refused while
+// projects are on it. Retired: no new projects; existing ones keep
+// running, unsupported.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /api/v1/admin/pg-versions/{major} (the `UpdatePgVersion` operationId).
+func (c *ClientWithResponses) UpdatePgVersionWithResponse(ctx context.Context, major int, body UpdatePgVersionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePgVersionResponse, error) {
+	rsp, err := c.UpdatePgVersion(ctx, major, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdatePgVersionResponse(rsp)
+}
+
 // ListPlansWithResponse Quota plan templates (platform admin)
 //
 // Returns a wrapper object for the known response body format(s).
@@ -73481,6 +73956,74 @@ func ParseAdminRefundPaymentResponse(rsp *http.Response) (*AdminRefundPaymentRes
 			Id          openapi_types.UUID `json:"id"`
 			Status      string             `json:"status"`
 		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListPgVersionsResponse parses an HTTP response from a ListPgVersionsWithResponse call
+func ParseListPgVersionsResponse(rsp *http.Response) (*ListPgVersionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPgVersionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Items []PgVersionInfo `json:"items"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdatePgVersionResponse parses an HTTP response from a UpdatePgVersionWithResponse call
+func ParseUpdatePgVersionResponse(rsp *http.Response) (*UpdatePgVersionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdatePgVersionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PgVersionInfo
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
