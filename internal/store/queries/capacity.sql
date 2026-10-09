@@ -6,6 +6,7 @@
 -- Database nodes in service with what runs on them, for the planner.
 SELECT n.*,
   (SELECT count(*) FROM instances i WHERE i.node_id = n.id AND i.deleted_at IS NULL)::int AS instances,
+  (SELECT count(*) FROM instances i WHERE i.node_id = n.id AND i.deleted_at IS NULL AND i.kind = 'dedicated')::int AS dedicated_instances,
   (SELECT count(*) FROM instances i JOIN projects p ON p.instance_id = i.id AND p.deleted_at IS NULL
      WHERE i.node_id = n.id AND i.deleted_at IS NULL)::int AS projects,
   (SELECT coalesce(sum(i.cpu_limit), 0) FROM instances i WHERE i.node_id = n.id AND i.deleted_at IS NULL AND i.kind = 'dedicated')::float8 AS dedicated_cpus,

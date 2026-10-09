@@ -54,7 +54,9 @@ func (s *Service) placeDedicated(ctx context.Context, q *store.Queries, region s
 		candidates = append(candidates, n)
 	}
 	if len(candidates) > 0 {
-		sort.SliceStable(candidates, func(i, j int) bool { return candidates[i].Instances < candidates[j].Instances })
+		// The fewest dedicated instances first, then the oldest node (the
+		// list's order): a shared cluster doesn't count against a node.
+		sort.SliceStable(candidates, func(i, j int) bool { return candidates[i].DedicatedInstances < candidates[j].DedicatedInstances })
 		return candidates[0].ID, nil
 	}
 	if s.Hosts != nil {
