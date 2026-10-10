@@ -141,6 +141,39 @@ services:
       PGDOCK_API_DOMAIN: ${PGDOCK_API_DOMAIN:-}
       PGDOCK_EDGE_SECRET: ${PGDOCK_EDGE_SECRET:-}
       PGDOCK_CLOUD_EDGE_IMAGE: ${PGDOCK_CLOUD_EDGE_IMAGE:-}
+      # Optional settings the docs describe; empty means the default.
+      # Payments (docs/payments.md).
+      PGDOCK_FLW_SECRET_KEY: ${PGDOCK_FLW_SECRET_KEY:-}
+      PGDOCK_FLW_WEBHOOK_HASH: ${PGDOCK_FLW_WEBHOOK_HASH:-}
+      PGDOCK_FLW_BASE_URL: ${PGDOCK_FLW_BASE_URL:-}
+      PGDOCK_FLW_BVN: ${PGDOCK_FLW_BVN:-}
+      PGDOCK_ISPEND_BASE_URL: ${PGDOCK_ISPEND_BASE_URL:-}
+      PGDOCK_ISPEND_API_KEY: ${PGDOCK_ISPEND_API_KEY:-}
+      PGDOCK_ISPEND_WEBHOOK_SECRET: ${PGDOCK_ISPEND_WEBHOOK_SECRET:-}
+      PGDOCK_PAY_CARDS: ${PGDOCK_PAY_CARDS:-}
+      PGDOCK_PAY_VA_PRIMARY: ${PGDOCK_PAY_VA_PRIMARY:-}
+      PGDOCK_PAY_VA_FALLBACK: ${PGDOCK_PAY_VA_FALLBACK:-}
+      PGDOCK_PAY_WALLET: ${PGDOCK_PAY_WALLET:-}
+      # The Free tier's clocks (docs/free-tier.md), e.g. 720h.
+      PGDOCK_FREE_PAUSE_AFTER: ${PGDOCK_FREE_PAUSE_AFTER:-}
+      PGDOCK_FREE_ARCHIVE_AFTER: ${PGDOCK_FREE_ARCHIVE_AFTER:-}
+      PGDOCK_FREE_DELETE_AFTER: ${PGDOCK_FREE_DELETE_AFTER:-}
+      # HA minor upgrades wait for an announced window unless false
+      # (docs/ha.md).
+      PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT: ${PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT:-}
+      PGDOCK_PG_VERSIONS: ${PGDOCK_PG_VERSIONS:-}
+      # The status page (docs/status-page.md).
+      PGDOCK_STATUS_URL: ${PGDOCK_STATUS_URL:-}
+      PGDOCK_STATUS_PUSH_SECRET: ${PGDOCK_STATUS_PUSH_SECRET:-}
+      PGDOCK_STATUS_REGION: ${PGDOCK_STATUS_REGION:-}
+      PGDOCK_STATUS_COMPONENTS: ${PGDOCK_STATUS_COMPONENTS:-}
+      # Purge a Cloudflare CDN when a bucket goes private (docs/backend-services.md).
+      PGDOCK_CDN_CLOUDFLARE_ZONE_ID: ${PGDOCK_CDN_CLOUDFLARE_ZONE_ID:-}
+      PGDOCK_CDN_CLOUDFLARE_TOKEN: ${PGDOCK_CDN_CLOUDFLARE_TOKEN:-}
+      # Rotating the master key (docs/operations.md).
+      PGDOCK_MASTER_KEY_PREVIOUS: ${PGDOCK_MASTER_KEY_PREVIOUS:-}
+      PGDOCK_FLOATING_IP_ID: ${PGDOCK_FLOATING_IP_ID:-}
+      PGDOCK_OUTBOUND_BLOCK: ${PGDOCK_OUTBOUND_BLOCK:-}
     volumes:
       - pgdock-data:/var/lib/pgdock
       - pooler-config:/var/lib/pgdock/pooler
