@@ -79,10 +79,11 @@ func TestPausedProjectAnswersResuming(t *testing.T) {
 		if code, _, apiErr := call("GET", "/api/v1/projects/"+pid+"/webhooks", nil); code != http.StatusOK {
 			t.Fatalf("listing webhooks on a %s project: %d %+v", tc.lifecycle, code, apiErr)
 		}
-		// And the call queued the wake.
+		// And the calls queued the wake: at least one (an unarchive with no
+		// backup fails at once, so a later call can queue another).
 		var wakes int
 		if err := e.DB.QueryRow(ctx, `SELECT count(*) FROM operations WHERE project_id = $1 AND kind = $2`,
-			c.Project.Id, map[string]string{"paused": "resume_project", "archived": "unarchive_project"}[tc.lifecycle]).Scan(&wakes); err != nil || wakes != 1 {
+			c.Project.Id, map[string]string{"paused": "resume_project", "archived": "unarchive_project"}[tc.lifecycle]).Scan(&wakes); err != nil || wakes < 1 {
 			t.Fatalf("wakes queued for a %s project: %d %v", tc.lifecycle, wakes, err)
 		}
 		// Let the wake finish, then reset for the next case.
