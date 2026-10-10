@@ -8,7 +8,7 @@
     {"title": "Migrate", "pages": ["migrate-from-supabase.md", "supabase-client-mapping.md", "guides/import-docker-vps-db.md"]},
     {"title": "Databases", "pages": ["ha.md", "read-replicas.md", "moves.md", "query-insights.md", "webhooks.md", "regions.md", "free-tier.md"]},
     {"title": "Billing", "pages": ["billing.md", "payments.md"]},
-    {"title": "Operate", "pages": ["install.md", "operations.md", "upgrade.md", "disaster-recovery.md", "admin-runbook.md", "backend-runbook.md", "capacity.md", "edge-poolers.md", "failure-domains.md", "status-page.md", "incidents.md", "support.md", "legal.md", "security-review.md", "pentest-scope.md", "load-test.md"]},
+    {"title": "Operate", "pages": ["install.md", "operations.md", "upgrade.md", "upgrade-v2-to-v4.md", "disaster-recovery.md", "admin-runbook.md", "backend-runbook.md", "capacity.md", "edge-poolers.md", "failure-domains.md", "status-page.md", "incidents.md", "support.md", "legal.md", "security-review.md", "pentest-scope.md", "load-test.md"]},
     {"title": "Internals", "pages": ["decisions.md"]}
   ]
 }
