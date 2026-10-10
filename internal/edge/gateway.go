@@ -224,10 +224,10 @@ func (e *Edge) cors(c *call) bool {
 		return false
 	}
 	h.Set("Access-Control-Allow-Origin", origin)
-	h.Set("Access-Control-Expose-Headers", "X-Request-Id, Retry-After, ETag, Content-Range, Content-Length, Content-Disposition, X-Cache")
+	h.Set("Access-Control-Expose-Headers", "X-Request-Id, Retry-After, ETag, Content-Range, Content-Length, Content-Disposition, X-Cache, Idempotent-Replayed")
 	if c.r.Method == http.MethodOptions && c.r.Header.Get("Access-Control-Request-Method") != "" {
 		h.Set("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
-		h.Set("Access-Control-Allow-Headers", "apikey, authorization, content-type, x-request-id, read-replica, prefer, x-upsert, x-metadata, range, if-none-match, cache-control")
+		h.Set("Access-Control-Allow-Headers", "apikey, authorization, content-type, x-request-id, read-replica, prefer, x-upsert, x-metadata, range, if-none-match, cache-control, idempotency-key")
 		h.Set("Access-Control-Max-Age", "600")
 		c.w.WriteHeader(http.StatusNoContent)
 		return false

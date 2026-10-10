@@ -1360,22 +1360,26 @@ type VirtualAccount struct {
 }
 
 type Webhook struct {
-	ID                  uuid.UUID
-	ProjectID           uuid.UUID
-	Name                string
-	Tables              []string
-	Events              []string
-	Columns             []string
-	Url                 string
-	HeadersEnc          []byte
-	SecretEnc           []byte
-	Enabled             bool
-	Status              string
-	StatusReason        *string
-	ConsecutiveFailures int32
-	CreatedBy           *uuid.UUID
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	ID                      uuid.UUID
+	ProjectID               uuid.UUID
+	Name                    string
+	Tables                  []string
+	Events                  []string
+	Columns                 []string
+	Url                     string
+	HeadersEnc              []byte
+	SecretEnc               []byte
+	Enabled                 bool
+	Status                  string
+	StatusReason            *string
+	ConsecutiveFailures     int32
+	CreatedBy               *uuid.UUID
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
+	Description             string
+	Metadata                json.RawMessage
+	PreviousSecretEnc       []byte
+	PreviousSecretExpiresAt *time.Time
 }
 
 type WebhookDelivery struct {

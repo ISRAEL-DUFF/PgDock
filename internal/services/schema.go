@@ -472,6 +472,62 @@ var schemaVersions = []schemaVersion{
 		`CREATE POLICY pgdock_probe ON pgd_realtime.channel_access FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true)`,
 		`ALTER TABLE pgd_realtime.channel_access OWNER TO {{owner}}`,
 	}},
+	{6, []string{
+		// Idempotency keys on the data API's writes (Taskiem P1-G2): the
+		// first answer, kept a day, written in the write's own transaction so
+		// a key is recorded exactly when the write commits. A key belongs to
+		// the caller's role and user (from the request's claims), so one
+		// user can't replay another's answer.
+		`CREATE TABLE IF NOT EXISTS pgd_auth.idempotency (
+		  scope        text NOT NULL,
+		  key          text NOT NULL,
+		  request_hash text NOT NULL,
+		  status       int,
+		  response     text,
+		  created_at   timestamptz NOT NULL DEFAULT now(),
+		  PRIMARY KEY (scope, key)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idempotency_created ON pgd_auth.idempotency (created_at)`,
+		`REVOKE ALL ON pgd_auth.idempotency FROM PUBLIC`,
+		// claim records the key, or returns the first answer (reused when the
+		// request differs). A concurrent request with the same key waits on
+		// the first one's row: its answer once it commits, a fresh claim if
+		// it rolls back.
+		`CREATE OR REPLACE FUNCTION pgd_auth.idempotency_claim(k text, h text, OUT status int, OUT response text, OUT reused boolean)
+		LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
+		DECLARE
+		  s text := (pgd_auth.claims() ->> 'role') || ':' || coalesce(pgd_auth.claims() ->> 'sub', '');
+		  r record;
+		BEGIN
+		  reused := false;
+		  -- Expired keys, a few at a time.
+		  DELETE FROM pgd_auth.idempotency WHERE ctid = ANY (ARRAY(SELECT ctid FROM pgd_auth.idempotency
+		    WHERE created_at < now() - interval '24 hours' LIMIT 20 FOR UPDATE SKIP LOCKED));
+		  INSERT INTO pgd_auth.idempotency (scope, key, request_hash) VALUES (s, k, h) ON CONFLICT DO NOTHING;
+		  IF FOUND THEN
+		    RETURN;
+		  END IF;
+		  SELECT i.request_hash, i.status, i.response, i.created_at INTO r FROM pgd_auth.idempotency i
+		    WHERE i.scope = s AND i.key = k FOR UPDATE;
+		  IF r.created_at < now() - interval '24 hours' THEN
+		    UPDATE pgd_auth.idempotency SET request_hash = h, status = NULL, response = NULL, created_at = now()
+		      WHERE scope = s AND key = k;
+		    RETURN;
+		  END IF;
+		  reused := r.request_hash <> h;
+		  IF NOT reused THEN
+		    status := r.status;
+		    response := r.response;
+		  END IF;
+		END $$`,
+		`CREATE OR REPLACE FUNCTION pgd_auth.idempotency_store(k text, st int, resp text) RETURNS void
+		LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$
+		  UPDATE pgd_auth.idempotency SET status = st, response = resp
+		  WHERE scope = (pgd_auth.claims() ->> 'role') || ':' || coalesce(pgd_auth.claims() ->> 'sub', '') AND key = k $$`,
+		`REVOKE ALL ON FUNCTION pgd_auth.idempotency_claim(text, text), pgd_auth.idempotency_store(text, int, text)
+		  FROM PUBLIC, {{owner}}, {{anon}}, {{hook}}`,
+		`GRANT EXECUTE ON FUNCTION pgd_auth.idempotency_claim(text, text), pgd_auth.idempotency_store(text, int, text) TO {{user}}, {{service}}`,
+	}},
 }
 
 // exposureStmts let the request roles use what the owner makes in an

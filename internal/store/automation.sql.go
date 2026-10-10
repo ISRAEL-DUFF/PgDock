@@ -7,6 +7,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -337,7 +338,7 @@ func (q *Queries) GetJobByID(ctx context.Context, id uuid.UUID) (ScheduledJob, e
 }
 
 const getWebhook = `-- name: GetWebhook :one
-SELECT id, project_id, name, tables, events, columns, url, headers_enc, secret_enc, enabled, status, status_reason, consecutive_failures, created_by, created_at, updated_at FROM webhooks WHERE id = $1 AND project_id = $2
+SELECT id, project_id, name, tables, events, columns, url, headers_enc, secret_enc, enabled, status, status_reason, consecutive_failures, created_by, created_at, updated_at, description, metadata, previous_secret_enc, previous_secret_expires_at FROM webhooks WHERE id = $1 AND project_id = $2
 `
 
 type GetWebhookParams struct {
@@ -366,12 +367,16 @@ func (q *Queries) GetWebhook(ctx context.Context, arg GetWebhookParams) (Webhook
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Description,
+		&i.Metadata,
+		&i.PreviousSecretEnc,
+		&i.PreviousSecretExpiresAt,
 	)
 	return i, err
 }
 
 const getWebhookByID = `-- name: GetWebhookByID :one
-SELECT id, project_id, name, tables, events, columns, url, headers_enc, secret_enc, enabled, status, status_reason, consecutive_failures, created_by, created_at, updated_at FROM webhooks WHERE id = $1
+SELECT id, project_id, name, tables, events, columns, url, headers_enc, secret_enc, enabled, status, status_reason, consecutive_failures, created_by, created_at, updated_at, description, metadata, previous_secret_enc, previous_secret_expires_at FROM webhooks WHERE id = $1
 `
 
 // tenant: system - delivery workers.
@@ -395,6 +400,10 @@ func (q *Queries) GetWebhookByID(ctx context.Context, id uuid.UUID) (Webhook, er
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Description,
+		&i.Metadata,
+		&i.PreviousSecretEnc,
+		&i.PreviousSecretExpiresAt,
 	)
 	return i, err
 }
@@ -647,24 +656,27 @@ func (q *Queries) InsertJobRun(ctx context.Context, arg InsertJobRunParams) (Job
 
 const insertWebhook = `-- name: InsertWebhook :one
 
-INSERT INTO webhooks (id, project_id, name, tables, events, columns, url, headers_enc, secret_enc, enabled, status, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, project_id, name, tables, events, columns, url, headers_enc, secret_enc, enabled, status, status_reason, consecutive_failures, created_by, created_at, updated_at
+INSERT INTO webhooks (id, project_id, name, tables, events, columns, url, headers_enc, secret_enc, enabled, status, created_by, description, metadata)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+  $13, $14)
+RETURNING id, project_id, name, tables, events, columns, url, headers_enc, secret_enc, enabled, status, status_reason, consecutive_failures, created_by, created_at, updated_at, description, metadata, previous_secret_enc, previous_secret_expires_at
 `
 
 type InsertWebhookParams struct {
-	ID         uuid.UUID
-	ProjectID  uuid.UUID
-	Name       string
-	Tables     []string
-	Events     []string
-	Columns    []string
-	Url        string
-	HeadersEnc []byte
-	SecretEnc  []byte
-	Enabled    bool
-	Status     string
-	CreatedBy  *uuid.UUID
+	ID          uuid.UUID
+	ProjectID   uuid.UUID
+	Name        string
+	Tables      []string
+	Events      []string
+	Columns     []string
+	Url         string
+	HeadersEnc  []byte
+	SecretEnc   []byte
+	Enabled     bool
+	Status      string
+	CreatedBy   *uuid.UUID
+	Description string
+	Metadata    json.RawMessage
 }
 
 // ---- Webhooks --------------------------------------------------------------
@@ -683,6 +695,8 @@ func (q *Queries) InsertWebhook(ctx context.Context, arg InsertWebhookParams) (W
 		arg.Enabled,
 		arg.Status,
 		arg.CreatedBy,
+		arg.Description,
+		arg.Metadata,
 	)
 	var i Webhook
 	err := row.Scan(
@@ -702,6 +716,10 @@ func (q *Queries) InsertWebhook(ctx context.Context, arg InsertWebhookParams) (W
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Description,
+		&i.Metadata,
+		&i.PreviousSecretEnc,
+		&i.PreviousSecretExpiresAt,
 	)
 	return i, err
 }
@@ -947,7 +965,7 @@ func (q *Queries) ListOutboundCounters(ctx context.Context, arg ListOutboundCoun
 }
 
 const listWebhooks = `-- name: ListWebhooks :many
-SELECT id, project_id, name, tables, events, columns, url, headers_enc, secret_enc, enabled, status, status_reason, consecutive_failures, created_by, created_at, updated_at FROM webhooks WHERE project_id = $1 ORDER BY name
+SELECT id, project_id, name, tables, events, columns, url, headers_enc, secret_enc, enabled, status, status_reason, consecutive_failures, created_by, created_at, updated_at, description, metadata, previous_secret_enc, previous_secret_expires_at FROM webhooks WHERE project_id = $1 ORDER BY name
 `
 
 // tenant: system - a project the request already authorized, or delivery workers.
@@ -977,6 +995,10 @@ func (q *Queries) ListWebhooks(ctx context.Context, projectID uuid.UUID) ([]Webh
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Description,
+			&i.Metadata,
+			&i.PreviousSecretEnc,
+			&i.PreviousSecretExpiresAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1090,17 +1112,26 @@ func (q *Queries) SetWebhookHealth(ctx context.Context, arg SetWebhookHealthPara
 }
 
 const setWebhookSecret = `-- name: SetWebhookSecret :exec
-UPDATE webhooks SET secret_enc = $1, updated_at = now() WHERE id = $2
+UPDATE webhooks SET secret_enc = $1, previous_secret_enc = $2,
+  previous_secret_expires_at = $3, updated_at = now()
+WHERE id = $4
 `
 
 type SetWebhookSecretParams struct {
-	SecretEnc []byte
-	ID        uuid.UUID
+	SecretEnc               []byte
+	PreviousSecretEnc       []byte
+	PreviousSecretExpiresAt *time.Time
+	ID                      uuid.UUID
 }
 
 // tenant: system - a project the request already authorized.
 func (q *Queries) SetWebhookSecret(ctx context.Context, arg SetWebhookSecretParams) error {
-	_, err := q.db.Exec(ctx, setWebhookSecret, arg.SecretEnc, arg.ID)
+	_, err := q.db.Exec(ctx, setWebhookSecret,
+		arg.SecretEnc,
+		arg.PreviousSecretEnc,
+		arg.PreviousSecretExpiresAt,
+		arg.ID,
+	)
 	return err
 }
 
@@ -1225,9 +1256,9 @@ func (q *Queries) UpdateJob(ctx context.Context, arg UpdateJobParams) (Scheduled
 const updateWebhook = `-- name: UpdateWebhook :one
 UPDATE webhooks SET name = $1, tables = $2, events = $3, columns = $4, url = $5,
   headers_enc = $6, enabled = $7, status = $8, status_reason = $9,
-  consecutive_failures = $10, updated_at = now()
-WHERE id = $11
-RETURNING id, project_id, name, tables, events, columns, url, headers_enc, secret_enc, enabled, status, status_reason, consecutive_failures, created_by, created_at, updated_at
+  consecutive_failures = $10, description = $11, metadata = $12, updated_at = now()
+WHERE id = $13
+RETURNING id, project_id, name, tables, events, columns, url, headers_enc, secret_enc, enabled, status, status_reason, consecutive_failures, created_by, created_at, updated_at, description, metadata, previous_secret_enc, previous_secret_expires_at
 `
 
 type UpdateWebhookParams struct {
@@ -1241,6 +1272,8 @@ type UpdateWebhookParams struct {
 	Status              string
 	StatusReason        *string
 	ConsecutiveFailures int32
+	Description         string
+	Metadata            json.RawMessage
 	ID                  uuid.UUID
 }
 
@@ -1257,6 +1290,8 @@ func (q *Queries) UpdateWebhook(ctx context.Context, arg UpdateWebhookParams) (W
 		arg.Status,
 		arg.StatusReason,
 		arg.ConsecutiveFailures,
+		arg.Description,
+		arg.Metadata,
 		arg.ID,
 	)
 	var i Webhook
@@ -1277,6 +1312,10 @@ func (q *Queries) UpdateWebhook(ctx context.Context, arg UpdateWebhookParams) (W
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Description,
+		&i.Metadata,
+		&i.PreviousSecretEnc,
+		&i.PreviousSecretExpiresAt,
 	)
 	return i, err
 }

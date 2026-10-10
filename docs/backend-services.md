@@ -154,15 +154,17 @@ hides a column from anonymous callers.
 
 | Status | Codes |
 | --- | --- |
-| 400 | `invalid_filter`, `invalid_select`, `invalid_value`, `unknown_column`, `unknown_relation`, `ambiguous_relation`, `invalid_cursor`, `invalid_limit`, `query_too_expensive`, `filter_required`, `too_many_rows`, `invalid_body`, `no_matching_function`, `ambiguous_function`, … |
+| 400 | `invalid_filter`, `invalid_select`, `invalid_value`, `unknown_column`, `unknown_relation`, `ambiguous_relation`, `invalid_cursor`, `invalid_limit`, `query_too_expensive`, `filter_required`, `too_many_rows`, `invalid_body`, `no_matching_function`, `ambiguous_function`, `invalid_idempotency_key`, `idempotency_needs_user`, … |
 | 401 | `key_required`, `invalid_key`, `invalid_token` |
 | 403 | `rls_required`, `permission_denied`, `secret_key_in_browser`, `origin_not_allowed`, `project_suspended` |
 | 404 | `unknown_table`, `unknown_function`, `not_found` |
-| 409, 422 | `unique_violation`, `foreign_key_violation`; `not_null_violation`, `check_violation` |
+| 409, 422 | `unique_violation`, `foreign_key_violation`; `not_null_violation`, `check_violation`, `idempotency_key_reused` |
 | 405 | `method_not_allowed`, `volatile_function` |
 | 413 | `result_too_large` |
 | 429 | `rate_limited` |
-| 503, 504 | `project_resuming`, `database_unavailable`, `statement_timeout` |
+| 503, 504 | `project_resuming`, `database_unavailable`, `retry`, `starting`; `statement_timeout` |
+
+[errors.md](errors.md) lists every code with whether a retry can help.
 
 ## Writing data
 
@@ -197,6 +199,33 @@ curl -X DELETE ".../data/v1/todos/7"
 | `max_affected` | Refuse (`400 too_many_rows`, nothing changed) when more rows would change; 1,000 by default, at most 100,000. |
 
 `PUT` isn't used: insert or upsert with `POST`, change with `PATCH`.
+
+### Retrying writes safely: Idempotency-Key
+
+When a write times out you can't tell whether it happened. Send an
+`Idempotency-Key` header (1 to 255 printable characters; a UUID is a good
+choice) on `POST`, `PATCH` or `DELETE` of a table, on a batch, or on a
+`POST` to a function, and repeat it with the retry:
+
+```sh
+curl -X POST https://k7f3m2q9.api.pgdock.ng/data/v1/orders \
+  -H "apikey: pgd_sec_…" -H "Idempotency-Key: 6f1c0e4a-…" -d '{"item":"tea"}'
+```
+
+- A repeat **within 24 hours** gets the first answer (same status and
+  body) with `Idempotent-Replayed: true`, and writes nothing.
+- The same key with a **different request** (method, path, parameters or
+  body) gets `422 idempotency_key_reused` and writes nothing.
+- The key is recorded in the write's own transaction, so it exists exactly
+  when the write committed. A write that failed (a constraint, a timeout,
+  a lost connection before the commit) left no key: the retry runs it.
+- A repeat sent while the first is still running waits for it, then gets
+  its answer.
+- Keys belong to the caller: the secret key's, or a signed-in user's. The
+  publishable key **without** a user can't use them (`400
+  idempotency_needs_user`), since every such caller would share them.
+- Answers are kept in the project's database (`pgd_auth.idempotency`,
+  which your roles can't read) and removed after a day.
 
 ### Batches
 

@@ -302,6 +302,11 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 }
 
 func writeError(w http.ResponseWriter, status int, code, msg string) {
+	// Every 429 is a rate limit that passes: say when to come back, unless
+	// the caller already did more precisely.
+	if status == http.StatusTooManyRequests && w.Header().Get("Retry-After") == "" {
+		w.Header().Set("Retry-After", "60")
+	}
 	writeJSON(w, status, gen.Error{Code: code, Message: msg})
 }
 

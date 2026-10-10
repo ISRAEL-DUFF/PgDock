@@ -32,8 +32,9 @@ DELETE FROM outbound_counters WHERE day < @before::date;
 
 -- name: InsertWebhook :one
 -- tenant: system - a project the request already authorized.
-INSERT INTO webhooks (id, project_id, name, tables, events, columns, url, headers_enc, secret_enc, enabled, status, created_by)
-VALUES (@id, @project_id, @name, @tables, @events, sqlc.narg(columns), @url, sqlc.narg(headers_enc), @secret_enc, @enabled, @status, sqlc.narg(created_by))
+INSERT INTO webhooks (id, project_id, name, tables, events, columns, url, headers_enc, secret_enc, enabled, status, created_by, description, metadata)
+VALUES (@id, @project_id, @name, @tables, @events, sqlc.narg(columns), @url, sqlc.narg(headers_enc), @secret_enc, @enabled, @status, sqlc.narg(created_by),
+  @description, @metadata)
 RETURNING *;
 
 -- name: GetWebhook :one
@@ -52,13 +53,15 @@ SELECT * FROM webhooks WHERE project_id = @project_id ORDER BY name;
 -- tenant: system - a project the request already authorized.
 UPDATE webhooks SET name = @name, tables = @tables, events = @events, columns = sqlc.narg(columns), url = @url,
   headers_enc = sqlc.narg(headers_enc), enabled = @enabled, status = @status, status_reason = sqlc.narg(status_reason),
-  consecutive_failures = @consecutive_failures, updated_at = now()
+  consecutive_failures = @consecutive_failures, description = @description, metadata = @metadata, updated_at = now()
 WHERE id = @id
 RETURNING *;
 
 -- name: SetWebhookSecret :exec
 -- tenant: system - a project the request already authorized.
-UPDATE webhooks SET secret_enc = @secret_enc, updated_at = now() WHERE id = @id;
+UPDATE webhooks SET secret_enc = @secret_enc, previous_secret_enc = sqlc.narg(previous_secret_enc),
+  previous_secret_expires_at = sqlc.narg(previous_secret_expires_at), updated_at = now()
+WHERE id = @id;
 
 -- name: SetWebhookHealth :exec
 -- tenant: system - delivery workers.

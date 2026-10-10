@@ -51,16 +51,20 @@ func backoff(n int) time.Duration {
 
 // Event is the JSON body of a delivery.
 type Event struct {
-	ID          string          `json:"id"`
-	Webhook     string          `json:"webhook"`
+	ID      string `json:"id"`
+	Webhook string `json:"webhook"`
+	// Project is the project's database name; ProjectID its id in the API.
 	Project     string          `json:"project"`
+	ProjectID   string          `json:"project_id"`
 	Table       string          `json:"table"`
 	Type        string          `json:"type"`
 	Record      json.RawMessage `json:"record"`
 	OldRecord   json.RawMessage `json:"old_record"`
 	CommittedAt time.Time       `json:"committed_at"`
 	Truncated   bool            `json:"truncated,omitempty"`
-	PrimaryKey  map[string]any  `json:"primary_key,omitempty"`
+	// PrimaryKey is the changed row's primary key, on every change event
+	// of a table that has one.
+	PrimaryKey map[string]any `json:"primary_key,omitempty"`
 }
 
 // EventID is the stable id of an outbox row of webhook id.
@@ -346,6 +350,7 @@ func (s *Service) deliverWebhook(ctx context.Context, conn *pgx.Conn, p store.Pr
 	if err != nil {
 		return err
 	}
+	previous := s.PreviousSecret(w)
 	q := store.New(s.db)
 	due, err := s.head(ctx, conn, w.ID, batch)
 	if err != nil || len(due) == 0 {
@@ -360,6 +365,7 @@ func (s *Service) deliverWebhook(ctx context.Context, conn *pgx.Conn, p store.Pr
 	if perr != nil && !errors.Is(perr, outbound.ErrRefused) {
 		return perr
 	}
+	pks := pkColumns{}
 	for _, r := range due {
 		now := s.cfg.Now()
 		if r.NextAttempt != nil && r.NextAttempt.After(now) {
@@ -369,7 +375,7 @@ func (s *Service) deliverWebhook(ctx context.Context, conn *pgx.Conn, p store.Pr
 		if !s.out.Take(p.OrgID, "webhook", limit, time.Minute) {
 			return errQueued
 		}
-		eventID, body, err := s.body(ctx, conn, p, w, r)
+		eventID, body, err := s.body(ctx, conn, p, w, r, pks)
 		if err != nil {
 			return err
 		}
@@ -378,7 +384,8 @@ func (s *Service) deliverWebhook(ctx context.Context, conn *pgx.Conn, p store.Pr
 		h.Set("PGDock-Webhook", w.Name)
 		resp, derr := outbound.Response{}, perr
 		if derr == nil {
-			resp, derr = s.out.Send(ctx, target, outbound.Request{OrgID: p.OrgID, URL: w.Url, Header: h, Body: body, Timeout: Timeout, Secret: secret})
+			resp, derr = s.out.Send(ctx, target, outbound.Request{OrgID: p.OrgID, URL: w.Url, Header: h, Body: body, Timeout: Timeout,
+				Secret: secret, PreviousSecret: previous})
 		}
 		attempt := r.Attempts + 1
 		d := store.InsertDeliveryParams{WebhookID: w.ID, EventID: eventID, Attempt: int32(attempt), CreatedAt: now}
@@ -476,7 +483,7 @@ func (s *Service) recordHealth(ctx context.Context, p store.Project, w store.Web
 }
 
 // body is the event's id and JSON for an outbox row.
-func (s *Service) body(ctx context.Context, conn *pgx.Conn, p store.Project, w store.Webhook, r outboxRow) (string, []byte, error) {
+func (s *Service) body(ctx context.Context, conn *pgx.Conn, p store.Project, w store.Webhook, r outboxRow, pks pkColumns) (string, []byte, error) {
 	if len(r.Replay) > 0 {
 		var e struct {
 			ID string `json:"id"`
@@ -485,12 +492,12 @@ func (s *Service) body(ctx context.Context, conn *pgx.Conn, p store.Project, w s
 		return e.ID, r.Replay, nil
 	}
 	e := Event{
-		ID: EventID(w.ID, r.ID), Webhook: w.Name, Project: store.ClientDBName(p), Table: r.Table, Type: r.Op,
+		ID: EventID(w.ID, r.ID), Webhook: w.Name, Project: store.ClientDBName(p), ProjectID: p.ID.String(), Table: r.Table, Type: r.Op,
 		Record: jsonOrNull(r.New), OldRecord: jsonOrNull(r.Old), CommittedAt: r.CreatedAt.UTC(),
+		PrimaryKey: primaryKey(ctx, conn, r, pks),
 	}
 	if len(r.New)+len(r.Old) > MaxRow {
 		e.Record, e.OldRecord, e.Truncated = jsonOrNull(nil), jsonOrNull(nil), true
-		e.PrimaryKey = primaryKey(ctx, conn, r)
 	}
 	b, err := json.Marshal(e)
 	return e.ID, b, err
@@ -503,16 +510,28 @@ func jsonOrNull(b []byte) json.RawMessage {
 	return b
 }
 
-// primaryKey picks the table's primary key columns out of the row.
-func primaryKey(ctx context.Context, conn *pgx.Conn, r outboxRow) map[string]any {
-	t := splitTable(r.Table)
-	rows, err := conn.Query(ctx, `SELECT a.attname FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
-		WHERE i.indrelid = $1::regclass AND i.indisprimary`, t.ident())
-	if err != nil {
-		return nil
+// pkColumns caches tables' primary key columns for a batch.
+type pkColumns map[string][]string
+
+func (pks pkColumns) of(ctx context.Context, conn *pgx.Conn, table string) []string {
+	if cols, ok := pks[table]; ok {
+		return cols
 	}
-	cols, err := pgx.CollectRows(rows, pgx.RowTo[string])
-	if err != nil || len(cols) == 0 {
+	t := splitTable(table)
+	var cols []string
+	rows, err := conn.Query(ctx, `SELECT a.attname FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+		WHERE i.indrelid = $1::regclass AND i.indisprimary ORDER BY array_position(i.indkey::int2[], a.attnum)`, t.ident())
+	if err == nil {
+		cols, _ = pgx.CollectRows(rows, pgx.RowTo[string])
+	}
+	pks[table] = cols // none (or an error): no primary key in the events
+	return cols
+}
+
+// primaryKey picks the table's primary key columns out of the row.
+func primaryKey(ctx context.Context, conn *pgx.Conn, r outboxRow, pks pkColumns) map[string]any {
+	cols := pks.of(ctx, conn, r.Table)
+	if len(cols) == 0 {
 		return nil
 	}
 	row := r.New
@@ -551,12 +570,14 @@ func (s *Service) SendTest(ctx context.Context, p store.Project, w store.Webhook
 	}
 	now := s.cfg.Now()
 	id := "evt_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:16]
-	body, _ := json.Marshal(Event{ID: id, Webhook: w.Name, Project: store.ClientDBName(p), Type: "TEST",
+	previous := s.PreviousSecret(w)
+	body, _ := json.Marshal(Event{ID: id, Webhook: w.Name, Project: store.ClientDBName(p), ProjectID: p.ID.String(), Type: "TEST",
 		Record: json.RawMessage(`{"message":"A test event from PGDock"}`), OldRecord: json.RawMessage("null"), CommittedAt: now.UTC()})
 	h := header(static)
 	h.Set("PGDock-Event-Id", id)
 	h.Set("PGDock-Webhook", w.Name)
-	resp, derr := s.out.Do(ctx, outbound.Request{OrgID: p.OrgID, URL: w.Url, Header: h, Body: body, Timeout: Timeout, Secret: secret})
+	resp, derr := s.out.Do(ctx, outbound.Request{OrgID: p.OrgID, URL: w.Url, Header: h, Body: body, Timeout: Timeout,
+		Secret: secret, PreviousSecret: previous})
 	res := TestResult{EventID: id, StatusCode: resp.StatusCode, Latency: resp.Latency, Snippet: resp.Snippet}
 	d := store.InsertDeliveryParams{WebhookID: w.ID, EventID: id, Attempt: 1, CreatedAt: now}
 	if derr != nil {

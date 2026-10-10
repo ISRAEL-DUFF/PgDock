@@ -1,0 +1,12 @@
+{
+  "description": "An INSERT of a row over 256 KB: truncated is true, record and old_record are null, primary_key identifies the row to fetch.",
+  "secret": "whsec_XAV-Im6uAXpO0hJfe2DTF8mj1c9I7wVTGmq-VVXLs7w",
+  "headers": {
+    "Content-Type": "application/json",
+    "PGDock-Event-Id": "evt_cf2c458a19a9_4",
+    "PGDock-Signature": "t=1791581570,v1=10b67b6ca1abe3b88077ebb5816284591cb63ed823a076aae48ac108a90a49c3",
+    "PGDock-Webhook": "taskiem-wf_sample",
+    "User-Agent": "PGDock-Webhooks/1"
+  },
+  "body": "{\"id\":\"evt_cf2c458a19a9_4\",\"webhook\":\"taskiem-wf_sample\",\"project\":\"p_r7trlpni7h\",\"project_id\":\"bf497edb-3bf5-4189-a124-52731c45d74a\",\"table\":\"public.orders\",\"type\":\"INSERT\",\"record\":null,\"old_record\":null,\"committed_at\":\"2026-10-09T21:32:50.235162Z\",\"truncated\":true,\"primary_key\":{\"id\":2}}"
+}
