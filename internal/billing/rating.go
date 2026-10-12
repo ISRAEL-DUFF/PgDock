@@ -392,7 +392,7 @@ func (r *Rated) convert(q FXQuote, deductsWHT bool, set Settings) {
 		l := &r.Lines[i]
 		if r.Currency == CurrencyUSD {
 			if nativeNaira(l.Metric) {
-				l.AmountUSD, l.UnitPriceUSD = q.Dollars(l.Amount), q.Dollars1(l.UnitPrice)
+				l.AmountUSD, l.UnitPriceUSD = q.Dollars(l.Amount), l.UnitPrice // the unit price is the margin factor
 			} else {
 				l.AmountUSD, l.UnitPriceUSD = l.Amount, l.UnitPrice
 				l.Amount, l.UnitPrice = q.Naira(l.AmountUSD), l.UnitPrice.Mul(q.Effective)

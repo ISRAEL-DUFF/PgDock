@@ -601,7 +601,7 @@ func (s *Service) convertDraft(ctx context.Context, q *store.Queries, d store.In
 			cents = *l.UsdAmountMinor
 		}
 		if l.Metric != nil && nativeNaira(*l.Metric) {
-			cents, centsUnit = fx.Dollars(kobo), fx.Dollars1(koboUnit)
+			cents, centsUnit = fx.Dollars(kobo), koboUnit // the unit price is the margin factor
 		} else {
 			kobo, koboUnit = fx.Naira(cents), centsUnit.Mul(fx.Effective)
 		}

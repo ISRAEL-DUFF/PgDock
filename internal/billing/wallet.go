@@ -81,7 +81,9 @@ func (s *Service) EnsureWallet(ctx context.Context, orgID uuid.UUID, in WalletSe
 	ref := s.ownerRef(orgID)
 	w, err := s.wallets.CreateWallet(ctx, WalletRequest{
 		OwnerRef: ref, Name: in.BusinessName, Email: in.Email, Phone: in.Phone, BVN: in.BVN, TIN: in.TIN, CACNumber: in.CACNumber,
-		Tier: "TIER_2", IdempotencyKey: "pgdock-wallet:" + ref,
+		// A new key per call: a corrected BVN is a different request, and a
+		// lost answer is recovered by the owner reference being unique (409).
+		Tier: "TIER_2", IdempotencyKey: newReference("pgdw-wallet"),
 	})
 	if err != nil {
 		return "", err
@@ -326,7 +328,7 @@ func (s *Service) chargeInvoiceFromWallet(ctx context.Context, inv store.Invoice
 		return WalletCharge{}, err
 	}
 	if owed <= 0 || (inv.Status != StatusIssued && inv.Status != StatusPartiallyPaid) {
-		return WalletCharge{Skipped: true}, nil
+		return WalletCharge{Succeeded: true}, nil // nothing owed: paid some other way meanwhile
 	}
 	bal, err := s.wallets.Balance(ctx, wid)
 	if err != nil {
@@ -384,7 +386,8 @@ func (s *Service) chargeInvoiceFromWallet(ctx context.Context, inv store.Invoice
 // wallet is short, and starts dunning for an automatic one.
 func (s *Service) declineWalletCharge(ctx context.Context, inv store.Invoice, owed int64, automatic bool, msg string) {
 	q := store.New(s.db)
-	// One record per invoice and day: a retry loop doesn't fill the log.
+	// The first decline is recorded; a retry that is declined again for the
+	// same reason doesn't fill the log, but still reminds the org.
 	if n, err := q.CountInvoiceCharges(ctx, store.CountInvoiceChargesParams{InvoiceID: &inv.ID, Provider: ProviderISwallet}); err == nil && n > 0 {
 		if last, err := q.PendingInvoiceIntents(ctx, store.PendingInvoiceIntentsParams{InvoiceID: &inv.ID, Provider: ProviderISwallet}); err == nil && len(last) == 0 {
 			s.notifyDeclined(ctx, inv, automatic, msg)
@@ -441,7 +444,9 @@ func (s *Service) settleWalletDebit(ctx context.Context, intent store.PaymentInt
 			AmountMinor: amount, FxQuote: inv.Fx, ReceivedAt: at,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil // already booked (a retry of this very settlement)
+			// Already booked (a retry of this very settlement): only the
+			// intent may still be open.
+			return q.FinishPaymentIntent(ctx, store.FinishPaymentIntentParams{Reference: intent.Reference, Status: "succeeded"})
 		}
 		if err != nil {
 			return err

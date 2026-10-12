@@ -47,14 +47,6 @@ func (q FXQuote) Naira(minor int64) int64 {
 	return DecInt(minor).Mul(q.Effective).Round()
 }
 
-// Dollars1 is Dollars for a fractional amount (a unit price).
-func (q FXQuote) Dollars1(kobo Dec) Dec {
-	if q.Effective.IsZero() {
-		return kobo
-	}
-	return kobo.Quo(q.Effective)
-}
-
 // Dollars converts kobo back to cents (for lines whose cost is in naira).
 func (q FXQuote) Dollars(kobo int64) int64 {
 	if q.Effective.IsZero() {
