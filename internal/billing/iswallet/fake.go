@@ -155,6 +155,42 @@ func (f *Fake) Wallets() []string {
 	return ids
 }
 
+// FakeWallet is a wallet as the demo's simulator shows it.
+type FakeWallet struct {
+	ID, OwnerRef, Status, Tier, Account string
+	Balance                             int64
+}
+
+// WalletInfos lists the wallets, the operating wallet first.
+func (f *Fake) WalletInfos() []FakeWallet {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	ids := make([]string, 0, len(f.wallets))
+	for id := range f.wallets {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool {
+		if (ids[i] == fakeOperator) != (ids[j] == fakeOperator) {
+			return ids[i] == fakeOperator
+		}
+		return ids[i] < ids[j]
+	})
+	out := make([]FakeWallet, 0, len(ids))
+	for _, id := range ids {
+		w := f.wallets[id]
+		out = append(out, FakeWallet{ID: w.ID, OwnerRef: w.OwnerRef, Status: w.Status, Tier: w.Tier, Account: w.Account, Balance: w.Balance})
+	}
+	return out
+}
+
+// RateInfo is the rate the fake quotes: market, spread, when it was priced
+// (zero while it follows the clock).
+func (f *Fake) RateInfo() (market string, spreadBPS int, fetchedAt time.Time, live bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.rate.market, f.rate.spreadBPS, f.rate.fetchedAt, f.rate.live
+}
+
 // Ledger is every transaction so far.
 func (f *Fake) Ledger() []FakeTxn {
 	f.mu.Lock()

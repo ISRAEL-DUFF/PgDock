@@ -3692,6 +3692,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{org}/billing/wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organisation's wallet, its balance, bank account and debit consent */
+        get: operations["getOrgWallet"];
+        put?: never;
+        /**
+         * Open the organisation's wallet and its bank account
+         * @description A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+         */
+        post: operations["createOrgWallet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/debit-consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Agree to PGDock debiting the wallet for invoices */
+        post: operations["acceptDebitTerms"];
+        /** Stop automatic debits (invoices are then paid by hand) */
+        delete: operations["withdrawDebitTerms"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pay one invoice from the wallet now */
+        post: operations["payInvoiceFromWallet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{org}/billing/payment-methods": {
         parameters: {
             query?: never;
@@ -9676,7 +9732,90 @@ export interface components {
                 email: string;
             };
         };
+        /** @description The price of a dollar in naira an invoice was converted at. */
+        FXQuote: {
+            from: string;
+            to: string;
+            market_rate: components["schemas"]["Decimal"];
+            effective_rate: components["schemas"]["Decimal"];
+            spread_bps: number;
+            /**
+             * Format: date-time
+             * @description When the provider last priced the pair.
+             */
+            fetched_at: string;
+            /**
+             * Format: date-time
+             * @description When PGDock asked.
+             */
+            quoted_at: string;
+            sources?: string[];
+            derived?: boolean;
+        };
+        DebitConsent: {
+            /** Format: date-time */
+            at: string;
+            /** Format: uuid */
+            by?: string | null;
+            version: string;
+            /** @description Whether it is to the current wording of the terms. */
+            current: boolean;
+        };
+        DebitConsentRequest: {
+            terms_version: string;
+        };
+        WalletSetup: {
+            business_name: string;
+            email: string;
+            phone?: string;
+            /** @description A director's, 11 digits. Forwarded to the wallet provider and not kept. */
+            bvn: string;
+            tin?: string;
+            cac_number?: string;
+        };
+        Wallet: {
+            /** @description Whether this platform bills through wallets. */
+            available: boolean;
+            wallet_id?: string | null;
+            /**
+             * Format: int64
+             * @description Available now, read from the provider (kobo).
+             */
+            balance_minor?: number | null;
+            /** Format: int64 */
+            pending_minor?: number | null;
+            balance_error?: string | null;
+            /**
+             * Format: int64
+             * @description What PGDock's books say the wallet holds.
+             */
+            ledger_minor: number;
+            /**
+             * Format: int64
+             * @description Outstanding on issued invoices.
+             */
+            owed_minor: number;
+            account?: components["schemas"]["VirtualAccount"] | null;
+            consent?: components["schemas"]["DebitConsent"] | null;
+            rate?: components["schemas"]["FXQuote"] | null;
+            terms: string;
+            terms_version: string;
+        };
+        WalletCharge: {
+            succeeded: boolean;
+            skipped: boolean;
+            unavailable: boolean;
+            /** Format: int64 */
+            paid_minor: number;
+            message?: string;
+        };
         InvoiceLine: {
+            unit_price_usd?: components["schemas"]["Decimal"];
+            /**
+             * Format: int64
+             * @description The price in dollars (cents) of a line converted to naira.
+             */
+            amount_usd?: number;
             /** @enum {string} */
             kind: "plan" | "overage" | "dedicated" | "addon" | "credit" | "proration";
             description: string;
@@ -9711,6 +9850,8 @@ export interface components {
             projected_minor: number;
         };
         PlanOption: {
+            /** @description The currency of the fees (USD, or NGN on a naira price book), in minor units. */
+            currency?: string;
             id: string;
             name: string;
             /** Format: int64 */
@@ -9745,6 +9886,15 @@ export interface components {
             /** Format: int64 */
             forecast_minor?: number | null;
             capped?: boolean;
+            /** @description The currency the price book is in (USD, or NGN). */
+            price_currency?: string;
+            /**
+             * Format: int64
+             * @description In the organisation's wallet, by PGDock's books (kobo).
+             */
+            wallet_minor?: number;
+            fx?: components["schemas"]["FXQuote"] | null;
+            debit_consent?: components["schemas"]["DebitConsent"] | null;
             /**
              * Format: int64
              * @description On the credit balance (prepaid funds, overpayments).
@@ -10194,6 +10344,10 @@ export interface components {
             lines: components["schemas"]["InvoiceLine"][];
             /** Format: int64 */
             total_minor: number;
+            currency?: string;
+            /** Format: int64 */
+            total_usd_minor?: number | null;
+            fx?: components["schemas"]["FXQuote"] | null;
         };
         Invoice: {
             /** Format: uuid */
@@ -10218,6 +10372,17 @@ export interface components {
             total_minor: number;
             /** Format: int64 */
             wht_expected_minor: number;
+            /**
+             * Format: int64
+             * @description The dollar price (cents) the naira amounts were converted from.
+             */
+            usd_subtotal_minor?: number | null;
+            /** Format: int64 */
+            usd_vat_minor?: number | null;
+            /** Format: int64 */
+            usd_total_minor?: number | null;
+            /** @description The rate they were converted at. */
+            fx?: components["schemas"]["FXQuote"] | null;
             /**
              * Format: int64
              * @description Kobo settled against this invoice so far (payments and credit applied).
@@ -17221,6 +17386,128 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VirtualAccount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wallet. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wallet"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createOrgWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WalletSetup"];
+            };
+        };
+        responses: {
+            /** @description The wallet. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wallet"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    acceptDebitTerms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DebitConsentRequest"];
+            };
+        };
+        responses: {
+            /** @description The consent as recorded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebitConsent"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    withdrawDebitTerms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Withdrawn. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    payInvoiceFromWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What the debit did. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletCharge"];
                 };
             };
             default: components["responses"]["Error"];
