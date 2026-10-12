@@ -9,9 +9,12 @@ WHERE id = ANY(@ids::uuid[]) AND deleted_at IS NULL;
 -- tenant: system - the Free tier sweep across organisations: active Free projects idle since before @idle_before.
 SELECT p.* FROM projects p
 JOIN organizations o ON o.id = p.org_id
+LEFT JOIN quota_plans qp ON qp.id = o.plan_id
 LEFT JOIN billing_accounts b ON b.org_id = p.org_id
 WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle = 'active' AND p.tier = 'shared'
   AND o.status = 'active' AND coalesce(b.plan, 'free') = 'free'
+  -- The Unlimited quota plan is the platform's own (its admin's organisation): never paused.
+  AND coalesce(qp.name, '') <> 'Unlimited'
   AND coalesce(p.last_active_at, p.created_at) < @idle_before
 ORDER BY p.created_at;
 
@@ -37,9 +40,12 @@ WHERE id = @id AND lifecycle = 'paused' RETURNING *;
 -- name: FreeProjectsPausedSince :many
 -- tenant: system - the Free tier sweep across organisations: Free projects paused before @paused_before.
 SELECT p.* FROM projects p
+JOIN organizations o ON o.id = p.org_id
+LEFT JOIN quota_plans qp ON qp.id = o.plan_id
 LEFT JOIN billing_accounts b ON b.org_id = p.org_id
 WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle = 'paused' AND p.paused_at < @paused_before
   AND coalesce(b.plan, 'free') = 'free'
+  AND coalesce(qp.name, '') <> 'Unlimited'
 ORDER BY p.paused_at;
 
 -- name: ArchivedProjects :many
@@ -54,10 +60,13 @@ UPDATE projects SET archive_notice_days = @days
 WHERE id = @id AND lifecycle = 'archived' AND (archive_notice_days IS NULL OR archive_notice_days > @days);
 
 -- name: SleepingPaidProjects :many
--- tenant: system - the Free tier sweep across organisations: paused or archived projects whose organisation now pays.
+-- tenant: system - the Free tier sweep across organisations: paused or archived projects whose organisation now pays, or is on the Unlimited quota plan (which never sleeps).
 SELECT p.* FROM projects p
+JOIN organizations o ON o.id = p.org_id
+LEFT JOIN quota_plans qp ON qp.id = o.plan_id
 JOIN billing_accounts b ON b.org_id = p.org_id
-WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle <> 'active' AND b.plan <> 'free';
+WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle <> 'active'
+  AND (b.plan <> 'free' OR coalesce(qp.name, '') = 'Unlimited');
 
 -- name: ProjectByDatabase :one
 -- tenant: system - the waker looks up a client-facing database name across organisations.
