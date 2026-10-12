@@ -26,6 +26,19 @@ bundle share one version (spec §11.5).
   the deprecation policy, the webhook management contract, building an
   integration (docs/integrations), and signed sample deliveries.
 
+### Upgrading from V2
+- Fixed: the compose bundle didn't pass several settings the docs
+  describe from `.env` to pgdock-server, so setting them there had no
+  effect: the payment providers (`PGDOCK_FLW_*`, `PGDOCK_ISPEND_*`,
+  `PGDOCK_PAY_*`), the Free tier's clocks (`PGDOCK_FREE_*`),
+  `PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT`, `PGDOCK_PG_VERSIONS`, the
+  status page (`PGDOCK_STATUS_*`), the CDN purge, `PGDOCK_MASTER_KEY_PREVIOUS`,
+  `PGDOCK_FLOATING_IP_ID` and `PGDOCK_OUTBOUND_BLOCK`.
+- Docs: a runbook for going from V2 to V4.1 in one step
+  (docs/upgrade-v2-to-v4.md), with the settings to decide first, a
+  rehearsal on an isolated copy of production's metadata, and rollback;
+  docs/upgrade.md covers V4.1's migrations and V3's 00020 and 00021.
+
 ### V4.1 (on feature/pgdock4)
 - The DPA template lists the SMS and WhatsApp providers used for apps'
   sign-in codes (Termii, Africa's Talking, Meta) and Cloudflare's CDN as

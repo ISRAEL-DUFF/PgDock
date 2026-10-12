@@ -78,8 +78,20 @@ Projects move to a newer one with a major upgrade (Project Settings →
 Compute → Postgres version), a logical-replication move that pauses writes
 for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
 
+## Upgrading from V2 in one step
+
+An install on V2 can go straight to the latest release: the server applies
+every migration in order on its first start. The sections below say what
+each version changes; [Upgrading from V2 to V4.1](upgrade-v2-to-v4.md) puts
+them in order as one runbook, with the settings to choose first and a
+rehearsal on a copy of production.
+
 ## Upgrading to V3
 
+- **Standby pooler and status page** (migrations 00020 and 00021): nothing
+  changes until you add a second pooler host ([edge poolers](edge-poolers.md))
+  or run `pgdock-status` ([status page](status-page.md)); the single
+  pooler of the bundle carries on as before.
 - **Shared clusters restart once.** Every Postgres instance now runs
   `wal_level=logical`, so moves can copy from it. Agent-run instances pick
   it up the next time they are recreated (a restart from the UI, or the
@@ -259,6 +271,60 @@ for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
   process. If a load balancer sits in front of the edges, let WebSocket
   upgrades through and give it an idle timeout over 25 seconds (the
   clients' heartbeat). Upgrade pgdock-server first, then the edges.
+- **Read replicas** (migration 00042): nothing changes until a dedicated
+  project adds one. HA standbys' billing stops counting members that were
+  removed.
+- **Spend caps for backend services** (migration 00043): an organisation
+  at its spend cap gets slower backend services instead of none; nothing
+  to do.
+
+## Upgrading to V4.1
+
+- **Plan limits for backend services** (migration 00044): plans gain
+  monthly data API requests and monthly active users (Personal: 500,000
+  and 10,000), and ceilings on statement timeout, rate limits and daily
+  SMS codes. On an upgraded install the monthly limits start with the
+  first full month after the upgrade. Review them under Admin → Plans
+  ([quotas](operations.md#quotas-storage-locks-and-usage)) before turning
+  backend services on for customers.
+- **Billing add-ons** (migration 00045): longer point-in-time recovery and
+  backup retention, and per-region premiums. Price books published before
+  the upgrade have no add-on prices: publish a new book with them before
+  selling the add-ons.
+- **Postgres version lifecycle** (migration 00046): every major in
+  `PGDOCK_PG_VERSIONS` starts as supported; nothing changes until you
+  deprecate one (Admin → Platform → Postgres versions).
+- **Status subscribers** (migration 00047): with `pgdock-status` running,
+  paying organisations' owners and billing contacts are subscribed to
+  their components' incidents within the hour. Upgrade pgdock-status with
+  pgdock-server and add the **billing** and per-region **backend services**
+  components to `status.toml` (see `deploy/status/status.example.toml`).
+- **Proposed maintenance** (migration 00048): HA minor upgrades waiting for
+  an announced window now get a drafted announcement to confirm under
+  Admin → Incidents → Scheduled maintenance. Nothing is sent until you
+  confirm it.
+- **Costs of backend services** (migration 00049): new cost categories
+  edge, files and messages. Nodes can have the role `edge`. Set the share
+  of shared nodes that edges use (**Edges' share of shared nodes** in the
+  cost settings, [capacity](capacity.md)) if edges run
+  on shared nodes.
+- **Integrations** (migration 00050, project schema version 6): webhooks
+  gain a description, metadata and overlapping secret rotation, every
+  event carries `project_id` and `primary_key`, and the data API takes
+  `Idempotency-Key`. The reconciler applies schema version 6 to projects
+  with backend services within a minute; until it has, a write with an
+  `Idempotency-Key` answers `503 idempotency_unavailable`. Receivers that
+  parse `PGDock-Signature` must accept several `v1=` values
+  ([webhooks](webhooks.md#verifying-the-signature)) before anyone uses an
+  overlapping rotation.
+- **Settings the compose bundle passes on**: from this release the
+  bundle's `compose.yaml` passes the optional settings these docs describe
+  (payments, the Free tier's clocks,
+  `PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT`, the status page, the CDN purge,
+  `PGDOCK_MASTER_KEY_PREVIOUS`, `PGDOCK_PG_VERSIONS`) from `.env` to
+  pgdock-server. Before, setting them in `.env` had no effect.
+- Upgrade pgdock-edge with pgdock-server: the cache, render workers and
+  heartbeats need this release on both.
 
 ## Rolling back
 
