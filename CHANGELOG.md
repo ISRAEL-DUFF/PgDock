@@ -5,6 +5,12 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+- Fixed: an upload through pgdock-edge whose object store failed (unreachable,
+  bad credential) was answered `400 incomplete_body` ("the upload ended
+  before its length"), blaming the client and logging nothing. Only a body
+  that really ended early is now `incomplete_body`; a store failure is
+  `503 storage_unavailable` and the edge logs the cause.
+
 ### Found rehearsing the V2 to V4 upgrade
 - Fixed: the Free tier would have paused the platform admin's own projects.
   The billing migration gives every organisation a Free billing account,
