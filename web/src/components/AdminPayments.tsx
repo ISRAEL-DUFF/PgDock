@@ -7,7 +7,7 @@ import {
   type BillingAccount,
   type Payment,
 } from "../api/client";
-import { naira, parseNaira } from "../lib/billing";
+import { channelLabel, naira, parseNaira } from "../lib/billing";
 import { formatDate } from "../lib/format";
 import {
   Alert,
@@ -63,8 +63,9 @@ export function PaymentsTab() {
             aria-label="Provider"
           >
             <option value="">All providers</option>
-            <option value="flutterwave">Flutterwave</option>
-            <option value="ispend">iSpend</option>
+            <option value="iswallet">Wallet provider</option>
+            <option value="flutterwave">Flutterwave (earlier)</option>
+            <option value="ispend">iSpend (earlier)</option>
             <option value="bank">Recorded by hand</option>
           </Select>
           <Button variant="primary" onClick={() => setRecording(true)}>
@@ -105,7 +106,7 @@ export function PaymentsTab() {
                 {naira(p.fee_minor)}
               </td>
               <td className="px-3 py-2">
-                {p.provider} · {p.channel.replace("_", " ")}
+                {p.provider} · {channelLabel(p.channel)}
               </td>
               <td className="px-3 py-2 font-mono text-xs text-muted">
                 {p.provider_ref}

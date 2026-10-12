@@ -141,8 +141,7 @@ func (c *Client) call(ctx context.Context, method, path, key string, body, out a
 
 // classify maps an error response onto what billing acts on.
 func classify(e *apiError) error {
-	switch {
-	case e.Status >= 500 || e.Status == http.StatusTooManyRequests || e.Code == "RATE_LIMITED":
+	if e.Status >= 500 || e.Status == http.StatusTooManyRequests || e.Code == "RATE_LIMITED" {
 		return fmt.Errorf("%w: %w", billing.ErrUnavailable, e)
 	}
 	switch e.Code {
@@ -482,7 +481,7 @@ func Sign(secret string, ts int64, body []byte) string {
 // ParseWebhook authenticates a webhook and normalises it. Only deposits
 // matter to PGDock (our own debits are booked as they are made); any other
 // event is ignored.
-func (c *Client) ParseWebhook(ctx context.Context, r *http.Request) (billing.Event, error) {
+func (c *Client) ParseWebhook(_ context.Context, r *http.Request) (billing.Event, error) {
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	if err != nil {
 		return billing.Event{}, err

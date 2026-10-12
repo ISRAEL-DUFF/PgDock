@@ -193,6 +193,8 @@ func (s *Server) AdminListInvoices(w http.ResponseWriter, r *http.Request, param
 			Held: row.Held, HoldReason: row.HoldReason, SubtotalMinor: row.SubtotalMinor, VatMinor: row.VatMinor, TotalMinor: row.TotalMinor,
 			WhtExpectedMinor: row.WhtExpectedMinor, VatRate: row.VatRate, PriceBookVersion: row.PriceBookVersion,
 			IssuedAt: row.IssuedAt, DueAt: row.DueAt, PaidAt: row.PaidAt, CreatedAt: row.CreatedAt,
+			PaidMinor: row.PaidMinor, WhtDeductedMinor: row.WhtDeductedMinor, WhtEvidencedAt: row.WhtEvidencedAt,
+			UsdSubtotalMinor: row.UsdSubtotalMinor, UsdVatMinor: row.UsdVatMinor, UsdTotalMinor: row.UsdTotalMinor, Fx: row.Fx,
 		}, &name))
 	}
 	writeJSON(w, http.StatusOK, out)

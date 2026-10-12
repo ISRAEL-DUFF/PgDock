@@ -78,10 +78,10 @@ export type BillingSettings = S["BillingSettings"];
 export type PlanChange = S["PlanChange"];
 export type PlanOption = S["PlanOption"];
 export type PlanChangeRequest = S["PlanChangeRequest"];
-export type PriceBook = S["PriceBook"];
 /** The generated schema still says NGN-only; a price book may be in USD
  * (cents) and the public pricing may carry the indicative rate. */
 export type Prices = Omit<S["Prices"], "currency"> & { currency: string };
+export type PriceBook = Omit<S["PriceBook"], "prices"> & { prices: Prices };
 export type Pricing = Omit<S["Pricing"], "prices" | "next"> & {
   prices: Prices;
   next?: { version: number; effective_at: string; prices: Prices };

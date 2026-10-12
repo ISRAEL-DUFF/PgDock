@@ -23,4 +23,14 @@ describe("withAddOnFields", () => {
     expect(out.addons.pitr_30_hour).toBe("1644");
     expect(out.addons.region_premium_percent).toEqual({});
   });
+
+  it("leaves a dollar book alone, since the defaults are in kobo", () => {
+    const prices = {
+      currency: "USD",
+      plans: {},
+      dedicated: { vcpu_hour: "1", ram_gb_hour: "0.5", disk_gb_hour: "0.02" },
+      addons: { ha_premium_percent: "30", sync_replication_hour: "2" },
+    };
+    expect(withAddOnFields(prices)).toBe(prices);
+  });
 });

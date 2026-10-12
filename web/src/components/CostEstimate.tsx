@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, type EstimateRequest } from "../api/client";
-import { approxNaira, naira, usd } from "../lib/billing";
+import { naira, rate, usd } from "../lib/billing";
 
 /** What a billable action will cost, at the organisation's prices (V3
  * §3.10: a cost estimate before every billable action). */
@@ -32,7 +32,7 @@ export function CostEstimate({
       ({naira(q.data.hourly_minor)} an hour) before VAT, billed by the hour
       {q.data.monthly_usd_minor != null &&
         q.data.fx &&
-        ` and converted at the rate when the invoice is issued (now ${approxNaira(100, q.data.fx).replace("≈ ", "")} per $1)`}
+        ` and converted at the rate when the invoice is issued (now ${rate(q.data.fx)})`}
       .
     </p>
   );

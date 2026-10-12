@@ -23,9 +23,15 @@ import {
   SidePanel,
   Table,
 } from "../components/ui";
-import { naira, parseNaira, periodLabel, periodOf } from "../lib/billing";
+import {
+  money,
+  naira,
+  parseNaira,
+  periodLabel,
+  periodOf,
+} from "../lib/billing";
 import { formatDate } from "../lib/format";
-import { InvoiceBody, InvoiceStatus } from "./Billing";
+import { InvoiceBody, InvoiceStatus, InvoiceTotal } from "./Billing";
 import {
   EventsTab,
   PaymentsTab,
@@ -176,7 +182,7 @@ function InvoicesTab() {
                   {inv.number ?? "—"}
                 </td>
                 <td className="px-3 py-2 tabular-nums">
-                  {naira(inv.total_minor)}
+                  <InvoiceTotal inv={inv} />
                 </td>
                 <td className="px-3 py-2">
                   <InvoiceStatus inv={inv} />
@@ -230,7 +236,7 @@ function InvoicesTab() {
             ))}
           </Table>
           <p className="mt-3 text-right text-[13px] text-muted">
-            {items.length} invoices, {naira(total)} including VAT
+            {items.length} invoices, {naira(total)} including VAT (in naira)
           </p>
         </>
       )}
@@ -352,6 +358,7 @@ function PriceBooksTab() {
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   if (!q.data) return <PageSkeleton />;
+  const editCurrency = edit ? currencyOf(edit.json) : undefined;
   const books = q.data.items;
   const current = books.find((b) => b.version === q.data.current_version);
   const refresh = () => qc.invalidateQueries({ queryKey: ["price-books"] });
@@ -414,7 +421,7 @@ function PriceBooksTab() {
         }
         testId="price-books"
       >
-        <Table head={["Version", "Effective", "State", "Pro", "Team", ""]}>
+        <Table head={["Version", "Effective", "State", "Currency", "Pro", "Team", ""]}>
           {books.map((b) => (
             <tr key={b.version} data-testid="price-book-row">
               <td className="px-3 py-2">{b.version}</td>
@@ -428,11 +435,15 @@ function PriceBooksTab() {
                   <Badge>Draft</Badge>
                 )}
               </td>
+              <td className="px-3 py-2">{b.prices.currency}</td>
               <td className="px-3 py-2 tabular-nums">
-                {naira(b.prices.plans.pro?.monthly_minor ?? 0)}
+                {money(b.prices.currency, b.prices.plans.pro?.monthly_minor ?? 0)}
               </td>
               <td className="px-3 py-2 tabular-nums">
-                {naira(b.prices.plans.team?.monthly_minor ?? 0)}
+                {money(
+                  b.prices.currency,
+                  b.prices.plans.team?.monthly_minor ?? 0,
+                )}
               </td>
               <td className="px-3 py-2">
                 <div className="flex justify-end gap-2">
@@ -532,7 +543,11 @@ function PriceBooksTab() {
             ? `Edit draft version ${edit.version}`
             : "New price book draft"
         }
-        description="Money is in kobo. Unit prices may have fractions of a kobo. A published book can't change."
+        description={
+          editCurrency === "USD"
+            ? "Money is in cents of a dollar; unit prices may be fractions of a cent. Invoices are converted to naira when issued. A published book can't change."
+            : "Money is in kobo. Unit prices may have fractions of a kobo. A published book can't change."
+        }
         footer={
           <>
             <Button onClick={() => setEdit(null)}>Cancel</Button>
@@ -562,6 +577,27 @@ function PriceBooksTab() {
                       setEdit({ ...edit, effective: e.target.value })
                     }
                   />
+                )}
+              </Field>
+              <Field
+                label="Currency"
+                hint="Changing it doesn't convert the amounts below."
+              >
+                {(id) => (
+                  <Select
+                    id={id}
+                    value={editCurrency ?? ""}
+                    onChange={(e) =>
+                      setEdit({
+                        ...edit,
+                        json: withCurrency(edit.json, e.target.value),
+                      })
+                    }
+                  >
+                    {!editCurrency && <option value="">—</option>}
+                    <option value="USD">USD (cents)</option>
+                    <option value="NGN">NGN (kobo)</option>
+                  </Select>
                 )}
               </Field>
               <Field label="Notes">
@@ -714,14 +750,6 @@ function SettingsTab() {
         <label className="flex items-center gap-2 text-sm sm:col-span-2">
           <input
             type="checkbox"
-            checked={v.stablecoin ?? false}
-            onChange={(e) => setS({ ...v, stablecoin: e.target.checked })}
-          />
-          Offer USDT top-ups through iSpend to prepaid organisations
-        </label>
-        <label className="flex items-center gap-2 text-sm sm:col-span-2">
-          <input
-            type="checkbox"
             checked={v.delete_for_non_payment ?? false}
             onChange={(e) =>
               setS({ ...v, delete_for_non_payment: e.target.checked })
@@ -778,7 +806,26 @@ function LedgerTab() {
   );
 }
 
-/** The add-on prices a book from before V4.1 lacks, at the default
+/** The currency named in a price book's JSON, if it parses. */
+function currencyOf(json: string): string | undefined {
+  try {
+    const c = (JSON.parse(json) as { currency?: unknown }).currency;
+    return typeof c === "string" ? c : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The JSON with its currency set; unchanged if it doesn't parse. */
+function withCurrency(json: string, currency: string): string {
+  try {
+    return JSON.stringify({ ...JSON.parse(json), currency }, null, 2);
+  } catch {
+    return json;
+  }
+}
+
+/** The add-on prices a naira book from before V4.1 lacks, at the default
  * book's values, so a draft shows every field to set (V4.1 §4). */
 const addOnDefaults = {
   message_margin_percent: "20",
@@ -790,6 +837,8 @@ const addOnDefaults = {
 };
 
 export function withAddOnFields(prices: PriceBook["prices"]): PriceBook["prices"] {
+  // The defaults are kobo; a dollar book (cents) sets its own.
+  if (prices.currency === "USD") return prices;
   return { ...prices, addons: { ...addOnDefaults, ...prices.addons } };
 }
 
