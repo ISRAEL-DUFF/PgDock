@@ -9483,8 +9483,11 @@ export interface components {
             payment_terms_days: number;
         };
         Prices: {
-            /** @enum {string} */
-            currency: "NGN";
+            /**
+             * @description USD (cents, converted to naira when an invoice is issued) or NGN (kobo).
+             * @enum {string}
+             */
+            currency: "USD" | "NGN";
             plans: {
                 [key: string]: components["schemas"]["PricePlan"];
             };
@@ -9524,6 +9527,8 @@ export interface components {
             effective_at: string;
             prices: components["schemas"]["Prices"];
             vat_rate: components["schemas"]["Decimal"];
+            /** @description The rate dollar prices are shown in naira at, when there is one. */
+            fx?: components["schemas"]["FXQuote"] | null;
             next?: {
                 version: number;
                 /** Format: date-time */

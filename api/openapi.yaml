@@ -15301,7 +15301,8 @@ components:
       properties:
         currency:
           type: string
-          enum: [NGN]
+          enum: [USD, NGN]
+          description: USD (cents, converted to naira when an invoice is issued) or NGN (kobo).
         plans:
           type: object
           additionalProperties:
@@ -15373,6 +15374,11 @@ components:
           $ref: "#/components/schemas/Prices"
         vat_rate:
           $ref: "#/components/schemas/Decimal"
+        fx:
+          allOf:
+            - $ref: "#/components/schemas/FXQuote"
+          nullable: true
+          description: The rate dollar prices are shown in naira at, when there is one.
         next:
           type: object
           required: [version, effective_at, prices]

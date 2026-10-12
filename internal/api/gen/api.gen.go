@@ -2060,12 +2060,15 @@ func (e PoolerEventKind) Valid() bool {
 // Defines values for PricesCurrency.
 const (
 	NGN PricesCurrency = "NGN"
+	USD PricesCurrency = "USD"
 )
 
 // Valid indicates whether the value is a known member of the PricesCurrency enum.
 func (e PricesCurrency) Valid() bool {
 	switch e {
 	case NGN:
+		return true
+	case USD:
 		return true
 	default:
 		return false
@@ -7736,6 +7739,8 @@ type Prices struct {
 		// Example: 34.25
 		SyncReplicationHour Decimal `json:"sync_replication_hour"`
 	} `json:"addons"`
+
+	// Currency USD (cents, converted to naira when an invoice is issued) or NGN (kobo).
 	Currency  PricesCurrency `json:"currency"`
 	Dedicated struct {
 		// DiskGbHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
@@ -7756,13 +7761,16 @@ type Prices struct {
 	Plans map[string]PricePlan `json:"plans"`
 }
 
-// PricesCurrency defines model for Prices.Currency.
+// PricesCurrency USD (cents, converted to naira when an invoice is issued) or NGN (kobo).
 type PricesCurrency string
 
 // Pricing defines model for Pricing.
 type Pricing struct {
 	EffectiveAt time.Time `json:"effective_at"`
-	Next        *struct {
+
+	// Fx The rate dollar prices are shown in naira at, when there is one.
+	Fx   *FXQuote `json:"fx,omitempty"`
+	Next *struct {
 		EffectiveAt time.Time `json:"effective_at"`
 		Prices      Prices    `json:"prices"`
 		Version     int       `json:"version"`

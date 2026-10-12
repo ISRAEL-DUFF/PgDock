@@ -722,6 +722,12 @@ func (s *Server) GetPricing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := gen.Pricing{Version: int(cur.Version), EffectiveAt: cur.EffectiveAt, Prices: prices, VatRate: set.VATRate.String()}
+	if cur.Prices.Currency == billing.CurrencyUSD {
+		if q, err := bs.Quote(ctx, false); err == nil {
+			fx := toAPIQuote(q)
+			out.Fx = &fx
+		}
+	}
 	next, err := bs.NextBook(ctx)
 	if err != nil {
 		s.billingError(w, "pricing", err)
