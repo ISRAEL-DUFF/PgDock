@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { ApiRequestError, getVersion, request, setCsrfToken } from "./client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiRequestError, api, getVersion, request, setCsrfToken } from "./client";
 
 function fakeFetch(status: number, body: unknown, seen?: RequestInit[]): typeof fetch {
   return (async (_url: string, init?: RequestInit) => {
@@ -60,5 +60,47 @@ describe("api client", () => {
 
   it("handles 204 responses", async () => {
     await expect(request("POST", "/x", undefined, fakeFetch(204, null))).resolves.toBeUndefined();
+  });
+});
+
+describe("wallet endpoints", () => {
+  beforeEach(() => setCsrfToken("tok"));
+  afterEach(() => vi.unstubAllGlobals());
+
+  function stub(status: number, body: unknown) {
+    const calls: { url: string; method?: string; body?: unknown }[] = [];
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      return new Response(status === 204 ? null : JSON.stringify(body), { status });
+    });
+    return calls;
+  }
+
+  it("reads the wallet", async () => {
+    const calls = stub(200, { available: true });
+    await expect(api.wallet("o1")).resolves.toEqual({ available: true });
+    expect(calls[0].url).toBe("/api/v1/orgs/o1/billing/wallet");
+  });
+
+  it("opens a wallet with the setup details", async () => {
+    const calls = stub(200, { available: true, wallet_id: "w1" });
+    const b = { business_name: "Acme", email: "a@acme.test", bvn: "12345678901" };
+    await api.openWallet("o1", b);
+    expect(calls[0]).toMatchObject({ url: "/api/v1/orgs/o1/billing/wallet", method: "POST", body: b });
+  });
+
+  it("accepts and withdraws debit consent", async () => {
+    const calls = stub(200, { at: "now", version: "v1", current: true });
+    await api.allowDebits("o1", "v1");
+    expect(calls[0]).toMatchObject({ url: "/api/v1/orgs/o1/billing/debit-consent", method: "POST", body: { terms_version: "v1" } });
+    const del = stub(204, null);
+    await expect(api.withdrawDebitConsent("o1")).resolves.toBeUndefined();
+    expect(del[0]).toMatchObject({ url: "/api/v1/orgs/o1/billing/debit-consent", method: "DELETE" });
+  });
+
+  it("pays an invoice from the wallet", async () => {
+    const calls = stub(200, { succeeded: true, skipped: false, unavailable: false, paid_minor: 100 });
+    await expect(api.payFromWallet("o1", "i1")).resolves.toMatchObject({ succeeded: true, paid_minor: 100 });
+    expect(calls[0]).toMatchObject({ url: "/api/v1/orgs/o1/billing/invoices/i1/pay-from-wallet", method: "POST" });
   });
 });
