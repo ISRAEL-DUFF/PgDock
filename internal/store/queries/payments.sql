@@ -324,3 +324,11 @@ SELECT d.month FROM prepaid_deductions d
 WHERE d.org_id = @org_id AND NOT EXISTS (
   SELECT 1 FROM invoices i WHERE i.org_id = d.org_id AND i.period_start = d.month AND i.status <> 'draft')
 GROUP BY d.month HAVING bool_or(d.amount_minor <> 0) ORDER BY d.month;
+
+-- name: PendingInvoiceIntents :many
+-- tenant: system - an invoice's charges still unresolved.
+SELECT * FROM payment_intents WHERE invoice_id = @invoice_id AND provider = @provider AND status = 'pending' ORDER BY created_at;
+
+-- name: CountInvoiceCharges :one
+-- tenant: system - how many wallet charges were made for an invoice.
+SELECT count(*)::int FROM payment_intents WHERE invoice_id = @invoice_id AND provider = @provider;

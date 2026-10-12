@@ -219,6 +219,9 @@ type BillingAccount struct {
 	BalanceMonth        pgtype.Date
 	ZeroBalanceAt       *time.Time
 	CardFailingSince    *time.Time
+	DebitConsentAt      *time.Time
+	DebitConsentBy      *uuid.UUID
+	DebitTermsVersion   *string
 }
 
 type BillingContact struct {
@@ -545,6 +548,10 @@ type Invoice struct {
 	PaidMinor        int64
 	WhtDeductedMinor int64
 	WhtEvidencedAt   *time.Time
+	UsdSubtotalMinor *int64
+	UsdVatMinor      *int64
+	UsdTotalMinor    *int64
+	Fx               []byte
 }
 
 type InvoiceLine struct {
@@ -558,6 +565,8 @@ type InvoiceLine struct {
 	UnitPriceMinor pgtype.Numeric
 	AmountMinor    int64
 	RevenueAccount string
+	UsdUnitPrice   pgtype.Numeric
+	UsdAmountMinor *int64
 }
 
 type JobRun struct {

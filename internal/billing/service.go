@@ -37,11 +37,20 @@ type Service struct {
 	routing   Routing
 	onPaid    func(ctx context.Context, orgID uuid.UUID)
 	// onChargeFailed runs when an automatic charge is declined (dunning).
-	onChargeFailed func(ctx context.Context, orgID uuid.UUID)
+	// why is the provider's reason (empty for a card).
+	onChargeFailed func(ctx context.Context, orgID uuid.UUID, why string)
 	suspender      Suspender
 	remover        Remover
 	seal           Sealer
 	docs           DocStore
+
+	// Wallets (V4.1): the wallet provider, and the prefix of the owner
+	// references PGDock gives it (pgdock:<environment>).
+	wallets     WalletProvider
+	defaults    func() Prices // the first price book (DefaultPrices unless set)
+	rates       RateSource
+	walletOwner string
+	fx          fxCache
 }
 
 // Routing is which provider serves each channel (V3 §3.4.1: configuration,
@@ -67,6 +76,23 @@ func (s *Service) SetPayments(providers []PaymentProvider, r Routing, seal Seale
 	}
 	s.routing = r
 	s.seal = seal
+}
+
+// SetDefaultPrices sets the first price book published on a new platform
+// (DefaultPrices, in dollars, unless a platform prices in naira).
+func (s *Service) SetDefaultPrices(f func() Prices) { s.defaults = f }
+
+// SetWallets configures the wallet provider and the owner-reference prefix
+// (pgdock:<environment>) that keeps this installation's wallets apart from
+// any other's at the provider. The provider also serves virtual accounts
+// and deposit events through the usual payment machinery.
+func (s *Service) SetWallets(w WalletProvider, ownerPrefix string) {
+	if s.providers == nil {
+		s.providers = map[string]PaymentProvider{}
+	}
+	s.wallets, s.rates, s.walletOwner = w, w, strings.Trim(ownerPrefix, ":")
+	s.providers[w.Name()] = w
+	s.routing.VAPrimary, s.routing.Wallet = w.Name(), w.Name()
 }
 
 // Provider returns a configured provider.
@@ -115,6 +141,9 @@ type Settings struct {
 	// days after payment was due (V3 §3.8); off, such orgs are listed for
 	// the admin instead.
 	DeleteForNonPayment bool `json:"delete_for_non_payment"`
+	// FXMaxAgeHours is how old the dollar's rate may be when an invoice is
+	// converted to naira; older fails the conversion and alerts (4 when 0).
+	FXMaxAgeHours int `json:"fx_max_age_hours,omitempty"`
 }
 
 // Seller is PGDock's company on invoices.
@@ -205,7 +234,11 @@ func (s *Service) Init(ctx context.Context) error {
 		return err
 	}
 	if n == 0 {
-		raw, _ := json.Marshal(DefaultPrices())
+		first := DefaultPrices
+		if s.defaults != nil {
+			first = s.defaults
+		}
+		raw, _ := json.Marshal(first())
 		now := s.Now()
 		notes := "Default prices: replace them with ones derived from measured costs."
 		if _, err := q.InsertPriceBook(ctx, store.InsertPriceBookParams{EffectiveAt: seedEffective, Prices: raw, Notes: &notes, PublishedAt: &now}); err != nil {

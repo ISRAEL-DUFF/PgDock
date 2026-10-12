@@ -82,6 +82,15 @@ type Rated struct {
 	// MonthFee is this month's, billed on the previous invoice.
 	NextFee  int64
 	MonthFee int64
+
+	// Priced in dollars: the lines' AmountUSD sum to SubtotalUSD (VATUSD, and
+	// TotalUSD with it), and every amount above is kobo at FX. The price
+	// currency is NGN for a naira price book, which needs no conversion.
+	Currency    string
+	SubtotalUSD int64
+	VATUSD      int64
+	TotalUSD    int64
+	FX          FXQuote
 }
 
 type planTerm struct{ plan, term string }
@@ -358,15 +367,56 @@ func (s *Service) rate(ctx context.Context, orgID uuid.UUID, month time.Time, pr
 
 	order := map[string]int{KindPlan: 0, KindProration: 1, KindOverage: 2, KindDedicated: 3, KindAddon: 4, KindCredit: 5}
 	sort.SliceStable(out.Lines, func(i, j int) bool { return order[out.Lines[i].Kind] < order[out.Lines[j].Kind] })
-	for _, l := range out.Lines {
-		out.Subtotal += l.Amount
+	out.Currency = p.Currency
+	fx, err := s.quoteFor(ctx, p.Currency, false)
+	if err != nil {
+		return Rated{}, err
 	}
-	out.VAT = DecInt(out.Subtotal).Mul(set.VATRate).Round()
-	out.Total = out.Subtotal + out.VAT
-	if a.DeductsWht && out.Subtotal > 0 {
-		out.WHTExpected = DecInt(out.Subtotal).Mul(set.WHTRate).Round()
+	out.FX = fx
+	if p.Currency == CurrencyNGN {
+		out.Currency = CurrencyNGN
+	} else {
+		out.NextFee, out.MonthFee = fx.Naira(out.NextFee), fx.Naira(out.MonthFee)
 	}
+	out.convert(fx, a.DeductsWht, set)
 	return out, nil
+}
+
+// convert turns lines priced in dollars into naira at q and totals both
+// currencies. Lines whose cost is in naira already (an SMS provider's price)
+// keep their kobo and get a dollar equivalent. For a naira price book it
+// only totals.
+func (r *Rated) convert(q FXQuote, deductsWHT bool, set Settings) {
+	r.Subtotal, r.SubtotalUSD = 0, 0
+	for i := range r.Lines {
+		l := &r.Lines[i]
+		if r.Currency == CurrencyUSD {
+			if nativeNaira(l.Metric) {
+				l.AmountUSD, l.UnitPriceUSD = q.Dollars(l.Amount), q.Dollars1(l.UnitPrice)
+			} else {
+				l.AmountUSD, l.UnitPriceUSD = l.Amount, l.UnitPrice
+				l.Amount, l.UnitPrice = q.Naira(l.AmountUSD), l.UnitPrice.Mul(q.Effective)
+			}
+		}
+		r.Subtotal += l.Amount
+		r.SubtotalUSD += l.AmountUSD
+	}
+	r.VAT = DecInt(r.Subtotal).Mul(set.VATRate).Round()
+	r.Total = r.Subtotal + r.VAT
+	r.WHTExpected = 0
+	if deductsWHT && r.Subtotal > 0 {
+		r.WHTExpected = DecInt(r.Subtotal).Mul(set.WHTRate).Round()
+	}
+	if r.Currency == CurrencyUSD {
+		r.VATUSD = DecInt(r.SubtotalUSD).Mul(set.VATRate).Round()
+		r.TotalUSD = r.SubtotalUSD + r.VATUSD
+	}
+}
+
+// nativeNaira reports whether a metric's amounts are in naira whatever the
+// price currency: the SMS and WhatsApp providers' own prices.
+func nativeNaira(metric string) bool {
+	return metric == tenancy.MetricMessagesSMSCost || metric == tenancy.MetricMessagesWhatsAppCost
 }
 
 // Preview estimates each organisation's invoice for month under prices

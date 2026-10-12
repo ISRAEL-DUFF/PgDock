@@ -49,7 +49,7 @@ WITH led AS (
     sum(CASE WHEN direction = 'debit' THEN amount_minor ELSE 0 END)::bigint AS debits
   FROM ledger_entries GROUP BY 1
 ), inv AS (
-  SELECT i.id, i.org_id, i.number, i.period_start, i.period_end, i.status, i.held, i.hold_reason, i.subtotal_minor, i.vat_minor, i.total_minor, i.wht_expected_minor, i.vat_rate, i.bill_to, i.seller, i.due_at, i.issued_at, i.paid_at, i.pdf_object_key, i.price_book_version, i.created_at, i.paid_minor, i.wht_deducted_minor, i.wht_evidenced_at, coalesce(cn.credited, 0)::bigint AS credited, l.k IS NOT NULL AS posted,
+  SELECT i.id, i.org_id, i.number, i.period_start, i.period_end, i.status, i.held, i.hold_reason, i.subtotal_minor, i.vat_minor, i.total_minor, i.wht_expected_minor, i.vat_rate, i.bill_to, i.seller, i.due_at, i.issued_at, i.paid_at, i.pdf_object_key, i.price_book_version, i.created_at, i.paid_minor, i.wht_deducted_minor, i.wht_evidenced_at, i.usd_subtotal_minor, i.usd_vat_minor, i.usd_total_minor, i.fx, coalesce(cn.credited, 0)::bigint AS credited, l.k IS NOT NULL AS posted,
     coalesce(l.billed, 0)::bigint AS ledger_total, coalesce(l.vat, 0)::bigint AS ledger_vat,
     coalesce(d.deducted, 0)::bigint AS deducted, coalesce(il.lines, 0)::bigint AS lines
   FROM invoices i
@@ -195,6 +195,55 @@ func (q *Queries) CancelPendingPlanChanges(ctx context.Context, orgID uuid.UUID)
 	return result.RowsAffected(), nil
 }
 
+const clearDebitConsent = `-- name: ClearDebitConsent :one
+UPDATE billing_accounts SET debit_consent_at = NULL, debit_consent_by = NULL, debit_terms_version = NULL, updated_at = now()
+WHERE org_id = $1 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version
+`
+
+// tenant: system - an org owner withdrew the agreement to wallet debits.
+func (q *Queries) ClearDebitConsent(ctx context.Context, orgID uuid.UUID) (BillingAccount, error) {
+	row := q.db.QueryRow(ctx, clearDebitConsent, orgID)
+	var i BillingAccount
+	err := row.Scan(
+		&i.OrgID,
+		&i.Plan,
+		&i.Term,
+		&i.TermEndsAt,
+		&i.Mode,
+		&i.PriceBookVersion,
+		&i.Grandfathered,
+		&i.LegalName,
+		&i.Address,
+		&i.Tin,
+		&i.VatRegistered,
+		&i.DeductsWht,
+		&i.ProviderCustomers,
+		&i.PaymentTermsDays,
+		&i.BudgetMinor,
+		&i.SpendCapMinor,
+		&i.AutoTopup,
+		&i.DunningState,
+		&i.GraceUntil,
+		&i.ForecastMinor,
+		&i.ForecastAt,
+		&i.Capped,
+		&i.BudgetAlerted,
+		&i.BudgetMonth,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DunningSince,
+		&i.DeletionScheduledAt,
+		&i.BalanceAlerted,
+		&i.BalanceMonth,
+		&i.ZeroBalanceAt,
+		&i.CardFailingSince,
+		&i.DebitConsentAt,
+		&i.DebitConsentBy,
+		&i.DebitTermsVersion,
+	)
+	return i, err
+}
+
 const countLedgerTxn = `-- name: CountLedgerTxn :one
 SELECT count(*)::int FROM ledger_entries WHERE txn_id = $1
 `
@@ -296,7 +345,7 @@ func (q *Queries) DeletePriceBookDraft(ctx context.Context, version int32) (int6
 }
 
 const draftsForPeriod = `-- name: DraftsForPeriod :many
-SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at FROM invoices WHERE status = 'draft' AND period_start = $1 ORDER BY created_at
+SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at, usd_subtotal_minor, usd_vat_minor, usd_total_minor, fx FROM invoices WHERE status = 'draft' AND period_start = $1 ORDER BY created_at
 `
 
 // tenant: system - a month's drafts, for issuing.
@@ -334,6 +383,10 @@ func (q *Queries) DraftsForPeriod(ctx context.Context, periodStart pgtype.Date) 
 			&i.PaidMinor,
 			&i.WhtDeductedMinor,
 			&i.WhtEvidencedAt,
+			&i.UsdSubtotalMinor,
+			&i.UsdVatMinor,
+			&i.UsdTotalMinor,
+			&i.Fx,
 		); err != nil {
 			return nil, err
 		}
@@ -417,7 +470,7 @@ func (q *Queries) EnsureBillingAccount(ctx context.Context, arg EnsureBillingAcc
 }
 
 const getBillingAccount = `-- name: GetBillingAccount :one
-SELECT org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since FROM billing_accounts WHERE org_id = $1
+SELECT org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version FROM billing_accounts WHERE org_id = $1
 `
 
 // tenant: system - the account of an org the caller resolved.
@@ -457,6 +510,9 @@ func (q *Queries) GetBillingAccount(ctx context.Context, orgID uuid.UUID) (Billi
 		&i.BalanceMonth,
 		&i.ZeroBalanceAt,
 		&i.CardFailingSince,
+		&i.DebitConsentAt,
+		&i.DebitConsentBy,
+		&i.DebitTermsVersion,
 	)
 	return i, err
 }
@@ -484,7 +540,7 @@ func (q *Queries) GetCreditNote(ctx context.Context, id uuid.UUID) (CreditNote, 
 }
 
 const getInvoice = `-- name: GetInvoice :one
-SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at FROM invoices WHERE id = $1
+SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at, usd_subtotal_minor, usd_vat_minor, usd_total_minor, fx FROM invoices WHERE id = $1
 `
 
 // tenant: system - an invoice by id (admin, or after the org check).
@@ -516,12 +572,16 @@ func (q *Queries) GetInvoice(ctx context.Context, id uuid.UUID) (Invoice, error)
 		&i.PaidMinor,
 		&i.WhtDeductedMinor,
 		&i.WhtEvidencedAt,
+		&i.UsdSubtotalMinor,
+		&i.UsdVatMinor,
+		&i.UsdTotalMinor,
+		&i.Fx,
 	)
 	return i, err
 }
 
 const getOrgInvoice = `-- name: GetOrgInvoice :one
-SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at FROM invoices WHERE id = $1 AND org_id = $2
+SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at, usd_subtotal_minor, usd_vat_minor, usd_total_minor, fx FROM invoices WHERE id = $1 AND org_id = $2
 `
 
 type GetOrgInvoiceParams struct {
@@ -558,13 +618,17 @@ func (q *Queries) GetOrgInvoice(ctx context.Context, arg GetOrgInvoiceParams) (I
 		&i.PaidMinor,
 		&i.WhtDeductedMinor,
 		&i.WhtEvidencedAt,
+		&i.UsdSubtotalMinor,
+		&i.UsdVatMinor,
+		&i.UsdTotalMinor,
+		&i.Fx,
 	)
 	return i, err
 }
 
 const getOrgInvoiceForPeriod = `-- name: GetOrgInvoiceForPeriod :one
 
-SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at FROM invoices WHERE org_id = $1 AND period_start = $2
+SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at, usd_subtotal_minor, usd_vat_minor, usd_total_minor, fx FROM invoices WHERE org_id = $1 AND period_start = $2
 `
 
 type GetOrgInvoiceForPeriodParams struct {
@@ -602,6 +666,10 @@ func (q *Queries) GetOrgInvoiceForPeriod(ctx context.Context, arg GetOrgInvoiceF
 		&i.PaidMinor,
 		&i.WhtDeductedMinor,
 		&i.WhtEvidencedAt,
+		&i.UsdSubtotalMinor,
+		&i.UsdVatMinor,
+		&i.UsdTotalMinor,
+		&i.Fx,
 	)
 	return i, err
 }
@@ -672,10 +740,10 @@ func (q *Queries) InsertCreditNote(ctx context.Context, arg InsertCreditNotePara
 
 const insertDraftInvoice = `-- name: InsertDraftInvoice :one
 INSERT INTO invoices (org_id, period_start, period_end, status, subtotal_minor, vat_minor, total_minor,
-                      wht_expected_minor, vat_rate, price_book_version)
+                      wht_expected_minor, vat_rate, price_book_version, usd_subtotal_minor, usd_vat_minor, usd_total_minor, fx)
 VALUES ($1, $2, $3, 'draft', $4, $5, $6,
-        $7, $8, $9)
-RETURNING id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at
+        $7, $8, $9, $10, $11, $12, $13)
+RETURNING id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at, usd_subtotal_minor, usd_vat_minor, usd_total_minor, fx
 `
 
 type InsertDraftInvoiceParams struct {
@@ -688,6 +756,10 @@ type InsertDraftInvoiceParams struct {
 	WhtExpectedMinor int64
 	VatRate          pgtype.Numeric
 	PriceBookVersion int32
+	UsdSubtotalMinor *int64
+	UsdVatMinor      *int64
+	UsdTotalMinor    *int64
+	Fx               []byte
 }
 
 // tenant: system - a draft for an org the caller resolved.
@@ -702,6 +774,10 @@ func (q *Queries) InsertDraftInvoice(ctx context.Context, arg InsertDraftInvoice
 		arg.WhtExpectedMinor,
 		arg.VatRate,
 		arg.PriceBookVersion,
+		arg.UsdSubtotalMinor,
+		arg.UsdVatMinor,
+		arg.UsdTotalMinor,
+		arg.Fx,
 	)
 	var i Invoice
 	err := row.Scan(
@@ -729,13 +805,19 @@ func (q *Queries) InsertDraftInvoice(ctx context.Context, arg InsertDraftInvoice
 		&i.PaidMinor,
 		&i.WhtDeductedMinor,
 		&i.WhtEvidencedAt,
+		&i.UsdSubtotalMinor,
+		&i.UsdVatMinor,
+		&i.UsdTotalMinor,
+		&i.Fx,
 	)
 	return i, err
 }
 
 const insertInvoiceLine = `-- name: InsertInvoiceLine :exec
-INSERT INTO invoice_lines (invoice_id, kind, description, project_id, metric, quantity, unit_price_minor, amount_minor, revenue_account)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO invoice_lines (invoice_id, kind, description, project_id, metric, quantity, unit_price_minor, amount_minor, revenue_account,
+                           usd_unit_price, usd_amount_minor)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+        $10, $11)
 `
 
 type InsertInvoiceLineParams struct {
@@ -748,6 +830,8 @@ type InsertInvoiceLineParams struct {
 	UnitPriceMinor pgtype.Numeric
 	AmountMinor    int64
 	RevenueAccount string
+	UsdUnitPrice   pgtype.Numeric
+	UsdAmountMinor *int64
 }
 
 // tenant: system - a draft's line.
@@ -762,6 +846,8 @@ func (q *Queries) InsertInvoiceLine(ctx context.Context, arg InsertInvoiceLinePa
 		arg.UnitPriceMinor,
 		arg.AmountMinor,
 		arg.RevenueAccount,
+		arg.UsdUnitPrice,
+		arg.UsdAmountMinor,
 	)
 	return err
 }
@@ -929,7 +1015,7 @@ func (q *Queries) InvoiceCreditNotes(ctx context.Context, invoiceID uuid.UUID) (
 }
 
 const invoiceLines = `-- name: InvoiceLines :many
-SELECT id, invoice_id, kind, description, project_id, metric, quantity, unit_price_minor, amount_minor, revenue_account FROM invoice_lines WHERE invoice_id = $1 ORDER BY id
+SELECT id, invoice_id, kind, description, project_id, metric, quantity, unit_price_minor, amount_minor, revenue_account, usd_unit_price, usd_amount_minor FROM invoice_lines WHERE invoice_id = $1 ORDER BY id
 `
 
 // tenant: system - lines of an invoice the caller resolved.
@@ -953,6 +1039,8 @@ func (q *Queries) InvoiceLines(ctx context.Context, invoiceID uuid.UUID) ([]Invo
 			&i.UnitPriceMinor,
 			&i.AmountMinor,
 			&i.RevenueAccount,
+			&i.UsdUnitPrice,
+			&i.UsdAmountMinor,
 		); err != nil {
 			return nil, err
 		}
@@ -967,7 +1055,7 @@ func (q *Queries) InvoiceLines(ctx context.Context, invoiceID uuid.UUID) ([]Invo
 const issueInvoice = `-- name: IssueInvoice :one
 UPDATE invoices SET status = $1, number = $2, issued_at = $3, due_at = $4,
   bill_to = $5, seller = $6, paid_at = $7
-WHERE id = $8 AND status = 'draft' RETURNING id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at
+WHERE id = $8 AND status = 'draft' RETURNING id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at, usd_subtotal_minor, usd_vat_minor, usd_total_minor, fx
 `
 
 type IssueInvoiceParams struct {
@@ -1019,6 +1107,10 @@ func (q *Queries) IssueInvoice(ctx context.Context, arg IssueInvoiceParams) (Inv
 		&i.PaidMinor,
 		&i.WhtDeductedMinor,
 		&i.WhtEvidencedAt,
+		&i.UsdSubtotalMinor,
+		&i.UsdVatMinor,
+		&i.UsdTotalMinor,
+		&i.Fx,
 	)
 	return i, err
 }
@@ -1098,7 +1190,7 @@ func (q *Queries) LedgerTotals(ctx context.Context) (LedgerTotalsRow, error) {
 }
 
 const listBillingAccounts = `-- name: ListBillingAccounts :many
-SELECT b.org_id, b.plan, b.term, b.term_ends_at, b.mode, b.price_book_version, b.grandfathered, b.legal_name, b.address, b.tin, b.vat_registered, b.deducts_wht, b.provider_customers, b.payment_terms_days, b.budget_minor, b.spend_cap_minor, b.auto_topup, b.dunning_state, b.grace_until, b.forecast_minor, b.forecast_at, b.capped, b.budget_alerted, b.budget_month, b.created_at, b.updated_at, b.dunning_since, b.deletion_scheduled_at, b.balance_alerted, b.balance_month, b.zero_balance_at, b.card_failing_since, o.name AS org_name, o.status AS org_status FROM billing_accounts b
+SELECT b.org_id, b.plan, b.term, b.term_ends_at, b.mode, b.price_book_version, b.grandfathered, b.legal_name, b.address, b.tin, b.vat_registered, b.deducts_wht, b.provider_customers, b.payment_terms_days, b.budget_minor, b.spend_cap_minor, b.auto_topup, b.dunning_state, b.grace_until, b.forecast_minor, b.forecast_at, b.capped, b.budget_alerted, b.budget_month, b.created_at, b.updated_at, b.dunning_since, b.deletion_scheduled_at, b.balance_alerted, b.balance_month, b.zero_balance_at, b.card_failing_since, b.debit_consent_at, b.debit_consent_by, b.debit_terms_version, o.name AS org_name, o.status AS org_status FROM billing_accounts b
 JOIN organizations o ON o.id = b.org_id WHERE o.status <> 'deleted' ORDER BY o.name
 `
 
@@ -1135,6 +1227,9 @@ type ListBillingAccountsRow struct {
 	BalanceMonth        pgtype.Date
 	ZeroBalanceAt       *time.Time
 	CardFailingSince    *time.Time
+	DebitConsentAt      *time.Time
+	DebitConsentBy      *uuid.UUID
+	DebitTermsVersion   *string
 	OrgName             string
 	OrgStatus           string
 }
@@ -1182,6 +1277,9 @@ func (q *Queries) ListBillingAccounts(ctx context.Context) ([]ListBillingAccount
 			&i.BalanceMonth,
 			&i.ZeroBalanceAt,
 			&i.CardFailingSince,
+			&i.DebitConsentAt,
+			&i.DebitConsentBy,
+			&i.DebitTermsVersion,
 			&i.OrgName,
 			&i.OrgStatus,
 		); err != nil {
@@ -1229,7 +1327,7 @@ func (q *Queries) ListBillingContacts(ctx context.Context, orgID uuid.UUID) ([]B
 }
 
 const listInvoices = `-- name: ListInvoices :many
-SELECT i.id, i.org_id, i.number, i.period_start, i.period_end, i.status, i.held, i.hold_reason, i.subtotal_minor, i.vat_minor, i.total_minor, i.wht_expected_minor, i.vat_rate, i.bill_to, i.seller, i.due_at, i.issued_at, i.paid_at, i.pdf_object_key, i.price_book_version, i.created_at, i.paid_minor, i.wht_deducted_minor, i.wht_evidenced_at, o.name AS org_name FROM invoices i JOIN organizations o ON o.id = i.org_id
+SELECT i.id, i.org_id, i.number, i.period_start, i.period_end, i.status, i.held, i.hold_reason, i.subtotal_minor, i.vat_minor, i.total_minor, i.wht_expected_minor, i.vat_rate, i.bill_to, i.seller, i.due_at, i.issued_at, i.paid_at, i.pdf_object_key, i.price_book_version, i.created_at, i.paid_minor, i.wht_deducted_minor, i.wht_evidenced_at, i.usd_subtotal_minor, i.usd_vat_minor, i.usd_total_minor, i.fx, o.name AS org_name FROM invoices i JOIN organizations o ON o.id = i.org_id
 WHERE ($1::text IS NULL OR i.status = $1)
   AND ($2::date IS NULL OR i.period_start = $2)
 ORDER BY i.period_start DESC, o.name LIMIT $3
@@ -1266,6 +1364,10 @@ type ListInvoicesRow struct {
 	PaidMinor        int64
 	WhtDeductedMinor int64
 	WhtEvidencedAt   *time.Time
+	UsdSubtotalMinor *int64
+	UsdVatMinor      *int64
+	UsdTotalMinor    *int64
+	Fx               []byte
 	OrgName          string
 }
 
@@ -1304,6 +1406,10 @@ func (q *Queries) ListInvoices(ctx context.Context, arg ListInvoicesParams) ([]L
 			&i.PaidMinor,
 			&i.WhtDeductedMinor,
 			&i.WhtEvidencedAt,
+			&i.UsdSubtotalMinor,
+			&i.UsdVatMinor,
+			&i.UsdTotalMinor,
+			&i.Fx,
 			&i.OrgName,
 		); err != nil {
 			return nil, err
@@ -1317,7 +1423,7 @@ func (q *Queries) ListInvoices(ctx context.Context, arg ListInvoicesParams) ([]L
 }
 
 const listOrgInvoices = `-- name: ListOrgInvoices :many
-SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at FROM invoices WHERE org_id = $1 AND status <> 'draft' ORDER BY period_start DESC, created_at DESC LIMIT $2
+SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at, usd_subtotal_minor, usd_vat_minor, usd_total_minor, fx FROM invoices WHERE org_id = $1 AND status <> 'draft' ORDER BY period_start DESC, created_at DESC LIMIT $2
 `
 
 type ListOrgInvoicesParams struct {
@@ -1360,6 +1466,10 @@ func (q *Queries) ListOrgInvoices(ctx context.Context, arg ListOrgInvoicesParams
 			&i.PaidMinor,
 			&i.WhtDeductedMinor,
 			&i.WhtEvidencedAt,
+			&i.UsdSubtotalMinor,
+			&i.UsdVatMinor,
+			&i.UsdTotalMinor,
+			&i.Fx,
 		); err != nil {
 			return nil, err
 		}
@@ -1407,7 +1517,7 @@ func (q *Queries) ListPriceBooks(ctx context.Context) ([]PriceBook, error) {
 }
 
 const lockBillingAccount = `-- name: LockBillingAccount :one
-SELECT org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since FROM billing_accounts WHERE org_id = $1 FOR UPDATE
+SELECT org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version FROM billing_accounts WHERE org_id = $1 FOR UPDATE
 `
 
 // tenant: system - the account of an org the caller resolved, for a change.
@@ -1447,12 +1557,15 @@ func (q *Queries) LockBillingAccount(ctx context.Context, orgID uuid.UUID) (Bill
 		&i.BalanceMonth,
 		&i.ZeroBalanceAt,
 		&i.CardFailingSince,
+		&i.DebitConsentAt,
+		&i.DebitConsentBy,
+		&i.DebitTermsVersion,
 	)
 	return i, err
 }
 
 const lockInvoice = `-- name: LockInvoice :one
-SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at FROM invoices WHERE id = $1 FOR UPDATE
+SELECT id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at, usd_subtotal_minor, usd_vat_minor, usd_total_minor, fx FROM invoices WHERE id = $1 FOR UPDATE
 `
 
 // tenant: system - an invoice for a change.
@@ -1484,6 +1597,10 @@ func (q *Queries) LockInvoice(ctx context.Context, id uuid.UUID) (Invoice, error
 		&i.PaidMinor,
 		&i.WhtDeductedMinor,
 		&i.WhtEvidencedAt,
+		&i.UsdSubtotalMinor,
+		&i.UsdVatMinor,
+		&i.UsdTotalMinor,
+		&i.Fx,
 	)
 	return i, err
 }
@@ -1919,7 +2036,7 @@ func (q *Queries) ScheduledChangeBy(ctx context.Context, arg ScheduledChangeByPa
 const setBillingAdmin = `-- name: SetBillingAdmin :one
 UPDATE billing_accounts SET grandfathered = $1, mode = $2, payment_terms_days = $3,
   price_book_version = $4, updated_at = now()
-WHERE org_id = $5 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since
+WHERE org_id = $5 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version
 `
 
 type SetBillingAdminParams struct {
@@ -1973,6 +2090,9 @@ func (q *Queries) SetBillingAdmin(ctx context.Context, arg SetBillingAdminParams
 		&i.BalanceMonth,
 		&i.ZeroBalanceAt,
 		&i.CardFailingSince,
+		&i.DebitConsentAt,
+		&i.DebitConsentBy,
+		&i.DebitTermsVersion,
 	)
 	return i, err
 }
@@ -1980,7 +2100,7 @@ func (q *Queries) SetBillingAdmin(ctx context.Context, arg SetBillingAdminParams
 const setBillingPlan = `-- name: SetBillingPlan :one
 UPDATE billing_accounts SET plan = $1, term = $2, term_ends_at = $3,
   payment_terms_days = $4, updated_at = now()
-WHERE org_id = $5 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since
+WHERE org_id = $5 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version
 `
 
 type SetBillingPlanParams struct {
@@ -2034,6 +2154,9 @@ func (q *Queries) SetBillingPlan(ctx context.Context, arg SetBillingPlanParams) 
 		&i.BalanceMonth,
 		&i.ZeroBalanceAt,
 		&i.CardFailingSince,
+		&i.DebitConsentAt,
+		&i.DebitConsentBy,
+		&i.DebitTermsVersion,
 	)
 	return i, err
 }
@@ -2053,9 +2176,162 @@ func (q *Queries) SetBillingPriceBook(ctx context.Context, arg SetBillingPriceBo
 	return err
 }
 
+const setDebitConsent = `-- name: SetDebitConsent :one
+UPDATE billing_accounts SET debit_consent_at = $1, debit_consent_by = $2, debit_terms_version = $3, updated_at = now()
+WHERE org_id = $4 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version
+`
+
+type SetDebitConsentParams struct {
+	At           *time.Time
+	ConsentBy    *uuid.UUID
+	TermsVersion *string
+	OrgID        uuid.UUID
+}
+
+// tenant: system - an org owner agreed to wallet debits (the caller checked who).
+func (q *Queries) SetDebitConsent(ctx context.Context, arg SetDebitConsentParams) (BillingAccount, error) {
+	row := q.db.QueryRow(ctx, setDebitConsent,
+		arg.At,
+		arg.ConsentBy,
+		arg.TermsVersion,
+		arg.OrgID,
+	)
+	var i BillingAccount
+	err := row.Scan(
+		&i.OrgID,
+		&i.Plan,
+		&i.Term,
+		&i.TermEndsAt,
+		&i.Mode,
+		&i.PriceBookVersion,
+		&i.Grandfathered,
+		&i.LegalName,
+		&i.Address,
+		&i.Tin,
+		&i.VatRegistered,
+		&i.DeductsWht,
+		&i.ProviderCustomers,
+		&i.PaymentTermsDays,
+		&i.BudgetMinor,
+		&i.SpendCapMinor,
+		&i.AutoTopup,
+		&i.DunningState,
+		&i.GraceUntil,
+		&i.ForecastMinor,
+		&i.ForecastAt,
+		&i.Capped,
+		&i.BudgetAlerted,
+		&i.BudgetMonth,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DunningSince,
+		&i.DeletionScheduledAt,
+		&i.BalanceAlerted,
+		&i.BalanceMonth,
+		&i.ZeroBalanceAt,
+		&i.CardFailingSince,
+		&i.DebitConsentAt,
+		&i.DebitConsentBy,
+		&i.DebitTermsVersion,
+	)
+	return i, err
+}
+
+const setDraftInvoiceNaira = `-- name: SetDraftInvoiceNaira :one
+UPDATE invoices SET subtotal_minor = $1, vat_minor = $2, total_minor = $3,
+  wht_expected_minor = $4, fx = $5,
+  usd_subtotal_minor = $6, usd_vat_minor = $7, usd_total_minor = $8
+WHERE id = $9 AND status = 'draft' RETURNING id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at, usd_subtotal_minor, usd_vat_minor, usd_total_minor, fx
+`
+
+type SetDraftInvoiceNairaParams struct {
+	SubtotalMinor    int64
+	VatMinor         int64
+	TotalMinor       int64
+	WhtExpectedMinor int64
+	Fx               []byte
+	UsdSubtotalMinor *int64
+	UsdVatMinor      *int64
+	UsdTotalMinor    *int64
+	ID               uuid.UUID
+}
+
+// tenant: system - a draft's totals converted to naira at issue, with the rate used.
+func (q *Queries) SetDraftInvoiceNaira(ctx context.Context, arg SetDraftInvoiceNairaParams) (Invoice, error) {
+	row := q.db.QueryRow(ctx, setDraftInvoiceNaira,
+		arg.SubtotalMinor,
+		arg.VatMinor,
+		arg.TotalMinor,
+		arg.WhtExpectedMinor,
+		arg.Fx,
+		arg.UsdSubtotalMinor,
+		arg.UsdVatMinor,
+		arg.UsdTotalMinor,
+		arg.ID,
+	)
+	var i Invoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Number,
+		&i.PeriodStart,
+		&i.PeriodEnd,
+		&i.Status,
+		&i.Held,
+		&i.HoldReason,
+		&i.SubtotalMinor,
+		&i.VatMinor,
+		&i.TotalMinor,
+		&i.WhtExpectedMinor,
+		&i.VatRate,
+		&i.BillTo,
+		&i.Seller,
+		&i.DueAt,
+		&i.IssuedAt,
+		&i.PaidAt,
+		&i.PdfObjectKey,
+		&i.PriceBookVersion,
+		&i.CreatedAt,
+		&i.PaidMinor,
+		&i.WhtDeductedMinor,
+		&i.WhtEvidencedAt,
+		&i.UsdSubtotalMinor,
+		&i.UsdVatMinor,
+		&i.UsdTotalMinor,
+		&i.Fx,
+	)
+	return i, err
+}
+
+const setDraftLineNaira = `-- name: SetDraftLineNaira :exec
+UPDATE invoice_lines l SET unit_price_minor = $1, amount_minor = $2,
+  usd_unit_price = $3, usd_amount_minor = $4
+WHERE l.id = $5 AND EXISTS (SELECT 1 FROM invoices i WHERE i.id = l.invoice_id AND i.status = 'draft')
+`
+
+type SetDraftLineNairaParams struct {
+	UnitPriceMinor pgtype.Numeric
+	AmountMinor    int64
+	UsdUnitPrice   pgtype.Numeric
+	UsdAmountMinor *int64
+	ID             int64
+}
+
+// tenant: system - a draft's line converted to naira at issue.
+func (q *Queries) SetDraftLineNaira(ctx context.Context, arg SetDraftLineNairaParams) error {
+	_, err := q.db.Exec(ctx, setDraftLineNaira,
+		arg.UnitPriceMinor,
+		arg.AmountMinor,
+		arg.UsdUnitPrice,
+		arg.UsdAmountMinor,
+		arg.ID,
+	)
+	return err
+}
+
 const setInvoiceHold = `-- name: SetInvoiceHold :one
 UPDATE invoices SET held = $1, hold_reason = $2
-WHERE id = $3 AND status = 'draft' RETURNING id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at
+WHERE id = $3 AND status = 'draft' RETURNING id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at, usd_subtotal_minor, usd_vat_minor, usd_total_minor, fx
 `
 
 type SetInvoiceHoldParams struct {
@@ -2093,6 +2369,10 @@ func (q *Queries) SetInvoiceHold(ctx context.Context, arg SetInvoiceHoldParams) 
 		&i.PaidMinor,
 		&i.WhtDeductedMinor,
 		&i.WhtEvidencedAt,
+		&i.UsdSubtotalMinor,
+		&i.UsdVatMinor,
+		&i.UsdTotalMinor,
+		&i.Fx,
 	)
 	return i, err
 }
@@ -2151,7 +2431,7 @@ const updateBillingDetails = `-- name: UpdateBillingDetails :one
 UPDATE billing_accounts SET legal_name = $1, address = $2, tin = $3,
   vat_registered = $4, deducts_wht = $5, budget_minor = $6,
   spend_cap_minor = $7, updated_at = now()
-WHERE org_id = $8 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since
+WHERE org_id = $8 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version
 `
 
 type UpdateBillingDetailsParams struct {
@@ -2211,14 +2491,18 @@ func (q *Queries) UpdateBillingDetails(ctx context.Context, arg UpdateBillingDet
 		&i.BalanceMonth,
 		&i.ZeroBalanceAt,
 		&i.CardFailingSince,
+		&i.DebitConsentAt,
+		&i.DebitConsentBy,
+		&i.DebitTermsVersion,
 	)
 	return i, err
 }
 
 const updateDraftInvoice = `-- name: UpdateDraftInvoice :one
 UPDATE invoices SET subtotal_minor = $1, vat_minor = $2, total_minor = $3,
-  wht_expected_minor = $4, vat_rate = $5, price_book_version = $6
-WHERE id = $7 AND status = 'draft' RETURNING id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at
+  wht_expected_minor = $4, vat_rate = $5, price_book_version = $6,
+  usd_subtotal_minor = $7, usd_vat_minor = $8, usd_total_minor = $9, fx = $10
+WHERE id = $11 AND status = 'draft' RETURNING id, org_id, number, period_start, period_end, status, held, hold_reason, subtotal_minor, vat_minor, total_minor, wht_expected_minor, vat_rate, bill_to, seller, due_at, issued_at, paid_at, pdf_object_key, price_book_version, created_at, paid_minor, wht_deducted_minor, wht_evidenced_at, usd_subtotal_minor, usd_vat_minor, usd_total_minor, fx
 `
 
 type UpdateDraftInvoiceParams struct {
@@ -2228,6 +2512,10 @@ type UpdateDraftInvoiceParams struct {
 	WhtExpectedMinor int64
 	VatRate          pgtype.Numeric
 	PriceBookVersion int32
+	UsdSubtotalMinor *int64
+	UsdVatMinor      *int64
+	UsdTotalMinor    *int64
+	Fx               []byte
 	ID               uuid.UUID
 }
 
@@ -2240,6 +2528,10 @@ func (q *Queries) UpdateDraftInvoice(ctx context.Context, arg UpdateDraftInvoice
 		arg.WhtExpectedMinor,
 		arg.VatRate,
 		arg.PriceBookVersion,
+		arg.UsdSubtotalMinor,
+		arg.UsdVatMinor,
+		arg.UsdTotalMinor,
+		arg.Fx,
 		arg.ID,
 	)
 	var i Invoice
@@ -2268,6 +2560,10 @@ func (q *Queries) UpdateDraftInvoice(ctx context.Context, arg UpdateDraftInvoice
 		&i.PaidMinor,
 		&i.WhtDeductedMinor,
 		&i.WhtEvidencedAt,
+		&i.UsdSubtotalMinor,
+		&i.UsdVatMinor,
+		&i.UsdTotalMinor,
+		&i.Fx,
 	)
 	return i, err
 }

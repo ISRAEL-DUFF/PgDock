@@ -407,7 +407,7 @@ func (s *Service) processEvent(ctx context.Context, provider string, ev Event) (
 			return OutcomeFailed, &intent.OrgID, err
 		}
 		if intent.Automatic && s.onChargeFailed != nil {
-			s.onChargeFailed(ctx, intent.OrgID)
+			s.onChargeFailed(ctx, intent.OrgID, "")
 		}
 		return OutcomePosted, &intent.OrgID, nil
 	case EventRefundCompleted:
@@ -591,6 +591,13 @@ func (s *Service) Requery(ctx context.Context, from, to time.Time) (int, error) 
 		return n, errors.Join(append(errs, err)...)
 	}
 	for _, in := range pending {
+		if in.Provider == ProviderISwallet {
+			// A debit of a wallet got no answer: its key says what happened.
+			if _, err := s.resolveWalletIntent(ctx, in); err != nil {
+				errs = append(errs, err)
+			}
+			continue
+		}
 		p, ok := s.providers[in.Provider]
 		if !ok {
 			continue

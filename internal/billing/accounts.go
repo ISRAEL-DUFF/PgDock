@@ -109,8 +109,12 @@ type Line struct {
 	ProjectID   *uuid.UUID `json:"project_id,omitempty"`
 	Metric      string     `json:"metric,omitempty"`
 	Quantity    Dec        `json:"quantity"`
-	UnitPrice   Dec        `json:"unit_price"` // kobo
-	Amount      int64      `json:"amount"`     // kobo
+	UnitPrice   Dec        `json:"unit_price"` // kobo; in the price currency until a rated month is converted
+	Amount      int64      `json:"amount"`     // kobo; in the price currency until a rated month is converted
+	// UnitPriceUSD and AmountUSD are the price in dollars (cents) of a line
+	// converted to naira at a rate; zero for a naira price book.
+	UnitPriceUSD Dec   `json:"unit_price_usd,omitempty"`
+	AmountUSD    int64 `json:"amount_usd,omitempty"`
 	// Revenue is the ledger account the line's revenue goes to.
 	Revenue string `json:"revenue"`
 	// Advance marks the next month's plan fee, billed in advance.

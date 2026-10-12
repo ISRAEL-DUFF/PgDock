@@ -67,7 +67,7 @@ const DeletionNotice = 7 * 24 * time.Hour
 
 func daysSince(t, now time.Time) int { return int(now.Sub(t).Hours() / 24) }
 
-func (s *Service) cardFailed(ctx context.Context, orgID uuid.UUID) {
+func (s *Service) cardFailed(ctx context.Context, orgID uuid.UUID, why string) {
 	a, err := s.Account(ctx, orgID)
 	if err != nil || a.CardFailingSince != nil {
 		return
@@ -77,6 +77,12 @@ func (s *Service) cardFailed(ctx context.Context, orgID uuid.UUID) {
 	_ = q.SetCardFailing(ctx, store.SetCardFailingParams{OrgID: orgID, CardFailingSince: &now})
 	if a.DunningState == DunningOK {
 		_ = q.SetDunning(ctx, store.SetDunningParams{OrgID: orgID, DunningState: DunningRetrying, DunningSince: &now})
+	}
+	if why != "" {
+		s.notifyOrg(ctx, orgID, "billing.wallet_short", fmt.Sprintf("PGDock: %s's wallet couldn't pay its invoice", s.orgName(ctx, orgID)),
+			fmt.Sprintf("Debiting the wallet failed: %s. Top it up with a bank transfer and PGDock will pay the invoice at once; it also tries again in 3, 5 and 7 days: %s/org/billing?org=%s\n",
+				why, s.publicURL, orgID))
+		return
 	}
 	s.notifyOrg(ctx, orgID, "billing.card_failed", fmt.Sprintf("PGDock: a payment for %s failed", s.orgName(ctx, orgID)),
 		fmt.Sprintf("Charging the saved card failed. PGDock will try again in 3, 5 and 7 days. Update the card or pay another way: %s/org/billing?org=%s\n", s.publicURL, orgID))
@@ -256,6 +262,11 @@ func (s *Service) dunOrg(ctx context.Context, orgID uuid.UUID) error {
 // retryCard charges each open invoice to the default method; true when
 // everything owed is paid.
 func (s *Service) retryCard(ctx context.Context, orgID uuid.UUID) (ok, unavailable bool, err error) {
+	if s.wallets != nil {
+		if a, err := s.Account(ctx, orgID); err == nil && walletID(a) != "" {
+			return s.chargeOpenInvoices(ctx, orgID, false)
+		}
+	}
 	q := store.New(s.db)
 	m, err := q.DefaultPaymentMethod(ctx, orgID)
 	if errors.Is(err, pgx.ErrNoRows) {

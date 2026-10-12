@@ -58,12 +58,14 @@ func (s *Service) Draft(ctx context.Context, orgID uuid.UUID, month time.Time) (
 			inv, err = q.UpdateDraftInvoice(ctx, store.UpdateDraftInvoiceParams{
 				ID: cur.ID, SubtotalMinor: r.Subtotal, VatMinor: r.VAT, TotalMinor: r.Total, WhtExpectedMinor: r.WHTExpected,
 				VatRate: r.VATRate.Numeric(), PriceBookVersion: r.PriceBookVersion,
+				UsdSubtotalMinor: usd(r, r.SubtotalUSD), UsdVatMinor: usd(r, r.VATUSD), UsdTotalMinor: usd(r, r.TotalUSD), Fx: fxJSON(r),
 			})
 		} else {
 			inv, err = q.InsertDraftInvoice(ctx, store.InsertDraftInvoiceParams{
 				OrgID: orgID, PeriodStart: pgDate(r.Period), PeriodEnd: pgDate(r.Period.AddDate(0, 1, -1)),
 				SubtotalMinor: r.Subtotal, VatMinor: r.VAT, TotalMinor: r.Total, WhtExpectedMinor: r.WHTExpected,
 				VatRate: r.VATRate.Numeric(), PriceBookVersion: r.PriceBookVersion,
+				UsdSubtotalMinor: usd(r, r.SubtotalUSD), UsdVatMinor: usd(r, r.VATUSD), UsdTotalMinor: usd(r, r.TotalUSD), Fx: fxJSON(r),
 			})
 		}
 		if err != nil {
@@ -80,6 +82,7 @@ func (s *Service) Draft(ctx context.Context, orgID uuid.UUID, month time.Time) (
 			if err := q.InsertInvoiceLine(ctx, store.InsertInvoiceLineParams{
 				InvoiceID: inv.ID, Kind: l.Kind, Description: l.Description, ProjectID: l.ProjectID, Metric: metric,
 				Quantity: l.Quantity.Numeric(), UnitPriceMinor: l.UnitPrice.Numeric(), AmountMinor: l.Amount, RevenueAccount: l.Revenue,
+				UsdUnitPrice: usdDec(r, l.UnitPriceUSD), UsdAmountMinor: usd(r, l.AmountUSD),
 			}); err != nil {
 				return err
 			}
@@ -88,6 +91,30 @@ func (s *Service) Draft(ctx context.Context, orgID uuid.UUID, month time.Time) (
 		return nil
 	})
 	return out, err
+}
+
+// usd is v for a dollar-priced month, nil for a naira one.
+func usd(r Rated, v int64) *int64 {
+	if r.Currency != CurrencyUSD {
+		return nil
+	}
+	return &v
+}
+
+func usdDec(r Rated, v Dec) pgtype.Numeric {
+	if r.Currency != CurrencyUSD {
+		return pgtype.Numeric{}
+	}
+	return v.Numeric()
+}
+
+// fxJSON is the rate a dollar-priced month was converted at.
+func fxJSON(r Rated) []byte {
+	if r.Currency != CurrencyUSD {
+		return nil
+	}
+	b, _ := json.Marshal(r.FX)
+	return b
 }
 
 // DraftAll drafts month's invoice for every organisation.
@@ -164,6 +191,15 @@ func (s *Service) Issue(ctx context.Context, invoiceID uuid.UUID, by *uuid.UUID)
 		return store.Invoice{}, err
 	}
 	now := s.Now().UTC()
+	// A dollar-priced invoice is converted to naira at today's rate, which
+	// is asked for before the transaction starts. Without a fresh rate it
+	// stays a draft and the next run tries again.
+	var fx FXQuote
+	if d, err := store.New(s.db).GetInvoice(ctx, invoiceID); err == nil && d.UsdSubtotalMinor != nil {
+		if fx, err = s.Quote(ctx, true); err != nil {
+			return store.Invoice{}, fmt.Errorf("invoice %s not issued: %w", d.ID, err)
+		}
+	}
 	var inv store.Invoice
 	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		q := store.New(tx)
@@ -180,6 +216,11 @@ func (s *Service) Issue(ctx context.Context, invoiceID uuid.UUID, by *uuid.UUID)
 		a, err := q.GetBillingAccount(ctx, cur.OrgID)
 		if err != nil {
 			return err
+		}
+		if cur.UsdSubtotalMinor != nil {
+			if cur, err = s.convertDraft(ctx, q, cur, a, set, fx); err != nil {
+				return err
+			}
 		}
 		o, err := q.GetOrg(ctx, cur.OrgID)
 		if err != nil {
@@ -528,4 +569,46 @@ func (s *Service) monthDone(ctx context.Context, month time.Time) (bool, error) 
 		return false, nil
 	}
 	return !last.Before(month), nil
+}
+
+// convertDraft prices a dollar-priced draft in naira at fx, as it is issued:
+// each line, the totals and VAT, with the rate kept on the invoice. Lines
+// whose cost is in naira already keep their kobo.
+func (s *Service) convertDraft(ctx context.Context, q *store.Queries, d store.Invoice, a store.BillingAccount, set Settings, fx FXQuote) (store.Invoice, error) {
+	lines, err := q.InvoiceLines(ctx, d.ID)
+	if err != nil {
+		return d, err
+	}
+	var subK, subU int64
+	for _, l := range lines {
+		kobo, cents := l.AmountMinor, int64(0)
+		koboUnit, centsUnit := DecFromNumeric(l.UnitPriceMinor), DecFromNumeric(l.UsdUnitPrice)
+		if l.UsdAmountMinor != nil {
+			cents = *l.UsdAmountMinor
+		}
+		if l.Metric != nil && nativeNaira(*l.Metric) {
+			cents, centsUnit = fx.Dollars(kobo), fx.Dollars1(koboUnit)
+		} else {
+			kobo, koboUnit = fx.Naira(cents), centsUnit.Mul(fx.Effective)
+		}
+		if err := q.SetDraftLineNaira(ctx, store.SetDraftLineNairaParams{
+			ID: l.ID, UnitPriceMinor: koboUnit.Numeric(), AmountMinor: kobo, UsdUnitPrice: centsUnit.Numeric(), UsdAmountMinor: &cents,
+		}); err != nil {
+			return d, err
+		}
+		subK += kobo
+		subU += cents
+	}
+	vatRate := DecFromNumeric(d.VatRate)
+	vatK, vatU := DecInt(subK).Mul(vatRate).Round(), DecInt(subU).Mul(vatRate).Round()
+	var wht int64
+	if a.DeductsWht && subK > 0 {
+		wht = DecInt(subK).Mul(set.WHTRate).Round()
+	}
+	raw, _ := json.Marshal(fx)
+	totalU := subU + vatU
+	return q.SetDraftInvoiceNaira(ctx, store.SetDraftInvoiceNairaParams{
+		ID: d.ID, SubtotalMinor: subK, VatMinor: vatK, TotalMinor: subK + vatK, WhtExpectedMinor: wht, Fx: raw,
+		UsdSubtotalMinor: &subU, UsdVatMinor: &vatU, UsdTotalMinor: &totalU,
+	})
 }

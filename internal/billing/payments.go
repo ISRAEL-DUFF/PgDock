@@ -88,6 +88,9 @@ func (s *Service) RecordPayment(ctx context.Context, p PaymentIn) (Settlement, e
 	})
 	if err == nil && !out.Duplicate {
 		s.afterPayment(ctx, p.OrgID)
+		if p.Provider == ProviderISwallet {
+			s.afterDeposit(p.OrgID)
+		}
 		s.notifyOrg(ctx, p.OrgID, "billing.receipt", fmt.Sprintf("PGDock: payment of %s received", Naira(p.AmountMinor)),
 			fmt.Sprintf("Thank you: %s received from %s on %s (reference %s).\n\nThe receipt: %s/org/billing?org=%s\n",
 				Naira(p.AmountMinor), s.orgName(ctx, p.OrgID), p.ReceivedAt.UTC().Format("2 January 2006"), p.ProviderRef, s.publicURL, p.OrgID))
@@ -133,7 +136,10 @@ func (s *Service) recordPayment(ctx context.Context, tx pgx.Tx, p PaymentIn) (Se
 	out := Settlement{Payment: pay}
 	left := p.AmountMinor
 	var whtTotal int64
-	if !p.Topup && a.Mode == ModePostpaid {
+	// A deposit into the org's wallet is the org's money until an invoice is
+	// debited from it: it settles nothing here (V4.1 wallets).
+	wallet := p.Provider == ProviderISwallet
+	if !p.Topup && a.Mode == ModePostpaid && !wallet {
 		invs, err := q.OpenInvoices(ctx, p.OrgID)
 		if err != nil {
 			return out, err
@@ -201,7 +207,11 @@ func (s *Service) recordPayment(ctx context.Context, tx pgx.Tx, p PaymentIn) (Se
 		t.Entries = append(t.Entries, Cr(AccReceivable, &org, settled))
 	}
 	if left > 0 {
-		t.Entries = append(t.Entries, Cr(AccCreditBalance, &org, left))
+		held := AccCreditBalance
+		if wallet {
+			held = AccWalletBalance
+		}
+		t.Entries = append(t.Entries, Cr(held, &org, left))
 	}
 	if _, err := Post(ctx, tx, t); err != nil {
 		return out, err
@@ -215,7 +225,7 @@ func (s *Service) recordPayment(ctx context.Context, tx pgx.Tx, p PaymentIn) (Se
 			return out, err
 		}
 	}
-	if left > 0 && a.Mode == ModePostpaid && p.Topup {
+	if left > 0 && a.Mode == ModePostpaid && p.Topup && !wallet {
 		// A top-up on a postpaid account pays what is open.
 		if _, err := s.applyCredit(ctx, tx, p.OrgID); err != nil {
 			return out, err
@@ -295,6 +305,14 @@ func (s *Service) ApplyCredit(ctx context.Context, orgID uuid.UUID) (int64, erro
 func (s *Service) afterPayment(ctx context.Context, orgID uuid.UUID) {
 	if s.onPaid != nil {
 		s.onPaid(ctx, orgID)
+	}
+}
+
+// afterDeposit runs once money has arrived in an org's wallet: what the
+// org owes is debited from it if it agreed to that.
+func (s *Service) afterDeposit(orgID uuid.UUID) {
+	if s.wallets != nil {
+		go s.chargeOpenAsync(orgID)
 	}
 }
 

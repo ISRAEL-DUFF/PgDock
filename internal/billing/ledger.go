@@ -23,6 +23,10 @@ const (
 	AccWHTReceivable = "wht_receivable" // WHT deducted, awaiting the credit note
 	AccVATPayable    = "vat_payable"    // VAT collected, owed to the tax authority
 	AccCreditsIssued = "credits_issued" // SLA and promotional credits
+	// AccWalletBalance is what the org's wallet at the provider holds: money
+	// that is theirs until an invoice is debited from it. It always equals
+	// the wallet's balance there (the nightly reconciliation checks).
+	AccWalletBalance = "wallet_balance"
 	// Prefixed platform accounts.
 	AccRevenuePrefix = "revenue:" // revenue:<plan or product line>
 	AccCashPrefix    = "cash:"    // cash:flutterwave, cash:ispend, cash:bank
@@ -32,7 +36,7 @@ const (
 // orgAccount reports whether account belongs to one organisation.
 func orgAccount(account string) bool {
 	switch account {
-	case AccReceivable, AccCreditBalance, AccWHTReceivable:
+	case AccReceivable, AccCreditBalance, AccWHTReceivable, AccWalletBalance:
 		return true
 	}
 	return false
@@ -40,7 +44,7 @@ func orgAccount(account string) bool {
 
 func validAccount(account string) bool {
 	switch account {
-	case AccReceivable, AccCreditBalance, AccWHTReceivable, AccVATPayable, AccCreditsIssued:
+	case AccReceivable, AccCreditBalance, AccWHTReceivable, AccVATPayable, AccCreditsIssued, AccWalletBalance:
 		return true
 	}
 	for _, p := range []string{AccRevenuePrefix, AccCashPrefix, AccFeesPrefix} {

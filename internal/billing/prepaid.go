@@ -252,6 +252,14 @@ func (s *Service) chargeOnIssue(ctx context.Context, inv store.Invoice) {
 	if inv.Status != StatusIssued && inv.Status != StatusPartiallyPaid {
 		return
 	}
+	if s.wallets != nil {
+		if a, err := s.Account(ctx, inv.OrgID); err == nil && walletID(a) != "" {
+			if _, err := s.chargeInvoiceFromWallet(ctx, inv, false); err != nil {
+				s.log.Warn("debiting a wallet for an invoice", "invoice", deref(inv.Number), "err", err)
+			}
+			return
+		}
+	}
 	q := store.New(s.db)
 	m, err := q.DefaultPaymentMethod(ctx, inv.OrgID)
 	if err != nil {
@@ -266,7 +274,7 @@ func (s *Service) chargeOnIssue(ctx context.Context, inv store.Invoice) {
 	case err != nil:
 		s.log.Warn("charging an invoice", "invoice", deref(inv.Number), "err", err)
 	case !out.Succeeded && !out.Unavailable && s.onChargeFailed != nil:
-		s.onChargeFailed(ctx, inv.OrgID)
+		s.onChargeFailed(ctx, inv.OrgID, "")
 	}
 }
 
