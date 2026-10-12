@@ -71,7 +71,7 @@ connection with a proxy).
 | Admin → Billing → Reconciliation → Run now | No differences, including the wallet balances |
 | Admin → Billing → Ledger | No findings |
 
-Check the open items in [the wallet provider](iswallet.md#what-is-assumed-or-still-open)
+Check the open items in [the wallet provider](iswallet.md#handled-and-still-open)
 against what the sandbox does, and record the date, who ran it and any
 differences below; the paid launch waits on a run with none.
 

@@ -321,7 +321,7 @@ func (f *Fake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodGet && len(parts) == 5 && parts[1] == "wallets" && parts[3] == "transactions":
 		for _, t := range f.txns {
 			if t.ID == parts[4] && t.WalletID == parts[2] {
-				f.reply(w, 200, map[string]any{"txn_id": t.ID, "type": t.Type, "direction": t.Direction, "status": "completed", "amount": t.Amount,
+				f.reply(w, 200, map[string]any{"txn_id": t.ID, "type": t.Type, "direction": t.Direction, "status": "CONFIRMED_SUCCESS", "amount": t.Amount,
 					"amount_credited": t.Amount, "currency": "NGN", "occurred_at": t.At, "confirmed_at": t.At, "narration": t.Narration})
 				return
 			}
@@ -425,7 +425,7 @@ func (f *Fake) Deposit(account string, gross int64) (walletID, txnID string, cre
 	wl.Balance += credited
 	t := f.post(wl.ID, "inflow", "credit", credited, "bank transfer")
 	f.hook("wallet.credit.posted", wl.ID, map[string]any{"wallet_id": wl.ID, "amount": gross, "amount_credited": credited, "currency": "NGN",
-		"balance_after": wl.Balance, "txn_id": t.ID, "source_type": "pull_inflow"})
+		"balance_after": wl.Balance, "txn_id": t.ID, "source_type": "va_deposit"})
 	return wl.ID, t.ID, credited, nil
 }
 

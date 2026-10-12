@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -41,6 +42,8 @@ type Config struct {
 	Client   *http.Client
 	// Now is the clock for webhook replay protection.
 	Now func() time.Time
+	// Log receives what needs attention (a reversal, a state nobody knows).
+	Log *slog.Logger
 }
 
 // MaxSkew is how far a webhook's timestamp may be from now.
@@ -62,6 +65,9 @@ func New(cfg Config) *Client {
 	}
 	if cfg.Now == nil {
 		cfg.Now = time.Now
+	}
+	if cfg.Log == nil {
+		cfg.Log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
 	return &Client{cfg: cfg}
 }
@@ -371,15 +377,26 @@ type txn struct {
 	ConfirmedAt    time.Time `json:"confirmed_at"`
 }
 
-// status maps iswallet's transaction status to billing's.
-func status(s string) string {
-	switch strings.ToLower(s) {
-	case "", "posted", "completed", "confirmed", "success", "succeeded", "settled":
+// status maps iswallet's transaction state to billing's. The transaction
+// endpoints answer in the raw uppercase vocabulary and the others in
+// lowercase; both are matched. UNRESOLVED means the provider itself doesn't
+// know (a payout may still be live), so it waits and is reported. A reversed
+// transaction succeeded and was then clawed back: it is not booked, because
+// the money is gone. A state nobody has written down waits and is reported.
+func (c *Client) status(id, s string) string {
+	switch strings.ToUpper(s) {
+	case "CONFIRMED_SUCCESS", "CONFIRMED":
 		return billing.TxSucceeded
-	case "pending", "processing", "initiated":
+	case "PENDING":
+		return billing.TxPending
+	case "CONFIRMED_FAILURE", "FAILED", "REVERSED":
+		return billing.TxFailed
+	case "UNRESOLVED", "MANUAL_RESOLVED", "RESOLVED":
+		c.cfg.Log.Error("iswallet: a transaction is unresolved or was resolved by hand; check its ledger", "txn", id, "state", s)
 		return billing.TxPending
 	}
-	return billing.TxFailed
+	c.cfg.Log.Error("iswallet: a transaction in a state PGDock doesn't know; treating it as pending", "txn", id, "state", s)
+	return billing.TxPending
 }
 
 // Verify reads a deposit back: providerRef is <wallet id>:<transaction id>.
@@ -395,16 +412,19 @@ func (c *Client) Verify(ctx context.Context, providerRef string) (billing.Transa
 	if t.Direction != "credit" || t.Type != "inflow" {
 		return billing.Transaction{}, fmt.Errorf("iswallet: transaction %s is not a deposit (%s %s)", id, t.Direction, t.Type)
 	}
+	// The wallet was credited the net of the collection fee. There is no
+	// fallback to the payer's gross: a deposit without it is the provider's
+	// bug, and booking the gross would over-state the wallet by the fee.
 	amount := t.AmountCredited
 	if amount <= 0 {
-		amount = t.Amount
+		return billing.Transaction{}, fmt.Errorf("iswallet: deposit %s has no amount_credited; not booking it", id)
 	}
 	at := t.ConfirmedAt
 	if at.IsZero() {
 		at = t.OccurredAt
 	}
 	// AccountNumber carries the wallet id: the virtual account's reference.
-	return billing.Transaction{ProviderRef: providerRef, Status: status(t.Status), AmountMinor: amount, Currency: t.Currency,
+	return billing.Transaction{ProviderRef: providerRef, Status: c.status(id, t.Status), AmountMinor: amount, Currency: t.Currency,
 		Channel: billing.ChannelTransfer, AccountNumber: wid, At: at}, nil
 }
 
@@ -484,21 +504,37 @@ func (c *Client) ParseWebhook(_ context.Context, r *http.Request) (billing.Event
 			Currency       string `json:"currency"`
 			TxnID          string `json:"txn_id"`
 			SourceType     string `json:"source_type"`
+			// Uncovered is set on a reversal when the customer had spent it.
+			Uncovered int64 `json:"uncovered_amount"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(body, &env); err != nil {
 		return billing.Event{}, fmt.Errorf("iswallet webhook: %w", err)
 	}
-	if env.EventType != "wallet.credit.posted" || (env.Data.SourceType != "pull_inflow" && env.Data.SourceType != "va_deposit") {
+	switch env.EventType {
+	case "wallet.credit.reversed", "wallet.credit.rejected":
+		// Not acted on yet: the books will hold more than the wallet, and the
+		// nightly balance reconciliation flags it. Say why, so the difference
+		// has a cause attached when it appears.
+		c.cfg.Log.Error("iswallet: a deposit was reversed or rejected; the wallet's balance will differ from PGDock's books until it is handled",
+			"event", env.EventType, "wallet", env.WalletID, "txn", env.Data.TxnID, "amount", env.Data.Amount, "uncovered", env.Data.Uncovered)
+		return billing.Event{}, billing.ErrIgnoredEvent
+	}
+	// A customer's bank transfer is source_type va_deposit; wallet_transfer
+	// is our own debits and refunds, and pull_inflow an API PGDock doesn't use.
+	if env.EventType != "wallet.credit.posted" || env.Data.SourceType != "va_deposit" {
 		return billing.Event{}, billing.ErrIgnoredEvent
 	}
 	wid := env.Data.WalletID
 	if wid == "" {
 		wid = env.WalletID
 	}
+	// data.amount is the payer's gross; the wallet got amount_credited. A
+	// deposit without it is an error to look into, never a default.
 	amount := env.Data.AmountCredited
 	if amount <= 0 {
-		amount = env.Data.Amount
+		c.cfg.Log.Error("iswallet: a deposit event has no amount_credited", "txn", env.Data.TxnID, "wallet", wid, "amount", env.Data.Amount)
+		return billing.Event{}, fmt.Errorf("iswallet webhook: deposit %s has no amount_credited", env.Data.TxnID)
 	}
 	// Dedupe on the transaction, not on the delivery: an event can be sent twice.
 	return billing.Event{ID: env.Data.TxnID, Kind: billing.EventTransferReceived, ProviderRef: wid + billing.RefSep + env.Data.TxnID,

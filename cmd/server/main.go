@@ -261,7 +261,7 @@ func run() error {
 	}
 	if cfg.Payments.ISwalletOn() {
 		billingSvc.SetWallets(iswallet.New(iswallet.Config{BaseURL: cfg.Payments.ISwalletURL, APIKey: cfg.Payments.ISwalletAPIKey,
-			WebhookSecret: cfg.Payments.ISwalletWebhookSecret, ClientID: cfg.Payments.ISwalletClientID}), cfg.Payments.ISwalletOwnerPrefix)
+			WebhookSecret: cfg.Payments.ISwalletWebhookSecret, ClientID: cfg.Payments.ISwalletClientID, Log: log}), cfg.Payments.ISwalletOwnerPrefix)
 	}
 	if backups != nil {
 		billingSvc.SetDocStore(billingDocs{backups})

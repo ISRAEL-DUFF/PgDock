@@ -70,7 +70,7 @@ Webhooks come from a subscription PGDock makes
   `data`.
 - **Deposits are net.** A deposit arrives net of the provider's collection
   fee (1.4%, at most ₦2,000), and `data.amount_credited` is what the wallet
-  was credited. PGDock books that, not the gross.
+  was credited. PGDock books that, never the gross `data.amount`.
 - **Rate limit.** 100 requests a minute per key, with `X-RateLimit-Reset`
   on every response; a replayed idempotent request doesn't count. PGDock's
   volume is tiny; spread a large month-end run over the hour.
@@ -79,46 +79,67 @@ Webhooks come from a subscription PGDock makes
 
 ## Limits
 
-A wallet's limits come from its KYC tier and apply to money going **out**
-(transfers and payouts); deposits aren't capped. PGDock's debits are
-transfers, so a plan that costs more than the tier's limit can't be debited:
-a new wallet (tier 1) moves at most ₦50,000 a day, which is below a
-$49 plan. PGDock opens wallets at **tier 2**, which needs a BVN, and
-Pro and Team fit within its limits. The provider's own pages disagree on
-the tier-2 numbers (a daily limit of ₦200,000 and a balance cap of ₦500,000
-in the OpenAPI; ₦500,000 a transaction and ₦1,000,000 a day in its answer
-to PGDock). Until that is settled, treat ₦200,000 a day as the ceiling for
-planning, and ask for tier 3 for an organisation with a larger invoice.
+A wallet's limits come from its KYC tier **and its owner type**, and apply
+to money going **out** (transfers and payouts); deposits aren't capped and
+there is no balance cap. PGDock's debits are transfers, so a plan that costs
+more than the limit can't be debited. For the `client_end_business` wallets
+PGDock opens (at **tier 2**, which needs a BVN):
 
-## What is assumed or still open
+| Tier | Per transaction | Per day |
+| --- | --- | --- |
+| 1 | ₦50,000 | ₦50,000 |
+| **2** | **₦500,000** | **₦1,000,000** |
+| 3 | ₦5,000,000 | ₦10,000,000 |
 
-These are in the code and the fake, and need a check against the sandbox
-before launch (the sandbox is provisioned by the provider on request):
+A new wallet at tier 1 can't pay a $49 plan; at tier 2 Pro, Team and a few
+hundred dollars of dedicated instances fit, and an invoice over ₦500,000
+needs tier 3. These are read live with `GET /v1/admin/wallets/{id}/limits`
+(an operator call), not from any document. They still carry an
+unratified-pending-compliance note at the provider: PGDock owes it the
+largest invoice it expects, so the ceiling is confirmed rather than
+inherited.
 
-1. **The tier numbers** above, and the ceiling PGDock needs: the largest
-   expected monthly invoice, which for an organisation with dedicated
-   instances can be hundreds of dollars.
-2. **Transaction statuses.** The OpenAPI doesn't list them. PGDock treats
-   `posted`, `completed`, `confirmed`, `success`, `succeeded` and `settled`
-   as done, `pending`, `processing` and `initiated` as waiting, and the rest
-   as failed.
-3. **Reversals.** `wallet.credit.reversed` (a credit the bank clawed back)
-   and `wallet.credit.rejected` are not handled: PGDock ignores the event.
-   A reversal leaves the books holding more than the wallet does, and the
-   nightly balance reconciliation will flag it. Handling it (a ledger
-   reversal, and dunning if an invoice was paid with it) is the next piece
-   of work here.
-4. **The webhook's field names**, in particular `data.amount_credited`
-   (named in the OpenAPI for transaction rows; PGDock falls back to
-   `data.amount` if an event lacks it).
-5. **Wallet creation for tier 2** at once: the request's flat `email` and
-   `phone` are sent with `initial_tier`, as the OpenAPI says a tier above 1
-   needs.
-6. **Rate history** isn't readable by a client key. The provider has it on
-   its list; PGDock needs it for audits and for customers' tax records, and
-   until then relies on the quote kept on each invoice.
-7. **The dollar rate and spread**: a commercial decision with the
-   provider ([Payments](payments.md#the-dollar-rate)).
-8. **Regulatory position** (agent, merchant of record, neither) and the
+## Handled, and still open
+
+Confirmed by the provider on 12 October 2026, and in the code and its tests
+(`internal/billing/iswallet/iswallet_test.go`):
+
+- **A customer's bank transfer is `source_type: va_deposit`.** `pull_inflow`
+  is a collection API PGDock doesn't use and `wallet_transfer` is PGDock's
+  own debits and refunds. Only `va_deposit` is booked.
+- **`data.amount_credited` is what the wallet got; `data.amount` is the
+  payer's gross.** PGDock books the first and never falls back to the
+  second: a deposit without it is an error, logged and refused, because
+  booking the gross would over-state the wallet by the fee.
+- **Transaction states.** The transaction endpoints answer in an uppercase
+  vocabulary and the payout and request endpoints in lowercase; both are
+  matched. `CONFIRMED_SUCCESS` is done; `PENDING` waits;
+  `CONFIRMED_FAILURE` fails; `REVERSED` (succeeded, then clawed back) is not
+  booked; **`UNRESOLVED`** (the provider doesn't know) and `MANUAL_RESOLVED`
+  wait and are logged as errors for a person to look at, never treated as
+  failed or done; a state nobody has written down does the same.
+- **Wallet creation at tier 2** takes a flat `email`, `phone` and `bvn`
+  with `initial_tier`; a nested profile is rejected.
+
+Still open:
+
+1. **Reversals.** `wallet.credit.reversed` (and `.rejected`) are logged as
+   errors but not acted on. A reversal takes back the net amount (`data.amount`
+   is what left the wallet) and can leave the wallet **negative** on
+   purpose: `uncovered_amount` appears when the customer had spent it, which
+   means the organisation now owes PGDock. Until handled (a ledger reversal,
+   and reopening an invoice the money paid), the books hold more than the
+   wallet, and the nightly balance reconciliation flags it with the log
+   line as its cause.
+2. **Rate history** is now readable with a client key
+   (`GET /v1/rates/history?from=USD&to=NGN&since&until&limit`): market
+   rates only, the spread in force isn't recorded. PGDock still keeps the
+   whole quote on each invoice, which is the evidence; the history is
+   context for an audit and isn't used by the code.
+3. **The dollar rate and spread**: a commercial decision with the provider
+   ([Payments](payments.md#the-dollar-rate)). The feed is the official rate
+   with no spread; the provider can pin the pair to a desk rate.
+4. **The largest monthly invoice PGDock expects**, for the limits above.
+5. **Regulatory position** (agent, merchant of record, neither) and the
    production go-live process are owned by the provider's compliance and
    commercial teams, not by this document.
