@@ -76,6 +76,7 @@ export type BillingContact = S["BillingContact"];
 export type BillingForecast = S["BillingForecast"];
 export type BillingSettings = S["BillingSettings"];
 export type PlanChange = S["PlanChange"];
+export type PlanOption = S["PlanOption"];
 export type PlanChangeRequest = S["PlanChangeRequest"];
 export type PriceBook = S["PriceBook"];
 /** The generated schema still says NGN-only; a price book may be in USD

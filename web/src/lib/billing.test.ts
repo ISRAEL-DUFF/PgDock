@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   approxNaira,
   bps,
+  channelLabel,
   money,
   naira,
   parseNaira,
@@ -57,6 +58,7 @@ describe("dollars", () => {
     expect(usdUnit(0.0002)).toBe("0.0002¢");
     expect(usdUnit(0.5)).toBe("0.5¢");
     expect(usdUnit(250)).toBe("$2.50");
+    expect(usdUnit(1.5)).toBe("$0.015");
   });
 });
 
@@ -75,5 +77,14 @@ describe("rates", () => {
   it("words a spread", () => {
     expect(bps(100)).toBe("1%");
     expect(bps(150)).toBe("1.5%");
+  });
+});
+
+describe("channelLabel", () => {
+  it("names how money arrived", () => {
+    expect(channelLabel("wallet")).toBe("Wallet debit");
+    expect(channelLabel("transfer")).toBe("Bank transfer");
+    expect(channelLabel("saved_card")).toBe("Card");
+    expect(channelLabel("something_new")).toBe("something new");
   });
 });

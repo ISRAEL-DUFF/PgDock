@@ -5,6 +5,24 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Billing: dollar prices, wallets
+- Prices are in **US dollars** (cents) and an invoice is converted to naira
+  when it is issued, at a rate frozen on it (the market rate, the spread, the
+  effective rate, when and where it was priced). The invoice, its PDF and its
+  email show both. A rate older than `fx_max_age_hours` (4) is refused: the
+  invoice stays a draft. The ledger, payments and credit notes stay in kobo.
+  A price book in naira still works, and a platform with no wallet provider
+  starts with one.
+- Each organisation has a **wallet** at the wallet provider (iswallet),
+  funded by bank transfer into its own account number and debited for each
+  invoice when it is issued, and when it is topped up, under a **consent** an
+  owner gives (and can withdraw) and PGDock records. An unanswered debit is
+  looked up by its idempotency key and never repeated; a wallet too short for
+  an invoice starts dunning and pays it when topped up. The nightly
+  reconciliation compares every wallet's balance with the books. New endpoints
+  under `/orgs/{org}/billing`: `wallet`, `debit-consent`, and `pay-from-wallet`.
+  Configured by `PGDOCK_ISWALLET_*`. See docs/payments.md and docs/iswallet.md.
+
 ### Deploying
 - `deploy/compose/upgrade.sh <tag>`: an upgrade with a verified metadata
   backup, health and version checks, and an automatic rollback if the new

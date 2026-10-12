@@ -133,15 +133,14 @@ rehearsal on a copy of production.
   details first. A **Pro** quota plan is added between Personal and Team
   (an existing quota plan named Pro is kept as it is). See
   [Billing](billing.md).
-- **Payments** (migration 00027) are off until you configure a provider:
-  `PGDOCK_FLW_SECRET_KEY` and `PGDOCK_FLW_WEBHOOK_HASH` for Flutterwave,
-  `PGDOCK_ISPEND_BASE_URL`, `PGDOCK_ISPEND_API_KEY` and
-  `PGDOCK_ISPEND_WEBHOOK_SECRET` for iSpend. Set the providers' webhook
-  URLs to `https://<your PGDock>/api/v1/payments/webhooks/flutterwave` and
-  `…/ispend`; they must be reachable from the internet. Dunning starts
+- **Payments** (migration 00027, reworked in V4.1) are off until you configure
+  the wallet provider: `PGDOCK_ISWALLET_BASE_URL`, `PGDOCK_ISWALLET_API_KEY`,
+  `PGDOCK_ISWALLET_WEBHOOK_SECRET` and `PGDOCK_ISWALLET_OWNER_PREFIX`. Set the
+  provider's webhook to `https://<your PGDock>/api/v1/payments/webhooks/iswallet`;
+  it must be reachable from the internet. Dunning starts
   for invoices past their due date once the server runs, but nothing is
   deleted for non-payment unless you turn it on (Admin → Billing →
-  Settings). See [Payments](payments.md).
+  Settings). See [Payments](payments.md) and [the wallet provider](iswallet.md).
 - **The Free tier** (migration 00028): idle Free projects are paused after
   7 days without client connections (owners are warned a day before) and
   archived after 90 days paused. The activity clock of every existing
