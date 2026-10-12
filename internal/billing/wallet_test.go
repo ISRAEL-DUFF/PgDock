@@ -402,3 +402,70 @@ func TestWalletCreationIsIdempotent(t *testing.T) {
 		t.Fatalf("%d wallets", n)
 	}
 }
+
+func TestWalletReconciliationFindsAndRepairsAMissedDeposit(t *testing.T) {
+	w := newWalletWorld(t)
+	ctx := context.Background()
+	org, wid := w.walletOrg(t, "missed", 0, true)
+	va, err := w.s.EnsureTransferAccount(ctx, org)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The deposit's webhook is lost.
+	w.fake.DropWebhooks(1)
+	if _, _, _, err := w.fake.Deposit(va.AccountNumber, 20_000_00); err != nil {
+		t.Fatal(err)
+	}
+	from, to := w.clk.Now().Add(-24*time.Hour), w.clk.Now().Add(time.Hour)
+	rs, err := w.s.Reconcile(ctx, from, to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	for _, r := range rs {
+		for _, d := range r.Differences {
+			found = found || d.Kind == "wallet_balance" || d.Kind == "missing_in_pgdock"
+		}
+	}
+	if !found {
+		t.Fatalf("a deposit PGDock never heard of wasn't flagged: %+v", rs)
+	}
+	// The hourly re-query posts it, and the books agree again.
+	if n, err := w.s.Requery(ctx, from, to); err != nil || n != 1 {
+		t.Fatalf("requery posted %d: %v", n, err)
+	}
+	if got, want := w.held(t, org, billing.AccWalletBalance), w.fake.WalletBalance(wid); got != want || got != 19_720_00 {
+		t.Fatalf("books %d, provider %d", got, want)
+	}
+	rs, err = w.s.Reconcile(ctx, from, to)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range rs {
+		if len(r.Differences) != 0 {
+			t.Fatalf("still differing: %+v", r)
+		}
+	}
+	mustCheck(t, w.db)
+}
+
+func TestInvoicePDFInDollars(t *testing.T) {
+	w := newWalletWorld(t)
+	ctx := context.Background()
+	org, _ := w.walletOrg(t, "pdf", 100_000_00, true)
+	draft := w.proDraft(t, org)
+	issued, err := w.s.Issue(ctx, draft.ID, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.waitPaid(t, issued.ID)
+	inv := w.invoice(t, issued.ID)
+	lines, err := store.New(w.db).InvoiceLines(ctx, inv.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pdf, err := billing.InvoicePDF(inv, lines, nil)
+	if err != nil || !strings.HasPrefix(string(pdf), "%PDF") {
+		t.Fatalf("pdf: %d bytes, %v", len(pdf), err)
+	}
+}

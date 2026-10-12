@@ -78,45 +78,78 @@ func InvoicePDF(inv store.Invoice, lines []store.InvoiceLine, credits []store.Cr
 	}
 	pdf.Ln(4)
 
-	// Lines.
+	// Lines: priced in dollars and converted to naira at the rate frozen on
+	// the invoice, or in naira alone (an older invoice).
+	usdMode := inv.UsdTotalMinor != nil
+	descW, qtyW, unitW, usdW, ngnW := 100.0, 25.0, 25.0, 0.0, 30.0
+	unitHead := "Unit (kobo)"
+	if usdMode {
+		descW, qtyW, unitW, usdW, ngnW = 66, 24, 28, 27, 35
+		unitHead = "Unit (USD cents)"
+	}
 	pdf.SetFillColor(238, 238, 238)
 	pdf.SetFont("Helvetica", "B", 9)
-	pdf.CellFormat(100, 7, "Description", "B", 0, "L", true, 0, "")
-	pdf.CellFormat(25, 7, "Quantity", "B", 0, "R", true, 0, "")
-	pdf.CellFormat(25, 7, "Unit (kobo)", "B", 0, "R", true, 0, "")
-	pdf.CellFormat(30, 7, "Amount", "B", 1, "R", true, 0, "")
+	pdf.CellFormat(descW, 7, "Description", "B", 0, "L", true, 0, "")
+	pdf.CellFormat(qtyW, 7, "Quantity", "B", 0, "R", true, 0, "")
+	pdf.CellFormat(unitW, 7, unitHead, "B", 0, "R", true, 0, "")
+	if usdMode {
+		pdf.CellFormat(usdW, 7, "Amount (USD)", "B", 0, "R", true, 0, "")
+		pdf.CellFormat(ngnW, 7, "Amount (NGN)", "B", 1, "R", true, 0, "")
+	} else {
+		pdf.CellFormat(ngnW, 7, "Amount", "B", 1, "R", true, 0, "")
+	}
 	pdf.SetFont("Helvetica", "", 8.5)
 	for _, l := range lines {
 		desc := tr(l.Description)
-		h := 5.0 * float64(max(1, len(pdf.SplitLines([]byte(desc), 98))))
+		h := 5.0 * float64(max(1, len(pdf.SplitLines([]byte(desc), descW-2))))
 		x, yy := pdf.GetX(), pdf.GetY()
 		if yy+h > 280 {
 			pdf.AddPage()
 			x, yy = pdf.GetX(), pdf.GetY()
 		}
-		pdf.MultiCell(100, 5, desc, "", "L", false)
-		pdf.SetXY(x+100, yy)
-		pdf.CellFormat(25, 5, DecFromNumeric(l.Quantity).Round2(), "", 0, "R", false, 0, "")
-		pdf.CellFormat(25, 5, DecFromNumeric(l.UnitPriceMinor).Round2(), "", 0, "R", false, 0, "")
-		pdf.CellFormat(30, 5, Naira(l.AmountMinor), "", 1, "R", false, 0, "")
+		pdf.MultiCell(descW, 5, desc, "", "L", false)
+		pdf.SetXY(x+descW, yy)
+		unit := DecFromNumeric(l.UnitPriceMinor)
+		if usdMode {
+			unit = DecFromNumeric(l.UsdUnitPrice)
+		}
+		pdf.CellFormat(qtyW, 5, DecFromNumeric(l.Quantity).Round2(), "", 0, "R", false, 0, "")
+		pdf.CellFormat(unitW, 5, unit.Round2(), "", 0, "R", false, 0, "")
+		if usdMode {
+			var cents int64
+			if l.UsdAmountMinor != nil {
+				cents = *l.UsdAmountMinor
+			}
+			pdf.CellFormat(usdW, 5, Money(CurrencyUSD, cents), "", 0, "R", false, 0, "")
+		}
+		pdf.CellFormat(ngnW, 5, Naira(l.AmountMinor), "", 1, "R", false, 0, "")
 		pdf.SetY(yy + h)
 	}
 	pdf.Ln(2)
-	total := func(name, value string, bold bool) {
+	total := func(name, usdValue, value string, bold bool) {
 		style := ""
 		if bold {
 			style = "B"
 		}
 		pdf.SetFont("Helvetica", style, 9.5)
-		pdf.CellFormat(150, 6, tr(name), "", 0, "R", false, 0, "")
-		pdf.CellFormat(30, 6, value, "", 1, "R", false, 0, "")
+		pdf.CellFormat(180-ngnW-usdW, 6, tr(name), "", 0, "R", false, 0, "")
+		if usdMode {
+			pdf.CellFormat(usdW, 6, usdValue, "", 0, "R", false, 0, "")
+		}
+		pdf.CellFormat(ngnW, 6, value, "", 1, "R", false, 0, "")
 	}
-	total("Subtotal", Naira(inv.SubtotalMinor), false)
-	total(fmt.Sprintf("VAT at %s%%", DecFromNumeric(inv.VatRate).Mul(DecInt(100)).String()), Naira(inv.VatMinor), false)
-	total("Total", Naira(inv.TotalMinor), true)
+	usdOf := func(v *int64) string {
+		if v == nil {
+			return ""
+		}
+		return Money(CurrencyUSD, *v)
+	}
+	total("Subtotal", usdOf(inv.UsdSubtotalMinor), Naira(inv.SubtotalMinor), false)
+	total(fmt.Sprintf("VAT at %s%%", DecFromNumeric(inv.VatRate).Mul(DecInt(100)).String()), usdOf(inv.UsdVatMinor), Naira(inv.VatMinor), false)
+	total("Total", usdOf(inv.UsdTotalMinor), Naira(inv.TotalMinor), true)
 	if inv.WhtExpectedMinor > 0 {
-		total("Withholding tax you may deduct", Naira(inv.WhtExpectedMinor), false)
-		total("Payable after WHT", Naira(inv.TotalMinor-inv.WhtExpectedMinor), false)
+		total("Withholding tax you may deduct", "", Naira(inv.WhtExpectedMinor), false)
+		total("Payable after WHT", "", Naira(inv.TotalMinor-inv.WhtExpectedMinor), false)
 	}
 	if len(credits) > 0 {
 		pdf.Ln(4)
@@ -130,7 +163,17 @@ func InvoicePDF(inv store.Invoice, lines []store.InvoiceLine, credits []store.Cr
 	}
 	pdf.Ln(6)
 	pdf.SetFont("Helvetica", "I", 8)
-	pdf.MultiCell(180, 4, tr("Amounts in Nigerian naira (NGN). Usage is billed in arrears for the period above; the plan fee is billed in advance for the following month."), "", "L", false)
+	note := "Amounts in Nigerian naira (NGN). "
+	if usdMode {
+		note = "Prices are in US dollars (USD). The amount due is in Nigerian naira (NGN), converted at the rate below. "
+		var fx FXQuote
+		if json.Unmarshal(inv.Fx, &fx) == nil && !fx.Effective.IsZero() {
+			when := fx.FetchedAt.UTC().Format("2 Jan 2006 15:04")
+			note += fmt.Sprintf("Rate: NGN %s per USD 1 (market rate NGN %s, spread %s%%), priced %s UTC. ",
+				fx.Effective.Round2(), fx.Market.Round2(), DecInt(int64(fx.SpreadBPS)).Frac(1, 100).Round2(), when)
+		}
+	}
+	pdf.MultiCell(180, 4, tr(note+"Usage is billed in arrears for the period above; the plan fee is billed in advance for the following month."), "", "L", false)
 
 	var buf bytes.Buffer
 	if err := pdf.Output(&buf); err != nil {

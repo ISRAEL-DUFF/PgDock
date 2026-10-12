@@ -343,6 +343,13 @@ func (s *Service) mailInvoice(ctx context.Context, inv store.Invoice) {
 	month := inv.PeriodStart.Time.Format("January 2006")
 	var b strings.Builder
 	fmt.Fprintf(&b, "Invoice %s for %s's usage in %s.\n\n", *inv.Number, s.orgName(ctx, inv.OrgID), month)
+	if inv.UsdTotalMinor != nil {
+		fmt.Fprintf(&b, "Priced in dollars: %s before VAT, %s with VAT.\n", Money(CurrencyUSD, deref64(inv.UsdSubtotalMinor)), Money(CurrencyUSD, *inv.UsdTotalMinor))
+		var fx FXQuote
+		if json.Unmarshal(inv.Fx, &fx) == nil && !fx.Effective.IsZero() {
+			fmt.Fprintf(&b, "Converted to naira at NGN %s per USD 1.\n", fx.Effective.Round2())
+		}
+	}
 	fmt.Fprintf(&b, "Subtotal: %s\nVAT: %s\nTotal: %s\n", Naira(inv.SubtotalMinor), Naira(inv.VatMinor), Naira(inv.TotalMinor))
 	if inv.WhtExpectedMinor > 0 {
 		fmt.Fprintf(&b, "Withholding tax you may deduct: %s (please send the WHT credit note)\n", Naira(inv.WhtExpectedMinor))
@@ -357,6 +364,13 @@ func (s *Service) mailInvoice(ctx context.Context, inv store.Invoice) {
 	}); err != nil {
 		s.log.Warn("invoice email", "invoice", *inv.Number, "err", err)
 	}
+}
+
+func deref64(v *int64) int64 {
+	if v == nil {
+		return 0
+	}
+	return *v
 }
 
 func (s *Service) orgName(ctx context.Context, orgID uuid.UUID) string {

@@ -97,6 +97,9 @@ func (s *Service) Reconcile(ctx context.Context, from, to time.Time) ([]Reconcil
 			s.log.Warn("billing: reconciliation differences", "provider", name, "from", from, "differences", len(r.Differences))
 		}
 	}
+	if s.wallets != nil {
+		out = append(out, s.reconcileWalletBalances(ctx))
+	}
 	raw, _ := json.Marshal(out)
 	if err := q.PutSetting(ctx, store.PutSettingParams{Key: reconcileKey, Value: raw}); err != nil {
 		errs = append(errs, err)
@@ -116,4 +119,46 @@ func (s *Service) LastReconciliation(ctx context.Context) ([]Reconciliation, err
 	var out []Reconciliation
 	err = json.Unmarshal(raw, &out)
 	return out, err
+}
+
+// reconcileWalletBalances compares what each wallet holds at the provider
+// with what PGDock's books say it holds (wallet_balance): they are the same
+// money, so any difference is a deposit missed, a debit not booked, or a
+// movement PGDock didn't make.
+func (s *Service) reconcileWalletBalances(ctx context.Context) Reconciliation {
+	now := s.Now()
+	r := Reconciliation{Provider: s.wallets.Name() + " balances", From: now, To: now, Differences: []Difference{}, RanAt: now}
+	accts, err := store.New(s.db).ListBillingAccounts(ctx)
+	if err != nil {
+		r.Error = err.Error()
+		return r
+	}
+	for _, a := range accts {
+		wid := walletIDOf(a.ProviderCustomers)
+		if wid == "" {
+			continue
+		}
+		b, err := s.wallets.Balance(ctx, wid)
+		if err != nil {
+			r.Error = fmt.Sprintf("wallet %s: %v", wid, err)
+			continue
+		}
+		org := a.OrgID
+		led, err := Balance(ctx, s.db, &org, AccWalletBalance)
+		if err != nil {
+			r.Error = err.Error()
+			continue
+		}
+		if held := -led; held != b.Total {
+			r.Differences = append(r.Differences, Difference{Kind: "wallet_balance", ProviderRef: a.OrgName + " " + wid, Provider: b.Total, PGDock: held,
+				Note: "the wallet and PGDock's books disagree"})
+			continue
+		}
+		r.Matched++
+		r.GrossMinor += b.Total
+	}
+	if len(r.Differences) > 0 {
+		s.log.Warn("billing: wallet balances differ from the books", "differences", len(r.Differences))
+	}
+	return r
 }

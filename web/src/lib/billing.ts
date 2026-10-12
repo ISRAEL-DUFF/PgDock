@@ -15,6 +15,62 @@ export function parseNaira(s: string): number | null {
   return Number(w) * 100 + Number(f.padEnd(2, "0"));
 }
 
+/** Cents as dollars: 1000 → "$10.00". */
+export function usd(cents: number): string {
+  const sign = cents < 0 ? "-" : "";
+  const abs = Math.abs(Math.round(cents));
+  const whole = Math.floor(abs / 100).toLocaleString("en-US");
+  return `${sign}$${whole}.${String(abs % 100).padStart(2, "0")}`;
+}
+
+/** Dollars typed by a person ("10", "$1,000.50") as cents, or null. */
+export function parseUsd(s: string): number | null {
+  const t = s.replace(/[$,\s]/g, "");
+  if (t === "") return null;
+  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
+  const [w, f = ""] = t.split(".");
+  return Number(w) * 100 + Number(f.padEnd(2, "0"));
+}
+
+/** Minor units of a currency: USD in cents, anything else (NGN) in kobo. */
+export function money(currency: string | undefined, minor: number): string {
+  return currency === "USD" ? usd(minor) : naira(minor);
+}
+
+/** A unit price in cents, which may be a fraction of a cent:
+ * 0.0002 → "0.0002¢", 250 → "$2.50". */
+export function usdUnit(cents: number): string {
+  if (cents >= 1) return usd(Math.round(cents));
+  return `${Number(cents.toPrecision(6))}¢`;
+}
+
+/** The part of an FX quote the helpers need. */
+export type Rate = { effective_rate: string } | null | undefined;
+
+/** "₦1,515 per $1" (decimals only when the rate has them). */
+export function rate(fx: Rate): string {
+  const r = Number(fx?.effective_rate);
+  if (!fx || !Number.isFinite(r)) return "";
+  const text = r.toLocaleString("en-NG", {
+    minimumFractionDigits: Number.isInteger(r) ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+  return `₦${text} per $1`;
+}
+
+/** Dollars (as cents) at a rate in whole naira: "≈ ₦15,150", or "" without a rate. */
+export function approxNaira(cents: number, fx: Rate): string {
+  const r = Number(fx?.effective_rate);
+  if (!fx || !Number.isFinite(r)) return "";
+  const n = Math.round((cents / 100) * r);
+  return `≈ ₦${n.toLocaleString("en-NG")}`;
+}
+
+/** Basis points as a percentage: 100 → "1%", 150 → "1.5%". */
+export function bps(n: number): string {
+  return `${Number((n / 100).toFixed(2))}%`;
+}
+
 /** "2026-10" for the month containing d (UTC). */
 export function periodOf(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;

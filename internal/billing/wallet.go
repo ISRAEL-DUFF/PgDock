@@ -47,9 +47,12 @@ func (s *Service) ownerRef(orgID uuid.UUID) string {
 }
 
 // walletID is the id of an org's wallet, from the account.
-func walletID(a store.BillingAccount) string {
+func walletID(a store.BillingAccount) string { return walletIDOf(a.ProviderCustomers) }
+
+// walletIDOf reads the wallet id out of an account's provider customers.
+func walletIDOf(customers []byte) string {
 	var ids map[string]string
-	_ = json.Unmarshal(a.ProviderCustomers, &ids)
+	_ = json.Unmarshal(customers, &ids)
 	return ids[ProviderISwallet]
 }
 
