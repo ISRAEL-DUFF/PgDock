@@ -1,7 +1,7 @@
 -- name: InsertPaymentEvent :one
 -- tenant: system - provider events (rows carry org_id once matched).
-INSERT INTO payment_events (provider, provider_event_id, kind, org_id, reference, provider_ref, amount_minor, currency, payload)
-VALUES (@provider, @provider_event_id, @kind, sqlc.narg(org_id), sqlc.narg(reference), sqlc.narg(provider_ref), sqlc.narg(amount_minor), sqlc.narg(currency), @payload)
+INSERT INTO payment_events (provider, provider_event_id, kind, org_id, provider_ref, amount_minor, currency, payload)
+VALUES (@provider, @provider_event_id, @kind, sqlc.narg(org_id), sqlc.narg(provider_ref), sqlc.narg(amount_minor), sqlc.narg(currency), @payload)
 ON CONFLICT (provider, provider_event_id) DO NOTHING
 RETURNING *;
 
@@ -16,27 +16,19 @@ SELECT * FROM payment_events WHERE (sqlc.narg(outcome)::text IS NULL OR outcome 
 ORDER BY id DESC LIMIT @lim;
 
 -- name: InsertPaymentIntent :one
--- tenant: system - a checkout or charge for an org the caller resolved.
-INSERT INTO payment_intents (org_id, reference, provider, channel, purpose, invoice_id, method_id, amount_minor, checkout_url, automatic)
-VALUES (@org_id, @reference, @provider, @channel, @purpose, sqlc.narg(invoice_id), sqlc.narg(method_id), @amount_minor, sqlc.narg(checkout_url), @automatic)
+-- tenant: system - a wallet debit for an org the caller resolved.
+INSERT INTO payment_intents (org_id, reference, provider, channel, purpose, invoice_id, amount_minor, automatic)
+VALUES (@org_id, @reference, @provider, @channel, @purpose, sqlc.narg(invoice_id), @amount_minor, @automatic)
 RETURNING *;
 
--- name: GetPaymentIntentByRef :one
--- tenant: system - matching a provider event to what we asked for.
-SELECT * FROM payment_intents WHERE reference = @reference;
-
 -- name: FinishPaymentIntent :exec
--- tenant: system - a checkout or charge ended.
+-- tenant: system - a wallet debit ended.
 UPDATE payment_intents SET status = @status, error = sqlc.narg(error), completed_at = now()
 WHERE reference = @reference AND status = 'pending';
 
--- name: SetIntentCheckout :exec
--- tenant: system - the provider's hosted page for an intent.
-UPDATE payment_intents SET checkout_url = @checkout_url WHERE id = @id;
-
 -- name: PendingIntents :many
--- tenant: system - checkouts and charges still open, for re-querying.
-SELECT * FROM payment_intents WHERE status = 'pending' AND created_at > @since ORDER BY created_at;
+-- tenant: system - a provider's charges still open, for re-querying.
+SELECT * FROM payment_intents WHERE provider = @provider AND status = 'pending' AND created_at > @since ORDER BY created_at;
 
 -- name: InsertPayment :one
 -- tenant: system - money received for an org the caller resolved.
@@ -121,57 +113,9 @@ UPDATE refunds SET status = @status, provider_ref = coalesce(sqlc.narg(provider_
   completed_at = CASE WHEN @status <> 'pending' THEN now() END
 WHERE id = @id RETURNING *;
 
--- name: GetRefundByProviderRef :one
--- tenant: system - matching a refund.completed event.
-SELECT * FROM refunds WHERE provider_ref = @provider_ref;
-
 -- name: PaymentRefunds :many
 -- tenant: system - a payment's refunds.
 SELECT * FROM refunds WHERE payment_id = @payment_id ORDER BY created_at;
-
--- ---- Payment methods ---------------------------------------------------------
-
--- name: UpsertPaymentMethod :one
--- tenant: system - a saved card or mandate of an org the caller resolved.
-INSERT INTO payment_methods (org_id, provider, kind, token_sealed, provider_ref, brand, last4, exp_month, exp_year, limit_minor, is_default)
-VALUES (@org_id, @provider, @kind, sqlc.narg(token_sealed), @provider_ref, sqlc.narg(brand), sqlc.narg(last4), sqlc.narg(exp_month), sqlc.narg(exp_year), sqlc.narg(limit_minor),
-        NOT EXISTS (SELECT 1 FROM payment_methods WHERE org_id = @org_id AND is_default AND status = 'active'))
-ON CONFLICT (provider, provider_ref) DO UPDATE SET status = 'active', token_sealed = coalesce(EXCLUDED.token_sealed, payment_methods.token_sealed),
-  exp_month = EXCLUDED.exp_month, exp_year = EXCLUDED.exp_year, limit_minor = EXCLUDED.limit_minor
-RETURNING *;
-
--- name: ListPaymentMethods :many
--- tenant: org - the org's saved cards and mandates.
-SELECT * FROM payment_methods WHERE org_id = @org_id AND status = 'active' ORDER BY is_default DESC, created_at;
-
--- name: GetOrgPaymentMethod :one
--- tenant: org - one of the org's methods.
-SELECT * FROM payment_methods WHERE id = @id AND org_id = @org_id;
-
--- name: DefaultPaymentMethod :one
--- tenant: system - what PGDock charges for an org.
-SELECT * FROM payment_methods WHERE org_id = @org_id AND status = 'active' ORDER BY is_default DESC, created_at LIMIT 1;
-
--- name: SetDefaultPaymentMethod :exec
--- tenant: org - choose the default method.
-UPDATE payment_methods SET is_default = (id = @id) WHERE org_id = @org_id AND status = 'active';
-
--- name: SetPaymentMethodStatus :exec
--- tenant: system - a method removed, revoked or expired.
-UPDATE payment_methods SET status = @status, is_default = false WHERE id = @id;
-
--- name: RevokeMandateByRef :one
--- tenant: system - a mandate.revoked event.
-UPDATE payment_methods SET status = 'revoked', is_default = false WHERE provider = @provider AND provider_ref = @provider_ref AND kind = 'mandate'
-RETURNING *;
-
--- name: ExpiringCards :many
--- tenant: system - cards for expiry reminders.
-SELECT * FROM payment_methods WHERE kind = 'card' AND status = 'active' AND exp_year IS NOT NULL AND exp_month IS NOT NULL;
-
--- name: SetCardReminded :exec
--- tenant: system - an expiry reminder was sent.
-UPDATE payment_methods SET reminded_days = @days WHERE id = @id;
 
 -- ---- Virtual accounts --------------------------------------------------------
 
@@ -230,10 +174,6 @@ ON CONFLICT (org_id, month, account) DO UPDATE SET amount_minor = prepaid_deduct
 UPDATE billing_accounts SET balance_alerted = @balance_alerted, balance_month = @balance_month, zero_balance_at = sqlc.narg(zero_balance_at)
 WHERE org_id = @org_id;
 
--- name: SetAutoTopup :exec
--- tenant: system - an org's auto top-up (top up amount when below threshold).
-UPDATE billing_accounts SET auto_topup = sqlc.narg(auto_topup), updated_at = now() WHERE org_id = @org_id;
-
 -- ---- Dunning -----------------------------------------------------------------
 
 -- name: InsertDunningStep :one
@@ -259,9 +199,9 @@ WHERE org_id = @org_id;
 -- tenant: system - the admin extends an org's grace.
 UPDATE billing_accounts SET grace_until = sqlc.narg(grace_until), updated_at = now() WHERE org_id = @org_id;
 
--- name: SetCardFailing :exec
--- tenant: system - when automatic card charges started failing.
-UPDATE billing_accounts SET card_failing_since = sqlc.narg(card_failing_since) WHERE org_id = @org_id;
+-- name: SetChargeFailing :exec
+-- tenant: system - when automatic wallet charges started failing.
+UPDATE billing_accounts SET card_failing_since = sqlc.narg(charge_failing_since) WHERE org_id = @org_id;
 
 -- name: DunningAccounts :many
 -- tenant: system - orgs owing money or in a dunning state.
@@ -289,10 +229,6 @@ SELECT * FROM payment_events WHERE outcome = 'unmatched' ORDER BY id DESC LIMIT 
 -- name: GetPaymentEvent :one
 -- tenant: system - one event of the admin's log.
 SELECT * FROM payment_events WHERE id = @id;
-
--- name: RecentAutoTopup :one
--- tenant: system - whether an org was auto-topped-up recently.
-SELECT EXISTS (SELECT 1 FROM payment_intents WHERE org_id = @org_id AND automatic AND purpose = 'topup' AND created_at > @since)::bool;
 
 -- name: WHTDeducted :many
 -- tenant: system - every invoice with WHT deducted, for the tax export.

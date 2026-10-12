@@ -338,30 +338,6 @@ func (c *Client) Rate(ctx context.Context, from, to string, amountMinor int64) (
 
 // ---- Payment provider -----------------------------------------------------------
 
-// CreateCustomer isn't how a wallet is made: it needs a director's BVN, so
-// billing.EnsureWallet creates it and stores its id first.
-func (c *Client) CreateCustomer(context.Context, billing.Customer) (string, error) {
-	return "", billing.ErrWalletSetup
-}
-
-func (c *Client) Checkout(context.Context, billing.CheckoutRequest) (billing.CheckoutSession, error) {
-	return billing.CheckoutSession{}, billing.ErrUnsupported
-}
-
-func (c *Client) ChargeSaved(context.Context, billing.ChargeRequest) (billing.Transaction, error) {
-	return billing.Transaction{}, billing.ErrUnsupported
-}
-
-func (c *Client) Refund(context.Context, billing.RefundRequest) (billing.RefundResult, error) {
-	return billing.RefundResult{}, billing.ErrUnsupported
-}
-
-func (c *Client) RevokeMandate(context.Context, string) error { return billing.ErrUnsupported }
-
-func (c *Client) VerifyReference(context.Context, string) (billing.Transaction, error) {
-	return billing.Transaction{}, billing.ErrUnsupported
-}
-
 // IssueVirtualAccount issues (or returns) the wallet's permanent bank
 // account. Its ProviderRef is the wallet id, which is how a deposit is
 // attributed to the organisation.

@@ -197,7 +197,7 @@ func (q *Queries) CancelPendingPlanChanges(ctx context.Context, orgID uuid.UUID)
 
 const clearDebitConsent = `-- name: ClearDebitConsent :one
 UPDATE billing_accounts SET debit_consent_at = NULL, debit_consent_by = NULL, debit_terms_version = NULL, updated_at = now()
-WHERE org_id = $1 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version
+WHERE org_id = $1 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version
 `
 
 // tenant: system - an org owner withdrew the agreement to wallet debits.
@@ -221,7 +221,6 @@ func (q *Queries) ClearDebitConsent(ctx context.Context, orgID uuid.UUID) (Billi
 		&i.PaymentTermsDays,
 		&i.BudgetMinor,
 		&i.SpendCapMinor,
-		&i.AutoTopup,
 		&i.DunningState,
 		&i.GraceUntil,
 		&i.ForecastMinor,
@@ -236,7 +235,7 @@ func (q *Queries) ClearDebitConsent(ctx context.Context, orgID uuid.UUID) (Billi
 		&i.BalanceAlerted,
 		&i.BalanceMonth,
 		&i.ZeroBalanceAt,
-		&i.CardFailingSince,
+		&i.ChargeFailingSince,
 		&i.DebitConsentAt,
 		&i.DebitConsentBy,
 		&i.DebitTermsVersion,
@@ -470,7 +469,7 @@ func (q *Queries) EnsureBillingAccount(ctx context.Context, arg EnsureBillingAcc
 }
 
 const getBillingAccount = `-- name: GetBillingAccount :one
-SELECT org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version FROM billing_accounts WHERE org_id = $1
+SELECT org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version FROM billing_accounts WHERE org_id = $1
 `
 
 // tenant: system - the account of an org the caller resolved.
@@ -494,7 +493,6 @@ func (q *Queries) GetBillingAccount(ctx context.Context, orgID uuid.UUID) (Billi
 		&i.PaymentTermsDays,
 		&i.BudgetMinor,
 		&i.SpendCapMinor,
-		&i.AutoTopup,
 		&i.DunningState,
 		&i.GraceUntil,
 		&i.ForecastMinor,
@@ -509,7 +507,7 @@ func (q *Queries) GetBillingAccount(ctx context.Context, orgID uuid.UUID) (Billi
 		&i.BalanceAlerted,
 		&i.BalanceMonth,
 		&i.ZeroBalanceAt,
-		&i.CardFailingSince,
+		&i.ChargeFailingSince,
 		&i.DebitConsentAt,
 		&i.DebitConsentBy,
 		&i.DebitTermsVersion,
@@ -1190,7 +1188,7 @@ func (q *Queries) LedgerTotals(ctx context.Context) (LedgerTotalsRow, error) {
 }
 
 const listBillingAccounts = `-- name: ListBillingAccounts :many
-SELECT b.org_id, b.plan, b.term, b.term_ends_at, b.mode, b.price_book_version, b.grandfathered, b.legal_name, b.address, b.tin, b.vat_registered, b.deducts_wht, b.provider_customers, b.payment_terms_days, b.budget_minor, b.spend_cap_minor, b.auto_topup, b.dunning_state, b.grace_until, b.forecast_minor, b.forecast_at, b.capped, b.budget_alerted, b.budget_month, b.created_at, b.updated_at, b.dunning_since, b.deletion_scheduled_at, b.balance_alerted, b.balance_month, b.zero_balance_at, b.card_failing_since, b.debit_consent_at, b.debit_consent_by, b.debit_terms_version, o.name AS org_name, o.status AS org_status FROM billing_accounts b
+SELECT b.org_id, b.plan, b.term, b.term_ends_at, b.mode, b.price_book_version, b.grandfathered, b.legal_name, b.address, b.tin, b.vat_registered, b.deducts_wht, b.provider_customers, b.payment_terms_days, b.budget_minor, b.spend_cap_minor, b.dunning_state, b.grace_until, b.forecast_minor, b.forecast_at, b.capped, b.budget_alerted, b.budget_month, b.created_at, b.updated_at, b.dunning_since, b.deletion_scheduled_at, b.balance_alerted, b.balance_month, b.zero_balance_at, b.card_failing_since, b.debit_consent_at, b.debit_consent_by, b.debit_terms_version, o.name AS org_name, o.status AS org_status FROM billing_accounts b
 JOIN organizations o ON o.id = b.org_id WHERE o.status <> 'deleted' ORDER BY o.name
 `
 
@@ -1211,7 +1209,6 @@ type ListBillingAccountsRow struct {
 	PaymentTermsDays    int32
 	BudgetMinor         *int64
 	SpendCapMinor       *int64
-	AutoTopup           []byte
 	DunningState        string
 	GraceUntil          *time.Time
 	ForecastMinor       *int64
@@ -1226,7 +1223,7 @@ type ListBillingAccountsRow struct {
 	BalanceAlerted      int32
 	BalanceMonth        pgtype.Date
 	ZeroBalanceAt       *time.Time
-	CardFailingSince    *time.Time
+	ChargeFailingSince  *time.Time
 	DebitConsentAt      *time.Time
 	DebitConsentBy      *uuid.UUID
 	DebitTermsVersion   *string
@@ -1261,7 +1258,6 @@ func (q *Queries) ListBillingAccounts(ctx context.Context) ([]ListBillingAccount
 			&i.PaymentTermsDays,
 			&i.BudgetMinor,
 			&i.SpendCapMinor,
-			&i.AutoTopup,
 			&i.DunningState,
 			&i.GraceUntil,
 			&i.ForecastMinor,
@@ -1276,7 +1272,7 @@ func (q *Queries) ListBillingAccounts(ctx context.Context) ([]ListBillingAccount
 			&i.BalanceAlerted,
 			&i.BalanceMonth,
 			&i.ZeroBalanceAt,
-			&i.CardFailingSince,
+			&i.ChargeFailingSince,
 			&i.DebitConsentAt,
 			&i.DebitConsentBy,
 			&i.DebitTermsVersion,
@@ -1517,7 +1513,7 @@ func (q *Queries) ListPriceBooks(ctx context.Context) ([]PriceBook, error) {
 }
 
 const lockBillingAccount = `-- name: LockBillingAccount :one
-SELECT org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version FROM billing_accounts WHERE org_id = $1 FOR UPDATE
+SELECT org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version FROM billing_accounts WHERE org_id = $1 FOR UPDATE
 `
 
 // tenant: system - the account of an org the caller resolved, for a change.
@@ -1541,7 +1537,6 @@ func (q *Queries) LockBillingAccount(ctx context.Context, orgID uuid.UUID) (Bill
 		&i.PaymentTermsDays,
 		&i.BudgetMinor,
 		&i.SpendCapMinor,
-		&i.AutoTopup,
 		&i.DunningState,
 		&i.GraceUntil,
 		&i.ForecastMinor,
@@ -1556,7 +1551,7 @@ func (q *Queries) LockBillingAccount(ctx context.Context, orgID uuid.UUID) (Bill
 		&i.BalanceAlerted,
 		&i.BalanceMonth,
 		&i.ZeroBalanceAt,
-		&i.CardFailingSince,
+		&i.ChargeFailingSince,
 		&i.DebitConsentAt,
 		&i.DebitConsentBy,
 		&i.DebitTermsVersion,
@@ -2036,7 +2031,7 @@ func (q *Queries) ScheduledChangeBy(ctx context.Context, arg ScheduledChangeByPa
 const setBillingAdmin = `-- name: SetBillingAdmin :one
 UPDATE billing_accounts SET grandfathered = $1, mode = $2, payment_terms_days = $3,
   price_book_version = $4, updated_at = now()
-WHERE org_id = $5 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version
+WHERE org_id = $5 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version
 `
 
 type SetBillingAdminParams struct {
@@ -2074,7 +2069,6 @@ func (q *Queries) SetBillingAdmin(ctx context.Context, arg SetBillingAdminParams
 		&i.PaymentTermsDays,
 		&i.BudgetMinor,
 		&i.SpendCapMinor,
-		&i.AutoTopup,
 		&i.DunningState,
 		&i.GraceUntil,
 		&i.ForecastMinor,
@@ -2089,7 +2083,7 @@ func (q *Queries) SetBillingAdmin(ctx context.Context, arg SetBillingAdminParams
 		&i.BalanceAlerted,
 		&i.BalanceMonth,
 		&i.ZeroBalanceAt,
-		&i.CardFailingSince,
+		&i.ChargeFailingSince,
 		&i.DebitConsentAt,
 		&i.DebitConsentBy,
 		&i.DebitTermsVersion,
@@ -2100,7 +2094,7 @@ func (q *Queries) SetBillingAdmin(ctx context.Context, arg SetBillingAdminParams
 const setBillingPlan = `-- name: SetBillingPlan :one
 UPDATE billing_accounts SET plan = $1, term = $2, term_ends_at = $3,
   payment_terms_days = $4, updated_at = now()
-WHERE org_id = $5 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version
+WHERE org_id = $5 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version
 `
 
 type SetBillingPlanParams struct {
@@ -2138,7 +2132,6 @@ func (q *Queries) SetBillingPlan(ctx context.Context, arg SetBillingPlanParams) 
 		&i.PaymentTermsDays,
 		&i.BudgetMinor,
 		&i.SpendCapMinor,
-		&i.AutoTopup,
 		&i.DunningState,
 		&i.GraceUntil,
 		&i.ForecastMinor,
@@ -2153,7 +2146,7 @@ func (q *Queries) SetBillingPlan(ctx context.Context, arg SetBillingPlanParams) 
 		&i.BalanceAlerted,
 		&i.BalanceMonth,
 		&i.ZeroBalanceAt,
-		&i.CardFailingSince,
+		&i.ChargeFailingSince,
 		&i.DebitConsentAt,
 		&i.DebitConsentBy,
 		&i.DebitTermsVersion,
@@ -2178,7 +2171,7 @@ func (q *Queries) SetBillingPriceBook(ctx context.Context, arg SetBillingPriceBo
 
 const setDebitConsent = `-- name: SetDebitConsent :one
 UPDATE billing_accounts SET debit_consent_at = $1, debit_consent_by = $2, debit_terms_version = $3, updated_at = now()
-WHERE org_id = $4 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version
+WHERE org_id = $4 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version
 `
 
 type SetDebitConsentParams struct {
@@ -2214,7 +2207,6 @@ func (q *Queries) SetDebitConsent(ctx context.Context, arg SetDebitConsentParams
 		&i.PaymentTermsDays,
 		&i.BudgetMinor,
 		&i.SpendCapMinor,
-		&i.AutoTopup,
 		&i.DunningState,
 		&i.GraceUntil,
 		&i.ForecastMinor,
@@ -2229,7 +2221,7 @@ func (q *Queries) SetDebitConsent(ctx context.Context, arg SetDebitConsentParams
 		&i.BalanceAlerted,
 		&i.BalanceMonth,
 		&i.ZeroBalanceAt,
-		&i.CardFailingSince,
+		&i.ChargeFailingSince,
 		&i.DebitConsentAt,
 		&i.DebitConsentBy,
 		&i.DebitTermsVersion,
@@ -2431,7 +2423,7 @@ const updateBillingDetails = `-- name: UpdateBillingDetails :one
 UPDATE billing_accounts SET legal_name = $1, address = $2, tin = $3,
   vat_registered = $4, deducts_wht = $5, budget_minor = $6,
   spend_cap_minor = $7, updated_at = now()
-WHERE org_id = $8 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, auto_topup, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version
+WHERE org_id = $8 RETURNING org_id, plan, term, term_ends_at, mode, price_book_version, grandfathered, legal_name, address, tin, vat_registered, deducts_wht, provider_customers, payment_terms_days, budget_minor, spend_cap_minor, dunning_state, grace_until, forecast_minor, forecast_at, capped, budget_alerted, budget_month, created_at, updated_at, dunning_since, deletion_scheduled_at, balance_alerted, balance_month, zero_balance_at, card_failing_since, debit_consent_at, debit_consent_by, debit_terms_version
 `
 
 type UpdateBillingDetailsParams struct {
@@ -2475,7 +2467,6 @@ func (q *Queries) UpdateBillingDetails(ctx context.Context, arg UpdateBillingDet
 		&i.PaymentTermsDays,
 		&i.BudgetMinor,
 		&i.SpendCapMinor,
-		&i.AutoTopup,
 		&i.DunningState,
 		&i.GraceUntil,
 		&i.ForecastMinor,
@@ -2490,7 +2481,7 @@ func (q *Queries) UpdateBillingDetails(ctx context.Context, arg UpdateBillingDet
 		&i.BalanceAlerted,
 		&i.BalanceMonth,
 		&i.ZeroBalanceAt,
-		&i.CardFailingSince,
+		&i.ChargeFailingSince,
 		&i.DebitConsentAt,
 		&i.DebitConsentBy,
 		&i.DebitTermsVersion,

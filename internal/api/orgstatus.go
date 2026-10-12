@@ -57,7 +57,7 @@ func (s *Server) billingStanding(r *http.Request, g *gen.Org, role string) error
 	switch {
 	case st.DunningState == "overdue" || st.DunningState == "restricted" || st.DunningState == "suspended":
 		state = gen.OrgBillingState(st.DunningState)
-	case st.CardFailing:
+	case st.ChargeFailing:
 		state = gen.OrgBillingStatePaymentFailed
 	}
 	if state != "" {

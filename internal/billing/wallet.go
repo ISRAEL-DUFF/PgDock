@@ -332,6 +332,7 @@ func (s *Service) chargeInvoiceFromWallet(ctx context.Context, inv store.Invoice
 	}
 	bal, err := s.wallets.Balance(ctx, wid)
 	if err != nil {
+		s.deferWalletCharge(ctx, inv, owed, !explicit, err)
 		return WalletCharge{Unavailable: true, Message: err.Error()}, nil
 	}
 	if bal.Available < owed {
@@ -341,6 +342,7 @@ func (s *Service) chargeInvoiceFromWallet(ctx context.Context, inv store.Invoice
 	}
 	op, err := s.wallets.OperatingWallet(ctx)
 	if err != nil {
+		s.deferWalletCharge(ctx, inv, owed, !explicit, err)
 		return WalletCharge{Unavailable: true, Message: err.Error()}, nil
 	}
 	ref := newReference("pgdw")
@@ -402,6 +404,19 @@ func (s *Service) declineWalletCharge(ctx context.Context, inv store.Invoice, ow
 		_ = q.FinishPaymentIntent(ctx, store.FinishPaymentIntentParams{Reference: ref, Status: "failed", Error: ptr0("declined: " + msg)})
 	}
 	s.notifyDeclined(ctx, inv, automatic, msg)
+}
+
+// deferWalletCharge records a charge the provider's outage stopped, so the
+// dunning run tries the invoice again (it isn't the customer's failure).
+func (s *Service) deferWalletCharge(ctx context.Context, inv store.Invoice, owed int64, automatic bool, cause error) {
+	q := store.New(s.db)
+	ref := newReference("pgdw")
+	if _, err := q.InsertPaymentIntent(ctx, store.InsertPaymentIntentParams{
+		OrgID: inv.OrgID, Reference: ref, Provider: ProviderISwallet, Channel: ChannelWallet, Purpose: PurposeInvoice,
+		InvoiceID: &inv.ID, AmountMinor: owed, Automatic: automatic,
+	}); err == nil {
+		_ = q.FinishPaymentIntent(ctx, store.FinishPaymentIntentParams{Reference: ref, Status: "failed", Error: ptr0("provider unavailable: " + cause.Error())})
+	}
 }
 
 // notifyDeclined starts dunning for an automatic charge that was declined.

@@ -129,19 +129,22 @@ anything that runs tenant SQL.
 
 ## V3 review of payments and billing (M27)
 
+> Reviewed when cards and the Flutterwave and iSpend providers existed. They
+> are gone: the findings below are kept as the record, and the table is
+> updated to the wallet provider, the only webhook now.
+
 Payment webhooks and billing permissions, before money moves through
 them for real.
 
 | Surface | Enforced by | Verified by |
 | --- | --- | --- |
-| Webhook authentication | Flutterwave: the `verif-hash` header against the configured secret, constant-time. iSpend: HMAC-SHA256 over the timestamp and body, constant-time, timestamp within 5 minutes. Unknown providers 404; bodies over 1 MB are cut off | `TestPaymentsAcrossProviders`, provider unit tests |
-| What a webhook can do | Nothing on its own: its body is a hint. Every payment is looked up again with the provider (`Verify`) before anything is posted, and only a successful naira transaction with an amount counts. A card or wallet payment below its intent's amount is refused | `providers_test.go` |
-| Whose money it is | The provider's record decides: the intent its verified transaction names, or the virtual account it was paid into. An intent named only in the event is ignored (fixed, below); an intent with another provider is refused | `TestForgedEventCannotRedirectATransfer` |
-| Replays and duplicates | Event IDs are unique per provider; payments are unique per provider reference; ledger transactions are keyed. A replayed or re-sent event changes nothing | `TestPartialOverAndDuplicatePayments`, `TestPaymentsAcrossProviders` |
-| Organisations' billing | Owners and billing members (`org.billing`); members and admins see no invoices. Every invoice, payment, receipt, payment method and WHT certificate is looked up with the organisation in the path, so another organisation's ID answers 404 | `TestPermissionMatrix`, `TestBillingAccountsAndRoles` |
+| Webhook authentication | HMAC-SHA256 over the timestamp and body, compared in constant time, timestamp within 5 minutes. Unknown providers 404; bodies over 1 MB are cut off | `TestWebhookAuthenticationAndForgedEvents`, provider unit tests |
+| What a webhook can do | Nothing on its own: its body is a hint. Every payment is looked up again with the provider (`Verify`) before anything is posted, and only a successful naira transaction with an amount counts. A payment below its intent's amount is refused | `providers_test.go` |
+| Whose money it is | The provider's record decides: the virtual account the verified transaction was paid into, and the amount the provider reports; the event's own claims are ignored | `TestWebhookAuthenticationAndForgedEvents` |
+| Replays and duplicates | Event IDs are unique per provider; payments are unique per provider reference; ledger transactions are keyed. A replayed or re-sent event changes nothing | `TestPartialOverAndDuplicatePayments`, `TestDepositsAreHeldAndDuplicatesAreNoOps` |
+| Organisations' billing | Owners and billing members (`org.billing`); members and admins see no invoices. Every invoice, payment, receipt and WHT certificate is looked up with the organisation in the path, so another organisation's ID answers 404 | `TestPermissionMatrix`, `TestBillingAccountsAndRoles` |
 | Money-moving admin actions | Platform admin only, and now a fresh step-up (password and code): refunds, recording a manual payment, credit notes, attributing an unmatched event, publishing a price book, an organisation's billing terms | `TestPermissionMatrix`, `reauthRequired` |
 | Refund limits | At most the payment less earlier refunds; beyond the org's credit only by reopening the invoices it settled | `TestRefundReopensInvoices` |
-| Card tokens | Sealed with the master key; never returned by the API | `TestPaymentsAcrossProviders` |
 
 ### Found and fixed
 
@@ -150,8 +153,9 @@ them for real.
   verified transaction carried no reference (a bank transfer into a
   virtual account), the intent named in the event body was trusted, so
   whoever could sign a webhook could have a transfer into someone else's
-  virtual account credited to their own organisation. With Flutterwave,
-  signing is a static shared header value. Now only the provider's record
+  virtual account credited to their own organisation. With the provider
+  that was in use then (Flutterwave),
+  signing was a static shared header value. Now only the provider's record
   attributes a payment.
 - **Refunds, manual payments and credit notes needed no step-up**
   (medium). A stolen admin session could move money without the second
@@ -160,10 +164,6 @@ them for real.
 
 ### Accepted
 
-- Flutterwave's webhook check is a static secret without a timestamp. A
-  replayed event changes nothing (above); rotate the secret in the
-  Flutterwave dashboard and `PGDOCK_FLW_WEBHOOK_HASH` together if
-  it may have leaked.
 - The webhook endpoint is public and unauthenticated requests are cheap to
   refuse; each refusal is logged with the remote address.
 

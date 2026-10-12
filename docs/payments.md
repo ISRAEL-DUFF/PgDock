@@ -186,7 +186,7 @@ PGDock holds naira and prices in dollars, so the exchange exposure is
 PGDock's: it is paid in naira and pays its hosts in dollars. The provider
 does not convert for it.
 
-A **refund** of a paid invoice is a credit note in naira (what the
+A **credit note** against a paid invoice is in naira (what the
 customer paid, at the rate then), so it carries no exchange gain or loss.
 
 ## Manual payments
@@ -200,6 +200,13 @@ separate: credit (from manual payments and credit notes) is applied when
 an invoice is issued, and the wallet is debited for the rest.
 
 `pgdock billing payments` lists what was received.
+
+**Refunds.** Only a manual payment can be refunded. The refund completes
+at once in PGDock's books (the credit balance goes down, or the invoices
+it settled are reopened) and the admin returns the money outside PGDock.
+Money in a wallet is not refunded through PGDock: a refund of a wallet
+payment is refused. A paid invoice that was debited from a wallet is
+corrected with a credit note, which becomes credit toward the next invoice.
 
 ## How a deposit is recorded
 

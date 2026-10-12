@@ -2,7 +2,6 @@ package billing
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -21,14 +20,12 @@ type PaymentIn struct {
 	Provider    string
 	Channel     string
 	ProviderRef string
-	Reference   string // ours, when the payment started here
 	AmountMinor int64
 	FeeMinor    int64
-	// InvoiceID is paid first when set (a checkout for that invoice).
+	// InvoiceID is paid first when set (a manual payment for that invoice).
 	InvoiceID *uuid.UUID
 	// Topup puts the whole amount on the credit balance.
 	Topup       bool
-	FXQuote     json.RawMessage
 	Note        string
 	ProofKey    string
 	RecordedBy  *uuid.UUID
@@ -107,23 +104,16 @@ func (s *Service) recordPayment(ctx context.Context, tx pgx.Tx, p PaymentIn) (Se
 	if err != nil {
 		return Settlement{}, err
 	}
-	var note, ref, proof *string
+	var note, proof *string
 	if p.Note != "" {
 		note = &p.Note
-	}
-	if p.Reference != "" {
-		ref = &p.Reference
 	}
 	if p.ProofKey != "" {
 		proof = &p.ProofKey
 	}
-	var fx []byte
-	if len(p.FXQuote) > 0 {
-		fx = p.FXQuote
-	}
 	pay, err := q.InsertPayment(ctx, store.InsertPaymentParams{
-		OrgID: p.OrgID, Provider: p.Provider, Channel: p.Channel, ProviderRef: p.ProviderRef, Reference: ref,
-		AmountMinor: p.AmountMinor, FeeMinor: p.FeeMinor, FxQuote: fx, Note: note, ProofObjectKey: proof,
+		OrgID: p.OrgID, Provider: p.Provider, Channel: p.Channel, ProviderRef: p.ProviderRef,
+		AmountMinor: p.AmountMinor, FeeMinor: p.FeeMinor, Note: note, ProofObjectKey: proof,
 		RecordedBy: p.RecordedBy, ReceivedAt: p.ReceivedAt,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -347,31 +337,32 @@ func (s *Service) RecordManual(ctx context.Context, m ManualPayment) (Settlement
 
 // ---- Refunds ---------------------------------------------------------------------
 
-// Refund refunds part of a payment from the org's credit balance: an
+// Refund refunds part of a manual payment from the org's credit balance: an
 // overpayment, unused prepaid funds, or a credit note on a paid invoice.
 // With reopen, a refund larger than the credit first takes the rest back
 // off the invoices this payment settled (newest first), which are owed
 // again: for money returned, a chargeback, or a payment to the wrong
-// organisation. The ledger's cash moves when the provider confirms (V3
-// §3.3: a refund reverses the payment's cash; nothing is edited); if the
-// provider refuses, the credit pays the reopened invoices again.
+// organisation. The money itself goes back outside PGDock, so the refund
+// completes at once and the ledger's cash moves (V3 §3.3: a refund reverses
+// the payment's cash; nothing is edited). Money in an org's wallet is not
+// PGDock's to return.
 func (s *Service) Refund(ctx context.Context, paymentID uuid.UUID, amount int64, reason string, reopen bool, by *uuid.UUID) (store.Refund, error) {
 	reason = strings.TrimSpace(reason)
 	if amount <= 0 || reason == "" {
 		return store.Refund{}, invalid("a refund needs a positive amount and a reason")
 	}
 	var r store.Refund
-	var pay store.Payment
-	var reopened bool
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		q := store.New(tx)
-		var err error
-		pay, err = q.LockPayment(ctx, paymentID)
+		pay, err := q.LockPayment(ctx, paymentID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
 		if err != nil {
 			return err
+		}
+		if pay.Provider != ProviderBank {
+			return invalid("only manual payments are refunded here; money in a wallet stays in the wallet")
 		}
 		if _, err := q.LockBillingAccount(ctx, pay.OrgID); err != nil {
 			return err
@@ -401,61 +392,31 @@ func (s *Service) Refund(ctx context.Context, paymentID uuid.UUID, amount int64,
 			return err
 		}
 		if amount > avail {
-			reopened, err = s.unapply(ctx, tx, pay, r.ID, amount-avail, by)
+			return s.unapply(ctx, tx, pay, r.ID, amount-avail, by)
 		}
-		return err
+		return nil
 	})
 	if err != nil {
 		return r, err
 	}
-	out, err := s.sendRefund(ctx, pay, r)
-	if reopened && out.Status == "failed" {
-		if _, aerr := s.ApplyCredit(ctx, pay.OrgID); aerr != nil {
-			s.log.Error("billing: re-applying credit after a failed refund", "org", pay.OrgID, "err", aerr)
-		}
-	}
-	return out, err
-}
-
-// sendRefund asks the provider for refund r of pay.
-func (s *Service) sendRefund(ctx context.Context, pay store.Payment, r store.Refund) (store.Refund, error) {
-	if pay.Provider == ProviderBank {
-		// A manual payment is refunded by the admin outside PGDock.
-		return s.completeRefund(ctx, r.ID, "manual:"+r.ID.String())
-	}
-	p, ok := s.providers[pay.Provider]
-	if !ok {
-		return s.failRefund(ctx, r.ID, "provider "+pay.Provider+" isn't configured")
-	}
-	res, err := p.Refund(ctx, RefundRequest{ProviderRef: pay.ProviderRef, AmountMinor: r.AmountMinor, Reference: "refund-" + r.ID.String()})
-	if err != nil {
-		return s.failRefund(ctx, r.ID, err.Error())
-	}
-	switch res.Status {
-	case TxSucceeded:
-		return s.completeRefund(ctx, r.ID, res.ProviderRef)
-	case TxFailed:
-		return s.failRefund(ctx, r.ID, "the provider refused the refund")
-	}
-	ref := res.ProviderRef
-	return store.New(s.db).FinishRefund(ctx, store.FinishRefundParams{ID: r.ID, Status: "pending", ProviderRef: &ref})
+	return s.completeRefund(ctx, r.ID, "manual:"+r.ID.String())
 }
 
 // unapply takes need kobo of pay back off the invoices it settled, newest
 // first, into the org's credit (Dr receivable, Cr credit balance), so the
 // refund comes from credit.
-func (s *Service) unapply(ctx context.Context, tx pgx.Tx, pay store.Payment, refund uuid.UUID, need int64, by *uuid.UUID) (bool, error) {
+func (s *Service) unapply(ctx context.Context, tx pgx.Tx, pay store.Payment, refund uuid.UUID, need int64, by *uuid.UUID) error {
 	q := store.New(tx)
 	allocs, err := q.PaymentAllocationsForUpdate(ctx, pay.ID)
 	if err != nil {
-		return false, err
+		return err
 	}
 	var have int64
 	for _, a := range allocs {
 		have += a.AmountMinor
 	}
 	if need > have {
-		return false, invalid("this payment settled %s of invoices and the organisation holds too little credit for the rest", Naira(have))
+		return invalid("this payment settled %s of invoices and the organisation holds too little credit for the rest", Naira(have))
 	}
 	org := pay.OrgID
 	left := need
@@ -465,30 +426,22 @@ func (s *Service) unapply(ctx context.Context, tx pgx.Tx, pay store.Payment, ref
 		}
 		x := min(left, a.AmountMinor)
 		if err := q.UnapplyAllocation(ctx, store.UnapplyAllocationParams{PaymentID: pay.ID, InvoiceID: a.InvoiceID, AmountMinor: x}); err != nil {
-			return false, err
+			return err
 		}
 		inv, err := q.ReopenInvoice(ctx, store.ReopenInvoiceParams{ID: a.InvoiceID, AmountMinor: x})
 		if err != nil {
-			return false, err
+			return err
 		}
 		if _, err := Post(ctx, tx, Txn{
 			Key: fmt.Sprintf("unapply:%s:%s", refund, inv.ID), SourceType: SourceRefund, SourceID: refund.String(), By: by,
 			Memo:    "Payment taken back off " + deref(inv.Number) + " for a refund",
 			Entries: []Entry{Dr(AccReceivable, &org, x), Cr(AccCreditBalance, &org, x)},
 		}); err != nil {
-			return false, err
+			return err
 		}
 		left -= x
 	}
-	return true, nil
-}
-
-func (s *Service) failRefund(ctx context.Context, id uuid.UUID, msg string) (store.Refund, error) {
-	r, err := store.New(s.db).FinishRefund(ctx, store.FinishRefundParams{ID: id, Status: "failed", Error: &msg})
-	if err != nil {
-		return r, err
-	}
-	return r, fmt.Errorf("refund failed: %s", msg)
+	return nil
 }
 
 // completeRefund posts a completed refund: credit balance down, cash out.

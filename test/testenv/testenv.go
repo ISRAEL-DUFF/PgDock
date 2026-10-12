@@ -49,8 +49,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/billing/flutterwave"
-	"github.com/israel-duff/pgdock/internal/billing/ispend"
+	"github.com/israel-duff/pgdock/internal/billing/iswallet"
 	"github.com/israel-duff/pgdock/internal/branching"
 	"github.com/israel-duff/pgdock/internal/capacity"
 	"github.com/israel-duff/pgdock/internal/cloud"
@@ -150,9 +149,8 @@ type Env struct {
 	PGVersions           *pgversions.Service
 	Insights             *insights.Service
 	SupportInboundSecret string
-	// Flutterwave and ISpend are the payment providers' fake sandboxes.
-	Flutterwave *flutterwave.Fake
-	ISpend      *ispend.Fake
+	// ISWallet is the wallet provider's fake sandbox.
+	ISWallet *iswallet.Fake
 	// Tenancy is the M9 controller; tests tick it (EnforceStorage, Reap,
 	// RecordUsage, Sweep) rather than running its loops. Its clock is real
 	// time plus TenancyAdvance.
@@ -477,21 +475,17 @@ func Start(t testing.TB, opts Options) *Env {
 	ded.SetProposer(incidentSvc)
 	costSvc := costs.New(db, billingSvc, "eu-central", log)
 	capacitySvc.SetConverter(costSvc)
+	// The suites count in naira.
+	billingSvc.SetDefaultPrices(billing.DefaultPricesNGN)
 	if err := billingSvc.Init(ctx); err != nil {
 		t.Fatal(err)
 	}
-	// Payment providers: fakes of the Flutterwave and iSpend sandboxes,
-	// whose webhooks reach the API like the real ones (wired below, once
-	// the server's URL is known).
-	flw := flutterwave.NewFake("flw-test-secret", "flw-test-webhook-hash")
-	isp := ispend.NewFake("isp-test-key", "isp-test-webhook-secret")
-	flwSrv, ispSrv := httptest.NewServer(flw), httptest.NewServer(isp)
-	t.Cleanup(flwSrv.Close)
-	t.Cleanup(ispSrv.Close)
-	billingSvc.SetPayments([]billing.PaymentProvider{
-		flutterwave.New(flutterwave.Config{BaseURL: flwSrv.URL, SecretKey: flw.SecretKey, WebhookHash: flw.WebhookHash, BVN: "22222222222"}),
-		ispend.New(ispend.Config{BaseURL: ispSrv.URL, APIKey: isp.APIKey, WebhookSecret: isp.WebhookSecret}),
-	}, billing.Routing{Cards: billing.ProviderFlutterwave, VAPrimary: billing.ProviderISpend, VAFallback: billing.ProviderFlutterwave, Wallet: billing.ProviderISpend}, keyring)
+	// The wallet provider: a fake of its sandbox, whose webhooks reach the
+	// API like the real ones (wired below, once the server's URL is known).
+	isw := iswallet.NewFake("isw-test-key", "isw-test-webhook-secret")
+	iswSrv := httptest.NewServer(isw)
+	t.Cleanup(iswSrv.Close)
+	billingSvc.SetWallets(iswallet.New(iswallet.Config{BaseURL: iswSrv.URL, APIKey: "isw-test-key", WebhookSecret: "isw-test-webhook-secret"}), "pgdock:test")
 	billingSvc.SetDunning(tenancySvc, nil)
 	billingSvc.SetDocStore(&memDocs{m: map[string][]byte{}})
 	supportSvc := support.New(db, mailSvc, support.Config{Address: "support@pgdock.test", PublicURL: "https://pgdock.test", InboundSecret: "inbound-secret-0123456789"}, log)
@@ -522,14 +516,13 @@ func Start(t testing.TB, opts Options) *Env {
 		ts.Listener = ln
 	}
 	ts.Start()
-	flw.WebhookURL = ts.URL + "/api/v1/payments/webhooks/flutterwave"
-	isp.WebhookURL = ts.URL + "/api/v1/payments/webhooks/ispend"
+	isw.WebhookURL = ts.URL + "/api/v1/payments/webhooks/iswallet"
 	wa.WebhookURL = ts.URL + "/api/v1/support/whatsapp"
 	jar, _ := cookiejar.New(nil)
 
 	*e = Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Services: servicesSvc, Tokens: tokenSvc, Branches: branchSvc,
-		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Phone: phone, PhoneFallback: phoneFallback, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, wakerLn: wakerLn, wakerAddr: wakerLn.Addr().String(), wakerCtx: ctx, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, PGVersions: pgVersionSvc, Insights: insightSvc,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Phone: phone, PhoneFallback: phoneFallback, Incidents: incidentSvc, Billing: billingSvc, ISWallet: isw, FreeTier: freeSvc, Waker: wakerSrv, wakerLn: wakerLn, wakerAddr: wakerLn.Addr().String(), wakerCtx: ctx, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, PGVersions: pgVersionSvc, Insights: insightSvc,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,

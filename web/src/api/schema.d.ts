@@ -3658,23 +3658,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/orgs/{org}/billing/checkout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card) */
-        post: operations["startCheckout"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/orgs/{org}/billing/virtual-account": {
         parameters: {
             query?: never;
@@ -3743,75 +3726,6 @@ export interface paths {
         /** Pay one invoice from the wallet now */
         post: operations["payInvoiceFromWallet"];
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/orgs/{org}/billing/payment-methods": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Saved cards and wallet mandates */
-        get: operations["listPaymentMethods"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/orgs/{org}/billing/payment-methods/{method_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Remove a saved card or revoke a mandate */
-        delete: operations["removePaymentMethod"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/orgs/{org}/billing/payment-methods/{method_id}/default": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Charge this method for invoices and top-ups */
-        post: operations["setDefaultPaymentMethod"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/orgs/{org}/billing/auto-topup": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Top up a prepaid balance from the default method when it falls below a threshold */
-        put: operations["setAutoTopup"];
-        post?: never;
-        /** Stop automatic top-ups */
-        delete: operations["clearAutoTopup"];
         options?: never;
         head?: never;
         patch?: never;
@@ -9725,8 +9639,6 @@ export interface components {
             wht_rate: components["schemas"]["Decimal"];
             /** @description Issue each month's draft invoices automatically on the 1st. */
             auto_issue: boolean;
-            /** @description Allow USDT top-ups through iSpend (off until the regulatory position is confirmed). */
-            stablecoin?: boolean;
             /** @description Let dunning delete an org's paid resources 47 days after payment was due; off, they are left for the admin. */
             delete_for_non_payment?: boolean;
             seller: {
@@ -9920,13 +9832,10 @@ export interface components {
             grace_until?: string | null;
             /** Format: date-time */
             deletion_scheduled_at?: string | null;
-            auto_topup?: components["schemas"]["AutoTopup"] | null;
             /** @description The payment channels offered. */
             channels?: {
-                card: boolean;
                 wallet: boolean;
                 transfer: boolean;
-                stablecoin: boolean;
             };
             pending_change?: {
                 to_plan: string;
@@ -10494,26 +10403,6 @@ export interface components {
             bank_name: string;
             account_name: string;
         };
-        PaymentMethod: {
-            /** Format: uuid */
-            id: string;
-            provider: string;
-            /** @enum {string} */
-            kind: "card" | "mandate";
-            brand?: string | null;
-            last4?: string | null;
-            exp_month?: number | null;
-            exp_year?: number | null;
-            /** Format: int64 */
-            limit_minor?: number | null;
-            is_default: boolean;
-        };
-        AutoTopup: {
-            /** Format: int64 */
-            below_minor: number;
-            /** Format: int64 */
-            amount_minor: number;
-        };
         Payment: {
             /** Format: uuid */
             id: string;
@@ -11059,7 +10948,6 @@ export interface components {
         TokenID: string;
         RequestID: string;
         OrgID: string;
-        MethodID: string;
         TicketID: string;
         PaymentID: string;
         InvoiceID: string;
@@ -17324,55 +17212,6 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    startCheckout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                org: components["parameters"]["OrgID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @enum {string} */
-                    channel: "card" | "wallet" | "stablecoin";
-                    /** @enum {string} */
-                    purpose: "invoice" | "topup" | "card_setup";
-                    /** Format: uuid */
-                    invoice_id?: string;
-                    /**
-                     * Format: int64
-                     * @description For a top-up.
-                     */
-                    amount_minor?: number;
-                    /**
-                     * Format: int64
-                     * @description With a wallet payment, also set up a recurring mandate with this monthly limit.
-                     */
-                    mandate_limit_minor?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description The hosted page to send the customer to. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        reference: string;
-                        checkout_url: string;
-                        /** Format: int64 */
-                        amount_minor: number;
-                    };
-                };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
     orgVirtualAccount: {
         parameters: {
             query?: never;
@@ -17514,121 +17353,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["WalletCharge"];
                 };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    listPaymentMethods: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                org: components["parameters"]["OrgID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Methods. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        items: components["schemas"]["PaymentMethod"][];
-                    };
-                };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    removePaymentMethod: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                org: components["parameters"]["OrgID"];
-                method_id: components["parameters"]["MethodID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Removed. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    setDefaultPaymentMethod: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                org: components["parameters"]["OrgID"];
-                method_id: components["parameters"]["MethodID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Set. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    setAutoTopup: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                org: components["parameters"]["OrgID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AutoTopup"];
-            };
-        };
-        responses: {
-            /** @description Set. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    clearAutoTopup: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                org: components["parameters"]["OrgID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Cleared. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             default: components["responses"]["Error"];
         };
@@ -19381,7 +19105,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                provider: "flutterwave" | "ispend";
+                provider: "iswallet";
             };
             cookie?: never;
         };

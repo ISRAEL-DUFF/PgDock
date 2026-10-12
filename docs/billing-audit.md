@@ -40,8 +40,9 @@ these invariants:
 3. No other invariant broke across the existing scenarios: a month across
    a mid-month upgrade, partial, over- and duplicate payments, WHT
    shortfalls and certificates, refunds that reopen invoices, prepaid
-   deductions and true-ups, billing mode switches, card retries, dunning,
-   reconciliation, and both payment providers.
+   deductions and true-ups, billing mode switches, charge retries, dunning,
+   reconciliation, and the payment providers (then two; now the wallet
+   provider and manual payments).
 
 ## Rounding and tax rules (as implemented)
 
@@ -75,7 +76,7 @@ To answer before the Lagos launch. Record the answers here:
    rate for services, and whether any customers (government agencies)
    use a different rate.
 4. Credit beyond what is owed is held as credit balance and used on the
-   next invoice, or refunded on request. Is it a liability to disclose
+   next invoice, or, for credit from manual payments, refunded on request. Is it a liability to disclose
    at month end (the revenue dashboard shows it)?
 5. Prepaid balances below zero after a true-up (usage beyond the funds)
    are owed by the customer: invoice them, or collect from the next

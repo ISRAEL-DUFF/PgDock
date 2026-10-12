@@ -68,8 +68,8 @@ ORDER BY i.started_at DESC
 LIMIT 20;
 
 -- name: OrgBillingStanding :one
--- An org's dunning state, failing card and this month's budget alert.
-SELECT b.dunning_state, (b.card_failing_since IS NOT NULL)::bool AS card_failing, b.budget_alerted, b.budget_month
+-- An org's dunning state, failing wallet charges and this month's budget alert.
+SELECT b.dunning_state, (b.card_failing_since IS NOT NULL)::bool AS charge_failing, b.budget_alerted, b.budget_month
 FROM billing_accounts b WHERE b.org_id = @org_id;
 
 -- name: InsertEdgeCPUSample :exec

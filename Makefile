@@ -141,8 +141,8 @@ test: test-go test-web
 test-go:
 	go test -race ./...
 
-## test-payments-sandbox: PGDock's Flutterwave and iSpend clients against the
-## real sandboxes (V4.1 §13); needs their sandbox keys (docs/payments.md).
+## test-payments-sandbox: PGDock's wallet provider client against the real
+## sandbox; needs PGDOCK_ISWALLET_BASE_URL, _API_KEY and PGDOCK_TEST_SANDBOX_BVN.
 test-payments-sandbox:
 	PGDOCK_TEST_SANDBOX=1 go test -count=1 -v ./test/sandbox/
 

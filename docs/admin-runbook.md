@@ -98,21 +98,20 @@ the first real invoice:
 
 1. **The company** is incorporated. Its legal name, address, TIN and VAT
    registration go in Admin → Billing → Settings, so invoices show them.
-2. **Flutterwave**: the account is approved for live payments, with
-   live keys in `PGDOCK_FLW_*` and the webhook URL registered. See
+2. **The wallet provider** (iswallet): the account is approved for live
+   use, with the live key and webhook secret in `PGDOCK_ISWALLET_*` and
+   the webhook URL registered, and the sandbox rehearsal has been run. See
    [Payments](payments.md).
-3. **iSpend** merchant API in production, with live keys and the webhook
-   registered.
-4. **Legal review**: a lawyer reviews the terms, privacy notice, AUP,
+3. **Legal review**: a lawyer reviews the terms, privacy notice, AUP,
    SLA and DPA. Publish the company's versions (Platform settings →
    Terms; Platform → Legal documents). See [Legal documents](legal.md).
-5. **Accounting**: an accountant confirms the VAT and WHT rates and the
+4. **Accounting**: an accountant confirms the VAT and WHT rates and the
    invoice layout, and agrees to take the monthly CSVs (revenue and WHT).
-6. **A week of internal billing on real usage**: run your own
+5. **A week of internal billing on real usage**: run your own
    organisations on paid plans for a week. Draft invoices, pay them
-   through each provider, and check that the reconciliation shows no
+   from the wallet and by a recorded manual payment, and check that the reconciliation shows no
    differences and the ledger check is balanced.
-7. Then open paid plans, in the EU region first.
+6. Then open paid plans, in the EU region first.
 
 ## Monthly
 

@@ -126,34 +126,6 @@ func (q *Queries) CountInvoiceCharges(ctx context.Context, arg CountInvoiceCharg
 	return column_1, err
 }
 
-const defaultPaymentMethod = `-- name: DefaultPaymentMethod :one
-SELECT id, org_id, provider, kind, token_sealed, provider_ref, brand, last4, exp_month, exp_year, limit_minor, is_default, status, reminded_days, created_at FROM payment_methods WHERE org_id = $1 AND status = 'active' ORDER BY is_default DESC, created_at LIMIT 1
-`
-
-// tenant: system - what PGDock charges for an org.
-func (q *Queries) DefaultPaymentMethod(ctx context.Context, orgID uuid.UUID) (PaymentMethod, error) {
-	row := q.db.QueryRow(ctx, defaultPaymentMethod, orgID)
-	var i PaymentMethod
-	err := row.Scan(
-		&i.ID,
-		&i.OrgID,
-		&i.Provider,
-		&i.Kind,
-		&i.TokenSealed,
-		&i.ProviderRef,
-		&i.Brand,
-		&i.Last4,
-		&i.ExpMonth,
-		&i.ExpYear,
-		&i.LimitMinor,
-		&i.IsDefault,
-		&i.Status,
-		&i.RemindedDays,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const deleteDunningStep = `-- name: DeleteDunningStep :exec
 DELETE FROM dunning_steps WHERE org_id = $1 AND cycle = $2 AND step = $3
 `
@@ -171,7 +143,7 @@ func (q *Queries) DeleteDunningStep(ctx context.Context, arg DeleteDunningStepPa
 }
 
 const dunningAccounts = `-- name: DunningAccounts :many
-SELECT b.org_id, b.plan, b.term, b.term_ends_at, b.mode, b.price_book_version, b.grandfathered, b.legal_name, b.address, b.tin, b.vat_registered, b.deducts_wht, b.provider_customers, b.payment_terms_days, b.budget_minor, b.spend_cap_minor, b.auto_topup, b.dunning_state, b.grace_until, b.forecast_minor, b.forecast_at, b.capped, b.budget_alerted, b.budget_month, b.created_at, b.updated_at, b.dunning_since, b.deletion_scheduled_at, b.balance_alerted, b.balance_month, b.zero_balance_at, b.card_failing_since, b.debit_consent_at, b.debit_consent_by, b.debit_terms_version, o.status AS org_status, o.name AS org_name FROM billing_accounts b JOIN organizations o ON o.id = b.org_id
+SELECT b.org_id, b.plan, b.term, b.term_ends_at, b.mode, b.price_book_version, b.grandfathered, b.legal_name, b.address, b.tin, b.vat_registered, b.deducts_wht, b.provider_customers, b.payment_terms_days, b.budget_minor, b.spend_cap_minor, b.dunning_state, b.grace_until, b.forecast_minor, b.forecast_at, b.capped, b.budget_alerted, b.budget_month, b.created_at, b.updated_at, b.dunning_since, b.deletion_scheduled_at, b.balance_alerted, b.balance_month, b.zero_balance_at, b.card_failing_since, b.debit_consent_at, b.debit_consent_by, b.debit_terms_version, o.status AS org_status, o.name AS org_name FROM billing_accounts b JOIN organizations o ON o.id = b.org_id
 WHERE o.status <> 'deleted' AND (b.dunning_state <> 'ok' OR b.card_failing_since IS NOT NULL
   OR EXISTS (SELECT 1 FROM invoices i WHERE i.org_id = b.org_id AND i.status IN ('issued', 'partially_paid') AND i.total_minor > 0 AND i.due_at < $1::timestamptz)
   OR b.zero_balance_at IS NOT NULL)
@@ -194,7 +166,6 @@ type DunningAccountsRow struct {
 	PaymentTermsDays    int32
 	BudgetMinor         *int64
 	SpendCapMinor       *int64
-	AutoTopup           []byte
 	DunningState        string
 	GraceUntil          *time.Time
 	ForecastMinor       *int64
@@ -209,7 +180,7 @@ type DunningAccountsRow struct {
 	BalanceAlerted      int32
 	BalanceMonth        pgtype.Date
 	ZeroBalanceAt       *time.Time
-	CardFailingSince    *time.Time
+	ChargeFailingSince  *time.Time
 	DebitConsentAt      *time.Time
 	DebitConsentBy      *uuid.UUID
 	DebitTermsVersion   *string
@@ -244,7 +215,6 @@ func (q *Queries) DunningAccounts(ctx context.Context, at time.Time) ([]DunningA
 			&i.PaymentTermsDays,
 			&i.BudgetMinor,
 			&i.SpendCapMinor,
-			&i.AutoTopup,
 			&i.DunningState,
 			&i.GraceUntil,
 			&i.ForecastMinor,
@@ -259,53 +229,12 @@ func (q *Queries) DunningAccounts(ctx context.Context, at time.Time) ([]DunningA
 			&i.BalanceAlerted,
 			&i.BalanceMonth,
 			&i.ZeroBalanceAt,
-			&i.CardFailingSince,
+			&i.ChargeFailingSince,
 			&i.DebitConsentAt,
 			&i.DebitConsentBy,
 			&i.DebitTermsVersion,
 			&i.OrgStatus,
 			&i.OrgName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const expiringCards = `-- name: ExpiringCards :many
-SELECT id, org_id, provider, kind, token_sealed, provider_ref, brand, last4, exp_month, exp_year, limit_minor, is_default, status, reminded_days, created_at FROM payment_methods WHERE kind = 'card' AND status = 'active' AND exp_year IS NOT NULL AND exp_month IS NOT NULL
-`
-
-// tenant: system - cards for expiry reminders.
-func (q *Queries) ExpiringCards(ctx context.Context) ([]PaymentMethod, error) {
-	rows, err := q.db.Query(ctx, expiringCards)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []PaymentMethod
-	for rows.Next() {
-		var i PaymentMethod
-		if err := rows.Scan(
-			&i.ID,
-			&i.OrgID,
-			&i.Provider,
-			&i.Kind,
-			&i.TokenSealed,
-			&i.ProviderRef,
-			&i.Brand,
-			&i.Last4,
-			&i.ExpMonth,
-			&i.ExpYear,
-			&i.LimitMinor,
-			&i.IsDefault,
-			&i.Status,
-			&i.RemindedDays,
-			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -351,7 +280,7 @@ type FinishPaymentIntentParams struct {
 	Reference string
 }
 
-// tenant: system - a checkout or charge ended.
+// tenant: system - a wallet debit ended.
 func (q *Queries) FinishPaymentIntent(ctx context.Context, arg FinishPaymentIntentParams) error {
 	_, err := q.db.Exec(ctx, finishPaymentIntent, arg.Status, arg.Error, arg.Reference)
 	return err
@@ -390,39 +319,6 @@ func (q *Queries) FinishRefund(ctx context.Context, arg FinishRefundParams) (Ref
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.CompletedAt,
-	)
-	return i, err
-}
-
-const getOrgPaymentMethod = `-- name: GetOrgPaymentMethod :one
-SELECT id, org_id, provider, kind, token_sealed, provider_ref, brand, last4, exp_month, exp_year, limit_minor, is_default, status, reminded_days, created_at FROM payment_methods WHERE id = $1 AND org_id = $2
-`
-
-type GetOrgPaymentMethodParams struct {
-	ID    uuid.UUID
-	OrgID uuid.UUID
-}
-
-// tenant: org - one of the org's methods.
-func (q *Queries) GetOrgPaymentMethod(ctx context.Context, arg GetOrgPaymentMethodParams) (PaymentMethod, error) {
-	row := q.db.QueryRow(ctx, getOrgPaymentMethod, arg.ID, arg.OrgID)
-	var i PaymentMethod
-	err := row.Scan(
-		&i.ID,
-		&i.OrgID,
-		&i.Provider,
-		&i.Kind,
-		&i.TokenSealed,
-		&i.ProviderRef,
-		&i.Brand,
-		&i.Last4,
-		&i.ExpMonth,
-		&i.ExpYear,
-		&i.LimitMinor,
-		&i.IsDefault,
-		&i.Status,
-		&i.RemindedDays,
-		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -511,57 +407,6 @@ func (q *Queries) GetPaymentEvent(ctx context.Context, id int64) (PaymentEvent, 
 		&i.ProcessedAt,
 		&i.Outcome,
 		&i.Error,
-	)
-	return i, err
-}
-
-const getPaymentIntentByRef = `-- name: GetPaymentIntentByRef :one
-SELECT id, org_id, reference, provider, channel, purpose, invoice_id, method_id, amount_minor, status, checkout_url, automatic, error, created_at, completed_at FROM payment_intents WHERE reference = $1
-`
-
-// tenant: system - matching a provider event to what we asked for.
-func (q *Queries) GetPaymentIntentByRef(ctx context.Context, reference string) (PaymentIntent, error) {
-	row := q.db.QueryRow(ctx, getPaymentIntentByRef, reference)
-	var i PaymentIntent
-	err := row.Scan(
-		&i.ID,
-		&i.OrgID,
-		&i.Reference,
-		&i.Provider,
-		&i.Channel,
-		&i.Purpose,
-		&i.InvoiceID,
-		&i.MethodID,
-		&i.AmountMinor,
-		&i.Status,
-		&i.CheckoutUrl,
-		&i.Automatic,
-		&i.Error,
-		&i.CreatedAt,
-		&i.CompletedAt,
-	)
-	return i, err
-}
-
-const getRefundByProviderRef = `-- name: GetRefundByProviderRef :one
-SELECT id, payment_id, amount_minor, reason, provider_ref, status, error, created_by, created_at, completed_at FROM refunds WHERE provider_ref = $1
-`
-
-// tenant: system - matching a refund.completed event.
-func (q *Queries) GetRefundByProviderRef(ctx context.Context, providerRef *string) (Refund, error) {
-	row := q.db.QueryRow(ctx, getRefundByProviderRef, providerRef)
-	var i Refund
-	err := row.Scan(
-		&i.ID,
-		&i.PaymentID,
-		&i.AmountMinor,
-		&i.Reason,
-		&i.ProviderRef,
-		&i.Status,
-		&i.Error,
-		&i.CreatedBy,
-		&i.CreatedAt,
-		&i.CompletedAt,
 	)
 	return i, err
 }
@@ -682,8 +527,8 @@ func (q *Queries) InsertPayment(ctx context.Context, arg InsertPaymentParams) (P
 }
 
 const insertPaymentEvent = `-- name: InsertPaymentEvent :one
-INSERT INTO payment_events (provider, provider_event_id, kind, org_id, reference, provider_ref, amount_minor, currency, payload)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO payment_events (provider, provider_event_id, kind, org_id, provider_ref, amount_minor, currency, payload)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (provider, provider_event_id) DO NOTHING
 RETURNING id, provider, provider_event_id, kind, org_id, reference, provider_ref, amount_minor, currency, payload, received_at, processed_at, outcome, error
 `
@@ -693,7 +538,6 @@ type InsertPaymentEventParams struct {
 	ProviderEventID string
 	Kind            string
 	OrgID           *uuid.UUID
-	Reference       *string
 	ProviderRef     *string
 	AmountMinor     *int64
 	Currency        *string
@@ -707,7 +551,6 @@ func (q *Queries) InsertPaymentEvent(ctx context.Context, arg InsertPaymentEvent
 		arg.ProviderEventID,
 		arg.Kind,
 		arg.OrgID,
-		arg.Reference,
 		arg.ProviderRef,
 		arg.AmountMinor,
 		arg.Currency,
@@ -734,8 +577,8 @@ func (q *Queries) InsertPaymentEvent(ctx context.Context, arg InsertPaymentEvent
 }
 
 const insertPaymentIntent = `-- name: InsertPaymentIntent :one
-INSERT INTO payment_intents (org_id, reference, provider, channel, purpose, invoice_id, method_id, amount_minor, checkout_url, automatic)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO payment_intents (org_id, reference, provider, channel, purpose, invoice_id, amount_minor, automatic)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id, org_id, reference, provider, channel, purpose, invoice_id, method_id, amount_minor, status, checkout_url, automatic, error, created_at, completed_at
 `
 
@@ -746,13 +589,11 @@ type InsertPaymentIntentParams struct {
 	Channel     string
 	Purpose     string
 	InvoiceID   *uuid.UUID
-	MethodID    *uuid.UUID
 	AmountMinor int64
-	CheckoutUrl *string
 	Automatic   bool
 }
 
-// tenant: system - a checkout or charge for an org the caller resolved.
+// tenant: system - a wallet debit for an org the caller resolved.
 func (q *Queries) InsertPaymentIntent(ctx context.Context, arg InsertPaymentIntentParams) (PaymentIntent, error) {
 	row := q.db.QueryRow(ctx, insertPaymentIntent,
 		arg.OrgID,
@@ -761,9 +602,7 @@ func (q *Queries) InsertPaymentIntent(ctx context.Context, arg InsertPaymentInte
 		arg.Channel,
 		arg.Purpose,
 		arg.InvoiceID,
-		arg.MethodID,
 		arg.AmountMinor,
-		arg.CheckoutUrl,
 		arg.Automatic,
 	)
 	var i PaymentIntent
@@ -1033,47 +872,6 @@ func (q *Queries) ListPaymentEvents(ctx context.Context, arg ListPaymentEventsPa
 			&i.ProcessedAt,
 			&i.Outcome,
 			&i.Error,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listPaymentMethods = `-- name: ListPaymentMethods :many
-SELECT id, org_id, provider, kind, token_sealed, provider_ref, brand, last4, exp_month, exp_year, limit_minor, is_default, status, reminded_days, created_at FROM payment_methods WHERE org_id = $1 AND status = 'active' ORDER BY is_default DESC, created_at
-`
-
-// tenant: org - the org's saved cards and mandates.
-func (q *Queries) ListPaymentMethods(ctx context.Context, orgID uuid.UUID) ([]PaymentMethod, error) {
-	rows, err := q.db.Query(ctx, listPaymentMethods, orgID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []PaymentMethod
-	for rows.Next() {
-		var i PaymentMethod
-		if err := rows.Scan(
-			&i.ID,
-			&i.OrgID,
-			&i.Provider,
-			&i.Kind,
-			&i.TokenSealed,
-			&i.ProviderRef,
-			&i.Brand,
-			&i.Last4,
-			&i.ExpMonth,
-			&i.ExpYear,
-			&i.LimitMinor,
-			&i.IsDefault,
-			&i.Status,
-			&i.RemindedDays,
-			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1586,12 +1384,17 @@ func (q *Queries) PaymentRefunds(ctx context.Context, paymentID uuid.UUID) ([]Re
 }
 
 const pendingIntents = `-- name: PendingIntents :many
-SELECT id, org_id, reference, provider, channel, purpose, invoice_id, method_id, amount_minor, status, checkout_url, automatic, error, created_at, completed_at FROM payment_intents WHERE status = 'pending' AND created_at > $1 ORDER BY created_at
+SELECT id, org_id, reference, provider, channel, purpose, invoice_id, method_id, amount_minor, status, checkout_url, automatic, error, created_at, completed_at FROM payment_intents WHERE provider = $1 AND status = 'pending' AND created_at > $2 ORDER BY created_at
 `
 
-// tenant: system - checkouts and charges still open, for re-querying.
-func (q *Queries) PendingIntents(ctx context.Context, since time.Time) ([]PaymentIntent, error) {
-	rows, err := q.db.Query(ctx, pendingIntents, since)
+type PendingIntentsParams struct {
+	Provider string
+	Since    time.Time
+}
+
+// tenant: system - a provider's charges still open, for re-querying.
+func (q *Queries) PendingIntents(ctx context.Context, arg PendingIntentsParams) ([]PaymentIntent, error) {
+	rows, err := q.db.Query(ctx, pendingIntents, arg.Provider, arg.Since)
 	if err != nil {
 		return nil, err
 	}
@@ -1709,23 +1512,6 @@ func (q *Queries) PrepaidDeducted(ctx context.Context, arg PrepaidDeductedParams
 	return items, nil
 }
 
-const recentAutoTopup = `-- name: RecentAutoTopup :one
-SELECT EXISTS (SELECT 1 FROM payment_intents WHERE org_id = $1 AND automatic AND purpose = 'topup' AND created_at > $2)::bool
-`
-
-type RecentAutoTopupParams struct {
-	OrgID uuid.UUID
-	Since time.Time
-}
-
-// tenant: system - whether an org was auto-topped-up recently.
-func (q *Queries) RecentAutoTopup(ctx context.Context, arg RecentAutoTopupParams) (bool, error) {
-	row := q.db.QueryRow(ctx, recentAutoTopup, arg.OrgID, arg.Since)
-	var column_1 bool
-	err := row.Scan(&column_1)
-	return column_1, err
-}
-
 const reopenInvoice = `-- name: ReopenInvoice :one
 UPDATE invoices SET paid_minor = paid_minor - $1,
   status = CASE WHEN paid_minor - $1 = 0 AND wht_deducted_minor = 0 THEN 'issued' ELSE 'partially_paid' END,
@@ -1775,55 +1561,6 @@ func (q *Queries) ReopenInvoice(ctx context.Context, arg ReopenInvoiceParams) (I
 	return i, err
 }
 
-const revokeMandateByRef = `-- name: RevokeMandateByRef :one
-UPDATE payment_methods SET status = 'revoked', is_default = false WHERE provider = $1 AND provider_ref = $2 AND kind = 'mandate'
-RETURNING id, org_id, provider, kind, token_sealed, provider_ref, brand, last4, exp_month, exp_year, limit_minor, is_default, status, reminded_days, created_at
-`
-
-type RevokeMandateByRefParams struct {
-	Provider    string
-	ProviderRef *string
-}
-
-// tenant: system - a mandate.revoked event.
-func (q *Queries) RevokeMandateByRef(ctx context.Context, arg RevokeMandateByRefParams) (PaymentMethod, error) {
-	row := q.db.QueryRow(ctx, revokeMandateByRef, arg.Provider, arg.ProviderRef)
-	var i PaymentMethod
-	err := row.Scan(
-		&i.ID,
-		&i.OrgID,
-		&i.Provider,
-		&i.Kind,
-		&i.TokenSealed,
-		&i.ProviderRef,
-		&i.Brand,
-		&i.Last4,
-		&i.ExpMonth,
-		&i.ExpYear,
-		&i.LimitMinor,
-		&i.IsDefault,
-		&i.Status,
-		&i.RemindedDays,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const setAutoTopup = `-- name: SetAutoTopup :exec
-UPDATE billing_accounts SET auto_topup = $1, updated_at = now() WHERE org_id = $2
-`
-
-type SetAutoTopupParams struct {
-	AutoTopup []byte
-	OrgID     uuid.UUID
-}
-
-// tenant: system - an org's auto top-up (top up amount when below threshold).
-func (q *Queries) SetAutoTopup(ctx context.Context, arg SetAutoTopupParams) error {
-	_, err := q.db.Exec(ctx, setAutoTopup, arg.AutoTopup, arg.OrgID)
-	return err
-}
-
 const setBalanceAlert = `-- name: SetBalanceAlert :exec
 UPDATE billing_accounts SET balance_alerted = $1, balance_month = $2, zero_balance_at = $3
 WHERE org_id = $4
@@ -1847,48 +1584,18 @@ func (q *Queries) SetBalanceAlert(ctx context.Context, arg SetBalanceAlertParams
 	return err
 }
 
-const setCardFailing = `-- name: SetCardFailing :exec
+const setChargeFailing = `-- name: SetChargeFailing :exec
 UPDATE billing_accounts SET card_failing_since = $1 WHERE org_id = $2
 `
 
-type SetCardFailingParams struct {
-	CardFailingSince *time.Time
-	OrgID            uuid.UUID
+type SetChargeFailingParams struct {
+	ChargeFailingSince *time.Time
+	OrgID              uuid.UUID
 }
 
-// tenant: system - when automatic card charges started failing.
-func (q *Queries) SetCardFailing(ctx context.Context, arg SetCardFailingParams) error {
-	_, err := q.db.Exec(ctx, setCardFailing, arg.CardFailingSince, arg.OrgID)
-	return err
-}
-
-const setCardReminded = `-- name: SetCardReminded :exec
-UPDATE payment_methods SET reminded_days = $1 WHERE id = $2
-`
-
-type SetCardRemindedParams struct {
-	Days int32
-	ID   uuid.UUID
-}
-
-// tenant: system - an expiry reminder was sent.
-func (q *Queries) SetCardReminded(ctx context.Context, arg SetCardRemindedParams) error {
-	_, err := q.db.Exec(ctx, setCardReminded, arg.Days, arg.ID)
-	return err
-}
-
-const setDefaultPaymentMethod = `-- name: SetDefaultPaymentMethod :exec
-UPDATE payment_methods SET is_default = (id = $1) WHERE org_id = $2 AND status = 'active'
-`
-
-type SetDefaultPaymentMethodParams struct {
-	ID    uuid.UUID
-	OrgID uuid.UUID
-}
-
-// tenant: org - choose the default method.
-func (q *Queries) SetDefaultPaymentMethod(ctx context.Context, arg SetDefaultPaymentMethodParams) error {
-	_, err := q.db.Exec(ctx, setDefaultPaymentMethod, arg.ID, arg.OrgID)
+// tenant: system - when automatic wallet charges started failing.
+func (q *Queries) SetChargeFailing(ctx context.Context, arg SetChargeFailingParams) error {
+	_, err := q.db.Exec(ctx, setChargeFailing, arg.ChargeFailingSince, arg.OrgID)
 	return err
 }
 
@@ -1931,21 +1638,6 @@ func (q *Queries) SetGrace(ctx context.Context, arg SetGraceParams) error {
 	return err
 }
 
-const setIntentCheckout = `-- name: SetIntentCheckout :exec
-UPDATE payment_intents SET checkout_url = $1 WHERE id = $2
-`
-
-type SetIntentCheckoutParams struct {
-	CheckoutUrl *string
-	ID          uuid.UUID
-}
-
-// tenant: system - the provider's hosted page for an intent.
-func (q *Queries) SetIntentCheckout(ctx context.Context, arg SetIntentCheckoutParams) error {
-	_, err := q.db.Exec(ctx, setIntentCheckout, arg.CheckoutUrl, arg.ID)
-	return err
-}
-
 const setInvoiceStatus = `-- name: SetInvoiceStatus :exec
 UPDATE invoices SET status = $1, paid_at = CASE WHEN $1 = 'paid' THEN coalesce(paid_at, now()) ELSE paid_at END
 WHERE id = $2
@@ -1959,21 +1651,6 @@ type SetInvoiceStatusParams struct {
 // tenant: system - an invoice's status after a credit note or evidence.
 func (q *Queries) SetInvoiceStatus(ctx context.Context, arg SetInvoiceStatusParams) error {
 	_, err := q.db.Exec(ctx, setInvoiceStatus, arg.Status, arg.ID)
-	return err
-}
-
-const setPaymentMethodStatus = `-- name: SetPaymentMethodStatus :exec
-UPDATE payment_methods SET status = $1, is_default = false WHERE id = $2
-`
-
-type SetPaymentMethodStatusParams struct {
-	Status string
-	ID     uuid.UUID
-}
-
-// tenant: system - a method removed, revoked or expired.
-func (q *Queries) SetPaymentMethodStatus(ctx context.Context, arg SetPaymentMethodStatusParams) error {
-	_, err := q.db.Exec(ctx, setPaymentMethodStatus, arg.Status, arg.ID)
 	return err
 }
 
@@ -2174,65 +1851,6 @@ func (q *Queries) UnmatchedPaymentEvents(ctx context.Context) ([]PaymentEvent, e
 		return nil, err
 	}
 	return items, nil
-}
-
-const upsertPaymentMethod = `-- name: UpsertPaymentMethod :one
-
-INSERT INTO payment_methods (org_id, provider, kind, token_sealed, provider_ref, brand, last4, exp_month, exp_year, limit_minor, is_default)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-        NOT EXISTS (SELECT 1 FROM payment_methods WHERE org_id = $1 AND is_default AND status = 'active'))
-ON CONFLICT (provider, provider_ref) DO UPDATE SET status = 'active', token_sealed = coalesce(EXCLUDED.token_sealed, payment_methods.token_sealed),
-  exp_month = EXCLUDED.exp_month, exp_year = EXCLUDED.exp_year, limit_minor = EXCLUDED.limit_minor
-RETURNING id, org_id, provider, kind, token_sealed, provider_ref, brand, last4, exp_month, exp_year, limit_minor, is_default, status, reminded_days, created_at
-`
-
-type UpsertPaymentMethodParams struct {
-	OrgID       uuid.UUID
-	Provider    string
-	Kind        string
-	TokenSealed []byte
-	ProviderRef *string
-	Brand       *string
-	Last4       *string
-	ExpMonth    *int32
-	ExpYear     *int32
-	LimitMinor  *int64
-}
-
-// ---- Payment methods ---------------------------------------------------------
-// tenant: system - a saved card or mandate of an org the caller resolved.
-func (q *Queries) UpsertPaymentMethod(ctx context.Context, arg UpsertPaymentMethodParams) (PaymentMethod, error) {
-	row := q.db.QueryRow(ctx, upsertPaymentMethod,
-		arg.OrgID,
-		arg.Provider,
-		arg.Kind,
-		arg.TokenSealed,
-		arg.ProviderRef,
-		arg.Brand,
-		arg.Last4,
-		arg.ExpMonth,
-		arg.ExpYear,
-		arg.LimitMinor,
-	)
-	var i PaymentMethod
-	err := row.Scan(
-		&i.ID,
-		&i.OrgID,
-		&i.Provider,
-		&i.Kind,
-		&i.TokenSealed,
-		&i.ProviderRef,
-		&i.Brand,
-		&i.Last4,
-		&i.ExpMonth,
-		&i.ExpYear,
-		&i.LimitMinor,
-		&i.IsDefault,
-		&i.Status,
-		&i.RemindedDays,
-		&i.CreatedAt,
-	)
-	return i, err
 }
 
 const virtualAccountByNumber = `-- name: VirtualAccountByNumber :one

@@ -118,8 +118,8 @@ func TestPostAndBalances(t *testing.T) {
 	pay := billing.Txn{
 		Key: "pay-1", SourceType: billing.SourcePayment, SourceID: "flw-123",
 		Entries: []billing.Entry{
-			billing.Dr("cash:flutterwave", &org, 10600),
-			billing.Dr("fees:flutterwave", &org, 150),
+			billing.Dr("cash:bank", &org, 10600),
+			billing.Dr("fees:bank", &org, 150),
 			billing.Cr(billing.AccReceivable, &org, 10750),
 		},
 	}

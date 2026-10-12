@@ -20,7 +20,7 @@ func TestCreditNoteBeyondWhatIsOwed(t *testing.T) {
 	q := store.New(db)
 	org := newOrg(t, db, "acme")
 	inv := issuedProInvoice(t, s, clk, org) // ₦30,000 + 7.5% VAT = ₦32,250
-	if _, err := s.RecordPayment(ctx, billing.PaymentIn{OrgID: org, Provider: billing.ProviderFlutterwave, Channel: billing.ChannelTransfer,
+	if _, err := s.RecordPayment(ctx, billing.PaymentIn{OrgID: org, Provider: billing.ProviderBank, Channel: billing.ChannelManual,
 		ProviderRef: "flw-1", AmountMinor: 2_000_000}); err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestWHTAfterAPartialPayment(t *testing.T) {
 	inv := issuedProInvoice(t, s, clk, org) // ₦32,250, WHT expected ₦1,500
 	pay := func(ref string, amount int64) {
 		t.Helper()
-		if _, err := s.RecordPayment(ctx, billing.PaymentIn{OrgID: org, Provider: billing.ProviderISpend, Channel: billing.ChannelTransfer,
+		if _, err := s.RecordPayment(ctx, billing.PaymentIn{OrgID: org, Provider: billing.ProviderBank, Channel: billing.ChannelManual,
 			ProviderRef: ref, AmountMinor: amount}); err != nil {
 			t.Fatal(err)
 		}

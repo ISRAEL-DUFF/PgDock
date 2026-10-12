@@ -142,7 +142,7 @@ working.
 | --- | --- | --- |
 | Backend services (data API, auth, storage, realtime) | `PGDOCK_API_DOMAIN`, `PGDOCK_EDGE_SECRET` in `.env`; pgdock-edge in each region with a wildcard DNS record and certificate for `*.<domain>`; a backup storage target in each region (files live there) | [Running pgdock-edge](backend-services.md#running-pgdock-edge) |
 | Platform email and SMS for apps' sign-in | The platform SMTP; Termii and WhatsApp template variables | [Platform SMS and WhatsApp](backend-services.md#platform-sms-and-whatsapp-operators) |
-| Card and bank payments | `PGDOCK_FLW_*` or `PGDOCK_ISPEND_*`, and the providers' webhook URLs | [Payments](payments.md) |
+| Payments (organisations' wallets, funded by bank transfer) | `PGDOCK_ISWALLET_*`, and the provider's webhook URL | [Payments](payments.md) |
 | Open signup | `PGDOCK_TURNSTILE_SITE_KEY`, `PGDOCK_TURNSTILE_SECRET` | [The Free tier](free-tier.md) |
 | Support inbox and WhatsApp | `PGDOCK_SUPPORT_*`, `PGDOCK_WHATSAPP_*` | [Support](support.md) |
 | Status page | `pgdock-status` on other infrastructure; `PGDOCK_STATUS_URL`, `PGDOCK_STATUS_PUSH_SECRET` | [Status page](status-page.md) |

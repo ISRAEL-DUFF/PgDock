@@ -159,7 +159,7 @@ pgdock migrate supabase <p> [--step all|policies|users|storage] [--source <url>]
 
 pgdock billing show | plan free|pro|team [--annual] [--now] [--dry-run]   # owners and billing members
 pgdock billing invoices | invoice <number|id> [--pdf file.pdf]
-pgdock billing pay <number|id> [--wallet] | transfer | payments   # a link to pay, the bank account to transfer to, payments received
+pgdock billing pay <number|id> | wallet | transfer | payments   # pay the invoice from the wallet now, the wallet's balance / amount owed / debit consent, the bank account to transfer to, payments received
 
 pgdock members list <p> | invite <p> <email> --role <r> | remove <p> <email>
 pgdock tokens list | create --name … --scopes … [--project <p>] [--expires 90d] | revoke <id>

@@ -22,6 +22,46 @@ bundle share one version (spec §11.5).
   reconciliation compares every wallet's balance with the books. New endpoints
   under `/orgs/{org}/billing`: `wallet`, `debit-consent`, and `pay-from-wallet`.
   Configured by `PGDOCK_ISWALLET_*`. See docs/payments.md and docs/iswallet.md.
+- **Removed: cards, saved cards, hosted checkout, iSpend ("Pay with iSpend")
+  and wallet mandates, USDT top-ups, automatic top-up and card expiry
+  reminders.** The Flutterwave provider and the old iSpend merchant provider
+  are gone. An organisation pays from its wallet (debited with its consent, or
+  by **Pay from wallet** on an invoice), or by a manual payment the platform
+  admin records (bank transfer, cheque); an organisation without a wallet
+  stays on prepaid, topped up by manual payments, with no automatic top-up.
+  - Configuration removed: `PGDOCK_FLW_*`, `PGDOCK_ISPEND_*`,
+    `PGDOCK_PAY_CARDS`, `PGDOCK_PAY_VA_PRIMARY`, `PGDOCK_PAY_VA_FALLBACK` and
+    `PGDOCK_PAY_WALLET`. Kept: `PGDOCK_ISWALLET_BASE_URL`, `_API_KEY`,
+    `_WEBHOOK_SECRET`, `_OWNER_PREFIX` and `_CLIENT_ID`. Unregister the old
+    providers' webhooks.
+  - API removed: `POST /api/v1/orgs/{org}/billing/checkout`,
+    `GET`/`DELETE /billing/payment-methods...`,
+    `POST /billing/payment-methods/{id}/default`,
+    `PUT`/`DELETE /billing/auto-topup`, `BillingSettings.stablecoin`,
+    `BillingAccount.auto_topup`, and `channels.card` and `channels.stablecoin`
+    (`channels` is now `{wallet, transfer}`). The payment webhook route is
+    `POST /api/v1/payments/webhooks/iswallet` only. The `card_failing_since`
+    field and the dunning step names keep their names and now mean "automatic
+    wallet charge failing since".
+  - Refunds: only manual payments can be refunded (the refund completes at
+    once and the admin returns the money outside PGDock). Money in a wallet
+    is refused; correct a wallet-paid invoice with a credit note.
+  - Database: migration 00052 drops `payment_methods` and
+    `billing_accounts.auto_topup`; its down migration recreates them empty.
+    Old payments and payment intents, and their `channel` constraints, stay
+    as history.
+  - CLI: `pgdock billing pay <invoice>` now debits the wallet for that
+    invoice (no checkout link; the `--wallet` flag is gone). New
+    `pgdock billing wallet` prints the balance, the amount owed and the debit
+    consent. `pgdock billing transfer` shows the wallet's bank account.
+  - `make test-payments-sandbox` now runs a small check of the iswallet client
+    (needs `PGDOCK_TEST_SANDBOX=1` and `PGDOCK_ISWALLET_*`).
+  - Operator note: the default DPA now names "Our wallet provider" as the
+    payment sub-processor instead of Flutterwave and iSpend. An install
+    already running keeps the DPA it published; if you publish the new
+    wording, tell customers 30 days ahead, as the DPA's sub-processor notice
+    requires, that Flutterwave and iSpend are replaced by the wallet
+    provider (docs/legal.md).
 
 ### Deploying
 - `deploy/compose/upgrade.sh <tag>`: an upgrade with a verified metadata

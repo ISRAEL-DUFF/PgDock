@@ -252,8 +252,8 @@ func TestWalletTooShortThenToppedUp(t *testing.T) {
 		t.Fatalf("operating %d, wallet %d", w.fake.OperatingBalance(), w.fake.WalletBalance(wid))
 	}
 	a, err := w.s.Account(ctx, org)
-	if err != nil || a.CardFailingSince == nil {
-		t.Fatalf("dunning didn't start: %+v %v", a.CardFailingSince, err)
+	if err != nil || a.ChargeFailingSince == nil {
+		t.Fatalf("dunning didn't start: %+v %v", a.ChargeFailingSince, err)
 	}
 	var told bool
 	for _, m := range w.sent.msgs {

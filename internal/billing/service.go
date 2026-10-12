@@ -31,17 +31,15 @@ type Service struct {
 	// Now is the clock (tests move it).
 	Now func() time.Time
 
-	// Payments (V3 §3.4): the configured providers by name, which channel
-	// goes where, and what to do once money arrives.
+	// Payments (V3 §3.4): the configured providers by name, and what to do
+	// once money arrives.
 	providers map[string]PaymentProvider
-	routing   Routing
 	onPaid    func(ctx context.Context, orgID uuid.UUID)
 	// onChargeFailed runs when an automatic charge is declined (dunning).
-	// why is the provider's reason (empty for a card).
+	// why is the wallet's reason.
 	onChargeFailed func(ctx context.Context, orgID uuid.UUID, why string)
 	suspender      Suspender
 	remover        Remover
-	seal           Sealer
 	docs           DocStore
 
 	// Wallets (V4.1): the wallet provider, and the prefix of the owner
@@ -51,31 +49,6 @@ type Service struct {
 	rates       RateSource
 	walletOwner string
 	fx          fxCache
-}
-
-// Routing is which provider serves each channel (V3 §3.4.1: configuration,
-// not code). Empty means the channel isn't offered.
-type Routing struct {
-	Cards      string // hosted checkout and saved-card charges
-	VAPrimary  string // virtual accounts
-	VAFallback string
-	Wallet     string // Pay with iSpend and mandates
-}
-
-// Sealer encrypts card tokens at rest (the master key).
-type Sealer interface {
-	Encrypt(plaintext, aad []byte) ([]byte, error)
-	Decrypt(ciphertext, aad []byte) ([]byte, error)
-}
-
-// SetPayments configures payment providers and routing.
-func (s *Service) SetPayments(providers []PaymentProvider, r Routing, seal Sealer) {
-	s.providers = map[string]PaymentProvider{}
-	for _, p := range providers {
-		s.providers[p.Name()] = p
-	}
-	s.routing = r
-	s.seal = seal
 }
 
 // SetDefaultPrices sets the first price book published on a new platform
@@ -92,7 +65,6 @@ func (s *Service) SetWallets(w WalletProvider, ownerPrefix string) {
 	}
 	s.wallets, s.rates, s.walletOwner = w, w, strings.Trim(ownerPrefix, ":")
 	s.providers[w.Name()] = w
-	s.routing.VAPrimary, s.routing.Wallet = w.Name(), w.Name()
 }
 
 // Provider returns a configured provider.
@@ -134,9 +106,6 @@ type Settings struct {
 	// AutoIssue issues each month's drafts on the 1st; otherwise the admin
 	// issues them.
 	AutoIssue bool `json:"auto_issue"`
-	// Stablecoin allows USDT top-ups through iSpend (V3 §3.4.5); off until
-	// the regulatory position is confirmed.
-	Stablecoin bool `json:"stablecoin"`
 	// DeleteForNonPayment lets dunning delete an org's paid resources 47
 	// days after payment was due (V3 §3.8); off, such orgs are listed for
 	// the admin instead.
@@ -552,7 +521,7 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 	var daily time.Time   // the last day the daily work ran
 	var nightly time.Time // the last day re-queried in full
 	for {
-		// Prepaid deductions, balance alerts, card reminders: daily, after
+		// Prepaid deductions and balance alerts: daily, after
 		// midnight's usage is recorded.
 		if now := s.Now(); now.UTC().Hour() >= 1 && daily.Before(dayStart(now)) {
 			if err := s.Daily(ctx); err != nil && ctx.Err() == nil {
@@ -603,16 +572,15 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 }
 
 // Channels are the payment channels offered now.
-type Channels struct{ Card, Wallet, Transfer, Stablecoin bool }
+type Channels struct{ Wallet, Transfer bool }
 
-// Channels reports which payment channels are configured.
-func (s *Service) Channels(ctx context.Context) Channels {
-	has := func(name string) bool { _, ok := s.providers[name]; return name != "" && ok }
-	c := Channels{Card: has(s.routing.Cards), Wallet: has(s.routing.Wallet), Transfer: has(s.routing.VAPrimary) || has(s.routing.VAFallback)}
-	if c.Wallet {
-		if set, err := s.Settings(ctx); err == nil {
-			c.Stablecoin = set.Stablecoin
-		}
+// Channels reports which payment channels the configured providers offer.
+func (s *Service) Channels() Channels {
+	var c Channels
+	for _, p := range s.providers {
+		caps := p.Capabilities()
+		c.Wallet = c.Wallet || caps.Wallet
+		c.Transfer = c.Transfer || caps.VirtualAccounts
 	}
 	return c
 }

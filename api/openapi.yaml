@@ -5131,56 +5131,6 @@ paths:
                       $ref: "#/components/schemas/InvoiceLine"
         default:
           $ref: "#/components/responses/Error"
-  /api/v1/orgs/{org}/billing/checkout:
-    post:
-      operationId: startCheckout
-      summary: Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-      tags: [billing]
-      parameters:
-        - $ref: "#/components/parameters/OrgID"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [channel, purpose]
-              properties:
-                channel:
-                  type: string
-                  enum: [card, wallet, stablecoin]
-                purpose:
-                  type: string
-                  enum: [invoice, topup, card_setup]
-                invoice_id:
-                  type: string
-                  format: uuid
-                amount_minor:
-                  type: integer
-                  format: int64
-                  description: For a top-up.
-                mandate_limit_minor:
-                  type: integer
-                  format: int64
-                  description: With a wallet payment, also set up a recurring mandate with this monthly limit.
-      responses:
-        "201":
-          description: The hosted page to send the customer to.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [reference, checkout_url, amount_minor]
-                properties:
-                  reference:
-                    type: string
-                  checkout_url:
-                    type: string
-                  amount_minor:
-                    type: integer
-                    format: int64
-        default:
-          $ref: "#/components/responses/Error"
   /api/v1/orgs/{org}/billing/virtual-account:
     post:
       operationId: orgVirtualAccount
@@ -5283,83 +5233,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WalletCharge"
-        default:
-          $ref: "#/components/responses/Error"
-  /api/v1/orgs/{org}/billing/payment-methods:
-    get:
-      operationId: listPaymentMethods
-      summary: Saved cards and wallet mandates
-      tags: [billing]
-      parameters:
-        - $ref: "#/components/parameters/OrgID"
-      responses:
-        "200":
-          description: Methods.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [items]
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/PaymentMethod"
-        default:
-          $ref: "#/components/responses/Error"
-  /api/v1/orgs/{org}/billing/payment-methods/{method_id}:
-    delete:
-      operationId: removePaymentMethod
-      summary: Remove a saved card or revoke a mandate
-      tags: [billing]
-      parameters:
-        - $ref: "#/components/parameters/OrgID"
-        - $ref: "#/components/parameters/MethodID"
-      responses:
-        "204":
-          description: Removed.
-        default:
-          $ref: "#/components/responses/Error"
-  /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default:
-    post:
-      operationId: setDefaultPaymentMethod
-      summary: Charge this method for invoices and top-ups
-      tags: [billing]
-      parameters:
-        - $ref: "#/components/parameters/OrgID"
-        - $ref: "#/components/parameters/MethodID"
-      responses:
-        "204":
-          description: Set.
-        default:
-          $ref: "#/components/responses/Error"
-  /api/v1/orgs/{org}/billing/auto-topup:
-    put:
-      operationId: setAutoTopup
-      summary: Top up a prepaid balance from the default method when it falls below a threshold
-      tags: [billing]
-      parameters:
-        - $ref: "#/components/parameters/OrgID"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AutoTopup"
-      responses:
-        "204":
-          description: Set.
-        default:
-          $ref: "#/components/responses/Error"
-    delete:
-      operationId: clearAutoTopup
-      summary: Stop automatic top-ups
-      tags: [billing]
-      parameters:
-        - $ref: "#/components/parameters/OrgID"
-      responses:
-        "204":
-          description: Cleared.
         default:
           $ref: "#/components/responses/Error"
   /api/v1/orgs/{org}/billing/payments:
@@ -6796,7 +6669,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [flutterwave, ispend]
+            enum: [iswallet]
       requestBody:
         required: true
         content:
@@ -8518,13 +8391,6 @@ components:
         format: uuid
     OrgID:
       name: org
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-    MethodID:
-      name: method_id
       in: path
       required: true
       schema:
@@ -15742,9 +15608,6 @@ components:
         auto_issue:
           type: boolean
           description: Issue each month's draft invoices automatically on the 1st.
-        stablecoin:
-          type: boolean
-          description: Allow USDT top-ups through iSpend (off until the regulatory position is confirmed).
         delete_for_non_payment:
           type: boolean
           description: Let dunning delete an org's paid resources 47 days after payment was due; off, they are left for the admin.
@@ -16057,22 +15920,14 @@ components:
           type: string
           format: date-time
           nullable: true
-        auto_topup:
-          allOf:
-            - $ref: "#/components/schemas/AutoTopup"
-          nullable: true
         channels:
           type: object
-          required: [card, wallet, transfer, stablecoin]
+          required: [wallet, transfer]
           description: The payment channels offered.
           properties:
-            card:
-              type: boolean
             wallet:
               type: boolean
             transfer:
-              type: boolean
-            stablecoin:
               type: boolean
         pending_change:
           type: object
@@ -17113,46 +16968,6 @@ components:
           type: string
         account_name:
           type: string
-    PaymentMethod:
-      type: object
-      required: [id, provider, kind, is_default]
-      properties:
-        id:
-          type: string
-          format: uuid
-        provider:
-          type: string
-        kind:
-          type: string
-          enum: [card, mandate]
-        brand:
-          type: string
-          nullable: true
-        last4:
-          type: string
-          nullable: true
-        exp_month:
-          type: integer
-          nullable: true
-        exp_year:
-          type: integer
-          nullable: true
-        limit_minor:
-          type: integer
-          format: int64
-          nullable: true
-        is_default:
-          type: boolean
-    AutoTopup:
-      type: object
-      required: [below_minor, amount_minor]
-      properties:
-        below_minor:
-          type: integer
-          format: int64
-        amount_minor:
-          type: integer
-          format: int64
     Payment:
       type: object
       required: [id, org_id, provider, channel, provider_ref, amount_minor, fee_minor, refunded_minor, received_at]

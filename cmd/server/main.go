@@ -34,8 +34,6 @@ import (
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/backup"
 	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/billing/flutterwave"
-	"github.com/israel-duff/pgdock/internal/billing/ispend"
 	"github.com/israel-duff/pgdock/internal/billing/iswallet"
 	"github.com/israel-duff/pgdock/internal/branching"
 	"github.com/israel-duff/pgdock/internal/capacity"
@@ -256,9 +254,6 @@ func run() error {
 
 	// Billing (V3 §3): price books, accounts, plan changes.
 	billingSvc := billing.New(pool, mailSvc, cfg.Insight.PublicURL, log)
-	billingSvc.SetPayments(paymentProviders(cfg.Payments), billing.Routing{
-		Cards: cfg.Payments.Cards, VAPrimary: cfg.Payments.VAPrimary, VAFallback: cfg.Payments.VAFallback, Wallet: cfg.Payments.Wallet,
-	}, keyring)
 	if !cfg.Payments.ISwalletOn() {
 		// Prices in dollars are converted to naira at the wallet provider's
 		// rate: without a provider a new platform prices in naira.
@@ -970,19 +965,6 @@ func rotateMasterKey(cfg config.Config, keyring *crypto.Keyring, log *slog.Logge
 	log.Info("master key rotated; remove PGDOCK_MASTER_KEY_PREVIOUS and restart", "key_id", keyring.PrimaryID().String(),
 		"sign_in_challenges_cleared", res.Cleared)
 	return nil
-}
-
-// paymentProviders are the configured payment providers (V3 §3.4).
-func paymentProviders(c config.Payments) []billing.PaymentProvider {
-	var out []billing.PaymentProvider
-	if c.FlutterwaveOn() {
-		out = append(out, flutterwave.New(flutterwave.Config{BaseURL: c.FlutterwaveURL, SecretKey: c.FlutterwaveSecretKey,
-			WebhookHash: c.FlutterwaveWebhookHash, BVN: c.FlutterwaveBVN}))
-	}
-	if c.ISpendOn() {
-		out = append(out, ispend.New(ispend.Config{BaseURL: c.ISpendURL, APIKey: c.ISpendAPIKey, WebhookSecret: c.ISpendWebhookSecret}))
-	}
-	return out
 }
 
 // billingDocs keeps billing documents (proofs of payment, WHT credit

@@ -79,8 +79,7 @@ adding or replacing one:
 | --- | --- |
 | Hetzner | Servers and storage (EU region) |
 | Cloudflare | DNS, edge protection, the CDN for public files, and the signup challenge |
-| Flutterwave | Card payments and bank transfers |
-| iSpend | Bank transfers, wallet payments and mandates |
+| Our wallet provider | Organisations' wallets, the bank accounts they are topped up through, and payments from them |
 | The email provider | Account, billing, support and app sign-in email |
 | Termii | SMS sign-in codes for apps' users (Nigeria) |
 | Africa's Talking | SMS sign-in codes for apps' users, when Termii is unavailable |

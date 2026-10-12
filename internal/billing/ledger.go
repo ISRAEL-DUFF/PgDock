@@ -29,7 +29,7 @@ const (
 	AccWalletBalance = "wallet_balance"
 	// Prefixed platform accounts.
 	AccRevenuePrefix = "revenue:" // revenue:<plan or product line>
-	AccCashPrefix    = "cash:"    // cash:flutterwave, cash:ispend, cash:bank
+	AccCashPrefix    = "cash:"    // cash:iswallet, cash:bank
 	AccFeesPrefix    = "fees:"    // fees:<provider>
 )
 

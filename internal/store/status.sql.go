@@ -106,24 +106,24 @@ func (q *Queries) InsertEdgeCPUSample(ctx context.Context, arg InsertEdgeCPUSamp
 }
 
 const orgBillingStanding = `-- name: OrgBillingStanding :one
-SELECT b.dunning_state, (b.card_failing_since IS NOT NULL)::bool AS card_failing, b.budget_alerted, b.budget_month
+SELECT b.dunning_state, (b.card_failing_since IS NOT NULL)::bool AS charge_failing, b.budget_alerted, b.budget_month
 FROM billing_accounts b WHERE b.org_id = $1
 `
 
 type OrgBillingStandingRow struct {
 	DunningState  string
-	CardFailing   bool
+	ChargeFailing bool
 	BudgetAlerted int32
 	BudgetMonth   pgtype.Date
 }
 
-// An org's dunning state, failing card and this month's budget alert.
+// An org's dunning state, failing wallet charges and this month's budget alert.
 func (q *Queries) OrgBillingStanding(ctx context.Context, orgID uuid.UUID) (OrgBillingStandingRow, error) {
 	row := q.db.QueryRow(ctx, orgBillingStanding, orgID)
 	var i OrgBillingStandingRow
 	err := row.Scan(
 		&i.DunningState,
-		&i.CardFailing,
+		&i.ChargeFailing,
 		&i.BudgetAlerted,
 		&i.BudgetMonth,
 	)

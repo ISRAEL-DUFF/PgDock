@@ -16,7 +16,7 @@ import (
 // Dunning states (V3 §3.8), on billing_accounts.dunning_state.
 const (
 	DunningOK         = "ok"
-	DunningRetrying   = "retrying" // automatic card charges failing
+	DunningRetrying   = "retrying" // automatic wallet charges failing
 	DunningOverdue    = "overdue"
 	DunningRestricted = "restricted" // no new projects, branches or dedicated instances
 	DunningSuspended  = "suspended"
@@ -40,11 +40,11 @@ type Remover func(ctx context.Context, orgID uuid.UUID) (int, error)
 func (s *Service) SetDunning(sus Suspender, remove Remover) {
 	s.suspender, s.remover = sus, remove
 	s.onPaid = s.reevaluate
-	s.onChargeFailed = s.cardFailed
+	s.onChargeFailed = s.chargeFailed
 }
 
-// Card retries (V3 §3.8): the days after the first failure.
-var cardRetryDays = []int{3, 5, 7}
+// Charge retries (V3 §3.8): the days after the first failure.
+var chargeRetryDays = []int{3, 5, 7}
 
 // The overdue ladder: days after the due date (or after a prepaid org's
 // grace ends).
@@ -67,25 +67,22 @@ const DeletionNotice = 7 * 24 * time.Hour
 
 func daysSince(t, now time.Time) int { return int(now.Sub(t).Hours() / 24) }
 
-func (s *Service) cardFailed(ctx context.Context, orgID uuid.UUID, why string) {
+// chargeFailed starts the retries of an automatic wallet charge that was
+// declined, and tells the org why.
+func (s *Service) chargeFailed(ctx context.Context, orgID uuid.UUID, why string) {
 	a, err := s.Account(ctx, orgID)
-	if err != nil || a.CardFailingSince != nil {
+	if err != nil || a.ChargeFailingSince != nil {
 		return
 	}
 	now := s.Now()
 	q := store.New(s.db)
-	_ = q.SetCardFailing(ctx, store.SetCardFailingParams{OrgID: orgID, CardFailingSince: &now})
+	_ = q.SetChargeFailing(ctx, store.SetChargeFailingParams{OrgID: orgID, ChargeFailingSince: &now})
 	if a.DunningState == DunningOK {
 		_ = q.SetDunning(ctx, store.SetDunningParams{OrgID: orgID, DunningState: DunningRetrying, DunningSince: &now})
 	}
-	if why != "" {
-		s.notifyOrg(ctx, orgID, "billing.wallet_short", fmt.Sprintf("PGDock: %s's wallet couldn't pay its invoice", s.orgName(ctx, orgID)),
-			fmt.Sprintf("Debiting the wallet failed: %s. Top it up with a bank transfer and PGDock will pay the invoice at once; it also tries again in 3, 5 and 7 days: %s/org/billing?org=%s\n",
-				why, s.publicURL, orgID))
-		return
-	}
-	s.notifyOrg(ctx, orgID, "billing.card_failed", fmt.Sprintf("PGDock: a payment for %s failed", s.orgName(ctx, orgID)),
-		fmt.Sprintf("Charging the saved card failed. PGDock will try again in 3, 5 and 7 days. Update the card or pay another way: %s/org/billing?org=%s\n", s.publicURL, orgID))
+	s.notifyOrg(ctx, orgID, "billing.wallet_short", fmt.Sprintf("PGDock: %s's wallet couldn't pay its invoice", s.orgName(ctx, orgID)),
+		fmt.Sprintf("Debiting the wallet failed: %s. Top it up with a bank transfer and PGDock will pay the invoice at once; it also tries again in 3, 5 and 7 days: %s/org/billing?org=%s\n",
+			why, s.publicURL, orgID))
 }
 
 // owing is when orgID's dunning cycle started, or zero if it owes nothing:
@@ -117,7 +114,7 @@ func (s *Service) owing(ctx context.Context, a store.BillingAccount, now time.Ti
 func (s *Service) RunDunning(ctx context.Context) error {
 	q := store.New(s.db)
 	// Charges on issue that a provider outage stopped are tried again; a
-	// decline now starts the card retries as usual.
+	// decline now starts the charge retries as usual.
 	deferred, err := q.ChargesDeferredByOutage(ctx)
 	if err != nil {
 		return err
@@ -145,19 +142,20 @@ func (s *Service) dunOrg(ctx context.Context, orgID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	// Card retries on days 3, 5 and 7 after the first failure.
-	if a.CardFailingSince != nil {
-		for _, d := range cardRetryDays {
-			if daysSince(*a.CardFailingSince, now) < d {
+	// Charge retries on days 3, 5 and 7 after the first failure. (The step
+	// names keep their old "card_retry" spelling: they are stored.)
+	if a.ChargeFailingSince != nil {
+		for _, d := range chargeRetryDays {
+			if daysSince(*a.ChargeFailingSince, now) < d {
 				break
 			}
 			step := fmt.Sprintf("card_retry_%d", d)
-			if _, err := q.InsertDunningStep(ctx, store.InsertDunningStepParams{OrgID: orgID, Cycle: *a.CardFailingSince, Step: step}); errors.Is(err, pgx.ErrNoRows) {
+			if _, err := q.InsertDunningStep(ctx, store.InsertDunningStepParams{OrgID: orgID, Cycle: *a.ChargeFailingSince, Step: step}); errors.Is(err, pgx.ErrNoRows) {
 				continue
 			} else if err != nil {
 				return err
 			}
-			ok, down, err := s.retryCard(ctx, orgID)
+			ok, down, err := s.chargeOpenInvoices(ctx, orgID, false)
 			if err != nil {
 				return err
 			}
@@ -167,11 +165,11 @@ func (s *Service) dunOrg(ctx context.Context, orgID uuid.UUID) error {
 			if down {
 				// A provider outage isn't the customer's failure: the retry
 				// stays due and the next run tries again (M27 chaos test).
-				s.log.Warn("billing: card retry deferred, provider unavailable", "org", orgID, "step", step)
-				return q.DeleteDunningStep(ctx, store.DeleteDunningStepParams{OrgID: orgID, Cycle: *a.CardFailingSince, Step: step})
+				s.log.Warn("billing: charge retry deferred, provider unavailable", "org", orgID, "step", step)
+				return q.DeleteDunningStep(ctx, store.DeleteDunningStepParams{OrgID: orgID, Cycle: *a.ChargeFailingSince, Step: step})
 			}
-			s.notifyOrg(ctx, orgID, "billing.card_failed", fmt.Sprintf("PGDock: a payment for %s failed again", s.orgName(ctx, orgID)),
-				fmt.Sprintf("Retrying the saved card on day %d failed. Update the card or pay another way: %s/org/billing?org=%s\n", d, s.publicURL, orgID))
+			s.notifyOrg(ctx, orgID, "billing.wallet_short", fmt.Sprintf("PGDock: %s's wallet couldn't pay its invoice again", s.orgName(ctx, orgID)),
+				fmt.Sprintf("Debiting the wallet on day %d failed again. Top it up with a bank transfer or pay another way: %s/org/billing?org=%s\n", d, s.publicURL, orgID))
 		}
 	}
 	since, err := s.owing(ctx, a, now)
@@ -259,47 +257,6 @@ func (s *Service) dunOrg(ctx context.Context, orgID uuid.UUID) error {
 	return nil
 }
 
-// retryCard charges each open invoice to the default method; true when
-// everything owed is paid.
-func (s *Service) retryCard(ctx context.Context, orgID uuid.UUID) (ok, unavailable bool, err error) {
-	if s.wallets != nil {
-		if a, err := s.Account(ctx, orgID); err == nil && walletID(a) != "" {
-			return s.chargeOpenInvoices(ctx, orgID, false)
-		}
-	}
-	q := store.New(s.db)
-	m, err := q.DefaultPaymentMethod(ctx, orgID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return false, false, nil
-	}
-	if err != nil {
-		return false, false, err
-	}
-	var invs []store.Invoice
-	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		var err error
-		invs, err = store.New(tx).OpenInvoices(ctx, orgID)
-		return err
-	})
-	if err != nil {
-		return false, false, err
-	}
-	for _, inv := range invs {
-		owed, err := outstanding(ctx, q, inv)
-		if err != nil || owed <= 0 {
-			continue
-		}
-		out, err := s.ChargeMethod(ctx, m, &inv.ID, owed)
-		if err != nil {
-			return false, false, err
-		}
-		if !out.Succeeded {
-			return false, out.Unavailable, nil
-		}
-	}
-	return true, false, nil
-}
-
 // reevaluate is Reevaluate as a hook after each payment.
 func (s *Service) reevaluate(ctx context.Context, orgID uuid.UUID) {
 	if err := s.Reevaluate(ctx, orgID); err != nil {
@@ -329,7 +286,7 @@ func (s *Service) Reevaluate(ctx context.Context, orgID uuid.UUID) error {
 		return err
 	}
 	open := false
-	if a.CardFailingSince != nil {
+	if a.ChargeFailingSince != nil {
 		var invs []store.Invoice
 		_ = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 			var err error
@@ -338,7 +295,7 @@ func (s *Service) Reevaluate(ctx context.Context, orgID uuid.UUID) error {
 		})
 		open = len(invs) > 0
 		if !open {
-			if err := q.SetCardFailing(ctx, store.SetCardFailingParams{OrgID: orgID}); err != nil {
+			if err := q.SetChargeFailing(ctx, store.SetChargeFailingParams{OrgID: orgID}); err != nil {
 				return err
 			}
 		}

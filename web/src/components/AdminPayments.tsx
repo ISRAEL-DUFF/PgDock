@@ -112,7 +112,7 @@ export function PaymentsTab() {
                 {p.provider_ref}
               </td>
               <td className="px-3 py-2 text-right">
-                {p.refunded_minor < p.amount_minor && (
+                {p.provider === "bank" && p.refunded_minor < p.amount_minor && (
                   <Button size="small" onClick={() => setRefunding(p)}>
                     Refund
                   </Button>
@@ -290,12 +290,8 @@ function RefundPayment({
       const kobo = parseNaira(amount);
       if (!p || !kobo || !reason)
         throw new Error("Enter the amount and a reason.");
-      const r = await api.refundPayment(p.id, kobo, reason, reopen);
-      setDone(
-        r.status === "completed"
-          ? "Refunded."
-          : "The refund was sent; it is posted when the provider confirms it.",
-      );
+      await api.refundPayment(p.id, kobo, reason, reopen);
+      setDone("Refunded. Return the money to the customer yourself.");
       await qc.invalidateQueries({ queryKey: ["admin-payments"] });
     });
   return (
@@ -303,7 +299,7 @@ function RefundPayment({
       open={!!p}
       onOpenChange={(o) => !o && close()}
       title="Refund"
-      description="Refunds come out of the organisation's credit. To refund money that paid an invoice, issue a credit note first, or reopen the invoice so it is owed again."
+      description="Only payments recorded by hand are refunded here. Refunds come out of the organisation's credit. To refund money that paid an invoice, issue a credit note first, or reopen the invoice so it is owed again."
       testId="refund-payment"
       footer={
         !done && (

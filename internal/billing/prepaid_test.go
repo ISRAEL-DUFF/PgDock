@@ -27,7 +27,7 @@ func makePrepaid(t *testing.T, s *billing.Service, org uuid.UUID) {
 
 func topup(t *testing.T, s *billing.Service, org uuid.UUID, ref string, amount int64) {
 	t.Helper()
-	if _, err := s.RecordPayment(context.Background(), billing.PaymentIn{OrgID: org, Provider: billing.ProviderISpend, Channel: billing.ChannelTransfer,
+	if _, err := s.RecordPayment(context.Background(), billing.PaymentIn{OrgID: org, Provider: billing.ProviderBank, Channel: billing.ChannelManual,
 		ProviderRef: ref, AmountMinor: amount}); err != nil {
 		t.Fatal(err)
 	}
@@ -218,98 +218,4 @@ func TestPrepaidAlertsAndZeroBalance(t *testing.T) {
 		t.Error("still at zero after a top-up")
 	}
 	mustCheck(t, db)
-}
-
-func TestAutoTopupAndChargeOnIssue(t *testing.T) {
-	w := newPayWorld(t)
-	ctx := context.Background()
-	q := store.New(w.db)
-
-	// A postpaid org with a saved card: its invoice is charged on issue.
-	org := newOrg(t, w.db, "acme")
-	saveCard(t, w, org)
-	inv := issuedProInvoice(t, w.s, w.clk, org)
-	w.event(t) // the charge's webhook
-	if got := invoiceNow(t, q, inv.ID); got.Status != billing.StatusPaid {
-		t.Fatalf("charged on issue: %s", got.Status)
-	}
-
-	// A prepaid org tops up from its card when it falls below ₦10,000.
-	pre := newOrg(t, w.db, "prepaid")
-	makePrepaid(t, w.s, pre)
-	saveCard(t, w, pre)
-	before, _ := w.s.CreditAvailable(ctx, w.db, pre)
-	if err := w.s.SetAutoTopup(ctx, pre, &billing.AutoTopup{BelowMinor: 1_000_000, AmountMinor: 2_500_000}); err != nil {
-		t.Fatal(err)
-	}
-	if err := w.s.CheckPrepaid(ctx, pre); err != nil {
-		t.Fatal(err)
-	}
-	w.event(t)
-	if c, _ := w.s.CreditAvailable(ctx, w.db, pre); c != before+2_500_000 {
-		t.Fatalf("balance %d after an auto top-up from %d", c, before)
-	}
-	// Not again the same day.
-	if err := w.s.CheckPrepaid(ctx, pre); err != nil {
-		t.Fatal(err)
-	}
-	w.noEvent(t)
-	mustCheck(t, w.db)
-}
-
-// saveCard saves a card for org by a ₦100 card checkout (kept as credit).
-func saveCard(t *testing.T, w *payWorld, org uuid.UUID) {
-	t.Helper()
-	in, err := w.s.StartCheckout(context.Background(), billing.CheckoutStart{OrgID: org, Channel: billing.ChannelCard, Purpose: billing.PurposeCardSetup})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := w.flw.CompleteCheckout(in.Reference, true); err != nil {
-		t.Fatal(err)
-	}
-	if e := w.event(t); e != "payment.succeeded posted" {
-		t.Fatalf("card setup: %s", e)
-	}
-}
-
-func TestCardExpiryReminders(t *testing.T) {
-	w := newPayWorld(t)
-	ctx := context.Background()
-	org := newOrg(t, w.db, "acme")
-	if _, err := w.s.AddContact(ctx, org, "ap@acme.example", nil); err != nil {
-		t.Fatal(err)
-	}
-	saveCard(t, w, org) // expires 09/32
-	count := func() int {
-		n := 0
-		for _, m := range w.sent.msgs {
-			if strings.Contains(m.Subject, "expires soon") {
-				n++
-			}
-		}
-		return n
-	}
-	for _, at := range []struct {
-		t    time.Time
-		want int
-	}{
-		{time.Date(2032, 8, 15, 0, 0, 0, 0, time.UTC), 0},
-		{time.Date(2032, 9, 5, 0, 0, 0, 0, time.UTC), 1},
-		{time.Date(2032, 9, 6, 0, 0, 0, 0, time.UTC), 1},
-		{time.Date(2032, 9, 25, 0, 0, 0, 0, time.UTC), 2},
-		{time.Date(2032, 9, 28, 0, 0, 0, 0, time.UTC), 2},
-	} {
-		w.clk.t = at.t
-		if err := w.s.CardReminders(ctx); err != nil {
-			t.Fatal(err)
-		}
-		if got := count(); got != at.want {
-			t.Errorf("%s: %d reminders, want %d", at.t.Format("2 Jan"), got, at.want)
-		}
-	}
-	w.clk.t = time.Date(2032, 10, 1, 0, 0, 0, 0, time.UTC)
-	_ = w.s.CardReminders(ctx)
-	if left, _ := store.New(w.db).ListPaymentMethods(ctx, org); len(left) != 0 {
-		t.Error("an expired card is still offered")
-	}
 }

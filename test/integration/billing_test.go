@@ -206,7 +206,7 @@ func TestBillingAccountsAndRoles(t *testing.T) {
 		t.Fatalf("early publish: %d %+v", code, apiErr)
 	}
 	bad := prices
-	bad.Currency = "USD"
+	bad.Currency = "EUR"
 	if code := e.Do("PUT", path, gen.PriceBookInput{EffectiveAt: time.Now().Add(40 * 24 * time.Hour), Prices: bad}, nil); code != http.StatusBadRequest {
 		t.Errorf("invalid prices: %d", code)
 	}
@@ -312,20 +312,27 @@ func TestCLIBilling(t *testing.T) {
 		t.Fatalf("invoice: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
 	}
 
-	// Paying: a checkout link, then a transfer to the org's own account.
-	if r := runCLI(t, bin, env, "billing", "pay", *issued.Number); r.code != 0 || !strings.Contains(r.stdout, "http") || !strings.Contains(r.stdout, ngn(issued.TotalMinor)) {
-		t.Fatalf("pay: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
-	}
+	// Paying: open the wallet, transfer to its account, then pay from it.
+	w := openWallet(t, e, e.OrgID, "Finance")
 	r := runCLI(t, bin, env, "billing", "transfer")
-	fields := strings.Fields(strings.TrimPrefix(r.stdout, "Transfer to "))
-	if r.code != 0 || len(fields) == 0 {
+	if r.code != 0 || !strings.Contains(r.stdout, "Transfer to "+w.Account.AccountNumber) {
 		t.Fatalf("transfer: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
 	}
-	if _, err := e.ISpend.Transfer(strings.TrimSuffix(fields[0], ","), issued.TotalMinor); err != nil {
+	_, _, credited, err := e.ISWallet.Deposit(w.Account.AccountNumber, 2_000_000)
+	if err != nil {
 		t.Fatal(err)
 	}
-	awaitPay(t, "the transfer", func() bool { return invoiceStatus(e, issued.Id) == "paid" })
-	if r := runCLI(t, bin, env, "billing", "payments"); r.code != 0 || !strings.Contains(r.stdout, ngn(issued.TotalMinor)) || !strings.Contains(r.stdout, "transfer") {
+	awaitPay(t, "the deposit", func() bool { return walletOf(e, e.OrgID).LedgerMinor == credited })
+	if r := runCLI(t, bin, env, "billing", "wallet"); r.code != 0 || !strings.Contains(r.stdout, "Balance: "+ngn(credited)) || !strings.Contains(r.stdout, "Owed on open invoices: "+ngn(issued.TotalMinor)) {
+		t.Fatalf("wallet: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if r := runCLI(t, bin, env, "billing", "pay", *issued.Number); r.code != 0 || !strings.Contains(r.stdout, "Paid from the wallet ("+ngn(issued.TotalMinor)+")") {
+		t.Fatalf("pay: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if s := invoiceStatus(e, issued.Id); s != "paid" {
+		t.Fatalf("after paying: %s", s)
+	}
+	if r := runCLI(t, bin, env, "billing", "payments"); r.code != 0 || !strings.Contains(r.stdout, ngn(credited)) || !strings.Contains(r.stdout, "transfer") {
 		t.Fatalf("payments: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
 	}
 }

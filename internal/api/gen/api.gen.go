@@ -1907,24 +1907,6 @@ func (e OrgRole) Valid() bool {
 	}
 }
 
-// Defines values for PaymentMethodKind.
-const (
-	PaymentMethodKindCard    PaymentMethodKind = "card"
-	PaymentMethodKindMandate PaymentMethodKind = "mandate"
-)
-
-// Valid indicates whether the value is a known member of the PaymentMethodKind enum.
-func (e PaymentMethodKind) Valid() bool {
-	switch e {
-	case PaymentMethodKindCard:
-		return true
-	case PaymentMethodKindMandate:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for PersonalCredentialsAccess.
 const (
 	PersonalCredentialsAccessReadOnly  PersonalCredentialsAccess = "read_only"
@@ -3746,48 +3728,6 @@ func (e ListOrgAuditParamsOutcome) Valid() bool {
 	}
 }
 
-// Defines values for StartCheckoutJSONBodyChannel.
-const (
-	StartCheckoutJSONBodyChannelCard       StartCheckoutJSONBodyChannel = "card"
-	StartCheckoutJSONBodyChannelStablecoin StartCheckoutJSONBodyChannel = "stablecoin"
-	StartCheckoutJSONBodyChannelWallet     StartCheckoutJSONBodyChannel = "wallet"
-)
-
-// Valid indicates whether the value is a known member of the StartCheckoutJSONBodyChannel enum.
-func (e StartCheckoutJSONBodyChannel) Valid() bool {
-	switch e {
-	case StartCheckoutJSONBodyChannelCard:
-		return true
-	case StartCheckoutJSONBodyChannelStablecoin:
-		return true
-	case StartCheckoutJSONBodyChannelWallet:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for StartCheckoutJSONBodyPurpose.
-const (
-	StartCheckoutJSONBodyPurposeCardSetup StartCheckoutJSONBodyPurpose = "card_setup"
-	StartCheckoutJSONBodyPurposeInvoice   StartCheckoutJSONBodyPurpose = "invoice"
-	StartCheckoutJSONBodyPurposeTopup     StartCheckoutJSONBodyPurpose = "topup"
-)
-
-// Valid indicates whether the value is a known member of the StartCheckoutJSONBodyPurpose enum.
-func (e StartCheckoutJSONBodyPurpose) Valid() bool {
-	switch e {
-	case StartCheckoutJSONBodyPurposeCardSetup:
-		return true
-	case StartCheckoutJSONBodyPurposeInvoice:
-		return true
-	case StartCheckoutJSONBodyPurposeTopup:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for EstimateOrgCostJSONBodyPitrDays.
 const (
 	EstimateOrgCostJSONBodyPitrDaysN14 EstimateOrgCostJSONBodyPitrDays = 14
@@ -3829,16 +3769,13 @@ func (e GetOrgUsageParamsFormat) Valid() bool {
 
 // Defines values for PaymentWebhookParamsProvider.
 const (
-	Flutterwave PaymentWebhookParamsProvider = "flutterwave"
-	Ispend      PaymentWebhookParamsProvider = "ispend"
+	Iswallet PaymentWebhookParamsProvider = "iswallet"
 )
 
 // Valid indicates whether the value is a known member of the PaymentWebhookParamsProvider enum.
 func (e PaymentWebhookParamsProvider) Valid() bool {
 	switch e {
-	case Flutterwave:
-		return true
-	case Ispend:
+	case Iswallet:
 		return true
 	default:
 		return false
@@ -4770,12 +4707,6 @@ type AuthUserUpdate struct {
 	UserMetadata *map[string]interface{} `json:"user_metadata,omitempty"`
 }
 
-// AutoTopup defines model for AutoTopup.
-type AutoTopup struct {
-	AmountMinor int64 `json:"amount_minor"`
-	BelowMinor  int64 `json:"below_minor"`
-}
-
 // Availability defines model for Availability.
 type Availability struct {
 	// ExcludedMinutes Minutes excluded for maintenance announced at least 72 hours ahead (V3.1 §4.2).
@@ -4985,17 +4916,14 @@ type BatchDecision struct {
 // BillingAccount defines model for BillingAccount.
 type BillingAccount struct {
 	Address          *string    `json:"address,omitempty"`
-	AutoTopup        *AutoTopup `json:"auto_topup,omitempty"`
 	BudgetMinor      *int64     `json:"budget_minor,omitempty"`
 	Capped           *bool      `json:"capped,omitempty"`
 	CardFailingSince *time.Time `json:"card_failing_since,omitempty"`
 
 	// Channels The payment channels offered.
 	Channels *struct {
-		Card       bool `json:"card"`
-		Stablecoin bool `json:"stablecoin"`
-		Transfer   bool `json:"transfer"`
-		Wallet     bool `json:"wallet"`
+		Transfer bool `json:"transfer"`
+		Wallet   bool `json:"wallet"`
 	} `json:"channels,omitempty"`
 
 	// CreditMinor On the credit balance (prepaid funds, overpayments).
@@ -5108,9 +5036,6 @@ type BillingSettings struct {
 		Tin       string `json:"tin"`
 		VatNumber string `json:"vat_number"`
 	} `json:"seller"`
-
-	// Stablecoin Allow USDT top-ups through iSpend (off until the regulatory position is confirmed).
-	Stablecoin *bool `json:"stablecoin,omitempty"`
 
 	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 	//
@@ -7433,22 +7358,6 @@ type PaymentEvent struct {
 type PaymentList struct {
 	Items []Payment `json:"items"`
 }
-
-// PaymentMethod defines model for PaymentMethod.
-type PaymentMethod struct {
-	Brand      *string            `json:"brand,omitempty"`
-	ExpMonth   *int               `json:"exp_month,omitempty"`
-	ExpYear    *int               `json:"exp_year,omitempty"`
-	Id         openapi_types.UUID `json:"id"`
-	IsDefault  bool               `json:"is_default"`
-	Kind       PaymentMethodKind  `json:"kind"`
-	Last4      *string            `json:"last4,omitempty"`
-	LimitMinor *int64             `json:"limit_minor,omitempty"`
-	Provider   string             `json:"provider"`
-}
-
-// PaymentMethodKind defines model for PaymentMethod.Kind.
-type PaymentMethodKind string
 
 // PersonalCredentials defines model for PersonalCredentials.
 type PersonalCredentials struct {
@@ -10015,9 +9924,6 @@ type InvoiceID = openapi_types.UUID
 // JobID defines model for JobID.
 type JobID = openapi_types.UUID
 
-// MethodID defines model for MethodID.
-type MethodID = openapi_types.UUID
-
 // MetricNames defines model for MetricNames.
 type MetricNames = []string
 
@@ -10355,24 +10261,6 @@ type ListOrgAuditParams struct {
 
 // ListOrgAuditParamsOutcome defines parameters for ListOrgAudit.
 type ListOrgAuditParamsOutcome string
-
-// StartCheckoutJSONBody defines parameters for StartCheckout.
-type StartCheckoutJSONBody struct {
-	// AmountMinor For a top-up.
-	AmountMinor *int64                       `json:"amount_minor,omitempty"`
-	Channel     StartCheckoutJSONBodyChannel `json:"channel"`
-	InvoiceId   *openapi_types.UUID          `json:"invoice_id,omitempty"`
-
-	// MandateLimitMinor With a wallet payment, also set up a recurring mandate with this monthly limit.
-	MandateLimitMinor *int64                       `json:"mandate_limit_minor,omitempty"`
-	Purpose           StartCheckoutJSONBodyPurpose `json:"purpose"`
-}
-
-// StartCheckoutJSONBodyChannel defines parameters for StartCheckout.
-type StartCheckoutJSONBodyChannel string
-
-// StartCheckoutJSONBodyPurpose defines parameters for StartCheckout.
-type StartCheckoutJSONBodyPurpose string
 
 // UpdateBillingContactJSONBody defines parameters for UpdateBillingContact.
 type UpdateBillingContactJSONBody struct {
@@ -10951,12 +10839,6 @@ type UpdateOrgJSONRequestBody = UpdateOrgRequest
 
 // UpdateOrgBillingJSONRequestBody defines body for UpdateOrgBilling for application/json ContentType.
 type UpdateOrgBillingJSONRequestBody = BillingDetailsUpdate
-
-// SetAutoTopupJSONRequestBody defines body for SetAutoTopup for application/json ContentType.
-type SetAutoTopupJSONRequestBody = AutoTopup
-
-// StartCheckoutJSONRequestBody defines body for StartCheckout for application/json ContentType.
-type StartCheckoutJSONRequestBody StartCheckoutJSONBody
 
 // AddBillingContactJSONRequestBody defines body for AddBillingContact for application/json ContentType.
 type AddBillingContactJSONRequestBody = BillingContact
@@ -11749,15 +11631,6 @@ type ServerInterface interface {
 	// UpdateOrgBilling Change business details and spend controls
 	// (PATCH /api/v1/orgs/{org}/billing)
 	UpdateOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID)
-	// ClearAutoTopup Stop automatic top-ups
-	// (DELETE /api/v1/orgs/{org}/billing/auto-topup)
-	ClearAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID)
-	// SetAutoTopup Top up a prepaid balance from the default method when it falls below a threshold
-	// (PUT /api/v1/orgs/{org}/billing/auto-topup)
-	SetAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID)
-	// StartCheckout Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-	// (POST /api/v1/orgs/{org}/billing/checkout)
-	StartCheckout(w http.ResponseWriter, r *http.Request, org OrgID)
 	// ListBillingContacts Billing contacts, who receive invoices and payment email
 	// (GET /api/v1/orgs/{org}/billing/contacts)
 	ListBillingContacts(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -11797,15 +11670,6 @@ type ServerInterface interface {
 	// UploadWhtCertificate Upload the WHT credit note for an invoice whose WHT was deducted (PDF, PNG or JPEG, up to 10 MB)
 	// (POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate)
 	UploadWhtCertificate(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID, params UploadWhtCertificateParams)
-	// ListPaymentMethods Saved cards and wallet mandates
-	// (GET /api/v1/orgs/{org}/billing/payment-methods)
-	ListPaymentMethods(w http.ResponseWriter, r *http.Request, org OrgID)
-	// RemovePaymentMethod Remove a saved card or revoke a mandate
-	// (DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id})
-	RemovePaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID)
-	// SetDefaultPaymentMethod Charge this method for invoices and top-ups
-	// (POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default)
-	SetDefaultPaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID)
 	// ListOrgPayments Payments received, with receipts
 	// (GET /api/v1/orgs/{org}/billing/payments)
 	ListOrgPayments(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -13501,24 +13365,6 @@ func (_ Unimplemented) UpdateOrgBilling(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// ClearAutoTopup Stop automatic top-ups
-// (DELETE /api/v1/orgs/{org}/billing/auto-topup)
-func (_ Unimplemented) ClearAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// SetAutoTopup Top up a prepaid balance from the default method when it falls below a threshold
-// (PUT /api/v1/orgs/{org}/billing/auto-topup)
-func (_ Unimplemented) SetAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// StartCheckout Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-// (POST /api/v1/orgs/{org}/billing/checkout)
-func (_ Unimplemented) StartCheckout(w http.ResponseWriter, r *http.Request, org OrgID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // ListBillingContacts Billing contacts, who receive invoices and payment email
 // (GET /api/v1/orgs/{org}/billing/contacts)
 func (_ Unimplemented) ListBillingContacts(w http.ResponseWriter, r *http.Request, org OrgID) {
@@ -13594,24 +13440,6 @@ func (_ Unimplemented) GetOrgInvoicePdf(w http.ResponseWriter, r *http.Request, 
 // UploadWhtCertificate Upload the WHT credit note for an invoice whose WHT was deducted (PDF, PNG or JPEG, up to 10 MB)
 // (POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate)
 func (_ Unimplemented) UploadWhtCertificate(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID, params UploadWhtCertificateParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// ListPaymentMethods Saved cards and wallet mandates
-// (GET /api/v1/orgs/{org}/billing/payment-methods)
-func (_ Unimplemented) ListPaymentMethods(w http.ResponseWriter, r *http.Request, org OrgID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// RemovePaymentMethod Remove a saved card or revoke a mandate
-// (DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id})
-func (_ Unimplemented) RemovePaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// SetDefaultPaymentMethod Charge this method for invoices and top-ups
-// (POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default)
-func (_ Unimplemented) SetDefaultPaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -19099,84 +18927,6 @@ func (siw *ServerInterfaceWrapper) UpdateOrgBilling(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
-// ClearAutoTopup operation middleware
-func (siw *ServerInterfaceWrapper) ClearAutoTopup(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "org" -------------
-	var org OrgID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ClearAutoTopup(w, r, org)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// SetAutoTopup operation middleware
-func (siw *ServerInterfaceWrapper) SetAutoTopup(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "org" -------------
-	var org OrgID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SetAutoTopup(w, r, org)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// StartCheckout operation middleware
-func (siw *ServerInterfaceWrapper) StartCheckout(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "org" -------------
-	var org OrgID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.StartCheckout(w, r, org)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // ListBillingContacts operation middleware
 func (siw *ServerInterfaceWrapper) ListBillingContacts(w http.ResponseWriter, r *http.Request) {
 
@@ -19576,102 +19326,6 @@ func (siw *ServerInterfaceWrapper) UploadWhtCertificate(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UploadWhtCertificate(w, r, org, invoiceId, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListPaymentMethods operation middleware
-func (siw *ServerInterfaceWrapper) ListPaymentMethods(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "org" -------------
-	var org OrgID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListPaymentMethods(w, r, org)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// RemovePaymentMethod operation middleware
-func (siw *ServerInterfaceWrapper) RemovePaymentMethod(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "org" -------------
-	var org OrgID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "method_id" -------------
-	var methodId MethodID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "method_id", chi.URLParam(r, "method_id"), &methodId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "method_id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RemovePaymentMethod(w, r, org, methodId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// SetDefaultPaymentMethod operation middleware
-func (siw *ServerInterfaceWrapper) SetDefaultPaymentMethod(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "org" -------------
-	var org OrgID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "method_id" -------------
-	var methodId MethodID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "method_id", chi.URLParam(r, "method_id"), &methodId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "method_id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SetDefaultPaymentMethod(w, r, org, methodId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -26877,9 +26531,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/estimate", wrapper.EstimateOrgCost)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/checkout", wrapper.StartCheckout)
-	})
-	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/virtual-account", wrapper.OrgVirtualAccount)
 	})
 	r.Group(func(r chi.Router) {
@@ -26896,21 +26547,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet", wrapper.PayInvoiceFromWallet)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/payment-methods", wrapper.ListPaymentMethods)
-	})
-	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/billing/payment-methods/{method_id}", wrapper.RemovePaymentMethod)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/payment-methods/{method_id}/default", wrapper.SetDefaultPaymentMethod)
-	})
-	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/billing/auto-topup", wrapper.ClearAutoTopup)
-	})
-	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/api/v1/orgs/{org}/billing/auto-topup", wrapper.SetAutoTopup)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/payments", wrapper.ListOrgPayments)

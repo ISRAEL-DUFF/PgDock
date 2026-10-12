@@ -36,6 +36,14 @@ ahead (the DPA promises that notice), then publish a new DPA version from
 Platform → Legal documents with the new rows (the template is in
 `internal/legal/defaults.go`).
 
+**Sub-processors named in the default DPA after the cards removal.** The
+payment providers the default DPA used to name (Flutterwave and iSpend) are
+replaced by one row, "Our wallet provider". An install already running
+keeps the DPA it published, which still names Flutterwave and iSpend: if
+you want it to match, tell organisations 30 days ahead (the DPA promises
+that notice) and publish a new version from Platform → Legal documents
+(the template is in `internal/legal/defaults.go`).
+
 ## Publishing
 
 - **SLA and DPA:** Platform → Legal documents → **Publish a new version**.

@@ -1911,24 +1911,6 @@ func (e OrgRole) Valid() bool {
 	}
 }
 
-// Defines values for PaymentMethodKind.
-const (
-	PaymentMethodKindCard    PaymentMethodKind = "card"
-	PaymentMethodKindMandate PaymentMethodKind = "mandate"
-)
-
-// Valid indicates whether the value is a known member of the PaymentMethodKind enum.
-func (e PaymentMethodKind) Valid() bool {
-	switch e {
-	case PaymentMethodKindCard:
-		return true
-	case PaymentMethodKindMandate:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for PersonalCredentialsAccess.
 const (
 	PersonalCredentialsAccessReadOnly  PersonalCredentialsAccess = "read_only"
@@ -3750,48 +3732,6 @@ func (e ListOrgAuditParamsOutcome) Valid() bool {
 	}
 }
 
-// Defines values for StartCheckoutJSONBodyChannel.
-const (
-	StartCheckoutJSONBodyChannelCard       StartCheckoutJSONBodyChannel = "card"
-	StartCheckoutJSONBodyChannelStablecoin StartCheckoutJSONBodyChannel = "stablecoin"
-	StartCheckoutJSONBodyChannelWallet     StartCheckoutJSONBodyChannel = "wallet"
-)
-
-// Valid indicates whether the value is a known member of the StartCheckoutJSONBodyChannel enum.
-func (e StartCheckoutJSONBodyChannel) Valid() bool {
-	switch e {
-	case StartCheckoutJSONBodyChannelCard:
-		return true
-	case StartCheckoutJSONBodyChannelStablecoin:
-		return true
-	case StartCheckoutJSONBodyChannelWallet:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for StartCheckoutJSONBodyPurpose.
-const (
-	StartCheckoutJSONBodyPurposeCardSetup StartCheckoutJSONBodyPurpose = "card_setup"
-	StartCheckoutJSONBodyPurposeInvoice   StartCheckoutJSONBodyPurpose = "invoice"
-	StartCheckoutJSONBodyPurposeTopup     StartCheckoutJSONBodyPurpose = "topup"
-)
-
-// Valid indicates whether the value is a known member of the StartCheckoutJSONBodyPurpose enum.
-func (e StartCheckoutJSONBodyPurpose) Valid() bool {
-	switch e {
-	case StartCheckoutJSONBodyPurposeCardSetup:
-		return true
-	case StartCheckoutJSONBodyPurposeInvoice:
-		return true
-	case StartCheckoutJSONBodyPurposeTopup:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for EstimateOrgCostJSONBodyPitrDays.
 const (
 	EstimateOrgCostJSONBodyPitrDaysN14 EstimateOrgCostJSONBodyPitrDays = 14
@@ -3833,16 +3773,13 @@ func (e GetOrgUsageParamsFormat) Valid() bool {
 
 // Defines values for PaymentWebhookParamsProvider.
 const (
-	Flutterwave PaymentWebhookParamsProvider = "flutterwave"
-	Ispend      PaymentWebhookParamsProvider = "ispend"
+	Iswallet PaymentWebhookParamsProvider = "iswallet"
 )
 
 // Valid indicates whether the value is a known member of the PaymentWebhookParamsProvider enum.
 func (e PaymentWebhookParamsProvider) Valid() bool {
 	switch e {
-	case Flutterwave:
-		return true
-	case Ispend:
+	case Iswallet:
 		return true
 	default:
 		return false
@@ -4774,12 +4711,6 @@ type AuthUserUpdate struct {
 	UserMetadata *map[string]interface{} `json:"user_metadata,omitempty"`
 }
 
-// AutoTopup defines model for AutoTopup.
-type AutoTopup struct {
-	AmountMinor int64 `json:"amount_minor"`
-	BelowMinor  int64 `json:"below_minor"`
-}
-
 // Availability defines model for Availability.
 type Availability struct {
 	// ExcludedMinutes Minutes excluded for maintenance announced at least 72 hours ahead (V3.1 §4.2).
@@ -4989,17 +4920,14 @@ type BatchDecision struct {
 // BillingAccount defines model for BillingAccount.
 type BillingAccount struct {
 	Address          *string    `json:"address,omitempty"`
-	AutoTopup        *AutoTopup `json:"auto_topup,omitempty"`
 	BudgetMinor      *int64     `json:"budget_minor,omitempty"`
 	Capped           *bool      `json:"capped,omitempty"`
 	CardFailingSince *time.Time `json:"card_failing_since,omitempty"`
 
 	// Channels The payment channels offered.
 	Channels *struct {
-		Card       bool `json:"card"`
-		Stablecoin bool `json:"stablecoin"`
-		Transfer   bool `json:"transfer"`
-		Wallet     bool `json:"wallet"`
+		Transfer bool `json:"transfer"`
+		Wallet   bool `json:"wallet"`
 	} `json:"channels,omitempty"`
 
 	// CreditMinor On the credit balance (prepaid funds, overpayments).
@@ -5112,9 +5040,6 @@ type BillingSettings struct {
 		Tin       string `json:"tin"`
 		VatNumber string `json:"vat_number"`
 	} `json:"seller"`
-
-	// Stablecoin Allow USDT top-ups through iSpend (off until the regulatory position is confirmed).
-	Stablecoin *bool `json:"stablecoin,omitempty"`
 
 	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 	//
@@ -7437,22 +7362,6 @@ type PaymentEvent struct {
 type PaymentList struct {
 	Items []Payment `json:"items"`
 }
-
-// PaymentMethod defines model for PaymentMethod.
-type PaymentMethod struct {
-	Brand      *string            `json:"brand,omitempty"`
-	ExpMonth   *int               `json:"exp_month,omitempty"`
-	ExpYear    *int               `json:"exp_year,omitempty"`
-	Id         openapi_types.UUID `json:"id"`
-	IsDefault  bool               `json:"is_default"`
-	Kind       PaymentMethodKind  `json:"kind"`
-	Last4      *string            `json:"last4,omitempty"`
-	LimitMinor *int64             `json:"limit_minor,omitempty"`
-	Provider   string             `json:"provider"`
-}
-
-// PaymentMethodKind defines model for PaymentMethod.Kind.
-type PaymentMethodKind string
 
 // PersonalCredentials defines model for PersonalCredentials.
 type PersonalCredentials struct {
@@ -10019,9 +9928,6 @@ type InvoiceID = openapi_types.UUID
 // JobID defines model for JobID.
 type JobID = openapi_types.UUID
 
-// MethodID defines model for MethodID.
-type MethodID = openapi_types.UUID
-
 // MetricNames defines model for MetricNames.
 type MetricNames = []string
 
@@ -10359,24 +10265,6 @@ type ListOrgAuditParams struct {
 
 // ListOrgAuditParamsOutcome defines parameters for ListOrgAudit.
 type ListOrgAuditParamsOutcome string
-
-// StartCheckoutJSONBody defines parameters for StartCheckout.
-type StartCheckoutJSONBody struct {
-	// AmountMinor For a top-up.
-	AmountMinor *int64                       `json:"amount_minor,omitempty"`
-	Channel     StartCheckoutJSONBodyChannel `json:"channel"`
-	InvoiceId   *openapi_types.UUID          `json:"invoice_id,omitempty"`
-
-	// MandateLimitMinor With a wallet payment, also set up a recurring mandate with this monthly limit.
-	MandateLimitMinor *int64                       `json:"mandate_limit_minor,omitempty"`
-	Purpose           StartCheckoutJSONBodyPurpose `json:"purpose"`
-}
-
-// StartCheckoutJSONBodyChannel defines parameters for StartCheckout.
-type StartCheckoutJSONBodyChannel string
-
-// StartCheckoutJSONBodyPurpose defines parameters for StartCheckout.
-type StartCheckoutJSONBodyPurpose string
 
 // UpdateBillingContactJSONBody defines parameters for UpdateBillingContact.
 type UpdateBillingContactJSONBody struct {
@@ -10955,12 +10843,6 @@ type UpdateOrgJSONRequestBody = UpdateOrgRequest
 
 // UpdateOrgBillingJSONRequestBody defines body for UpdateOrgBilling for application/json ContentType.
 type UpdateOrgBillingJSONRequestBody = BillingDetailsUpdate
-
-// SetAutoTopupJSONRequestBody defines body for SetAutoTopup for application/json ContentType.
-type SetAutoTopupJSONRequestBody = AutoTopup
-
-// StartCheckoutJSONRequestBody defines body for StartCheckout for application/json ContentType.
-type StartCheckoutJSONRequestBody StartCheckoutJSONBody
 
 // AddBillingContactJSONRequestBody defines body for AddBillingContact for application/json ContentType.
 type AddBillingContactJSONRequestBody = BillingContact
@@ -13104,39 +12986,6 @@ type ClientInterface interface {
 	// Corresponds with PATCH /api/v1/orgs/{org}/billing (the `UpdateOrgBilling` operationId).
 	UpdateOrgBilling(ctx context.Context, org OrgID, body UpdateOrgBillingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ClearAutoTopup Stop automatic top-ups
-	//
-	// Corresponds with DELETE /api/v1/orgs/{org}/billing/auto-topup (the `ClearAutoTopup` operationId).
-	ClearAutoTopup(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SetAutoTopupWithBody Top up a prepaid balance from the default method when it falls below a threshold
-	//
-	// Takes any type of body and a specified content type.
-	//
-	// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-	SetAutoTopupWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SetAutoTopup Top up a prepaid balance from the default method when it falls below a threshold
-	//
-	// Takes a body of the `application/json` content type.
-	//
-	// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-	SetAutoTopup(ctx context.Context, org OrgID, body SetAutoTopupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// StartCheckoutWithBody Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-	//
-	// Takes any type of body and a specified content type.
-	//
-	// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-	StartCheckoutWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// StartCheckout Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-	//
-	// Takes a body of the `application/json` content type.
-	//
-	// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-	StartCheckout(ctx context.Context, org OrgID, body StartCheckoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListBillingContacts Billing contacts, who receive invoices and payment email
 	//
 	// Corresponds with GET /api/v1/orgs/{org}/billing/contacts (the `ListBillingContacts` operationId).
@@ -13243,21 +13092,6 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate (the `UploadWhtCertificate` operationId).
 	UploadWhtCertificateWithBody(ctx context.Context, org OrgID, invoiceId InvoiceID, params *UploadWhtCertificateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListPaymentMethods Saved cards and wallet mandates
-	//
-	// Corresponds with GET /api/v1/orgs/{org}/billing/payment-methods (the `ListPaymentMethods` operationId).
-	ListPaymentMethods(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// RemovePaymentMethod Remove a saved card or revoke a mandate
-	//
-	// Corresponds with DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id} (the `RemovePaymentMethod` operationId).
-	RemovePaymentMethod(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SetDefaultPaymentMethod Charge this method for invoices and top-ups
-	//
-	// Corresponds with POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default (the `SetDefaultPaymentMethod` operationId).
-	SetDefaultPaymentMethod(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListOrgPayments Payments received, with receipts
 	//
@@ -19908,89 +19742,6 @@ func (c *Client) UpdateOrgBilling(ctx context.Context, org OrgID, body UpdateOrg
 	return c.Client.Do(req)
 }
 
-// ClearAutoTopup Stop automatic top-ups
-//
-// Corresponds with DELETE /api/v1/orgs/{org}/billing/auto-topup (the `ClearAutoTopup` operationId).
-func (c *Client) ClearAutoTopup(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewClearAutoTopupRequest(c.Server, org)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// SetAutoTopupWithBody Top up a prepaid balance from the default method when it falls below a threshold
-//
-// Takes any type of body and a specified content type.
-//
-// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-func (c *Client) SetAutoTopupWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetAutoTopupRequestWithBody(c.Server, org, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// SetAutoTopup Top up a prepaid balance from the default method when it falls below a threshold
-//
-// Takes a body of the `application/json` content type.
-//
-// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-func (c *Client) SetAutoTopup(ctx context.Context, org OrgID, body SetAutoTopupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetAutoTopupRequest(c.Server, org, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// StartCheckoutWithBody Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-//
-// Takes any type of body and a specified content type.
-//
-// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-func (c *Client) StartCheckoutWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStartCheckoutRequestWithBody(c.Server, org, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// StartCheckout Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-//
-// Takes a body of the `application/json` content type.
-//
-// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-func (c *Client) StartCheckout(ctx context.Context, org OrgID, body StartCheckoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStartCheckoutRequest(c.Server, org, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // ListBillingContacts Billing contacts, who receive invoices and payment email
 //
 // Corresponds with GET /api/v1/orgs/{org}/billing/contacts (the `ListBillingContacts` operationId).
@@ -20258,51 +20009,6 @@ func (c *Client) GetOrgInvoicePdf(ctx context.Context, org OrgID, invoiceId Invo
 // Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate (the `UploadWhtCertificate` operationId).
 func (c *Client) UploadWhtCertificateWithBody(ctx context.Context, org OrgID, invoiceId InvoiceID, params *UploadWhtCertificateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUploadWhtCertificateRequestWithBody(c.Server, org, invoiceId, params, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// ListPaymentMethods Saved cards and wallet mandates
-//
-// Corresponds with GET /api/v1/orgs/{org}/billing/payment-methods (the `ListPaymentMethods` operationId).
-func (c *Client) ListPaymentMethods(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListPaymentMethodsRequest(c.Server, org)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// RemovePaymentMethod Remove a saved card or revoke a mandate
-//
-// Corresponds with DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id} (the `RemovePaymentMethod` operationId).
-func (c *Client) RemovePaymentMethod(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRemovePaymentMethodRequest(c.Server, org, methodId)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// SetDefaultPaymentMethod Charge this method for invoices and top-ups
-//
-// Corresponds with POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default (the `SetDefaultPaymentMethod` operationId).
-func (c *Client) SetDefaultPaymentMethod(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetDefaultPaymentMethodRequest(c.Server, org, methodId)
 	if err != nil {
 		return nil, err
 	}
@@ -32802,134 +32508,6 @@ func NewUpdateOrgBillingRequestWithBody(server string, org OrgID, contentType st
 	return req, nil
 }
 
-// NewClearAutoTopupRequest constructs an http.Request for the ClearAutoTopup method
-func NewClearAutoTopupRequest(server string, org OrgID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/auto-topup", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewSetAutoTopupRequest calls the generic SetAutoTopup builder with application/json body
-func NewSetAutoTopupRequest(server string, org OrgID, body SetAutoTopupJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSetAutoTopupRequestWithBody(server, org, "application/json", bodyReader)
-}
-
-// NewSetAutoTopupRequestWithBody constructs an http.Request for the SetAutoTopup method, with any body, and a specified content type
-func NewSetAutoTopupRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/auto-topup", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewStartCheckoutRequest calls the generic StartCheckout builder with application/json body
-func NewStartCheckoutRequest(server string, org OrgID, body StartCheckoutJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewStartCheckoutRequestWithBody(server, org, "application/json", bodyReader)
-}
-
-// NewStartCheckoutRequestWithBody constructs an http.Request for the StartCheckout method, with any body, and a specified content type
-func NewStartCheckoutRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/checkout", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewListBillingContactsRequest constructs an http.Request for the ListBillingContacts method
 func NewListBillingContactsRequest(server string, org OrgID) (*http.Request, error) {
 	var err error
@@ -33487,122 +33065,6 @@ func NewUploadWhtCertificateRequestWithBody(server string, org OrgID, invoiceId 
 	}
 
 	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewListPaymentMethodsRequest constructs an http.Request for the ListPaymentMethods method
-func NewListPaymentMethodsRequest(server string, org OrgID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/payment-methods", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewRemovePaymentMethodRequest constructs an http.Request for the RemovePaymentMethod method
-func NewRemovePaymentMethodRequest(server string, org OrgID, methodId MethodID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "method_id", methodId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/payment-methods/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewSetDefaultPaymentMethodRequest constructs an http.Request for the SetDefaultPaymentMethod method
-func NewSetDefaultPaymentMethodRequest(server string, org OrgID, methodId MethodID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "method_id", methodId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/payment-methods/%s/default", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
 
 	return req, nil
 }
@@ -44933,41 +44395,6 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /api/v1/orgs/{org}/billing (the `UpdateOrgBilling` operationId).
 	UpdateOrgBillingWithResponse(ctx context.Context, org OrgID, body UpdateOrgBillingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrgBillingResponse, error)
 
-	// ClearAutoTopupWithResponse Stop automatic top-ups
-	//
-	// Returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with DELETE /api/v1/orgs/{org}/billing/auto-topup (the `ClearAutoTopup` operationId).
-	ClearAutoTopupWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ClearAutoTopupResponse, error)
-
-	// SetAutoTopupWithBodyWithResponse Top up a prepaid balance from the default method when it falls below a threshold
-	//
-	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-	SetAutoTopupWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetAutoTopupResponse, error)
-
-	// SetAutoTopupWithResponse Top up a prepaid balance from the default method when it falls below a threshold
-	//
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-	SetAutoTopupWithResponse(ctx context.Context, org OrgID, body SetAutoTopupJSONRequestBody, reqEditors ...RequestEditorFn) (*SetAutoTopupResponse, error)
-
-	// StartCheckoutWithBodyWithResponse Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-	//
-	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-	StartCheckoutWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartCheckoutResponse, error)
-
-	// StartCheckoutWithResponse Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-	//
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-	StartCheckoutWithResponse(ctx context.Context, org OrgID, body StartCheckoutJSONRequestBody, reqEditors ...RequestEditorFn) (*StartCheckoutResponse, error)
-
 	// ListBillingContactsWithResponse Billing contacts, who receive invoices and payment email
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -45090,27 +44517,6 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate (the `UploadWhtCertificate` operationId).
 	UploadWhtCertificateWithBodyWithResponse(ctx context.Context, org OrgID, invoiceId InvoiceID, params *UploadWhtCertificateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadWhtCertificateResponse, error)
-
-	// ListPaymentMethodsWithResponse Saved cards and wallet mandates
-	//
-	// Returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with GET /api/v1/orgs/{org}/billing/payment-methods (the `ListPaymentMethods` operationId).
-	ListPaymentMethodsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListPaymentMethodsResponse, error)
-
-	// RemovePaymentMethodWithResponse Remove a saved card or revoke a mandate
-	//
-	// Returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id} (the `RemovePaymentMethod` operationId).
-	RemovePaymentMethodWithResponse(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*RemovePaymentMethodResponse, error)
-
-	// SetDefaultPaymentMethodWithResponse Charge this method for invoices and top-ups
-	//
-	// Returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default (the `SetDefaultPaymentMethod` operationId).
-	SetDefaultPaymentMethodWithResponse(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*SetDefaultPaymentMethodResponse, error)
 
 	// ListOrgPaymentsWithResponse Payments received, with receipts
 	//
@@ -56069,144 +55475,6 @@ func (r UpdateOrgBillingResponse) ContentType() string {
 	return ""
 }
 
-type ClearAutoTopupResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	// JSONDefault the response for an HTTP default `application/json` response
-	JSONDefault *Error
-}
-
-// GetJSONDefault returns the response for an HTTP default `application/json` response
-func (r ClearAutoTopupResponse) GetJSONDefault() *Error {
-	return r.JSONDefault
-}
-
-// GetBody returns the raw response body bytes
-func (r ClearAutoTopupResponse) GetBody() []byte {
-	return r.Body
-}
-
-// Status returns HTTPResponse.Status
-func (r ClearAutoTopupResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ClearAutoTopupResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ClearAutoTopupResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type SetAutoTopupResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	// JSONDefault the response for an HTTP default `application/json` response
-	JSONDefault *Error
-}
-
-// GetJSONDefault returns the response for an HTTP default `application/json` response
-func (r SetAutoTopupResponse) GetJSONDefault() *Error {
-	return r.JSONDefault
-}
-
-// GetBody returns the raw response body bytes
-func (r SetAutoTopupResponse) GetBody() []byte {
-	return r.Body
-}
-
-// Status returns HTTPResponse.Status
-func (r SetAutoTopupResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SetAutoTopupResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r SetAutoTopupResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type StartCheckoutResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	// JSON201 the response for an HTTP 201 `application/json` response
-	JSON201 *struct {
-		AmountMinor int64  `json:"amount_minor"`
-		CheckoutUrl string `json:"checkout_url"`
-		Reference   string `json:"reference"`
-	}
-	// JSONDefault the response for an HTTP default `application/json` response
-	JSONDefault *Error
-}
-
-// GetJSON201 returns the response for an HTTP 201 `application/json` response
-func (r StartCheckoutResponse) GetJSON201() *struct {
-	AmountMinor int64  `json:"amount_minor"`
-	CheckoutUrl string `json:"checkout_url"`
-	Reference   string `json:"reference"`
-} {
-	return r.JSON201
-}
-
-// GetJSONDefault returns the response for an HTTP default `application/json` response
-func (r StartCheckoutResponse) GetJSONDefault() *Error {
-	return r.JSONDefault
-}
-
-// GetBody returns the raw response body bytes
-func (r StartCheckoutResponse) GetBody() []byte {
-	return r.Body
-}
-
-// Status returns HTTPResponse.Status
-func (r StartCheckoutResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r StartCheckoutResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r StartCheckoutResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
 type ListBillingContactsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -56813,140 +56081,6 @@ func (r UploadWhtCertificateResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UploadWhtCertificateResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type ListPaymentMethodsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	// JSON200 the response for an HTTP 200 `application/json` response
-	JSON200 *struct {
-		Items []PaymentMethod `json:"items"`
-	}
-	// JSONDefault the response for an HTTP default `application/json` response
-	JSONDefault *Error
-}
-
-// GetJSON200 returns the response for an HTTP 200 `application/json` response
-func (r ListPaymentMethodsResponse) GetJSON200() *struct {
-	Items []PaymentMethod `json:"items"`
-} {
-	return r.JSON200
-}
-
-// GetJSONDefault returns the response for an HTTP default `application/json` response
-func (r ListPaymentMethodsResponse) GetJSONDefault() *Error {
-	return r.JSONDefault
-}
-
-// GetBody returns the raw response body bytes
-func (r ListPaymentMethodsResponse) GetBody() []byte {
-	return r.Body
-}
-
-// Status returns HTTPResponse.Status
-func (r ListPaymentMethodsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListPaymentMethodsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ListPaymentMethodsResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type RemovePaymentMethodResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	// JSONDefault the response for an HTTP default `application/json` response
-	JSONDefault *Error
-}
-
-// GetJSONDefault returns the response for an HTTP default `application/json` response
-func (r RemovePaymentMethodResponse) GetJSONDefault() *Error {
-	return r.JSONDefault
-}
-
-// GetBody returns the raw response body bytes
-func (r RemovePaymentMethodResponse) GetBody() []byte {
-	return r.Body
-}
-
-// Status returns HTTPResponse.Status
-func (r RemovePaymentMethodResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r RemovePaymentMethodResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r RemovePaymentMethodResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type SetDefaultPaymentMethodResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	// JSONDefault the response for an HTTP default `application/json` response
-	JSONDefault *Error
-}
-
-// GetJSONDefault returns the response for an HTTP default `application/json` response
-func (r SetDefaultPaymentMethodResponse) GetJSONDefault() *Error {
-	return r.JSONDefault
-}
-
-// GetBody returns the raw response body bytes
-func (r SetDefaultPaymentMethodResponse) GetBody() []byte {
-	return r.Body
-}
-
-// Status returns HTTPResponse.Status
-func (r SetDefaultPaymentMethodResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SetDefaultPaymentMethodResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r SetDefaultPaymentMethodResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -70174,71 +69308,6 @@ func (c *ClientWithResponses) UpdateOrgBillingWithResponse(ctx context.Context, 
 	return ParseUpdateOrgBillingResponse(rsp)
 }
 
-// ClearAutoTopupWithResponse Stop automatic top-ups
-//
-// Returns a wrapper object for the known response body format(s).
-//
-// Corresponds with DELETE /api/v1/orgs/{org}/billing/auto-topup (the `ClearAutoTopup` operationId).
-func (c *ClientWithResponses) ClearAutoTopupWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ClearAutoTopupResponse, error) {
-	rsp, err := c.ClearAutoTopup(ctx, org, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseClearAutoTopupResponse(rsp)
-}
-
-// SetAutoTopupWithBodyWithResponse Top up a prepaid balance from the default method when it falls below a threshold
-//
-// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-func (c *ClientWithResponses) SetAutoTopupWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetAutoTopupResponse, error) {
-	rsp, err := c.SetAutoTopupWithBody(ctx, org, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSetAutoTopupResponse(rsp)
-}
-
-// SetAutoTopupWithResponse Top up a prepaid balance from the default method when it falls below a threshold
-//
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-func (c *ClientWithResponses) SetAutoTopupWithResponse(ctx context.Context, org OrgID, body SetAutoTopupJSONRequestBody, reqEditors ...RequestEditorFn) (*SetAutoTopupResponse, error) {
-	rsp, err := c.SetAutoTopup(ctx, org, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSetAutoTopupResponse(rsp)
-}
-
-// StartCheckoutWithBodyWithResponse Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-//
-// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-func (c *ClientWithResponses) StartCheckoutWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartCheckoutResponse, error) {
-	rsp, err := c.StartCheckoutWithBody(ctx, org, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseStartCheckoutResponse(rsp)
-}
-
-// StartCheckoutWithResponse Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-//
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-func (c *ClientWithResponses) StartCheckoutWithResponse(ctx context.Context, org OrgID, body StartCheckoutJSONRequestBody, reqEditors ...RequestEditorFn) (*StartCheckoutResponse, error) {
-	rsp, err := c.StartCheckout(ctx, org, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseStartCheckoutResponse(rsp)
-}
-
 // ListBillingContactsWithResponse Billing contacts, who receive invoices and payment email
 //
 // Returns a wrapper object for the known response body format(s).
@@ -70462,45 +69531,6 @@ func (c *ClientWithResponses) UploadWhtCertificateWithBodyWithResponse(ctx conte
 		return nil, err
 	}
 	return ParseUploadWhtCertificateResponse(rsp)
-}
-
-// ListPaymentMethodsWithResponse Saved cards and wallet mandates
-//
-// Returns a wrapper object for the known response body format(s).
-//
-// Corresponds with GET /api/v1/orgs/{org}/billing/payment-methods (the `ListPaymentMethods` operationId).
-func (c *ClientWithResponses) ListPaymentMethodsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListPaymentMethodsResponse, error) {
-	rsp, err := c.ListPaymentMethods(ctx, org, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListPaymentMethodsResponse(rsp)
-}
-
-// RemovePaymentMethodWithResponse Remove a saved card or revoke a mandate
-//
-// Returns a wrapper object for the known response body format(s).
-//
-// Corresponds with DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id} (the `RemovePaymentMethod` operationId).
-func (c *ClientWithResponses) RemovePaymentMethodWithResponse(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*RemovePaymentMethodResponse, error) {
-	rsp, err := c.RemovePaymentMethod(ctx, org, methodId, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRemovePaymentMethodResponse(rsp)
-}
-
-// SetDefaultPaymentMethodWithResponse Charge this method for invoices and top-ups
-//
-// Returns a wrapper object for the known response body format(s).
-//
-// Corresponds with POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default (the `SetDefaultPaymentMethod` operationId).
-func (c *ClientWithResponses) SetDefaultPaymentMethodWithResponse(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*SetDefaultPaymentMethodResponse, error) {
-	rsp, err := c.SetDefaultPaymentMethod(ctx, org, methodId, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSetDefaultPaymentMethodResponse(rsp)
 }
 
 // ListOrgPaymentsWithResponse Payments received, with receipts
@@ -80520,101 +79550,6 @@ func ParseUpdateOrgBillingResponse(rsp *http.Response) (*UpdateOrgBillingRespons
 	return response, nil
 }
 
-// ParseClearAutoTopupResponse parses an HTTP response from a ClearAutoTopupWithResponse call
-func ParseClearAutoTopupResponse(rsp *http.Response) (*ClearAutoTopupResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ClearAutoTopupResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case rsp.StatusCode == 204:
-		break // No content-type
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSetAutoTopupResponse parses an HTTP response from a SetAutoTopupWithResponse call
-func ParseSetAutoTopupResponse(rsp *http.Response) (*SetAutoTopupResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SetAutoTopupResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case rsp.StatusCode == 204:
-		break // No content-type
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseStartCheckoutResponse parses an HTTP response from a StartCheckoutWithResponse call
-func ParseStartCheckoutResponse(rsp *http.Response) (*StartCheckoutResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &StartCheckoutResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest struct {
-			AmountMinor int64  `json:"amount_minor"`
-			CheckoutUrl string `json:"checkout_url"`
-			Reference   string `json:"reference"`
-		}
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseListBillingContactsResponse parses an HTTP response from a ListBillingContactsWithResponse call
 func ParseListBillingContactsResponse(rsp *http.Response) (*ListBillingContactsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -81019,99 +79954,6 @@ func ParseUploadWhtCertificateResponse(rsp *http.Response) (*UploadWhtCertificat
 
 	switch {
 	case rsp.StatusCode == 201:
-		break // No content-type
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListPaymentMethodsResponse parses an HTTP response from a ListPaymentMethodsWithResponse call
-func ParseListPaymentMethodsResponse(rsp *http.Response) (*ListPaymentMethodsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListPaymentMethodsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Items []PaymentMethod `json:"items"`
-		}
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseRemovePaymentMethodResponse parses an HTTP response from a RemovePaymentMethodWithResponse call
-func ParseRemovePaymentMethodResponse(rsp *http.Response) (*RemovePaymentMethodResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &RemovePaymentMethodResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case rsp.StatusCode == 204:
-		break // No content-type
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSetDefaultPaymentMethodResponse parses an HTTP response from a SetDefaultPaymentMethodWithResponse call
-func ParseSetDefaultPaymentMethodResponse(rsp *http.Response) (*SetDefaultPaymentMethodResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SetDefaultPaymentMethodResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case rsp.StatusCode == 204:
 		break // No content-type
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:

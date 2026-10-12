@@ -203,7 +203,6 @@ type BillingAccount struct {
 	PaymentTermsDays    int32
 	BudgetMinor         *int64
 	SpendCapMinor       *int64
-	AutoTopup           []byte
 	DunningState        string
 	GraceUntil          *time.Time
 	ForecastMinor       *int64
@@ -218,7 +217,7 @@ type BillingAccount struct {
 	BalanceAlerted      int32
 	BalanceMonth        pgtype.Date
 	ZeroBalanceAt       *time.Time
-	CardFailingSince    *time.Time
+	ChargeFailingSince  *time.Time
 	DebitConsentAt      *time.Time
 	DebitConsentBy      *uuid.UUID
 	DebitTermsVersion   *string
@@ -832,24 +831,6 @@ type PaymentIntent struct {
 	Error       *string
 	CreatedAt   time.Time
 	CompletedAt *time.Time
-}
-
-type PaymentMethod struct {
-	ID           uuid.UUID
-	OrgID        uuid.UUID
-	Provider     string
-	Kind         string
-	TokenSealed  []byte
-	ProviderRef  *string
-	Brand        *string
-	Last4        *string
-	ExpMonth     *int32
-	ExpYear      *int32
-	LimitMinor   *int64
-	IsDefault    bool
-	Status       string
-	RemindedDays int32
-	CreatedAt    time.Time
 }
 
 type PgVersion struct {

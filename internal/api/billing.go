@@ -83,20 +83,12 @@ func (s *Server) toAPIBillingAccount(r *http.Request, a store.BillingAccount) (g
 	}
 	out.CreditMinor, out.OwedMinor, out.OverdueSince = &st.CreditMinor, &st.OwedMinor, st.OverdueSince
 	out.WalletMinor = &st.WalletMinor
-	out.CardFailingSince, out.ZeroBalanceAt, out.GraceUntil, out.DeletionScheduledAt = a.CardFailingSince, a.ZeroBalanceAt, a.GraceUntil, a.DeletionScheduledAt
-	if len(a.AutoTopup) > 0 {
-		var at gen.AutoTopup
-		if json.Unmarshal(a.AutoTopup, &at) == nil {
-			out.AutoTopup = &at
-		}
-	}
-	ch := s.billing.Channels(ctx)
+	out.CardFailingSince, out.ZeroBalanceAt, out.GraceUntil, out.DeletionScheduledAt = a.ChargeFailingSince, a.ZeroBalanceAt, a.GraceUntil, a.DeletionScheduledAt
+	ch := s.billing.Channels()
 	out.Channels = &struct {
-		Card       bool `json:"card"`
-		Stablecoin bool `json:"stablecoin"`
-		Transfer   bool `json:"transfer"`
-		Wallet     bool `json:"wallet"`
-	}{Card: ch.Card, Stablecoin: ch.Stablecoin, Transfer: ch.Transfer, Wallet: ch.Wallet}
+		Transfer bool `json:"transfer"`
+		Wallet   bool `json:"wallet"`
+	}{Transfer: ch.Transfer, Wallet: ch.Wallet}
 	pc, err := store.New(s.db).PendingPlanChange(ctx, a.OrgID)
 	if err == nil {
 		out.PendingChange = &struct {
@@ -311,7 +303,7 @@ func (s *Server) RemoveBillingContact(w http.ResponseWriter, r *http.Request, or
 
 func toAPIBillingSettings(set billing.Settings) gen.BillingSettings {
 	out := gen.BillingSettings{VatRate: set.VATRate.String(), WhtRate: set.WHTRate.String(), AutoIssue: set.AutoIssue,
-		Stablecoin: &set.Stablecoin, DeleteForNonPayment: &set.DeleteForNonPayment}
+		DeleteForNonPayment: &set.DeleteForNonPayment}
 	out.Seller.LegalName, out.Seller.Address, out.Seller.Tin = set.Seller.LegalName, set.Seller.Address, set.Seller.TIN
 	out.Seller.VatNumber, out.Seller.Email = set.Seller.VATNumber, set.Seller.Email
 	return out
@@ -348,7 +340,7 @@ func (s *Server) PutBillingSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	set := billing.Settings{VATRate: vat, WHTRate: wht, AutoIssue: req.AutoIssue,
-		Stablecoin: req.Stablecoin != nil && *req.Stablecoin, DeleteForNonPayment: req.DeleteForNonPayment != nil && *req.DeleteForNonPayment, Seller: billing.Seller{
+		DeleteForNonPayment: req.DeleteForNonPayment != nil && *req.DeleteForNonPayment, Seller: billing.Seller{
 			LegalName: req.Seller.LegalName, Address: req.Seller.Address, TIN: req.Seller.Tin, VATNumber: req.Seller.VatNumber, Email: req.Seller.Email,
 		}}
 	if err := bs.SetSettings(r.Context(), set); err != nil {
