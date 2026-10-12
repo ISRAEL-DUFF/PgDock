@@ -36,6 +36,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/billing"
 	"github.com/israel-duff/pgdock/internal/billing/flutterwave"
 	"github.com/israel-duff/pgdock/internal/billing/ispend"
+	"github.com/israel-duff/pgdock/internal/billing/iswallet"
 	"github.com/israel-duff/pgdock/internal/branching"
 	"github.com/israel-duff/pgdock/internal/capacity"
 	"github.com/israel-duff/pgdock/internal/cdn"
@@ -258,6 +259,15 @@ func run() error {
 	billingSvc.SetPayments(paymentProviders(cfg.Payments), billing.Routing{
 		Cards: cfg.Payments.Cards, VAPrimary: cfg.Payments.VAPrimary, VAFallback: cfg.Payments.VAFallback, Wallet: cfg.Payments.Wallet,
 	}, keyring)
+	if !cfg.Payments.ISwalletOn() {
+		// Prices in dollars are converted to naira at the wallet provider's
+		// rate: without a provider a new platform prices in naira.
+		billingSvc.SetDefaultPrices(billing.DefaultPricesNGN)
+	}
+	if cfg.Payments.ISwalletOn() {
+		billingSvc.SetWallets(iswallet.New(iswallet.Config{BaseURL: cfg.Payments.ISwalletURL, APIKey: cfg.Payments.ISwalletAPIKey,
+			WebhookSecret: cfg.Payments.ISwalletWebhookSecret, ClientID: cfg.Payments.ISwalletClientID}), cfg.Payments.ISwalletOwnerPrefix)
+	}
 	if backups != nil {
 		billingSvc.SetDocStore(billingDocs{backups})
 	}

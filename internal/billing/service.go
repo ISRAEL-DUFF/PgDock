@@ -469,12 +469,17 @@ func (s *Service) notifyRepricing(ctx context.Context, b Book) int {
 func comparePrices(old, next Prices, plan, term string) string {
 	op, np := old.Plans[plan], next.Plans[plan]
 	var b strings.Builder
-	if f, g := op.Fee(term), np.Fee(term); f != g {
-		fmt.Fprintf(&b, "  %s plan (%s): %s → %s\n", np.Name, term, Naira(f), Naira(g))
+	cur := func(minor int64) string { return Money(next.Currency, minor) }
+	unit := "kobo"
+	if next.Currency == CurrencyUSD {
+		unit = "cents"
+	}
+	if f, g := op.Fee(term), np.Fee(term); f != g || old.Currency != next.Currency {
+		fmt.Fprintf(&b, "  %s plan (%s): %s → %s\n", np.Name, term, Money(old.Currency, f), cur(g))
 	}
 	for _, m := range PlanMetrics {
 		if a, c := op.Unit[m], np.Unit[m]; a.Cmp(c) != 0 {
-			fmt.Fprintf(&b, "  %s: %s → %s kobo per unit\n", m, a, c)
+			fmt.Fprintf(&b, "  %s: %s → %s %s per unit\n", m, a, c, unit)
 		}
 		if a, c := op.Included[m], np.Included[m]; a.Cmp(c) != 0 {
 			fmt.Fprintf(&b, "  %s included: %s → %s\n", m, a, c)
@@ -486,10 +491,34 @@ func comparePrices(old, next Prices, plan, term string) string {
 		"Dedicated disk GB-hour": {old.Dedicated.DiskGBHour, next.Dedicated.DiskGBHour},
 	} {
 		if pair[0].Cmp(pair[1]) != 0 {
-			fmt.Fprintf(&b, "  %s: %s → %s kobo\n", name, pair[0], pair[1])
+			fmt.Fprintf(&b, "  %s: %s → %s %s\n", name, pair[0], pair[1], unit)
 		}
 	}
 	return b.String()
+}
+
+// Money formats minor units of a price currency: "$10.00" or "NGN 15,000.00".
+func Money(currency string, minor int64) string {
+	if currency != CurrencyUSD {
+		return Naira(minor)
+	}
+	neg := minor < 0
+	if neg {
+		minor = -minor
+	}
+	whole := fmt.Sprintf("%d", minor/100)
+	var b strings.Builder
+	for i, c := range whole {
+		if i > 0 && (len(whole)-i)%3 == 0 {
+			b.WriteByte(',')
+		}
+		b.WriteRune(c)
+	}
+	s := fmt.Sprintf("$%s.%02d", b.String(), minor%100)
+	if neg {
+		s = "-" + s
+	}
+	return s
 }
 
 // Naira formats kobo as "NGN 15,000.00".

@@ -5001,10 +5001,12 @@ type BillingAccount struct {
 
 	// CreditMinor On the credit balance (prepaid funds, overpayments).
 	CreditMinor         *int64             `json:"credit_minor,omitempty"`
+	DebitConsent        *DebitConsent      `json:"debit_consent,omitempty"`
 	DeductsWht          bool               `json:"deducts_wht"`
 	DeletionScheduledAt *time.Time         `json:"deletion_scheduled_at,omitempty"`
 	DunningState        string             `json:"dunning_state"`
 	ForecastMinor       *int64             `json:"forecast_minor,omitempty"`
+	Fx                  *FXQuote           `json:"fx,omitempty"`
 	GraceUntil          *time.Time         `json:"grace_until,omitempty"`
 	Grandfathered       bool               `json:"grandfathered"`
 	LegalName           *string            `json:"legal_name,omitempty"`
@@ -5024,14 +5026,20 @@ type BillingAccount struct {
 	PlanName string `json:"plan_name"`
 
 	// Plans The plans on the organisation's price book.
-	Plans            []PlanOption       `json:"plans"`
-	PriceBookVersion int                `json:"price_book_version"`
-	SpendCapMinor    *int64             `json:"spend_cap_minor,omitempty"`
-	Term             BillingAccountTerm `json:"term"`
-	TermEndsAt       *time.Time         `json:"term_ends_at,omitempty"`
-	Tin              *string            `json:"tin,omitempty"`
-	VatRegistered    bool               `json:"vat_registered"`
-	ZeroBalanceAt    *time.Time         `json:"zero_balance_at,omitempty"`
+	Plans            []PlanOption `json:"plans"`
+	PriceBookVersion int          `json:"price_book_version"`
+
+	// PriceCurrency The currency the price book is in (USD, or NGN).
+	PriceCurrency *string            `json:"price_currency,omitempty"`
+	SpendCapMinor *int64             `json:"spend_cap_minor,omitempty"`
+	Term          BillingAccountTerm `json:"term"`
+	TermEndsAt    *time.Time         `json:"term_ends_at,omitempty"`
+	Tin           *string            `json:"tin,omitempty"`
+	VatRegistered bool               `json:"vat_registered"`
+
+	// WalletMinor In the organisation's wallet, by PGDock's books (kobo).
+	WalletMinor   *int64     `json:"wallet_minor,omitempty"`
+	ZeroBalanceAt *time.Time `json:"zero_balance_at,omitempty"`
 }
 
 // BillingAccountMode defines model for BillingAccount.Mode.
@@ -5588,6 +5596,21 @@ type DbTable struct {
 // DbTableKind defines model for DbTable.Kind.
 type DbTableKind string
 
+// DebitConsent defines model for DebitConsent.
+type DebitConsent struct {
+	At time.Time           `json:"at"`
+	By *openapi_types.UUID `json:"by,omitempty"`
+
+	// Current Whether it is to the current wording of the terms.
+	Current bool   `json:"current"`
+	Version string `json:"version"`
+}
+
+// DebitConsentRequest defines model for DebitConsentRequest.
+type DebitConsentRequest struct {
+	TermsVersion string `json:"terms_version"`
+}
+
 // DecideRequest defines model for DecideRequest.
 type DecideRequest struct {
 	Note *string `json:"note,omitempty"`
@@ -5937,6 +5960,31 @@ type ExtensionTier string
 // ExtensionList defines model for ExtensionList.
 type ExtensionList struct {
 	Items []Extension `json:"items"`
+}
+
+// FXQuote The price of a dollar in naira an invoice was converted at.
+type FXQuote struct {
+	Derived *bool `json:"derived,omitempty"`
+
+	// EffectiveRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	EffectiveRate Decimal `json:"effective_rate"`
+
+	// FetchedAt When the provider last priced the pair.
+	FetchedAt time.Time `json:"fetched_at"`
+	From      string    `json:"from"`
+
+	// MarketRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	MarketRate Decimal `json:"market_rate"`
+
+	// QuotedAt When PGDock asked.
+	QuotedAt  time.Time `json:"quoted_at"`
+	Sources   *[]string `json:"sources,omitempty"`
+	SpreadBps int       `json:"spread_bps"`
+	To        string    `json:"to"`
 }
 
 // FXRate defines model for FXRate.
@@ -6457,8 +6505,11 @@ type InviteRequest struct {
 
 // Invoice defines model for Invoice.
 type Invoice struct {
-	CreatedAt  time.Time          `json:"created_at"`
-	DueAt      *time.Time         `json:"due_at,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	DueAt     *time.Time `json:"due_at,omitempty"`
+
+	// Fx The rate they were converted at.
+	Fx         *FXQuote           `json:"fx,omitempty"`
 	Held       bool               `json:"held"`
 	HoldReason *string            `json:"hold_reason,omitempty"`
 	Id         openapi_types.UUID `json:"id"`
@@ -6476,7 +6527,12 @@ type Invoice struct {
 	Status           InvoiceStatus      `json:"status"`
 	SubtotalMinor    int64              `json:"subtotal_minor"`
 	TotalMinor       int64              `json:"total_minor"`
-	VatMinor         int64              `json:"vat_minor"`
+
+	// UsdSubtotalMinor The dollar price (cents) the naira amounts were converted from.
+	UsdSubtotalMinor *int64 `json:"usd_subtotal_minor,omitempty"`
+	UsdTotalMinor    *int64 `json:"usd_total_minor,omitempty"`
+	UsdVatMinor      *int64 `json:"usd_vat_minor,omitempty"`
+	VatMinor         int64  `json:"vat_minor"`
 
 	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 	//
@@ -6502,7 +6558,10 @@ type InvoiceDetail struct {
 // InvoiceLine defines model for InvoiceLine.
 type InvoiceLine struct {
 	// Amount Kobo.
-	Amount      int64               `json:"amount"`
+	Amount int64 `json:"amount"`
+
+	// AmountUsd The price in dollars (cents) of a line converted to naira.
+	AmountUsd   *int64              `json:"amount_usd,omitempty"`
 	Description string              `json:"description"`
 	Kind        InvoiceLineKind     `json:"kind"`
 	Metric      *string             `json:"metric,omitempty"`
@@ -6520,6 +6579,11 @@ type InvoiceLine struct {
 	//
 	// Example: 34.25
 	UnitPrice Decimal `json:"unit_price"`
+
+	// UnitPriceUsd An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	UnitPriceUsd *Decimal `json:"unit_price_usd,omitempty"`
 }
 
 // InvoiceLineKind defines model for InvoiceLine.Kind.
@@ -7469,17 +7533,20 @@ type Plan struct {
 type PlanChange struct {
 	// Applied In effect now; otherwise scheduled for effective_at.
 	Applied     bool      `json:"applied"`
+	Currency    *string   `json:"currency,omitempty"`
 	EffectiveAt time.Time `json:"effective_at"`
 	FromPlan    string    `json:"from_plan"`
 	FromTerm    string    `json:"from_term"`
+	Fx          *FXQuote  `json:"fx,omitempty"`
 
 	// Lines Lines on the next invoice (before VAT).
-	Lines      []InvoiceLine `json:"lines"`
-	TermEndsAt *time.Time    `json:"term_ends_at,omitempty"`
-	ToPlan     string        `json:"to_plan"`
-	ToTerm     string        `json:"to_term"`
-	TotalMinor int64         `json:"total_minor"`
-	Upgrade    bool          `json:"upgrade"`
+	Lines         []InvoiceLine `json:"lines"`
+	TermEndsAt    *time.Time    `json:"term_ends_at,omitempty"`
+	ToPlan        string        `json:"to_plan"`
+	ToTerm        string        `json:"to_term"`
+	TotalMinor    int64         `json:"total_minor"`
+	TotalUsdMinor *int64        `json:"total_usd_minor,omitempty"`
+	Upgrade       bool          `json:"upgrade"`
 }
 
 // PlanChangeRequest defines model for PlanChangeRequest.
@@ -7517,10 +7584,13 @@ type PlanMargin struct {
 
 // PlanOption defines model for PlanOption.
 type PlanOption struct {
-	AnnualMinor  int64  `json:"annual_minor"`
-	Id           string `json:"id"`
-	MonthlyMinor int64  `json:"monthly_minor"`
-	Name         string `json:"name"`
+	AnnualMinor int64 `json:"annual_minor"`
+
+	// Currency The currency of the fees (USD, or NGN on a naira price book), in minor units.
+	Currency     *string `json:"currency,omitempty"`
+	Id           string  `json:"id"`
+	MonthlyMinor int64   `json:"monthly_minor"`
+	Name         string  `json:"name"`
 }
 
 // PlanRequest defines model for PlanRequest.
@@ -9723,6 +9793,51 @@ type VirtualAccount struct {
 	Provider      string `json:"provider"`
 }
 
+// Wallet defines model for Wallet.
+type Wallet struct {
+	Account *VirtualAccount `json:"account,omitempty"`
+
+	// Available Whether this platform bills through wallets.
+	Available    bool    `json:"available"`
+	BalanceError *string `json:"balance_error,omitempty"`
+
+	// BalanceMinor Available now, read from the provider (kobo).
+	BalanceMinor *int64        `json:"balance_minor,omitempty"`
+	Consent      *DebitConsent `json:"consent,omitempty"`
+
+	// LedgerMinor What PGDock's books say the wallet holds.
+	LedgerMinor int64 `json:"ledger_minor"`
+
+	// OwedMinor Outstanding on issued invoices.
+	OwedMinor    int64    `json:"owed_minor"`
+	PendingMinor *int64   `json:"pending_minor,omitempty"`
+	Rate         *FXQuote `json:"rate,omitempty"`
+	Terms        string   `json:"terms"`
+	TermsVersion string   `json:"terms_version"`
+	WalletId     *string  `json:"wallet_id,omitempty"`
+}
+
+// WalletCharge defines model for WalletCharge.
+type WalletCharge struct {
+	Message     *string `json:"message,omitempty"`
+	PaidMinor   int64   `json:"paid_minor"`
+	Skipped     bool    `json:"skipped"`
+	Succeeded   bool    `json:"succeeded"`
+	Unavailable bool    `json:"unavailable"`
+}
+
+// WalletSetup defines model for WalletSetup.
+type WalletSetup struct {
+	BusinessName string `json:"business_name"`
+
+	// Bvn A director's, 11 digits. Forwarded to the wallet provider and not kept.
+	Bvn       string  `json:"bvn"`
+	CacNumber *string `json:"cac_number,omitempty"`
+	Email     string  `json:"email"`
+	Phone     *string `json:"phone,omitempty"`
+	Tin       *string `json:"tin,omitempty"`
+}
+
 // Webhook defines model for Webhook.
 type Webhook struct {
 	// Backlog Events waiting in the outbox.
@@ -10845,11 +10960,17 @@ type AddBillingContactJSONRequestBody = BillingContact
 // UpdateBillingContactJSONRequestBody defines body for UpdateBillingContact for application/json ContentType.
 type UpdateBillingContactJSONRequestBody UpdateBillingContactJSONBody
 
+// AcceptDebitTermsJSONRequestBody defines body for AcceptDebitTerms for application/json ContentType.
+type AcceptDebitTermsJSONRequestBody = DebitConsentRequest
+
 // EstimateOrgCostJSONRequestBody defines body for EstimateOrgCost for application/json ContentType.
 type EstimateOrgCostJSONRequestBody EstimateOrgCostJSONBody
 
 // ChangeOrgPlanJSONRequestBody defines body for ChangeOrgPlan for application/json ContentType.
 type ChangeOrgPlanJSONRequestBody = PlanChangeRequest
+
+// CreateOrgWalletJSONRequestBody defines body for CreateOrgWallet for application/json ContentType.
+type CreateOrgWalletJSONRequestBody = WalletSetup
 
 // InviteOrgMemberJSONRequestBody defines body for InviteOrgMember for application/json ContentType.
 type InviteOrgMemberJSONRequestBody = InviteRequest
@@ -13050,6 +13171,25 @@ type ClientInterface interface {
 	// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
 	UpdateBillingContact(ctx context.Context, org OrgID, email string, body UpdateBillingContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// WithdrawDebitTerms Stop automatic debits (invoices are then paid by hand)
+	//
+	// Corresponds with DELETE /api/v1/orgs/{org}/billing/debit-consent (the `WithdrawDebitTerms` operationId).
+	WithdrawDebitTerms(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AcceptDebitTermsWithBody Agree to PGDock debiting the wallet for invoices
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+	AcceptDebitTermsWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AcceptDebitTerms Agree to PGDock debiting the wallet for invoices
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+	AcceptDebitTerms(ctx context.Context, org OrgID, body AcceptDebitTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// EstimateOrgCostWithBody What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	//
 	// Takes any type of body and a specified content type.
@@ -13078,6 +13218,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id} (the `GetOrgInvoice` operationId).
 	GetOrgInvoice(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PayInvoiceFromWallet Pay one invoice from the wallet now
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet (the `PayInvoiceFromWallet` operationId).
+	PayInvoiceFromWallet(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetOrgInvoicePdf An invoice as PDF
 	//
@@ -13134,6 +13279,29 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/billing/virtual-account (the `OrgVirtualAccount` operationId).
 	OrgVirtualAccount(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOrgWallet The organisation's wallet, its balance, bank account and debit consent
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/wallet (the `GetOrgWallet` operationId).
+	GetOrgWallet(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateOrgWalletWithBody Open the organisation's wallet and its bank account
+	//
+	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+	CreateOrgWalletWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateOrgWallet Open the organisation's wallet and its bank account
+	//
+	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+	CreateOrgWallet(ctx context.Context, org OrgID, body CreateOrgWalletJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// EndBreakGlass End a break-glass session early (owner)
 	//
@@ -19917,6 +20085,55 @@ func (c *Client) UpdateBillingContact(ctx context.Context, org OrgID, email stri
 	return c.Client.Do(req)
 }
 
+// WithdrawDebitTerms Stop automatic debits (invoices are then paid by hand)
+//
+// Corresponds with DELETE /api/v1/orgs/{org}/billing/debit-consent (the `WithdrawDebitTerms` operationId).
+func (c *Client) WithdrawDebitTerms(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewWithdrawDebitTermsRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AcceptDebitTermsWithBody Agree to PGDock debiting the wallet for invoices
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+func (c *Client) AcceptDebitTermsWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcceptDebitTermsRequestWithBody(c.Server, org, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AcceptDebitTerms Agree to PGDock debiting the wallet for invoices
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+func (c *Client) AcceptDebitTerms(ctx context.Context, org OrgID, body AcceptDebitTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcceptDebitTermsRequest(c.Server, org, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // EstimateOrgCostWithBody What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 //
 // Takes any type of body and a specified content type.
@@ -19986,6 +20203,21 @@ func (c *Client) ListOrgInvoices(ctx context.Context, org OrgID, reqEditors ...R
 // Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id} (the `GetOrgInvoice` operationId).
 func (c *Client) GetOrgInvoice(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetOrgInvoiceRequest(c.Server, org, invoiceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PayInvoiceFromWallet Pay one invoice from the wallet now
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet (the `PayInvoiceFromWallet` operationId).
+func (c *Client) PayInvoiceFromWallet(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPayInvoiceFromWalletRequest(c.Server, org, invoiceId)
 	if err != nil {
 		return nil, err
 	}
@@ -20142,6 +20374,59 @@ func (c *Client) ChangeOrgPlan(ctx context.Context, org OrgID, body ChangeOrgPla
 // Corresponds with POST /api/v1/orgs/{org}/billing/virtual-account (the `OrgVirtualAccount` operationId).
 func (c *Client) OrgVirtualAccount(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewOrgVirtualAccountRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetOrgWallet The organisation's wallet, its balance, bank account and debit consent
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/wallet (the `GetOrgWallet` operationId).
+func (c *Client) GetOrgWallet(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrgWalletRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateOrgWalletWithBody Open the organisation's wallet and its bank account
+//
+// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+func (c *Client) CreateOrgWalletWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrgWalletRequestWithBody(c.Server, org, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateOrgWallet Open the organisation's wallet and its bank account
+//
+// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+func (c *Client) CreateOrgWallet(ctx context.Context, org OrgID, body CreateOrgWalletJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrgWalletRequest(c.Server, org, body)
 	if err != nil {
 		return nil, err
 	}
@@ -32813,6 +33098,87 @@ func NewUpdateBillingContactRequestWithBody(server string, org OrgID, email stri
 	return req, nil
 }
 
+// NewWithdrawDebitTermsRequest constructs an http.Request for the WithdrawDebitTerms method
+func NewWithdrawDebitTermsRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/debit-consent", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAcceptDebitTermsRequest calls the generic AcceptDebitTerms builder with application/json body
+func NewAcceptDebitTermsRequest(server string, org OrgID, body AcceptDebitTermsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAcceptDebitTermsRequestWithBody(server, org, "application/json", bodyReader)
+}
+
+// NewAcceptDebitTermsRequestWithBody constructs an http.Request for the AcceptDebitTerms method, with any body, and a specified content type
+func NewAcceptDebitTermsRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/debit-consent", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewEstimateOrgCostRequest calls the generic EstimateOrgCost builder with application/json body
 func NewEstimateOrgCostRequest(server string, org OrgID, body EstimateOrgCostJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -32962,6 +33328,47 @@ func NewGetOrgInvoiceRequest(server string, org OrgID, invoiceId InvoiceID) (*ht
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPayInvoiceFromWalletRequest constructs an http.Request for the PayInvoiceFromWallet method
+func NewPayInvoiceFromWalletRequest(server string, org OrgID, invoiceId InvoiceID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "invoice_id", invoiceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/invoices/%s/pay-from-wallet", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -33344,6 +33751,87 @@ func NewOrgVirtualAccountRequest(server string, org OrgID) (*http.Request, error
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewGetOrgWalletRequest constructs an http.Request for the GetOrgWallet method
+func NewGetOrgWalletRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/wallet", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateOrgWalletRequest calls the generic CreateOrgWallet builder with application/json body
+func NewCreateOrgWalletRequest(server string, org OrgID, body CreateOrgWalletJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateOrgWalletRequestWithBody(server, org, "application/json", bodyReader)
+}
+
+// NewCreateOrgWalletRequestWithBody constructs an http.Request for the CreateOrgWallet method, with any body, and a specified content type
+func NewCreateOrgWalletRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/wallet", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -44518,6 +45006,27 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
 	UpdateBillingContactWithResponse(ctx context.Context, org OrgID, email string, body UpdateBillingContactJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBillingContactResponse, error)
 
+	// WithdrawDebitTermsWithResponse Stop automatic debits (invoices are then paid by hand)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/orgs/{org}/billing/debit-consent (the `WithdrawDebitTerms` operationId).
+	WithdrawDebitTermsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*WithdrawDebitTermsResponse, error)
+
+	// AcceptDebitTermsWithBodyWithResponse Agree to PGDock debiting the wallet for invoices
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+	AcceptDebitTermsWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AcceptDebitTermsResponse, error)
+
+	// AcceptDebitTermsWithResponse Agree to PGDock debiting the wallet for invoices
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+	AcceptDebitTermsWithResponse(ctx context.Context, org OrgID, body AcceptDebitTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*AcceptDebitTermsResponse, error)
+
 	// EstimateOrgCostWithBodyWithResponse What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -44552,6 +45061,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id} (the `GetOrgInvoice` operationId).
 	GetOrgInvoiceWithResponse(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*GetOrgInvoiceResponse, error)
+
+	// PayInvoiceFromWalletWithResponse Pay one invoice from the wallet now
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet (the `PayInvoiceFromWallet` operationId).
+	PayInvoiceFromWalletWithResponse(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*PayInvoiceFromWalletResponse, error)
 
 	// GetOrgInvoicePdfWithResponse An invoice as PDF
 	//
@@ -44622,6 +45138,31 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/billing/virtual-account (the `OrgVirtualAccount` operationId).
 	OrgVirtualAccountWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*OrgVirtualAccountResponse, error)
+
+	// GetOrgWalletWithResponse The organisation's wallet, its balance, bank account and debit consent
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/wallet (the `GetOrgWallet` operationId).
+	GetOrgWalletWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*GetOrgWalletResponse, error)
+
+	// CreateOrgWalletWithBodyWithResponse Open the organisation's wallet and its bank account
+	//
+	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+	CreateOrgWalletWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrgWalletResponse, error)
+
+	// CreateOrgWalletWithResponse Open the organisation's wallet and its bank account
+	//
+	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+	CreateOrgWalletWithResponse(ctx context.Context, org OrgID, body CreateOrgWalletJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrgWalletResponse, error)
 
 	// EndBreakGlassWithResponse End a break-glass session early (owner)
 	//
@@ -55847,6 +56388,95 @@ func (r UpdateBillingContactResponse) ContentType() string {
 	return ""
 }
 
+type WithdrawDebitTermsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r WithdrawDebitTermsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r WithdrawDebitTermsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r WithdrawDebitTermsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r WithdrawDebitTermsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r WithdrawDebitTermsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AcceptDebitTermsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DebitConsent
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AcceptDebitTermsResponse) GetJSON200() *DebitConsent {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AcceptDebitTermsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AcceptDebitTermsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AcceptDebitTermsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AcceptDebitTermsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AcceptDebitTermsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type EstimateOrgCostResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -56045,6 +56675,54 @@ func (r GetOrgInvoiceResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetOrgInvoiceResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PayInvoiceFromWalletResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WalletCharge
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PayInvoiceFromWalletResponse) GetJSON200() *WalletCharge {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r PayInvoiceFromWalletResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PayInvoiceFromWalletResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PayInvoiceFromWalletResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PayInvoiceFromWalletResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PayInvoiceFromWalletResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -56446,6 +57124,102 @@ func (r OrgVirtualAccountResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r OrgVirtualAccountResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetOrgWalletResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Wallet
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetOrgWalletResponse) GetJSON200() *Wallet {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetOrgWalletResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetOrgWalletResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrgWalletResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrgWalletResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetOrgWalletResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateOrgWalletResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Wallet
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateOrgWalletResponse) GetJSON201() *Wallet {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CreateOrgWalletResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateOrgWalletResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateOrgWalletResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateOrgWalletResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateOrgWalletResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -69539,6 +70313,45 @@ func (c *ClientWithResponses) UpdateBillingContactWithResponse(ctx context.Conte
 	return ParseUpdateBillingContactResponse(rsp)
 }
 
+// WithdrawDebitTermsWithResponse Stop automatic debits (invoices are then paid by hand)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/orgs/{org}/billing/debit-consent (the `WithdrawDebitTerms` operationId).
+func (c *ClientWithResponses) WithdrawDebitTermsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*WithdrawDebitTermsResponse, error) {
+	rsp, err := c.WithdrawDebitTerms(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseWithdrawDebitTermsResponse(rsp)
+}
+
+// AcceptDebitTermsWithBodyWithResponse Agree to PGDock debiting the wallet for invoices
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+func (c *ClientWithResponses) AcceptDebitTermsWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AcceptDebitTermsResponse, error) {
+	rsp, err := c.AcceptDebitTermsWithBody(ctx, org, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAcceptDebitTermsResponse(rsp)
+}
+
+// AcceptDebitTermsWithResponse Agree to PGDock debiting the wallet for invoices
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+func (c *ClientWithResponses) AcceptDebitTermsWithResponse(ctx context.Context, org OrgID, body AcceptDebitTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*AcceptDebitTermsResponse, error) {
+	rsp, err := c.AcceptDebitTerms(ctx, org, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAcceptDebitTermsResponse(rsp)
+}
+
 // EstimateOrgCostWithBodyWithResponse What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -69602,6 +70415,19 @@ func (c *ClientWithResponses) GetOrgInvoiceWithResponse(ctx context.Context, org
 		return nil, err
 	}
 	return ParseGetOrgInvoiceResponse(rsp)
+}
+
+// PayInvoiceFromWalletWithResponse Pay one invoice from the wallet now
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet (the `PayInvoiceFromWallet` operationId).
+func (c *ClientWithResponses) PayInvoiceFromWalletWithResponse(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*PayInvoiceFromWalletResponse, error) {
+	rsp, err := c.PayInvoiceFromWallet(ctx, org, invoiceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePayInvoiceFromWalletResponse(rsp)
 }
 
 // GetOrgInvoicePdfWithResponse An invoice as PDF
@@ -69732,6 +70558,49 @@ func (c *ClientWithResponses) OrgVirtualAccountWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseOrgVirtualAccountResponse(rsp)
+}
+
+// GetOrgWalletWithResponse The organisation's wallet, its balance, bank account and debit consent
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/wallet (the `GetOrgWallet` operationId).
+func (c *ClientWithResponses) GetOrgWalletWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*GetOrgWalletResponse, error) {
+	rsp, err := c.GetOrgWallet(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrgWalletResponse(rsp)
+}
+
+// CreateOrgWalletWithBodyWithResponse Open the organisation's wallet and its bank account
+//
+// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+func (c *ClientWithResponses) CreateOrgWalletWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrgWalletResponse, error) {
+	rsp, err := c.CreateOrgWalletWithBody(ctx, org, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrgWalletResponse(rsp)
+}
+
+// CreateOrgWalletWithResponse Open the organisation's wallet and its bank account
+//
+// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+func (c *ClientWithResponses) CreateOrgWalletWithResponse(ctx context.Context, org OrgID, body CreateOrgWalletJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrgWalletResponse, error) {
+	rsp, err := c.CreateOrgWallet(ctx, org, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrgWalletResponse(rsp)
 }
 
 // EndBreakGlassWithResponse End a break-glass session early (owner)
@@ -79868,6 +80737,68 @@ func ParseUpdateBillingContactResponse(rsp *http.Response) (*UpdateBillingContac
 	return response, nil
 }
 
+// ParseWithdrawDebitTermsResponse parses an HTTP response from a WithdrawDebitTermsWithResponse call
+func ParseWithdrawDebitTermsResponse(rsp *http.Response) (*WithdrawDebitTermsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &WithdrawDebitTermsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAcceptDebitTermsResponse parses an HTTP response from a AcceptDebitTermsWithResponse call
+func ParseAcceptDebitTermsResponse(rsp *http.Response) (*AcceptDebitTermsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AcceptDebitTermsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DebitConsent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseEstimateOrgCostResponse parses an HTTP response from a EstimateOrgCostWithResponse call
 func ParseEstimateOrgCostResponse(rsp *http.Response) (*EstimateOrgCostResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -79989,6 +80920,39 @@ func ParseGetOrgInvoiceResponse(rsp *http.Response) (*GetOrgInvoiceResponse, err
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest InvoiceDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePayInvoiceFromWalletResponse parses an HTTP response from a PayInvoiceFromWalletWithResponse call
+func ParsePayInvoiceFromWalletResponse(rsp *http.Response) (*PayInvoiceFromWalletResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PayInvoiceFromWalletResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WalletCharge
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -80266,6 +81230,72 @@ func ParseOrgVirtualAccountResponse(rsp *http.Response) (*OrgVirtualAccountRespo
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrgWalletResponse parses an HTTP response from a GetOrgWalletWithResponse call
+func ParseGetOrgWalletResponse(rsp *http.Response) (*GetOrgWalletResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrgWalletResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Wallet
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateOrgWalletResponse parses an HTTP response from a CreateOrgWalletWithResponse call
+func ParseCreateOrgWalletResponse(rsp *http.Response) (*CreateOrgWalletResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateOrgWalletResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Wallet
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error

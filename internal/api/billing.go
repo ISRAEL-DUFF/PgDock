@@ -63,16 +63,26 @@ func (s *Server) toAPIBillingAccount(r *http.Request, a store.BillingAccount) (g
 		return out, err
 	}
 	out.PlanName = b.Prices.Plans[a.Plan].Name
+	out.PriceCurrency = &b.Prices.Currency
 	for _, id := range []string{billing.PlanFree, billing.PlanPro, billing.PlanTeam} {
 		if p, ok := b.Prices.Plans[id]; ok {
-			out.Plans = append(out.Plans, gen.PlanOption{Id: id, Name: p.Name, MonthlyMinor: p.MonthlyMinor, AnnualMinor: p.AnnualMinor})
+			cur := b.Prices.Currency
+			out.Plans = append(out.Plans, gen.PlanOption{Id: id, Name: p.Name, MonthlyMinor: p.MonthlyMinor, AnnualMinor: p.AnnualMinor, Currency: &cur})
 		}
 	}
+	if b.Prices.Currency == billing.CurrencyUSD {
+		if q, err := s.billing.Quote(ctx, false); err == nil {
+			fx := toAPIQuote(q)
+			out.Fx = &fx
+		}
+	}
+	out.DebitConsent = toAPIConsent(billing.ConsentOf(a))
 	st, err := s.billing.Standing(ctx, a.OrgID)
 	if err != nil {
 		return out, err
 	}
 	out.CreditMinor, out.OwedMinor, out.OverdueSince = &st.CreditMinor, &st.OwedMinor, st.OverdueSince
+	out.WalletMinor = &st.WalletMinor
 	out.CardFailingSince, out.ZeroBalanceAt, out.GraceUntil, out.DeletionScheduledAt = a.CardFailingSince, a.ZeroBalanceAt, a.GraceUntil, a.DeletionScheduledAt
 	if len(a.AutoTopup) > 0 {
 		var at gen.AutoTopup
@@ -175,10 +185,19 @@ func toAPIPlanChange(c billing.PlanChange) (gen.PlanChange, error) {
 	if lines == nil {
 		lines = []gen.InvoiceLine{}
 	}
-	return gen.PlanChange{
+	out := gen.PlanChange{
 		FromPlan: c.FromPlan, FromTerm: c.FromTerm, ToPlan: c.ToPlan, ToTerm: c.ToTerm, EffectiveAt: c.EffectiveAt,
 		Upgrade: c.Upgrade, Applied: c.Applied, TermEndsAt: c.TermEndsAt, Lines: lines, TotalMinor: c.Total,
-	}, err
+	}
+	if c.Currency != "" {
+		out.Currency = &c.Currency
+	}
+	if c.FX != nil {
+		fx := toAPIQuote(*c.FX)
+		out.Fx = &fx
+		out.TotalUsdMinor = &c.TotalUSD
+	}
+	return out, err
 }
 
 // ChangeOrgPlan implements POST /api/v1/orgs/{org}/billing/plan.
@@ -635,7 +654,11 @@ func (s *Server) EstimateOrgCost(w http.ResponseWriter, r *http.Request, org gen
 		lines = []gen.InvoiceLine{}
 	}
 	lines = withServices(lines)
-	writeJSON(w, http.StatusOK, map[string]any{"hourly_minor": e.HourlyMinor, "monthly_minor": e.MonthlyMinor, "lines": lines})
+	out := map[string]any{"hourly_minor": e.HourlyMinor, "monthly_minor": e.MonthlyMinor, "lines": lines}
+	if e.FX != nil {
+		out["monthly_usd_minor"], out["fx"] = e.MonthlyUSDMinor, toAPIQuote(*e.FX)
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // PaymentWebhook implements POST /api/v1/payments/webhooks/{provider}. The

@@ -586,6 +586,7 @@ var specMatrix = map[authz.Action][]string{
 		"GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}", "GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf",
 		"GET /api/v1/orgs/{org}/billing/forecast",
 		// V3 §3.4: paying, methods, receipts, WHT credit notes
+		"GET /api/v1/orgs/{org}/billing/wallet", "POST /api/v1/orgs/{org}/billing/wallet", "POST /api/v1/orgs/{org}/billing/debit-consent", "DELETE /api/v1/orgs/{org}/billing/debit-consent", "POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet",
 		"POST /api/v1/orgs/{org}/billing/checkout", "POST /api/v1/orgs/{org}/billing/virtual-account", "GET /api/v1/orgs/{org}/billing/payment-methods", "DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id}", "POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default", "PUT /api/v1/orgs/{org}/billing/auto-topup", "DELETE /api/v1/orgs/{org}/billing/auto-topup", "GET /api/v1/orgs/{org}/billing/payments", "GET /api/v1/orgs/{org}/billing/payments/{payment_id}/receipt", "POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate",
 	},
 	// §10.10 "Org owners can export any project as a pg_dump file"

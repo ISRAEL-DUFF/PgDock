@@ -168,6 +168,10 @@ type Estimate struct {
 	HourlyMinor  int64
 	MonthlyMinor int64 // 730 hours
 	Lines        []Line
+	// For a dollar price book, the dollar price (cents) of a month and the
+	// rate the naira figures above are at.
+	MonthlyUSDMinor int64
+	FX              *FXQuote
 }
 
 // EstimateRequest describes what would run.
@@ -257,5 +261,18 @@ func (s *Service) EstimateDedicated(ctx context.Context, orgID uuid.UUID, r Esti
 	}
 	e.HourlyMinor = hourly.Round()
 	e.MonthlyMinor = hourly.Frac(HoursPerMonth, 1).Round()
+	if p.Currency == CurrencyUSD {
+		fx, err := s.Quote(ctx, false)
+		if err != nil {
+			return Estimate{}, err
+		}
+		e.MonthlyUSDMinor, e.FX = e.MonthlyMinor, &fx
+		e.HourlyMinor, e.MonthlyMinor = hourly.Mul(fx.Effective).Round(), hourly.Mul(fx.Effective).Frac(HoursPerMonth, 1).Round()
+		for i := range e.Lines {
+			l := &e.Lines[i]
+			l.AmountUSD, l.UnitPriceUSD = l.Amount, l.UnitPrice
+			l.Amount, l.UnitPrice = fx.Naira(l.Amount), l.UnitPrice.Mul(fx.Effective)
+		}
+	}
 	return e, nil
 }

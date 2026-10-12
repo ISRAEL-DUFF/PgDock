@@ -5197,6 +5197,94 @@ paths:
                 $ref: "#/components/schemas/VirtualAccount"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/wallet:
+    get:
+      operationId: getOrgWallet
+      summary: The organisation's wallet, its balance, bank account and debit consent
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "200":
+          description: The wallet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createOrgWallet
+      summary: Open the organisation's wallet and its bank account
+      description: A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalletSetup"
+      responses:
+        "201":
+          description: The wallet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/debit-consent:
+    post:
+      operationId: acceptDebitTerms
+      summary: Agree to PGDock debiting the wallet for invoices
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DebitConsentRequest"
+      responses:
+        "200":
+          description: The consent as recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebitConsent"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: withdrawDebitTerms
+      summary: Stop automatic debits (invoices are then paid by hand)
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+      responses:
+        "204":
+          description: Withdrawn.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet:
+    post:
+      operationId: payInvoiceFromWallet
+      summary: Pay one invoice from the wallet now
+      tags: [billing]
+      parameters:
+        - $ref: "#/components/parameters/OrgID"
+        - $ref: "#/components/parameters/InvoiceID"
+      responses:
+        "200":
+          description: What the debit did.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletCharge"
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/orgs/{org}/billing/payment-methods:
     get:
       operationId: listPaymentMethods
@@ -15668,10 +15756,145 @@ components:
               type: string
             email:
               type: string
+    FXQuote:
+      type: object
+      description: The price of a dollar in naira an invoice was converted at.
+      required: [from, to, market_rate, effective_rate, spread_bps, fetched_at, quoted_at]
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        market_rate:
+          $ref: "#/components/schemas/Decimal"
+        effective_rate:
+          $ref: "#/components/schemas/Decimal"
+        spread_bps:
+          type: integer
+        fetched_at:
+          type: string
+          format: date-time
+          description: When the provider last priced the pair.
+        quoted_at:
+          type: string
+          format: date-time
+          description: When PGDock asked.
+        sources:
+          type: array
+          items:
+            type: string
+        derived:
+          type: boolean
+    DebitConsent:
+      type: object
+      required: [at, version, current]
+      properties:
+        at:
+          type: string
+          format: date-time
+        by:
+          type: string
+          format: uuid
+          nullable: true
+        version:
+          type: string
+        current:
+          type: boolean
+          description: Whether it is to the current wording of the terms.
+    DebitConsentRequest:
+      type: object
+      required: [terms_version]
+      properties:
+        terms_version:
+          type: string
+    WalletSetup:
+      type: object
+      required: [business_name, email, bvn]
+      properties:
+        business_name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        bvn:
+          type: string
+          description: A director's, 11 digits. Forwarded to the wallet provider and not kept.
+        tin:
+          type: string
+        cac_number:
+          type: string
+    Wallet:
+      type: object
+      required: [available, ledger_minor, owed_minor, terms, terms_version]
+      properties:
+        available:
+          type: boolean
+          description: Whether this platform bills through wallets.
+        wallet_id:
+          type: string
+          nullable: true
+        balance_minor:
+          type: integer
+          format: int64
+          nullable: true
+          description: Available now, read from the provider (kobo).
+        pending_minor:
+          type: integer
+          format: int64
+          nullable: true
+        balance_error:
+          type: string
+          nullable: true
+        ledger_minor:
+          type: integer
+          format: int64
+          description: What PGDock's books say the wallet holds.
+        owed_minor:
+          type: integer
+          format: int64
+          description: Outstanding on issued invoices.
+        account:
+          allOf:
+            - $ref: "#/components/schemas/VirtualAccount"
+          nullable: true
+        consent:
+          allOf:
+            - $ref: "#/components/schemas/DebitConsent"
+          nullable: true
+        rate:
+          allOf:
+            - $ref: "#/components/schemas/FXQuote"
+          nullable: true
+        terms:
+          type: string
+        terms_version:
+          type: string
+    WalletCharge:
+      type: object
+      required: [succeeded, skipped, unavailable, paid_minor]
+      properties:
+        succeeded:
+          type: boolean
+        skipped:
+          type: boolean
+        unavailable:
+          type: boolean
+        paid_minor:
+          type: integer
+          format: int64
+        message:
+          type: string
     InvoiceLine:
       type: object
       required: [kind, description, quantity, unit_price, amount]
       properties:
+        unit_price_usd:
+          $ref: "#/components/schemas/Decimal"
+        amount_usd:
+          type: integer
+          format: int64
+          description: The price in dollars (cents) of a line converted to naira.
         kind:
           type: string
           enum: [plan, overage, dedicated, addon, credit, proration]
@@ -15715,6 +15938,9 @@ components:
       type: object
       required: [id, name, monthly_minor, annual_minor]
       properties:
+        currency:
+          type: string
+          description: The currency of the fees (USD, or NGN on a naira price book), in minor units.
         id:
           type: string
         name:
@@ -15782,6 +16008,21 @@ components:
           nullable: true
         capped:
           type: boolean
+        price_currency:
+          type: string
+          description: The currency the price book is in (USD, or NGN).
+        wallet_minor:
+          type: integer
+          format: int64
+          description: In the organisation's wallet, by PGDock's books (kobo).
+        fx:
+          allOf:
+            - $ref: "#/components/schemas/FXQuote"
+          nullable: true
+        debit_consent:
+          allOf:
+            - $ref: "#/components/schemas/DebitConsent"
+          nullable: true
         credit_minor:
           type: integer
           format: int64
@@ -16618,6 +16859,16 @@ components:
         total_minor:
           type: integer
           format: int64
+        currency:
+          type: string
+        total_usd_minor:
+          type: integer
+          format: int64
+          nullable: true
+        fx:
+          allOf:
+            - $ref: "#/components/schemas/FXQuote"
+          nullable: true
     Invoice:
       type: object
       required: [id, org_id, period_start, period_end, status, held, subtotal_minor, vat_minor, total_minor,
@@ -16661,6 +16912,24 @@ components:
         wht_expected_minor:
           type: integer
           format: int64
+        usd_subtotal_minor:
+          type: integer
+          format: int64
+          nullable: true
+          description: The dollar price (cents) the naira amounts were converted from.
+        usd_vat_minor:
+          type: integer
+          format: int64
+          nullable: true
+        usd_total_minor:
+          type: integer
+          format: int64
+          nullable: true
+        fx:
+          allOf:
+            - $ref: "#/components/schemas/FXQuote"
+          nullable: true
+          description: The rate they were converted at.
         paid_minor:
           type: integer
           format: int64

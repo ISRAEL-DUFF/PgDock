@@ -98,7 +98,8 @@ type Consent struct {
 	Current bool `json:"current"`
 }
 
-func consentOf(a store.BillingAccount) *Consent {
+// ConsentOf is the consent recorded on an account, or nil.
+func ConsentOf(a store.BillingAccount) *Consent {
 	if a.DebitConsentAt == nil {
 		return nil
 	}
@@ -132,7 +133,7 @@ func (s *Service) AcceptDebitTerms(ctx context.Context, orgID uuid.UUID, by *uui
 	}
 	// Something already owing is debited now.
 	go s.chargeOpenAsync(orgID)
-	return consentOf(a), nil
+	return ConsentOf(a), nil
 }
 
 // WithdrawDebitTerms ends automatic debits: invoices are then paid by hand.
@@ -172,7 +173,7 @@ func (s *Service) Wallet(ctx context.Context, orgID uuid.UUID) (WalletView, erro
 	if err != nil {
 		return v, err
 	}
-	v.Consent = consentOf(a)
+	v.Consent = ConsentOf(a)
 	v.WalletID = walletID(a)
 	q := store.New(s.db)
 	if led, err := Balance(ctx, s.db, &orgID, AccWalletBalance); err == nil {

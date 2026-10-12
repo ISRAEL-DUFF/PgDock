@@ -4997,10 +4997,12 @@ type BillingAccount struct {
 
 	// CreditMinor On the credit balance (prepaid funds, overpayments).
 	CreditMinor         *int64             `json:"credit_minor,omitempty"`
+	DebitConsent        *DebitConsent      `json:"debit_consent,omitempty"`
 	DeductsWht          bool               `json:"deducts_wht"`
 	DeletionScheduledAt *time.Time         `json:"deletion_scheduled_at,omitempty"`
 	DunningState        string             `json:"dunning_state"`
 	ForecastMinor       *int64             `json:"forecast_minor,omitempty"`
+	Fx                  *FXQuote           `json:"fx,omitempty"`
 	GraceUntil          *time.Time         `json:"grace_until,omitempty"`
 	Grandfathered       bool               `json:"grandfathered"`
 	LegalName           *string            `json:"legal_name,omitempty"`
@@ -5020,14 +5022,20 @@ type BillingAccount struct {
 	PlanName string `json:"plan_name"`
 
 	// Plans The plans on the organisation's price book.
-	Plans            []PlanOption       `json:"plans"`
-	PriceBookVersion int                `json:"price_book_version"`
-	SpendCapMinor    *int64             `json:"spend_cap_minor,omitempty"`
-	Term             BillingAccountTerm `json:"term"`
-	TermEndsAt       *time.Time         `json:"term_ends_at,omitempty"`
-	Tin              *string            `json:"tin,omitempty"`
-	VatRegistered    bool               `json:"vat_registered"`
-	ZeroBalanceAt    *time.Time         `json:"zero_balance_at,omitempty"`
+	Plans            []PlanOption `json:"plans"`
+	PriceBookVersion int          `json:"price_book_version"`
+
+	// PriceCurrency The currency the price book is in (USD, or NGN).
+	PriceCurrency *string            `json:"price_currency,omitempty"`
+	SpendCapMinor *int64             `json:"spend_cap_minor,omitempty"`
+	Term          BillingAccountTerm `json:"term"`
+	TermEndsAt    *time.Time         `json:"term_ends_at,omitempty"`
+	Tin           *string            `json:"tin,omitempty"`
+	VatRegistered bool               `json:"vat_registered"`
+
+	// WalletMinor In the organisation's wallet, by PGDock's books (kobo).
+	WalletMinor   *int64     `json:"wallet_minor,omitempty"`
+	ZeroBalanceAt *time.Time `json:"zero_balance_at,omitempty"`
 }
 
 // BillingAccountMode defines model for BillingAccount.Mode.
@@ -5584,6 +5592,21 @@ type DbTable struct {
 // DbTableKind defines model for DbTable.Kind.
 type DbTableKind string
 
+// DebitConsent defines model for DebitConsent.
+type DebitConsent struct {
+	At time.Time           `json:"at"`
+	By *openapi_types.UUID `json:"by,omitempty"`
+
+	// Current Whether it is to the current wording of the terms.
+	Current bool   `json:"current"`
+	Version string `json:"version"`
+}
+
+// DebitConsentRequest defines model for DebitConsentRequest.
+type DebitConsentRequest struct {
+	TermsVersion string `json:"terms_version"`
+}
+
 // DecideRequest defines model for DecideRequest.
 type DecideRequest struct {
 	Note *string `json:"note,omitempty"`
@@ -5933,6 +5956,31 @@ type ExtensionTier string
 // ExtensionList defines model for ExtensionList.
 type ExtensionList struct {
 	Items []Extension `json:"items"`
+}
+
+// FXQuote The price of a dollar in naira an invoice was converted at.
+type FXQuote struct {
+	Derived *bool `json:"derived,omitempty"`
+
+	// EffectiveRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	EffectiveRate Decimal `json:"effective_rate"`
+
+	// FetchedAt When the provider last priced the pair.
+	FetchedAt time.Time `json:"fetched_at"`
+	From      string    `json:"from"`
+
+	// MarketRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	MarketRate Decimal `json:"market_rate"`
+
+	// QuotedAt When PGDock asked.
+	QuotedAt  time.Time `json:"quoted_at"`
+	Sources   *[]string `json:"sources,omitempty"`
+	SpreadBps int       `json:"spread_bps"`
+	To        string    `json:"to"`
 }
 
 // FXRate defines model for FXRate.
@@ -6453,8 +6501,11 @@ type InviteRequest struct {
 
 // Invoice defines model for Invoice.
 type Invoice struct {
-	CreatedAt  time.Time          `json:"created_at"`
-	DueAt      *time.Time         `json:"due_at,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	DueAt     *time.Time `json:"due_at,omitempty"`
+
+	// Fx The rate they were converted at.
+	Fx         *FXQuote           `json:"fx,omitempty"`
 	Held       bool               `json:"held"`
 	HoldReason *string            `json:"hold_reason,omitempty"`
 	Id         openapi_types.UUID `json:"id"`
@@ -6472,7 +6523,12 @@ type Invoice struct {
 	Status           InvoiceStatus      `json:"status"`
 	SubtotalMinor    int64              `json:"subtotal_minor"`
 	TotalMinor       int64              `json:"total_minor"`
-	VatMinor         int64              `json:"vat_minor"`
+
+	// UsdSubtotalMinor The dollar price (cents) the naira amounts were converted from.
+	UsdSubtotalMinor *int64 `json:"usd_subtotal_minor,omitempty"`
+	UsdTotalMinor    *int64 `json:"usd_total_minor,omitempty"`
+	UsdVatMinor      *int64 `json:"usd_vat_minor,omitempty"`
+	VatMinor         int64  `json:"vat_minor"`
 
 	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 	//
@@ -6498,7 +6554,10 @@ type InvoiceDetail struct {
 // InvoiceLine defines model for InvoiceLine.
 type InvoiceLine struct {
 	// Amount Kobo.
-	Amount      int64               `json:"amount"`
+	Amount int64 `json:"amount"`
+
+	// AmountUsd The price in dollars (cents) of a line converted to naira.
+	AmountUsd   *int64              `json:"amount_usd,omitempty"`
 	Description string              `json:"description"`
 	Kind        InvoiceLineKind     `json:"kind"`
 	Metric      *string             `json:"metric,omitempty"`
@@ -6516,6 +6575,11 @@ type InvoiceLine struct {
 	//
 	// Example: 34.25
 	UnitPrice Decimal `json:"unit_price"`
+
+	// UnitPriceUsd An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	UnitPriceUsd *Decimal `json:"unit_price_usd,omitempty"`
 }
 
 // InvoiceLineKind defines model for InvoiceLine.Kind.
@@ -7465,17 +7529,20 @@ type Plan struct {
 type PlanChange struct {
 	// Applied In effect now; otherwise scheduled for effective_at.
 	Applied     bool      `json:"applied"`
+	Currency    *string   `json:"currency,omitempty"`
 	EffectiveAt time.Time `json:"effective_at"`
 	FromPlan    string    `json:"from_plan"`
 	FromTerm    string    `json:"from_term"`
+	Fx          *FXQuote  `json:"fx,omitempty"`
 
 	// Lines Lines on the next invoice (before VAT).
-	Lines      []InvoiceLine `json:"lines"`
-	TermEndsAt *time.Time    `json:"term_ends_at,omitempty"`
-	ToPlan     string        `json:"to_plan"`
-	ToTerm     string        `json:"to_term"`
-	TotalMinor int64         `json:"total_minor"`
-	Upgrade    bool          `json:"upgrade"`
+	Lines         []InvoiceLine `json:"lines"`
+	TermEndsAt    *time.Time    `json:"term_ends_at,omitempty"`
+	ToPlan        string        `json:"to_plan"`
+	ToTerm        string        `json:"to_term"`
+	TotalMinor    int64         `json:"total_minor"`
+	TotalUsdMinor *int64        `json:"total_usd_minor,omitempty"`
+	Upgrade       bool          `json:"upgrade"`
 }
 
 // PlanChangeRequest defines model for PlanChangeRequest.
@@ -7513,10 +7580,13 @@ type PlanMargin struct {
 
 // PlanOption defines model for PlanOption.
 type PlanOption struct {
-	AnnualMinor  int64  `json:"annual_minor"`
-	Id           string `json:"id"`
-	MonthlyMinor int64  `json:"monthly_minor"`
-	Name         string `json:"name"`
+	AnnualMinor int64 `json:"annual_minor"`
+
+	// Currency The currency of the fees (USD, or NGN on a naira price book), in minor units.
+	Currency     *string `json:"currency,omitempty"`
+	Id           string  `json:"id"`
+	MonthlyMinor int64   `json:"monthly_minor"`
+	Name         string  `json:"name"`
 }
 
 // PlanRequest defines model for PlanRequest.
@@ -9719,6 +9789,51 @@ type VirtualAccount struct {
 	Provider      string `json:"provider"`
 }
 
+// Wallet defines model for Wallet.
+type Wallet struct {
+	Account *VirtualAccount `json:"account,omitempty"`
+
+	// Available Whether this platform bills through wallets.
+	Available    bool    `json:"available"`
+	BalanceError *string `json:"balance_error,omitempty"`
+
+	// BalanceMinor Available now, read from the provider (kobo).
+	BalanceMinor *int64        `json:"balance_minor,omitempty"`
+	Consent      *DebitConsent `json:"consent,omitempty"`
+
+	// LedgerMinor What PGDock's books say the wallet holds.
+	LedgerMinor int64 `json:"ledger_minor"`
+
+	// OwedMinor Outstanding on issued invoices.
+	OwedMinor    int64    `json:"owed_minor"`
+	PendingMinor *int64   `json:"pending_minor,omitempty"`
+	Rate         *FXQuote `json:"rate,omitempty"`
+	Terms        string   `json:"terms"`
+	TermsVersion string   `json:"terms_version"`
+	WalletId     *string  `json:"wallet_id,omitempty"`
+}
+
+// WalletCharge defines model for WalletCharge.
+type WalletCharge struct {
+	Message     *string `json:"message,omitempty"`
+	PaidMinor   int64   `json:"paid_minor"`
+	Skipped     bool    `json:"skipped"`
+	Succeeded   bool    `json:"succeeded"`
+	Unavailable bool    `json:"unavailable"`
+}
+
+// WalletSetup defines model for WalletSetup.
+type WalletSetup struct {
+	BusinessName string `json:"business_name"`
+
+	// Bvn A director's, 11 digits. Forwarded to the wallet provider and not kept.
+	Bvn       string  `json:"bvn"`
+	CacNumber *string `json:"cac_number,omitempty"`
+	Email     string  `json:"email"`
+	Phone     *string `json:"phone,omitempty"`
+	Tin       *string `json:"tin,omitempty"`
+}
+
 // Webhook defines model for Webhook.
 type Webhook struct {
 	// Backlog Events waiting in the outbox.
@@ -10841,11 +10956,17 @@ type AddBillingContactJSONRequestBody = BillingContact
 // UpdateBillingContactJSONRequestBody defines body for UpdateBillingContact for application/json ContentType.
 type UpdateBillingContactJSONRequestBody UpdateBillingContactJSONBody
 
+// AcceptDebitTermsJSONRequestBody defines body for AcceptDebitTerms for application/json ContentType.
+type AcceptDebitTermsJSONRequestBody = DebitConsentRequest
+
 // EstimateOrgCostJSONRequestBody defines body for EstimateOrgCost for application/json ContentType.
 type EstimateOrgCostJSONRequestBody EstimateOrgCostJSONBody
 
 // ChangeOrgPlanJSONRequestBody defines body for ChangeOrgPlan for application/json ContentType.
 type ChangeOrgPlanJSONRequestBody = PlanChangeRequest
+
+// CreateOrgWalletJSONRequestBody defines body for CreateOrgWallet for application/json ContentType.
+type CreateOrgWalletJSONRequestBody = WalletSetup
 
 // InviteOrgMemberJSONRequestBody defines body for InviteOrgMember for application/json ContentType.
 type InviteOrgMemberJSONRequestBody = InviteRequest
@@ -11641,6 +11762,12 @@ type ServerInterface interface {
 	// UpdateBillingContact Turn a billing contact's status page emails on or off
 	// (PATCH /api/v1/orgs/{org}/billing/contacts/{email})
 	UpdateBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string)
+	// WithdrawDebitTerms Stop automatic debits (invoices are then paid by hand)
+	// (DELETE /api/v1/orgs/{org}/billing/debit-consent)
+	WithdrawDebitTerms(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AcceptDebitTerms Agree to PGDock debiting the wallet for invoices
+	// (POST /api/v1/orgs/{org}/billing/debit-consent)
+	AcceptDebitTerms(w http.ResponseWriter, r *http.Request, org OrgID)
 	// EstimateOrgCost What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	// (POST /api/v1/orgs/{org}/billing/estimate)
 	EstimateOrgCost(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -11653,6 +11780,9 @@ type ServerInterface interface {
 	// GetOrgInvoice An invoice with its lines and credit notes
 	// (GET /api/v1/orgs/{org}/billing/invoices/{invoice_id})
 	GetOrgInvoice(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID)
+	// PayInvoiceFromWallet Pay one invoice from the wallet now
+	// (POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet)
+	PayInvoiceFromWallet(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID)
 	// GetOrgInvoicePdf An invoice as PDF
 	// (GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf)
 	GetOrgInvoicePdf(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID)
@@ -11680,6 +11810,12 @@ type ServerInterface interface {
 	// OrgVirtualAccount The organisation's bank account for transfers, issued on first use
 	// (POST /api/v1/orgs/{org}/billing/virtual-account)
 	OrgVirtualAccount(w http.ResponseWriter, r *http.Request, org OrgID)
+	// GetOrgWallet The organisation's wallet, its balance, bank account and debit consent
+	// (GET /api/v1/orgs/{org}/billing/wallet)
+	GetOrgWallet(w http.ResponseWriter, r *http.Request, org OrgID)
+	// CreateOrgWallet Open the organisation's wallet and its bank account
+	// (POST /api/v1/orgs/{org}/billing/wallet)
+	CreateOrgWallet(w http.ResponseWriter, r *http.Request, org OrgID)
 	// EndBreakGlass End a break-glass session early (owner)
 	// (POST /api/v1/orgs/{org}/break-glass/{session_id}/end)
 	EndBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID, sessionId openapi_types.UUID)
@@ -13399,6 +13535,18 @@ func (_ Unimplemented) UpdateBillingContact(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// WithdrawDebitTerms Stop automatic debits (invoices are then paid by hand)
+// (DELETE /api/v1/orgs/{org}/billing/debit-consent)
+func (_ Unimplemented) WithdrawDebitTerms(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AcceptDebitTerms Agree to PGDock debiting the wallet for invoices
+// (POST /api/v1/orgs/{org}/billing/debit-consent)
+func (_ Unimplemented) AcceptDebitTerms(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // EstimateOrgCost What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 // (POST /api/v1/orgs/{org}/billing/estimate)
 func (_ Unimplemented) EstimateOrgCost(w http.ResponseWriter, r *http.Request, org OrgID) {
@@ -13420,6 +13568,12 @@ func (_ Unimplemented) ListOrgInvoices(w http.ResponseWriter, r *http.Request, o
 // GetOrgInvoice An invoice with its lines and credit notes
 // (GET /api/v1/orgs/{org}/billing/invoices/{invoice_id})
 func (_ Unimplemented) GetOrgInvoice(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PayInvoiceFromWallet Pay one invoice from the wallet now
+// (POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet)
+func (_ Unimplemented) PayInvoiceFromWallet(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -13474,6 +13628,18 @@ func (_ Unimplemented) ChangeOrgPlan(w http.ResponseWriter, r *http.Request, org
 // OrgVirtualAccount The organisation's bank account for transfers, issued on first use
 // (POST /api/v1/orgs/{org}/billing/virtual-account)
 func (_ Unimplemented) OrgVirtualAccount(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgWallet The organisation's wallet, its balance, bank account and debit consent
+// (GET /api/v1/orgs/{org}/billing/wallet)
+func (_ Unimplemented) GetOrgWallet(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateOrgWallet Open the organisation's wallet and its bank account
+// (POST /api/v1/orgs/{org}/billing/wallet)
+func (_ Unimplemented) CreateOrgWallet(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -19125,6 +19291,58 @@ func (siw *ServerInterfaceWrapper) UpdateBillingContact(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// WithdrawDebitTerms operation middleware
+func (siw *ServerInterfaceWrapper) WithdrawDebitTerms(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.WithdrawDebitTerms(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AcceptDebitTerms operation middleware
+func (siw *ServerInterfaceWrapper) AcceptDebitTerms(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AcceptDebitTerms(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // EstimateOrgCost operation middleware
 func (siw *ServerInterfaceWrapper) EstimateOrgCost(w http.ResponseWriter, r *http.Request) {
 
@@ -19229,6 +19447,41 @@ func (siw *ServerInterfaceWrapper) GetOrgInvoice(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetOrgInvoice(w, r, org, invoiceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PayInvoiceFromWallet operation middleware
+func (siw *ServerInterfaceWrapper) PayInvoiceFromWallet(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PayInvoiceFromWallet(w, r, org, invoiceId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -19524,6 +19777,58 @@ func (siw *ServerInterfaceWrapper) OrgVirtualAccount(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.OrgVirtualAccount(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgWallet operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgWallet(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgWallet(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateOrgWallet operation middleware
+func (siw *ServerInterfaceWrapper) CreateOrgWallet(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateOrgWallet(w, r, org)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -26568,6 +26873,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/virtual-account", wrapper.OrgVirtualAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/wallet", wrapper.GetOrgWallet)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/wallet", wrapper.CreateOrgWallet)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/billing/debit-consent", wrapper.WithdrawDebitTerms)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/debit-consent", wrapper.AcceptDebitTerms)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet", wrapper.PayInvoiceFromWallet)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/payment-methods", wrapper.ListPaymentMethods)

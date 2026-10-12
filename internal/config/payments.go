@@ -21,6 +21,16 @@ type Payments struct {
 	ISpendAPIKey        string // PGDOCK_ISPEND_API_KEY (or _FILE)
 	ISpendWebhookSecret string // PGDOCK_ISPEND_WEBHOOK_SECRET (or _FILE)
 
+	// The wallet provider (V4.1 billing): each organisation's wallet.
+	ISwalletURL           string // PGDOCK_ISWALLET_BASE_URL
+	ISwalletAPIKey        string // PGDOCK_ISWALLET_API_KEY (or _FILE)
+	ISwalletWebhookSecret string // PGDOCK_ISWALLET_WEBHOOK_SECRET (or _FILE)
+	ISwalletClientID      string // PGDOCK_ISWALLET_CLIENT_ID, when the key doesn't imply it
+	// ISwalletOwnerPrefix keeps this installation's wallets apart from any
+	// other's at the provider (owner references are unique across tenants):
+	// pgdock:prod, pgdock:staging.
+	ISwalletOwnerPrefix string // PGDOCK_ISWALLET_OWNER_PREFIX
+
 	Cards      string // PGDOCK_PAY_CARDS
 	VAPrimary  string // PGDOCK_PAY_VA_PRIMARY
 	VAFallback string // PGDOCK_PAY_VA_FALLBACK
@@ -32,6 +42,9 @@ func (p Payments) FlutterwaveOn() bool { return p.FlutterwaveSecretKey != "" }
 
 // ISpendOn reports whether iSpend has its keys.
 func (p Payments) ISpendOn() bool { return p.ISpendAPIKey != "" && p.ISpendURL != "" }
+
+// ISwalletOn reports whether the wallet provider is configured.
+func (p Payments) ISwalletOn() bool { return p.ISwalletAPIKey != "" && p.ISwalletURL != "" }
 
 func secretFrom(getenv func(string) string, readFile func(string) ([]byte, error), name string) (string, error) {
 	v, file := getenv(name), getenv(name+"_FILE")
@@ -51,12 +64,15 @@ func secretFrom(getenv func(string) string, readFile func(string) ([]byte, error
 func loadPayments(getenv func(string) string, readFile func(string) ([]byte, error), cfg *Config) []error {
 	p := Payments{
 		FlutterwaveURL: strings.TrimRight(getenv("PGDOCK_FLW_BASE_URL"), "/"), FlutterwaveBVN: getenv("PGDOCK_FLW_BVN"),
-		ISpendURL: strings.TrimRight(getenv("PGDOCK_ISPEND_BASE_URL"), "/"),
+		ISpendURL:   strings.TrimRight(getenv("PGDOCK_ISPEND_BASE_URL"), "/"),
+		ISwalletURL: strings.TrimRight(getenv("PGDOCK_ISWALLET_BASE_URL"), "/"), ISwalletClientID: getenv("PGDOCK_ISWALLET_CLIENT_ID"),
+		ISwalletOwnerPrefix: strings.Trim(getenv("PGDOCK_ISWALLET_OWNER_PREFIX"), ": "),
 	}
 	var errs []error
 	for name, dst := range map[string]*string{
 		"PGDOCK_FLW_SECRET_KEY": &p.FlutterwaveSecretKey, "PGDOCK_FLW_WEBHOOK_HASH": &p.FlutterwaveWebhookHash,
 		"PGDOCK_ISPEND_API_KEY": &p.ISpendAPIKey, "PGDOCK_ISPEND_WEBHOOK_SECRET": &p.ISpendWebhookSecret,
+		"PGDOCK_ISWALLET_API_KEY": &p.ISwalletAPIKey, "PGDOCK_ISWALLET_WEBHOOK_SECRET": &p.ISwalletWebhookSecret,
 	} {
 		v, err := secretFrom(getenv, readFile, name)
 		if err != nil {
@@ -64,7 +80,7 @@ func loadPayments(getenv func(string) string, readFile func(string) ([]byte, err
 		}
 		*dst = v
 	}
-	for name, u := range map[string]string{"PGDOCK_FLW_BASE_URL": p.FlutterwaveURL, "PGDOCK_ISPEND_BASE_URL": p.ISpendURL} {
+	for name, u := range map[string]string{"PGDOCK_FLW_BASE_URL": p.FlutterwaveURL, "PGDOCK_ISPEND_BASE_URL": p.ISpendURL, "PGDOCK_ISWALLET_BASE_URL": p.ISwalletURL} {
 		if u == "" {
 			continue
 		}
@@ -80,6 +96,16 @@ func loadPayments(getenv func(string) string, readFile func(string) ([]byte, err
 	}
 	if p.ISpendOn() && len(p.ISpendWebhookSecret) < 16 {
 		errs = append(errs, errors.New("PGDOCK_ISPEND_API_KEY needs PGDOCK_ISPEND_WEBHOOK_SECRET (at least 16 characters)"))
+	}
+	if p.ISwalletAPIKey != "" {
+		switch {
+		case p.ISwalletURL == "":
+			errs = append(errs, errors.New("PGDOCK_ISWALLET_API_KEY needs PGDOCK_ISWALLET_BASE_URL"))
+		case len(p.ISwalletWebhookSecret) < 16:
+			errs = append(errs, errors.New("PGDOCK_ISWALLET_API_KEY needs PGDOCK_ISWALLET_WEBHOOK_SECRET (at least 16 characters), the signing secret of the webhook subscription"))
+		case p.ISwalletOwnerPrefix == "":
+			errs = append(errs, errors.New("PGDOCK_ISWALLET_API_KEY needs PGDOCK_ISWALLET_OWNER_PREFIX (for example pgdock:prod): wallet owner references are unique across everyone using the provider, so each environment needs its own"))
+		}
 	}
 	on := map[string]bool{"flutterwave": p.FlutterwaveOn(), "ispend": p.ISpendOn(), "": true}
 	pick := func(env string, def ...string) string {
