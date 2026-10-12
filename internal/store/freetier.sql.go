@@ -104,9 +104,12 @@ func (q *Queries) CountSleepingProjects(ctx context.Context) (CountSleepingProje
 const freeProjectsIdleSince = `-- name: FreeProjectsIdleSince :many
 SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data, p.probe_verifier, p.lifecycle, p.last_active_at, p.pause_warned_at, p.paused_at, p.archived_at, p.archive_backup_id, p.archive_notice_days, p.region, p.data_residency, p.forward_region, p.forward_until FROM projects p
 JOIN organizations o ON o.id = p.org_id
+LEFT JOIN quota_plans qp ON qp.id = o.plan_id
 LEFT JOIN billing_accounts b ON b.org_id = p.org_id
 WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle = 'active' AND p.tier = 'shared'
   AND o.status = 'active' AND coalesce(b.plan, 'free') = 'free'
+  -- The Unlimited quota plan is the platform's own (its admin's organisation): never paused.
+  AND coalesce(qp.name, '') <> 'Unlimited'
   AND coalesce(p.last_active_at, p.created_at) < $1
 ORDER BY p.created_at
 `
@@ -178,9 +181,12 @@ func (q *Queries) FreeProjectsIdleSince(ctx context.Context, idleBefore *time.Ti
 
 const freeProjectsPausedSince = `-- name: FreeProjectsPausedSince :many
 SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data, p.probe_verifier, p.lifecycle, p.last_active_at, p.pause_warned_at, p.paused_at, p.archived_at, p.archive_backup_id, p.archive_notice_days, p.region, p.data_residency, p.forward_region, p.forward_until FROM projects p
+JOIN organizations o ON o.id = p.org_id
+LEFT JOIN quota_plans qp ON qp.id = o.plan_id
 LEFT JOIN billing_accounts b ON b.org_id = p.org_id
 WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle = 'paused' AND p.paused_at < $1
   AND coalesce(b.plan, 'free') = 'free'
+  AND coalesce(qp.name, '') <> 'Unlimited'
 ORDER BY p.paused_at
 `
 
@@ -516,11 +522,14 @@ func (q *Queries) SetProjectPaused(ctx context.Context, id uuid.UUID) (Project, 
 
 const sleepingPaidProjects = `-- name: SleepingPaidProjects :many
 SELECT p.id, p.name, p.slug, p.db_name, p.owner_role, p.scram_verifier, p.tier, p.instance_id, p.status, p.settings, p.storage_target_id, p.extensions, p.description, p.created_by, p.created_at, p.deleted_at, p.org_id, p.alias_db_name, p.legacy_owner_role, p.legacy_scram_verifier, p.legacy_until, p.storage_state, p.storage_state_at, p.backup_key_id, p.parent_project_id, p.branch_source, p.branch_schema_only, p.expires_at, p.expiry_notified_at, p.branch_backups, p.sensitive_data, p.probe_verifier, p.lifecycle, p.last_active_at, p.pause_warned_at, p.paused_at, p.archived_at, p.archive_backup_id, p.archive_notice_days, p.region, p.data_residency, p.forward_region, p.forward_until FROM projects p
+JOIN organizations o ON o.id = p.org_id
+LEFT JOIN quota_plans qp ON qp.id = o.plan_id
 JOIN billing_accounts b ON b.org_id = p.org_id
-WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle <> 'active' AND b.plan <> 'free'
+WHERE p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle <> 'active'
+  AND (b.plan <> 'free' OR coalesce(qp.name, '') = 'Unlimited')
 `
 
-// tenant: system - the Free tier sweep across organisations: paused or archived projects whose organisation now pays.
+// tenant: system - the Free tier sweep across organisations: paused or archived projects whose organisation now pays, or is on the Unlimited quota plan (which never sleeps).
 func (q *Queries) SleepingPaidProjects(ctx context.Context) ([]Project, error) {
 	rows, err := q.db.Query(ctx, sleepingPaidProjects)
 	if err != nil {

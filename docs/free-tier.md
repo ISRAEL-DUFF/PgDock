@@ -3,7 +3,9 @@
 Free projects cost little to keep because idle ones stop using the shared
 cluster (V3 §4). This page covers what happens to an idle Free project,
 how it comes back, and how to set it up. Paid plans (Pro, Team) are never
-paused or archived.
+paused or archived. The same goes for an organisation on the **Unlimited**
+quota plan: the platform's own (the platform admin's organisation) is never
+paused, even though the billing migration gives it a Free billing account.
 
 ## What happens
 

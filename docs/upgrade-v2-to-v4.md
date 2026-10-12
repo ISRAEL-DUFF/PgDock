@@ -25,7 +25,7 @@ Write these down; you will set them before the upgrade.
 
 | Question | Why it matters | Where |
 | --- | --- | --- |
-| Which organisations pay, and on which plan? | The billing migration gives every organisation a billing account on the **Free** plan. Free projects with no client connections for 7 days are **paused**, and archived after 90 days paused. Paid plans are never paused. | Each organisation's owner chooses its plan (Org → Billing → **Change plan…**) after the upgrade; until they have, keep the Free tier's clocks long (below). |
+| Which organisations pay, and on which plan? | The billing migration gives every organisation a billing account on the **Free** plan. Free projects with no client connections for 7 days are **paused**, and archived after 90 days paused. Paid plans are never paused, and neither are projects of an organisation on the **Unlimited** quota plan (your own platform admin's organisation, where your own projects live). | Each organisation's owner chooses its plan (Org → Billing → **Change plan…**) after the upgrade; until they have, keep the Free tier's clocks long (below). |
 | How long before idle Free projects pause? | The activity clock of every project starts at the upgrade, so the first pauses come 7 days later unless you change it. | `PGDOCK_FREE_PAUSE_AFTER` (e.g. `8760h` while you move customers to their plans), `PGDOCK_FREE_ARCHIVE_AFTER`. See [the Free tier](free-tier.md). |
 | What are the real prices? | The first price book has placeholder prices. Nothing is invoiced until you turn on automatic issue. | Admin → Billing → Price books, then Settings. See [billing](billing.md). |
 | Which region is this? | Every existing node is put in `PGDOCK_REGION` (default `eu-central`). | `.env` before the upgrade. See [regions](regions.md). |
@@ -148,10 +148,28 @@ for chosen projects before then.
 
 ## Rolling back
 
-Before anything is written by the new version, rolling back is checking
-out `v2.1.0` and running `./install.sh`. Once the new server has run its
-migrations, `v2.1.0` refuses to start on the newer schema: restore the
-metadata database from the self-backup you checked in section 2
-([disaster recovery](disaster-recovery.md#2-restore-the-metadata)), then
-start `v2.1.0`. Anything done in the dashboard since the upgrade is lost;
-project data is not affected (it lives in the projects' databases).
+Take the metadata self-backup before you upgrade (section 2): it is the way
+back.
+
+**Before the new server has started**, rolling back is checking out
+`v2.1.0` and running `./install.sh`.
+
+**After it has run its migrations, do not just check out `v2.1.0`.** `v2.1.0`
+does not notice that the database is at a newer schema: it starts, and runs on
+tables it doesn't know, which can write wrong data without any error
+(rehearsal on a copy of a v2.1.0 database showed it starting and processing
+queued operations against the V4 schema). Instead:
+
+1. Stop pgdock-server (`docker compose stop pgdock-server`).
+2. Restore the metadata database from the self-backup, as in
+   [disaster recovery](disaster-recovery.md#2-restore-the-metadata).
+3. Check out `v2.1.0` and run `./install.sh`.
+
+Anything done in the dashboard since the upgrade is lost; project data is
+not affected (it lives in the projects' databases).
+
+From V4.1 on, a server refuses to start on a database that a newer release
+migrated (`the metadata database was migrated by a newer PGDock than this
+one`), so rolling forward-then-back between V4.1 and later releases fails
+loudly instead. `v2.1.0` and earlier don't have that check, which is why the
+restore is needed here.

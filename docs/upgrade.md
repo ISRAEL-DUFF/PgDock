@@ -27,8 +27,9 @@ What happens:
 2. `docker compose up` replaces the containers whose image or configuration
    changed. pgdock-server runs the metadata migrations (goose) on start,
    before it serves anything; a migration that fails leaves the old schema
-   in place and the server refuses to start, so the old version can be
-   started again.
+   in place and the server refuses to start. (A migration that succeeded
+   can't be undone by starting the old version: see
+   [rolling back](#rolling-back).)
 3. The installer recreates the poolers so they read this version's
    configuration (their config files are bind-mounted, and a checkout
    replaces them, which compose doesn't notice). Connected clients
@@ -328,9 +329,14 @@ rehearsal on a copy of production.
 
 ## Rolling back
 
-Check out the previous tag and run `./install.sh` again. If the new
-version ran a metadata migration the old one does not understand, the old
-server refuses to start; restore the metadata database from the
-self-backup taken before the upgrade (see
-[disaster recovery](disaster-recovery.md), step 2) and start the old
-version.
+Take the metadata self-backup before every upgrade; it is the way back.
+
+Before the new server has started, check out the previous tag and run
+`./install.sh` again. Once it has run a migration, do **not** just check out
+the old tag: a release before V4.1 starts on a database a newer release
+migrated without noticing, and runs on tables it doesn't know, which can
+write wrong data without any error. Stop pgdock-server, restore the metadata
+database from the self-backup (see [disaster recovery](disaster-recovery.md),
+step 2), then check out the previous tag and run `./install.sh`. From V4.1
+on, a server refuses to start on a database a newer release migrated, and
+says to restore the backup.

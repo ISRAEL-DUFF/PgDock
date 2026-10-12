@@ -5,6 +5,23 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Found rehearsing the V2 to V4 upgrade
+- Fixed: the Free tier would have paused the platform admin's own projects.
+  The billing migration gives every organisation a Free billing account,
+  including the one on the **Unlimited** quota plan, and the sweep only
+  looked at the billing plan. Organisations on the Unlimited plan are now
+  never paused or archived, and a project of theirs that is already asleep is
+  woken by the next sweep.
+- Fixed: a server now refuses to start on a metadata database that a newer
+  release migrated (`the metadata database was migrated by a newer PGDock
+  than this one`). Before, an older release started on the newer schema
+  without a word and could write wrong data. `v2.1.0` and earlier don't have
+  the check, so rolling back from V4 means restoring the metadata backup
+  first.
+- Docs: the rollback sections of docs/upgrade.md and
+  docs/upgrade-v2-to-v4.md said an old server "refuses to start" on a newer
+  schema; they now give the restore steps that actually work.
+
 ### Integrations (Taskiem's asks)
 - Webhooks have a `description` and string `metadata` for the tool that
   made them; every change event carries `project_id` and, for tables with
