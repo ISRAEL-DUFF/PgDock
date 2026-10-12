@@ -57,6 +57,9 @@ jobs:
       - name: Go tests (including Postgres-backed)
         run: make test-go
 
+      - name: Deploy scripts (upgrade.sh, deploy-ssh.sh)
+        run: make test-deploy
+
       - name: Frontend type-check and tests
         run: make test-web
 
@@ -161,6 +164,25 @@ jobs:
 
       - name: Install from the docs
         run: make test-docs
+
+  # upgrade.sh for real (docs/deploying.md): install the previous release with
+  # the bundle, prove that a release whose migration fails is rolled back with
+  # its data intact, then upgrade to this commit. Slow, so it runs weekly, on
+  # demand, on tags, and on branches that touch deployment.
+  upgrade:
+    if: >-
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/') ||
+      startsWith(github.head_ref || github.ref_name, 'feat/deploy')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Upgrade the previous release, with a rollback in between
+        run: make test-upgrade
 
   # Dependency audit (spec §14 M7): known vulnerabilities in Go modules and
   # the standard library actually called, and in npm packages.

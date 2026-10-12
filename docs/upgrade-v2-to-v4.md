@@ -90,6 +90,16 @@ databases through the poolers reconnect in a second or two.
 
 ## 3. Upgrade the control node
 
+The safest way is `upgrade.sh`, which backs up the metadata database, checks
+the result and rolls back if it fails ([deploying](deploying.md); the first time,
+take the script from the new tag as described there):
+
+```sh
+PGDOCK_DIR=$PWD sh /tmp/upgrade.sh v4.1.0     # after: git show v4.1.0:deploy/compose/upgrade.sh > /tmp/upgrade.sh
+```
+
+By hand, it is:
+
 ```sh
 cd pgdock
 git fetch --tags

@@ -63,10 +63,14 @@ grep -q '^PGDOCK_PUBLIC_URL=' .env || echo "PGDOCK_PUBLIC_URL=https://$(grep '^P
 for major in 17 18; do
 	docker build ${PGDOCK_BUILD_FLAGS:-} --build-arg PG_MAJOR=$major -t pgdock-postgres:$major-walg3.0.9 ../images/postgres
 done
+# The binaries report the release they were built from (git describe: the tag
+# itself on a tagged checkout), which upgrade.sh and the Nodes page rely on.
+version=$(git describe --tags --always 2>/dev/null || echo dev)
+commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
 # shellcheck disable=SC2086
-docker build ${PGDOCK_BUILD_FLAGS:-} -t "${PGDOCK_IMAGE:-pgdock:local}" ../..
+docker build ${PGDOCK_BUILD_FLAGS:-} --build-arg "VERSION=$version" --build-arg "COMMIT=$commit" -t "${PGDOCK_IMAGE:-pgdock:local}" ../..
 # shellcheck disable=SC2086
-docker build ${PGDOCK_BUILD_FLAGS:-} --target agent -t "${PGDOCK_AGENT_IMAGE:-pgdock-agent:local}" ../..
+docker build ${PGDOCK_BUILD_FLAGS:-} --build-arg "VERSION=$version" --build-arg "COMMIT=$commit" --target agent -t "${PGDOCK_AGENT_IMAGE:-pgdock-agent:local}" ../..
 docker compose up -d --no-build --wait
 # The poolers bind-mount single config files. A checkout replaces the file
 # (a new inode), so a running pooler keeps reading the old one, or a

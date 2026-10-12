@@ -5,6 +5,19 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Deploying
+- `deploy/compose/upgrade.sh <tag>`: an upgrade with a verified metadata
+  backup, health and version checks, and an automatic rollback if the new
+  version doesn't become healthy (`--dry-run` to only check). A **Deploy**
+  GitHub Actions workflow runs it over SSH behind an approval, refusing a tag
+  whose CI isn't green; the deploy key is limited to `upgrade`, `status` and
+  `last` by `deploy-ssh.sh`. See docs/deploying.md.
+- Fixed: the compose bundle built `pgdock-server` and `pgdock-agent` with no
+  version, so a bundle install reported `dev`: `pgdock-server -version`
+  didn't show the release, the Nodes page showed `dev`, and the rule that an
+  agent must be at least as new as the server never applied to the bundled
+  agent. `install.sh` now passes the version (`git describe`) to both.
+
 ### Found rehearsing the V2 to V4 upgrade
 - Fixed: the Free tier would have paused the platform admin's own projects.
   The billing migration gives every organisation a Free billing account,
