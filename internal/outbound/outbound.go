@@ -8,9 +8,6 @@ package outbound
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -28,6 +25,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/israel-duff/pgdock/internal/signature"
 	"github.com/israel-duff/pgdock/internal/store"
 )
 
@@ -255,6 +253,9 @@ type Request struct {
 	Timeout time.Duration
 	// Secret, when set, signs the request (PGDock-Signature).
 	Secret string
+	// PreviousSecret, when set, adds a second signature during a secret
+	// rotation's overlap, so a receiver holding either secret verifies.
+	PreviousSecret string
 }
 
 // Response is what came back.
@@ -267,38 +268,13 @@ type Response struct {
 // Sign is the PGDock-Signature header value: t=<unix>,v1=<hex HMAC-SHA256
 // of "t.body"> (V2 §9.1).
 func Sign(secret string, t time.Time, body []byte) string {
-	ts := strconv.FormatInt(t.Unix(), 10)
-	m := hmac.New(sha256.New, []byte(secret))
-	m.Write([]byte(ts + "."))
-	m.Write(body)
-	return "t=" + ts + ",v1=" + hex.EncodeToString(m.Sum(nil))
+	return signature.Sign(secret, t, body)
 }
 
 // Verify checks a PGDock-Signature header against body within tolerance
 // of now (the receiver side, documented for users and used by tests).
 func Verify(secret, header string, body []byte, now time.Time, tolerance time.Duration) error {
-	var ts, sig string
-	for _, part := range strings.Split(header, ",") {
-		k, v, _ := strings.Cut(strings.TrimSpace(part), "=")
-		switch k {
-		case "t":
-			ts = v
-		case "v1":
-			sig = v
-		}
-	}
-	n, err := strconv.ParseInt(ts, 10, 64)
-	if err != nil || sig == "" {
-		return errors.New("malformed signature header")
-	}
-	if d := now.Sub(time.Unix(n, 0)); d > tolerance || d < -tolerance {
-		return errors.New("signature timestamp outside the tolerance")
-	}
-	want := Sign(secret, time.Unix(n, 0), body)
-	if !hmac.Equal([]byte(want), []byte("t="+ts+",v1="+sig)) {
-		return errors.New("signature mismatch")
-	}
-	return nil
+	return signature.Verify(secret, header, body, now, tolerance)
 }
 
 // Gate refuses traffic for an organisation that is suspended or has
@@ -396,7 +372,11 @@ func (s *Service) Send(ctx context.Context, t Target, r Request) (Response, erro
 	req.Header.Set("User-Agent", "PGDock-Webhooks/1")
 	if r.Secret != "" {
 		// The receiver checks the timestamp against its own clock.
-		req.Header.Set("PGDock-Signature", Sign(r.Secret, time.Now(), r.Body))
+		secrets := []string{r.Secret}
+		if r.PreviousSecret != "" {
+			secrets = append(secrets, r.PreviousSecret)
+		}
+		req.Header.Set("PGDock-Signature", signature.SignAll(secrets, time.Now(), r.Body))
 	}
 	start := time.Now()
 	resp, err := client.Do(req)

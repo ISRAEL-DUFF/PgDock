@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/pgverify"
+	"github.com/israel-duff/pgdock/internal/logical"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
 )
@@ -38,23 +38,41 @@ const estimateBytesPerSecond = 40 << 20
 type Estimate struct {
 	SizeBytes int64
 	Downtime  time.Duration
+	// Mode is how the data would move: logical (a few seconds of paused
+	// writes, whatever the size) or dump (paused while it copies), with
+	// Reason saying why logical replication can't be used.
+	Mode, Reason string
+}
+
+// logicalPause is the write pause of a logical move: the freeze, the last
+// commits, sequences, sampled counts and the route switch.
+const logicalPause = 5 * time.Second
+
+// estimate sizes db's move: logical when its source-side checks pass.
+func estimate(ctx context.Context, db *pgx.Conn) (Estimate, error) {
+	rep, err := logical.Preflight(ctx, db, nil)
+	if err != nil {
+		return Estimate{}, err
+	}
+	e := Estimate{SizeBytes: rep.SizeBytes, Mode: ModeLogical, Downtime: logicalPause}
+	if !rep.OK() {
+		// Fixed costs (pausing, terminating, verifying, the route swap)
+		// plus the copy itself.
+		e.Mode, e.Reason = ModeDump, rep.Reason()
+		e.Downtime = (5*time.Second + time.Duration(float64(rep.SizeBytes)/estimateBytesPerSecond*float64(time.Second))).Round(time.Second)
+	}
+	return e, nil
 }
 
 // EstimatePromotion sizes a shared project's database and estimates the
 // freeze (spec §6.6 step 1: "estimated downtime from the DB size").
 func (s *Service) EstimatePromotion(ctx context.Context, p store.Project) (Estimate, error) {
-	conn, err := s.projects.AdminConn(ctx, p.InstanceID, "postgres")
+	conn, err := s.projects.AdminConn(ctx, p.InstanceID, p.DbName)
 	if err != nil {
 		return Estimate{}, err
 	}
 	defer conn.Close(context.Background())
-	var size int64
-	if err := conn.QueryRow(ctx, `SELECT pg_database_size($1)`, p.DbName).Scan(&size); err != nil {
-		return Estimate{}, err
-	}
-	// Fixed costs: pausing, terminating, verifying, and the route swap.
-	d := 5*time.Second + time.Duration(float64(size)/estimateBytesPerSecond*float64(time.Second))
-	return Estimate{SizeBytes: size, Downtime: d.Round(time.Second)}, nil
+	return estimate(ctx, conn)
 }
 
 // PromoteParams asks for a promotion.
@@ -75,7 +93,18 @@ type promoteParams struct {
 // the operation. The project stays served throughout, except for the
 // write freeze while the data moves.
 func (s *Service) Promote(ctx context.Context, p PromoteParams) (store.Operation, error) {
-	cp := provision.CreateParams{NodeID: p.NodeID, Profile: p.Profile, VolumeGB: p.VolumeGB}
+	pr, err := store.New(s.db).GetProject(ctx, p.ProjectID)
+	if err != nil {
+		return store.Operation{}, err
+	}
+	// A promotion stays in the project's region; a region move is a move.
+	if p.NodeID != nil {
+		n, err := store.New(s.db).GetNode(ctx, *p.NodeID)
+		if err == nil && n.Region != pr.Region {
+			return store.Operation{}, fmt.Errorf("%w: node %s is in %s, the project in %s; promote in the project's region, then move it", provision.ErrInvalid, n.Name, n.Region, pr.Region)
+		}
+	}
+	cp := provision.CreateParams{NodeID: p.NodeID, Profile: p.Profile, VolumeGB: p.VolumeGB, Region: pr.Region}
 	prof, err := s.Validate(ctx, &cp)
 	if err != nil {
 		return store.Operation{}, err
@@ -88,12 +117,16 @@ func (s *Service) Promote(ctx context.Context, p PromoteParams) (store.Operation
 			if pr.ParentProjectID != nil {
 				return nil, fmt.Errorf("%w: branches can't be promoted; detach the branch first (V2 §8.4)", provision.ErrInvalid)
 			}
+			src, err := store.New(tx).GetInstance(ctx, pr.InstanceID)
+			if err != nil {
+				return nil, err
+			}
 			target := uuid.New()
 			prefix := "instances/" + target.String() + "/wal-g"
 			mem := int32(prof.MemoryMB)
 			vol := int32(cp.VolumeGB)
 			if _, err := store.New(tx).InsertInstance(ctx, store.InsertInstanceParams{
-				ID: target, NodeID: *cp.NodeID, Kind: provision.TierDedicated, CpuLimit: numeric(prof.CPUs),
+				ID: target, NodeID: *cp.NodeID, Kind: provision.TierDedicated, PgVersion: src.PgVersion, CpuLimit: numeric(prof.CPUs),
 				MemLimitMb: &mem, VolumeGb: &vol, Profile: &prof.Name, WalgPrefix: &prefix,
 			}); err != nil {
 				return nil, err
@@ -143,7 +176,7 @@ func (s *Service) runPromote(ctx context.Context, op store.Operation, log *jobs.
 	}
 	if p.InstanceID == params.TargetInstance {
 		// A retry after the cutover committed: only finishing steps remain.
-		return s.finishPromotion(ctx, p, log, time.Time{})
+		return s.finishPromotion(ctx, op, p, params.SourceInstance, log, time.Time{})
 	}
 	if p.Status != provision.StatusPromoting {
 		return jobs.Permanent(fmt.Errorf("project is %s, not promoting", p.Status))
@@ -178,6 +211,8 @@ func (s *Service) runPromote(ctx context.Context, op store.Operation, log *jobs.
 	}
 	// A retry may find a partial copy: start from an empty database.
 	if op.Attempts > 1 {
+		// An earlier attempt's subscription must go before its database can.
+		s.cleanupMove(ctx, op, p.InstanceID, pt.InstanceID, p.DbName, nil)
 		if err := s.projects.RecreateDatabase(ctx, pt, log); err != nil {
 			return err
 		}
@@ -197,44 +232,15 @@ func (s *Service) runPromote(ctx context.Context, op store.Operation, log *jobs.
 		return err
 	}
 
-	// Step 3: freeze.
-	start := time.Now()
-	if err := s.freeze(ctx, p, log); err != nil {
-		return err
-	}
-	if s.cfg.AfterFreeze != nil {
-		if err := s.cfg.AfterFreeze(ctx); err != nil {
-			return jobs.Permanent(err)
-		}
-	}
-
-	// Step 4: copy, owners and grants as they are.
+	// Steps 3-5: copy and verify, by logical replication while the shared
+	// copy keeps serving (V3 §2.3) or by dump/restore during the freeze;
+	// either way writes are frozen when it returns.
 	agent, err := s.nodes.ForNode(ctx, inst.NodeID)
 	if err != nil {
 		return err
 	}
-	took, err := s.copyKeepingOwners(ctx, agent, p, src, inst.ID)
+	run, err := s.copyForMove(ctx, op, p, pt, agent, log, true)
 	if err != nil {
-		return jobs.Permanent(fmt.Errorf("copy: %w", err))
-	}
-	if err := log.Info(ctx, "copy", "pg_dump | pg_restore on %s in %s", agent.Node.Name, took.Round(time.Millisecond)); err != nil {
-		return err
-	}
-
-	// Step 5: verify.
-	dst, err := s.projects.AdminConn(ctx, inst.ID, p.DbName)
-	if err != nil {
-		return err
-	}
-	defer dst.Close(context.Background())
-	v, err := pgverify.Compare(ctx, src, dst, nil)
-	if err != nil {
-		return fmt.Errorf("verify: %w", err)
-	}
-	if !v.OK() {
-		return jobs.Permanent(fmt.Errorf("verification failed: %s", v.Summary()))
-	}
-	if err := log.Info(ctx, "verify", "verified: %d table(s), %d row(s), and %d sequence(s) match", v.Tables, v.Rows, v.Sequences); err != nil {
 		return err
 	}
 	if err := s.projects.SyncMemberRoles(ctx, pt, nil); err != nil {
@@ -263,7 +269,7 @@ func (s *Service) runPromote(ctx context.Context, op store.Operation, log *jobs.
 	if err != nil {
 		return err
 	}
-	return s.finishPromotion(ctx, p, log, start)
+	return s.finishPromotion(ctx, op, p, params.SourceInstance, log, run.frozeAt)
 }
 
 // freeze stops writes to the shared copy: the role can no longer log in,
@@ -329,7 +335,8 @@ func isNotPaused(err error) bool { return err != nil && strings.Contains(err.Err
 // finishPromotion re-renders the route, resumes the poolers, marks the
 // project active, leaves the shared copy read-only, and takes the first
 // base backup (spec §6.6 steps 6-8). It is idempotent.
-func (s *Service) finishPromotion(ctx context.Context, p store.Project, log *jobs.StepLogger, frozeAt time.Time) error {
+func (s *Service) finishPromotion(ctx context.Context, op store.Operation, p store.Project, source uuid.UUID, log *jobs.StepLogger, frozeAt time.Time) error {
+	defer s.cleanupMove(context.WithoutCancel(ctx), op, source, p.InstanceID, p.DbName, log)
 	if err := s.projects.SyncPooler(ctx, log, "pooler", "route switched to the dedicated instance"); err != nil {
 		return err
 	}
@@ -339,10 +346,7 @@ func (s *Service) finishPromotion(ctx context.Context, p store.Project, log *job
 	if err := store.New(s.db).SetProjectStatus(ctx, store.SetProjectStatusParams{ID: p.ID, Status: provision.StatusActive}); err != nil {
 		return err
 	}
-	msg := "resumed; clients now reach the dedicated instance with the same URL"
-	if !frozeAt.IsZero() {
-		msg += fmt.Sprintf(" (writes were frozen for %s)", time.Since(frozeAt).Round(100*time.Millisecond))
-	}
+	msg := "resumed; clients now reach the dedicated instance with the same URL" + s.moveDone(ctx, op, frozeAt)
 	if err := log.Info(ctx, "pooler", "%s", msg); err != nil {
 		return err
 	}
@@ -373,8 +377,9 @@ func (s *Service) failPromote(ctx context.Context, op store.Operation, log *jobs
 		return err
 	}
 	if p.InstanceID == params.TargetInstance {
-		return s.finishPromotion(ctx, p, log, time.Time{})
+		return s.finishPromotion(ctx, op, p, params.SourceInstance, log, time.Time{})
 	}
+	s.moveFailed(ctx, op, p.InstanceID, params.TargetInstance, p.DbName, log)
 	if err := s.unfreeze(ctx, p, log, "shared copy writable again; route resumed"); err != nil {
 		return err
 	}
@@ -466,7 +471,7 @@ func (s *Service) DropRetired(ctx context.Context) error {
 	var errs []error
 	for _, r := range due {
 		what := "retired shared copy"
-		if r.Reason == retiredDemotion {
+		if r.Reason == retiredDemotion || r.Reason == retiredMoveInstance {
 			what = "dedicated instance kept after demotion"
 			err = s.destroyRetained(ctx, r.InstanceID)
 		} else {

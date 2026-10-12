@@ -50,6 +50,27 @@ type Config struct {
 	Backups Backups
 	// Insight configures the SQL console and metrics.
 	Insight Insight
+	// Status connects to the status page (V3 §2.6).
+	Status Status
+	// Edge configures backend services' gateway (V4 §2.1).
+	Edge Edge
+	// Payments configures the payment providers (V3 §3.4).
+	Payments Payments
+	// FreeTier configures pausing and archiving Free projects (V3 §4).
+	FreeTier FreeTier
+	// Signup configures open signup's protections (V3 §7.4).
+	Signup Signup
+	// Support configures support's channels (V3 §7.1).
+	Support Support
+	// AuthPhone is the platform's SMS and WhatsApp for auth codes (V4 §6.2).
+	AuthPhone AuthPhone
+	// CDN is purged when a public bucket goes private (V4 §5.4).
+	CDN CDN
+	// Cloud configures the provider servers are created with (V3 §5.1).
+	Cloud Cloud
+	// PGVersions (PGDOCK_PG_VERSIONS, default "17,18") are the Postgres
+	// majors projects may run (V3 §2.4); the newest is the default.
+	PGVersions []int
 }
 
 // Backups configures node agents and backups (M3).
@@ -68,6 +89,10 @@ type Backups struct {
 	// "network" (the address agents report; the Compose bundle) or
 	// "published" (the port published on the node).
 	DedicatedAdminVia string
+	// RequireMaintenanceAnnouncement: the maintenance window restarts HA
+	// projects only inside maintenance announced 72 hours ahead
+	// (PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT, default true; V3.1 §4.3).
+	RequireMaintenanceAnnouncement bool
 }
 
 // Load reads configuration from PGDOCK_* environment variables, applying
@@ -150,6 +175,14 @@ func load(getenv func(string) string, readFile func(string) ([]byte, error)) (Co
 	errs = append(errs, loadPoolerTLS(getenv, &cfg)...)
 	errs = append(errs, loadBackups(getenv, &cfg)...)
 	errs = append(errs, loadInsight(getenv, &cfg)...)
+	errs = append(errs, loadStatus(getenv, readFile, &cfg)...)
+	errs = append(errs, loadEdge(getenv, readFile, &cfg)...)
+	errs = append(errs, loadPayments(getenv, readFile, &cfg)...)
+	errs = append(errs, loadFreeTier(getenv, readFile, &cfg)...)
+	errs = append(errs, loadSupport(getenv, readFile, &cfg)...)
+	errs = append(errs, loadAuthPhone(getenv, readFile, &cfg)...)
+	errs = append(errs, loadCDN(getenv, readFile, &cfg)...)
+	errs = append(errs, loadCloud(getenv, readFile, &cfg)...)
 
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, err
@@ -204,6 +237,14 @@ func loadBackups(getenv func(string) string, cfg *Config) []error {
 			errs = append(errs, fmt.Errorf("PGDOCK_BACKUP_JITTER: must be a duration from 1m to 12h, got %q", v))
 		}
 		b.Jitter = d
+	}
+	b.RequireMaintenanceAnnouncement = true
+	switch v := strings.ToLower(getenv("PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT")); v {
+	case "", "true", "1", "yes", "on":
+	case "false", "0", "no", "off":
+		b.RequireMaintenanceAnnouncement = false
+	default:
+		errs = append(errs, fmt.Errorf("PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT: must be true or false, got %q", v))
 	}
 	switch v := getenv("PGDOCK_DEDICATED_ADMIN_VIA"); v {
 	case "", "network", "published":

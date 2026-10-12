@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type AdminUser, type InvitationCreated } from "../api/client";
-import { Alert, Badge, Button, Field, Input, Dialog, PageHeading, SidePanel, Table, TableSkeleton } from "../components/ui";
+import { Alert, Badge, Button, Field, Input, Dialog, Select, PageHeading, SidePanel, Table, TableSkeleton } from "../components/ui";
 import { formatDate, relativeTime } from "../lib/format";
 import { sessionQuery } from "../lib/session";
 import { InvitationResult } from "./Org";
@@ -58,7 +58,7 @@ export function AdminUsersPage() {
                 <div className="font-medium">{u.name || u.email}</div>
                 <div className="text-xs text-muted">
                   {u.name ? u.email + " · " : ""}
-                  {u.platform_role === "platform_admin" ? "platform admin" : "user"} · joined {formatDate(u.created_at)}
+                  {ROLE_LABEL[u.platform_role] ?? "user"} · joined {formatDate(u.created_at)}
                 </div>
               </td>
               <td className="px-3 py-2">
@@ -87,9 +87,9 @@ export function AdminUsersPage() {
                       Reset 2FA
                     </Button>
                   )}
-                  {u.id !== session?.user?.id && u.approved && u.email_verified && !u.disabled && (u.totp_enabled || u.platform_role === "platform_admin") && (
+                  {u.id !== session?.user?.id && u.approved && u.email_verified && !u.disabled && (u.totp_enabled || u.platform_role !== "user") && (
                     <Button className="text-xs" onClick={() => setRoleFor(u)} data-testid={`role-${u.email}`}>
-                      {u.platform_role === "platform_admin" ? "Remove admin" : "Make admin"}
+                      Platform role
                     </Button>
                   )}
                   {u.id !== session?.user?.id && (
@@ -244,16 +244,24 @@ function ResetTotpModal({ user, onClose }: { user: AdminUser | null; onClose: ()
   );
 }
 
-/** Makes an account a platform admin, or an ordinary user again. It asks for
- * the signed-in admin's password and a code first. */
+const ROLE_LABEL: Record<string, string> = { user: "user", platform_admin: "platform admin", support: "support staff" };
+type PlatformRole = "user" | "support" | "platform_admin";
+
+/** Changes an account's platform role: a platform admin, support staff
+ * (the support console and organisation metadata, V3 §7.1), or an
+ * ordinary user. It asks for the signed-in admin's password and a code
+ * first. */
 function PlatformRoleModal({ user, onClose }: { user: AdminUser | null; onClose: () => void }) {
   const qc = useQueryClient();
+  const [role, setRole] = useState<PlatformRole | "">("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const promoting = user?.platform_role !== "platform_admin";
+  const current = (user?.platform_role ?? "user") as PlatformRole;
+  const target = role || (current === "user" ? "platform_admin" : "user");
   const close = () => {
+    setRole("");
     setPassword("");
     setCode("");
     setErr(null);
@@ -266,7 +274,7 @@ function PlatformRoleModal({ user, onClose }: { user: AdminUser | null; onClose:
     setErr(null);
     try {
       await api.reauth({ password, code });
-      await api.updateUser(user.id, { platform_role: promoting ? "platform_admin" : "user" });
+      await api.updateUser(user.id, { platform_role: target });
       await qc.invalidateQueries({ queryKey: ["admin"] });
       close();
     } catch (e) {
@@ -275,21 +283,37 @@ function PlatformRoleModal({ user, onClose }: { user: AdminUser | null; onClose:
       setBusy(false);
     }
   };
+  const effect: Record<PlatformRole, string> = {
+    platform_admin: "will be able to manage users, plans, nodes, billing and the platform's settings, and will see the platform admin area.",
+    support: "will see the support console: tickets, and the metadata of the organisations that raise them (plan, members, projects, recent operations). Nothing else of the platform's.",
+    user: "will lose access to the platform's areas; their own organisations and projects stay as they are. The last platform admin can't be removed.",
+  };
   return (
-    <Dialog title={promoting ? "Make a platform admin" : "Remove platform admin"} open={!!user} onOpenChange={(o) => !o && close()}>
+    <Dialog title={`Platform role of ${user?.email ?? ""}`} open={!!user} onOpenChange={(o) => !o && close()}>
       <form className="flex flex-col gap-4" onSubmit={submit}>
+        <Field label="Role">
+          {(id) => (
+            <Select id={id} value={target} onChange={(e) => setRole(e.target.value as PlatformRole)} data-testid="role-select">
+              {(["user", "support", "platform_admin"] as const)
+                .filter((r) => r !== current)
+                .map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_LABEL[r]}
+                  </option>
+                ))}
+            </Select>
+          )}
+        </Field>
         <p className="text-sm text-muted">
-          {promoting
-            ? `${user?.email} will be able to manage users, plans, nodes and the platform's settings, and will see the platform admin area. They are signed out and emailed.`
-            : `${user?.email} will lose access to the platform admin area; their own organisations and projects stay as they are. They are signed out and emailed. The last platform admin can't be removed.`}
+          {user?.email} {effect[target]} They are signed out and emailed.
         </p>
         <Field label="Your password">{(id) => <Input id={id} type="password" value={password} onChange={(e) => setPassword(e.target.value)} />}</Field>
         <Field label="Your authenticator code">{(id) => <Input id={id} inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value)} />}</Field>
         {err && <Alert>{err}</Alert>}
         <div className="flex justify-end gap-2">
           <Button onClick={close}>Cancel</Button>
-          <Button type="submit" variant={promoting ? "primary" : "danger"} busy={busy} disabled={!password || code.length < 6} data-testid="role-confirm">
-            {promoting ? "Make admin" : "Remove admin"}
+          <Button type="submit" variant={target === "user" ? "danger" : "primary"} busy={busy} disabled={!password || code.length < 6} data-testid="role-confirm">
+            Change role
           </Button>
         </div>
       </form>

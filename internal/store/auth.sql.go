@@ -59,7 +59,7 @@ func (q *Queries) AdvanceTOTPStep(ctx context.Context, arg AdvanceTOTPStepParams
 }
 
 const approveUser = `-- name: ApproveUser :one
-UPDATE users SET approved_at = COALESCE(approved_at, now()) WHERE id = $1 RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at
+UPDATE users SET approved_at = COALESCE(approved_at, now()) WHERE id = $1 RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at, signup_ip
 `
 
 func (q *Queries) ApproveUser(ctx context.Context, id uuid.UUID) (User, error) {
@@ -81,6 +81,7 @@ func (q *Queries) ApproveUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.ApprovedAt,
 		&i.RecoveryCodes,
 		&i.LastActiveAt,
+		&i.SignupIp,
 	)
 	return i, err
 }
@@ -120,6 +121,23 @@ SELECT count(*) FROM users WHERE platform_role = 'platform_admin' AND disabled_a
 
 func (q *Queries) CountPlatformAdmins(ctx context.Context) (int64, error) {
 	row := q.db.QueryRow(ctx, countPlatformAdmins)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countSignupsFrom = `-- name: CountSignupsFrom :one
+SELECT count(*) FROM users WHERE signup_ip = $1 AND created_at >= $2
+`
+
+type CountSignupsFromParams struct {
+	Ip    *netip.Addr
+	Since time.Time
+}
+
+// Accounts created from an IP address since a time (V3 §7.4).
+func (q *Queries) CountSignupsFrom(ctx context.Context, arg CountSignupsFromParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countSignupsFrom, arg.Ip, arg.Since)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -274,7 +292,7 @@ func (q *Queries) GetSession(ctx context.Context, id string) (GetSessionRow, err
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at FROM users WHERE id = $1
+SELECT id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at, signup_ip FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
@@ -296,12 +314,13 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.ApprovedAt,
 		&i.RecoveryCodes,
 		&i.LastActiveAt,
+		&i.SignupIp,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at FROM users WHERE email = $1
+SELECT id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at, signup_ip FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -323,6 +342,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.ApprovedAt,
 		&i.RecoveryCodes,
 		&i.LastActiveAt,
+		&i.SignupIp,
 	)
 	return i, err
 }
@@ -399,19 +419,25 @@ func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) er
 }
 
 const insertTerms = `-- name: InsertTerms :one
-INSERT INTO terms_versions (version, terms_md, privacy_md, published_by)
-VALUES ((SELECT COALESCE(max(version), 0) + 1 FROM terms_versions), $1, $2, $3)
-RETURNING version, terms_md, privacy_md, published_by, published_at
+INSERT INTO terms_versions (version, terms_md, privacy_md, aup_md, published_by)
+VALUES ((SELECT COALESCE(max(version), 0) + 1 FROM terms_versions), $1, $2, $3, $4)
+RETURNING version, terms_md, privacy_md, published_by, published_at, aup_md
 `
 
 type InsertTermsParams struct {
 	TermsMd     string
 	PrivacyMd   string
+	AupMd       string
 	PublishedBy *uuid.UUID
 }
 
 func (q *Queries) InsertTerms(ctx context.Context, arg InsertTermsParams) (TermsVersion, error) {
-	row := q.db.QueryRow(ctx, insertTerms, arg.TermsMd, arg.PrivacyMd, arg.PublishedBy)
+	row := q.db.QueryRow(ctx, insertTerms,
+		arg.TermsMd,
+		arg.PrivacyMd,
+		arg.AupMd,
+		arg.PublishedBy,
+	)
 	var i TermsVersion
 	err := row.Scan(
 		&i.Version,
@@ -419,14 +445,15 @@ func (q *Queries) InsertTerms(ctx context.Context, arg InsertTermsParams) (Terms
 		&i.PrivacyMd,
 		&i.PublishedBy,
 		&i.PublishedAt,
+		&i.AupMd,
 	)
 	return i, err
 }
 
 const insertUser = `-- name: InsertUser :one
-INSERT INTO users (email, password_hash, name, platform_role, email_verified_at, approved_at)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at
+INSERT INTO users (email, password_hash, name, platform_role, email_verified_at, approved_at, signup_ip)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at, signup_ip
 `
 
 type InsertUserParams struct {
@@ -436,6 +463,7 @@ type InsertUserParams struct {
 	PlatformRole    string
 	EmailVerifiedAt *time.Time
 	ApprovedAt      *time.Time
+	SignupIp        *netip.Addr
 }
 
 func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, error) {
@@ -446,6 +474,7 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, e
 		arg.PlatformRole,
 		arg.EmailVerifiedAt,
 		arg.ApprovedAt,
+		arg.SignupIp,
 	)
 	var i User
 	err := row.Scan(
@@ -464,6 +493,7 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, e
 		&i.ApprovedAt,
 		&i.RecoveryCodes,
 		&i.LastActiveAt,
+		&i.SignupIp,
 	)
 	return i, err
 }
@@ -483,7 +513,7 @@ func (q *Queries) InvalidateEmailTokens(ctx context.Context, arg InvalidateEmail
 }
 
 const latestTerms = `-- name: LatestTerms :one
-SELECT version, terms_md, privacy_md, published_by, published_at FROM terms_versions ORDER BY version DESC LIMIT 1
+SELECT version, terms_md, privacy_md, published_by, published_at, aup_md FROM terms_versions ORDER BY version DESC LIMIT 1
 `
 
 func (q *Queries) LatestTerms(ctx context.Context) (TermsVersion, error) {
@@ -495,12 +525,13 @@ func (q *Queries) LatestTerms(ctx context.Context) (TermsVersion, error) {
 		&i.PrivacyMd,
 		&i.PublishedBy,
 		&i.PublishedAt,
+		&i.AupMd,
 	)
 	return i, err
 }
 
 const listPlatformAdmins = `-- name: ListPlatformAdmins :many
-SELECT id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at FROM users WHERE platform_role = 'platform_admin' ORDER BY created_at
+SELECT id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at, signup_ip FROM users WHERE platform_role = 'platform_admin' ORDER BY created_at
 `
 
 // tenant: system - the platform's own administrators.
@@ -529,6 +560,7 @@ func (q *Queries) ListPlatformAdmins(ctx context.Context) ([]User, error) {
 			&i.ApprovedAt,
 			&i.RecoveryCodes,
 			&i.LastActiveAt,
+			&i.SignupIp,
 		); err != nil {
 			return nil, err
 		}
@@ -579,7 +611,7 @@ func (q *Queries) ListUserSessions(ctx context.Context, userID uuid.UUID) ([]Lis
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT u.id, u.email, u.password_hash, u.totp_secret, u.platform_role, u.created_at, u.disabled_at, u.failed_logins, u.locked_until, u.totp_last_step, u.name, u.email_verified_at, u.approved_at, u.recovery_codes, u.last_active_at, (SELECT count(*) FROM org_members m WHERE m.user_id = u.id)::int AS org_count
+SELECT u.id, u.email, u.password_hash, u.totp_secret, u.platform_role, u.created_at, u.disabled_at, u.failed_logins, u.locked_until, u.totp_last_step, u.name, u.email_verified_at, u.approved_at, u.recovery_codes, u.last_active_at, u.signup_ip, (SELECT count(*) FROM org_members m WHERE m.user_id = u.id)::int AS org_count
 FROM users u
 WHERE ($1::text IS NULL OR u.email ILIKE '%' || $1 || '%' OR u.name ILIKE '%' || $1 || '%')
   AND (NOT $2::bool OR (u.approved_at IS NULL AND u.disabled_at IS NULL))
@@ -609,6 +641,7 @@ type ListUsersRow struct {
 	ApprovedAt      *time.Time
 	RecoveryCodes   []byte
 	LastActiveAt    *time.Time
+	SignupIp        *netip.Addr
 	OrgCount        int32
 }
 
@@ -638,6 +671,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 			&i.ApprovedAt,
 			&i.RecoveryCodes,
 			&i.LastActiveAt,
+			&i.SignupIp,
 			&i.OrgCount,
 		); err != nil {
 			return nil, err
@@ -745,7 +779,7 @@ func (q *Queries) SetSessionReauth(ctx context.Context, arg SetSessionReauthPara
 
 const setUserDisabled = `-- name: SetUserDisabled :one
 UPDATE users SET disabled_at = CASE WHEN $1::bool THEN COALESCE(disabled_at, now()) ELSE NULL END
-WHERE id = $2 RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at
+WHERE id = $2 RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at, signup_ip
 `
 
 type SetUserDisabledParams struct {
@@ -772,6 +806,7 @@ func (q *Queries) SetUserDisabled(ctx context.Context, arg SetUserDisabledParams
 		&i.ApprovedAt,
 		&i.RecoveryCodes,
 		&i.LastActiveAt,
+		&i.SignupIp,
 	)
 	return i, err
 }
@@ -791,7 +826,7 @@ func (q *Queries) SetUserPassword(ctx context.Context, arg SetUserPasswordParams
 }
 
 const setUserPlatformRole = `-- name: SetUserPlatformRole :one
-UPDATE users SET platform_role = $1 WHERE id = $2 RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at
+UPDATE users SET platform_role = $1 WHERE id = $2 RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at, signup_ip
 `
 
 type SetUserPlatformRoleParams struct {
@@ -818,6 +853,7 @@ func (q *Queries) SetUserPlatformRole(ctx context.Context, arg SetUserPlatformRo
 		&i.ApprovedAt,
 		&i.RecoveryCodes,
 		&i.LastActiveAt,
+		&i.SignupIp,
 	)
 	return i, err
 }
@@ -870,7 +906,7 @@ func (q *Queries) TouchUserActivity(ctx context.Context, id uuid.UUID) error {
 }
 
 const updateUserProfile = `-- name: UpdateUserProfile :one
-UPDATE users SET name = $1 WHERE id = $2 RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at
+UPDATE users SET name = $1 WHERE id = $2 RETURNING id, email, password_hash, totp_secret, platform_role, created_at, disabled_at, failed_logins, locked_until, totp_last_step, name, email_verified_at, approved_at, recovery_codes, last_active_at, signup_ip
 `
 
 type UpdateUserProfileParams struct {
@@ -897,6 +933,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.ApprovedAt,
 		&i.RecoveryCodes,
 		&i.LastActiveAt,
+		&i.SignupIp,
 	)
 	return i, err
 }

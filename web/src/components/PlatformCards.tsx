@@ -202,12 +202,14 @@ export function TermsCard() {
   const [editing, setEditing] = useState(false);
   const [terms, setTerms] = useState("");
   const [privacy, setPrivacy] = useState("");
+  const [aup, setAup] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const t = q.data;
   const start = () => {
     setTerms(t?.terms_md ?? "");
     setPrivacy(t?.privacy_md ?? "");
+    setAup(t?.aup_md ?? "");
     setEditing(true);
   };
   const publish = async (e: FormEvent) => {
@@ -215,7 +217,7 @@ export function TermsCard() {
     setBusy(true);
     setErr(null);
     try {
-      await api.publishTerms({ terms_md: terms, privacy_md: privacy });
+      await api.publishTerms({ terms_md: terms, privacy_md: privacy, aup_md: aup });
       setEditing(false);
       await qc.invalidateQueries({ queryKey: ["terms"] });
       await qc.invalidateQueries({ queryKey: ["session"] });
@@ -227,7 +229,7 @@ export function TermsCard() {
   };
   return (
     <Panel
-      title="Terms of use and privacy"
+      title="Terms of use, privacy and acceptable use"
       actions={
         !editing && (
           <Button className="text-xs" onClick={start}>
@@ -255,6 +257,16 @@ export function TermsCard() {
                 className="h-32 rounded-md border border-line bg-surface p-2 font-mono text-xs"
                 value={privacy}
                 onChange={(e) => setPrivacy(e.target.value)}
+              />
+            )}
+          </Field>
+          <Field label="Acceptable use policy (Markdown)">
+            {(id) => (
+              <textarea
+                id={id}
+                className="h-32 rounded-md border border-line bg-surface p-2 font-mono text-xs"
+                value={aup}
+                onChange={(e) => setAup(e.target.value)}
               />
             )}
           </Field>

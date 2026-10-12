@@ -5,9 +5,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/authz"
 	"github.com/israel-duff/pgdock/internal/branching"
+	"github.com/israel-duff/pgdock/internal/services"
 	"github.com/israel-duff/pgdock/internal/store"
 )
 
@@ -138,13 +141,34 @@ func (s *Server) CreateBranch(w http.ResponseWriter, r *http.Request, id gen.Pro
 			return
 		}
 	}
-	c, err := s.branches.Create(r.Context(), bp, res)
-	if err != nil {
+	if req.CopyFiles != nil {
+		bp.CopyFiles = *req.CopyFiles
+	}
+	c, api, err := s.branches.Create(r.Context(), bp, res)
+	if err != nil && c.Project.ID == uuid.Nil {
 		s.branchError(w, "create branch", err)
 		return
 	}
 	a.set("branch_project", c.Project.ID.String())
-	s.writeCredentials(w, c.Project, c.Operation, c.Password)
+	if err != nil {
+		// The branch is being made; only its API keys failed.
+		s.log.Error("branch API keys", "branch", c.Project.ID, "err", err)
+	}
+	var extra *gen.BranchApi
+	if api != nil {
+		extra = &gen.BranchApi{Ref: api.Ref}
+		if api.URL != "" {
+			extra.Url = &api.URL
+		}
+		for _, k := range api.Keys {
+			if k.Kind == services.KindPublishable {
+				extra.PublishableKey = k.Key
+			} else {
+				extra.SecretKey = k.Key
+			}
+		}
+	}
+	s.writeCredentialsWith(w, c.Project, c.Operation, c.Password, extra)
 }
 
 // ResetBranch implements POST /api/v1/projects/{id}/reset.

@@ -56,6 +56,7 @@ export function TopBar({
 }) {
   const { data: session } = useQuery(sessionQuery);
   const platformAdmin = session?.user?.platform_role === "platform_admin";
+  const supportStaff = session?.user?.platform_role === "support";
   const [connect, setConnect] = useState(false);
   return (
     <header className="flex h-12 shrink-0 items-center gap-1 overflow-hidden border-b border-line bg-bg px-3" data-testid="top-bar">
@@ -76,10 +77,10 @@ export function TopBar({
         <span className={cx(crumb, "hover:bg-transparent")} data-testid="platform-crumb">
           <ShieldCheck className="h-4 w-4 text-accent-text" strokeWidth={1.6} />
           Platform
-          <Badge tone="accent">ADMIN</Badge>
+          <Badge tone="accent">{supportStaff ? "SUPPORT" : "ADMIN"}</Badge>
         </span>
       ) : (
-        <OrgSwitcher platformAdmin={platformAdmin} />
+        <OrgSwitcher platformAdmin={platformAdmin} supportStaff={supportStaff} />
       )}
       {ctx.kind === "project" && project && (
         <>
@@ -121,7 +122,7 @@ function planBadge(o: Org) {
 }
 
 /** The organisation switcher (V2 §13), with "New organisation". */
-function OrgSwitcher({ platformAdmin }: { platformAdmin: boolean }) {
+function OrgSwitcher({ platformAdmin, supportStaff }: { platformAdmin: boolean; supportStaff: boolean }) {
   const { org, orgs } = useCurrentOrg();
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -164,6 +165,11 @@ function OrgSwitcher({ platformAdmin }: { platformAdmin: boolean }) {
           {platformAdmin && (
             <DropdownMenuItem icon={<ShieldCheck className="h-3.5 w-3.5" />} onSelect={() => void navigate({ to: "/nodes" })} data-testid="platform-link">
               Platform admin
+            </DropdownMenuItem>
+          )}
+          {supportStaff && (
+            <DropdownMenuItem icon={<ShieldCheck className="h-3.5 w-3.5" />} onSelect={() => void navigate({ to: "/admin/support" })} data-testid="support-console-link">
+              Support console
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>

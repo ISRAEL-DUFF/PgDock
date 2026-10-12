@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/israel-duff/pgdock/internal/store"
 )
 
 const verifier = "SCRAM-SHA-256$4096:c2FsdA==$c3RvcmVk:c2VydmVy"
@@ -32,6 +34,45 @@ func TestRender(t *testing.T) {
 	wantUL := `"blog_k2f9_owner" "` + verifier + "\"\n" + `"todo_8xq1_owner" "` + verifier + "\"\n"
 	if string(ul) != wantUL {
 		t.Fatalf("userlist:\n%s\nwant:\n%s", ul, wantUL)
+	}
+}
+
+func TestRenderReadOnlyRoute(t *testing.T) {
+	db, _, err := Render(Config{Routes: []Route{
+		{Database: "p_abc_ro", BackendDB: "p_abc", Host: "10.0.0.6", MoreHosts: []string{"10.0.0.7"}, Port: 24411, PoolSize: 5, ReadOnly: true},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "p_abc_ro = host=10.0.0.6,10.0.0.7 port=24411 dbname=p_abc connect_query='SET default_transaction_read_only = on' pool_size=5\n"
+	if !strings.HasSuffix(string(db), want) {
+		t.Fatalf("databases.ini:\n%s\nwant a line:\n%s", db, want)
+	}
+	if _, _, err := Render(Config{Routes: []Route{{Database: "x", Host: "h", MoreHosts: []string{"a port=1"}, Port: 1}}}); err == nil {
+		t.Fatal("a host list entry with configuration in it was accepted")
+	}
+}
+
+func TestReplicaHosts(t *testing.T) {
+	same := func(r string) string { return r }
+	reps := []store.PoolerReplicaRoutesRow{
+		{Host: "a", Port: 7000, Region: "eu", InRotation: true},
+		{Host: "b", Port: 7000, Region: "us", InRotation: true},
+		{Host: "c", Port: 7001, Region: "us", InRotation: true},
+		{Host: "d", Port: 7000, Region: "us", InRotation: false},
+	}
+	if h, p := replicaHosts(reps, "us", same); p != 7000 || strings.Join(h, ",") != "b" {
+		t.Fatalf("us: %v %d", h, p)
+	}
+	if h, p := replicaHosts(reps, "eu", same); p != 7000 || strings.Join(h, ",") != "a" {
+		t.Fatalf("eu: %v %d", h, p)
+	}
+	// No replica of its own: every one in rotation, on the shared port.
+	if h, p := replicaHosts(reps, "af", same); p != 7000 || strings.Join(h, ",") != "a,b" {
+		t.Fatalf("af: %v %d", h, p)
+	}
+	if h, _ := replicaHosts(reps[3:], "us", same); len(h) != 0 {
+		t.Fatalf("none in rotation: %v", h)
 	}
 }
 

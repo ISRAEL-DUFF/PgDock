@@ -61,6 +61,8 @@ func (s *Server) authError(w http.ResponseWriter, what string, err error) {
 		writeError(w, http.StatusForbidden, "bad_setup_code", err.Error())
 	case errors.Is(err, auth.ErrSetupDone):
 		writeError(w, http.StatusConflict, "setup_done", err.Error())
+	case errors.Is(err, auth.ErrChallengeFailed):
+		writeError(w, http.StatusBadRequest, "challenge_failed", err.Error())
 	case errors.Is(err, auth.ErrSignupClosed), errors.Is(err, auth.ErrDomainNotAllowed):
 		writeError(w, http.StatusForbidden, "signup_closed", err.Error())
 	case errors.Is(err, auth.ErrTermsNotAccepted):
@@ -103,6 +105,9 @@ func (s *Server) sessionState(w http.ResponseWriter, r *http.Request, sess *auth
 	if p, err := s.auth.SignupPolicy(r.Context()); err == nil {
 		m := gen.SessionStateSignupMode(p.Mode)
 		out.SignupMode = &m
+		if k := s.auth.ChallengeSiteKey(); k != "" && p.Mode != auth.SignupInviteOnly {
+			out.TurnstileSiteKey = &k
+		}
 	}
 	if sess != nil {
 		out.Authenticated = true
@@ -292,6 +297,7 @@ func (s *Server) Signup(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.auth.Signup(r.Context(), auth.SignupParams{
 		Email: string(req.Email), Password: req.Password, Name: name, TermsVersion: req.TermsVersion, IP: ipFrom(r.Context()),
+		Challenge: valueOr(req.Challenge, ""),
 	}); err != nil {
 		s.authError(w, "signup", err)
 		return
@@ -377,5 +383,13 @@ func (s *Server) GetTerms(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, "terms", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, gen.Terms{Version: int(t.Version), TermsMd: t.TermsMd, PrivacyMd: t.PrivacyMd, PublishedAt: t.PublishedAt})
+	writeJSON(w, http.StatusOK, gen.Terms{Version: int(t.Version), TermsMd: t.TermsMd, PrivacyMd: t.PrivacyMd, AupMd: &t.AupMd, PublishedAt: t.PublishedAt})
+}
+
+// valueOr is *p, or def when p is nil.
+func valueOr[T any](p *T, def T) T {
+	if p == nil {
+		return def
+	}
+	return *p
 }

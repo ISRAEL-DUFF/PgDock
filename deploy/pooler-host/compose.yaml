@@ -1,0 +1,52 @@
+# One PGDock edge pooler host (V3 §2.1). Run it on each of the two pooler
+# hosts, with that host's values in .env next to this file (see
+# docs/edge-poolers.md):
+#
+#   PGDOCK_AGENT_SERVER=https://pgdock.example.com
+#   PGDOCK_AGENT_TOKEN=...            from Admin → Nodes → Add pooler host
+#   PGDOCK_AGENT_ADVERTISE=10.0.0.11:7070
+#   PGDOCK_EDGE_SELF_IP=10.0.0.11     this host's private IP
+#   PGDOCK_EDGE_PEER_IP=10.0.0.12     the other pooler host's
+#   PGDOCK_EDGE_INTERFACE=enp7s0      the private network's interface
+#   PGDOCK_EDGE_VRRP_PASSWORD=...     the same on both, at most 8 characters
+#   PGDOCK_AGENT_FLOATING_IP_ID=...   the Hetzner floating IP
+#   PGDOCK_AGENT_HETZNER_TOKEN=...    a Hetzner Cloud API token
+#
+# Configure the floating IP on the public interface of both hosts (Hetzner's
+# "persistent" setup); the agent routes it to the host keepalived makes
+# MASTER.
+#
+#   make pooler-host-images      (in a PGDock checkout, then copy the images)
+#   docker compose up -d
+
+name: pgdock-edge
+
+services:
+  pooler-host:
+    image: ${PGDOCK_POOLER_HOST_IMAGE:-pgdock-pooler-host:local}
+    network_mode: host
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PGDOCK_AGENT_SERVER_ID: ${PGDOCK_AGENT_SERVER_ID:-hetzner-metadata}
+    volumes:
+      - agent-state:/var/lib/pgdock-agent
+      - pooler-config:/etc/pgbouncer/pgdock
+      - edge:/etc/pgdock-edge
+    ulimits:
+      nofile: 65536
+    stop_grace_period: 30s
+
+  keepalived:
+    image: ${PGDOCK_KEEPALIVED_IMAGE:-pgdock-keepalived:local}
+    network_mode: host
+    restart: unless-stopped
+    cap_add: [NET_ADMIN, NET_BROADCAST, NET_RAW]
+    volumes:
+      - edge:/etc/pgdock-edge:ro
+    depends_on: [pooler-host]
+
+volumes:
+  agent-state:
+  pooler-config:
+  edge:

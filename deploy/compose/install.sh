@@ -58,9 +58,11 @@ grep -q '^AGENT_BOOTSTRAP_TOKEN=' .env || echo "AGENT_BOOTSTRAP_TOKEN=$(rand_url
 grep -q '^PGDOCK_PUBLIC_URL=' .env || echo "PGDOCK_PUBLIC_URL=https://$(grep '^PGDOCK_UI_DOMAIN=' .env | cut -d= -f2-)" >> .env
 
 # Dedicated instances and agent-run shared clusters run this image
-# (PostgreSQL 18 + WAL-G).
+# (PostgreSQL + WAL-G, one image per supported major).
 # shellcheck disable=SC2086 # PGDOCK_BUILD_FLAGS is a list of flags
-docker build ${PGDOCK_BUILD_FLAGS:-} -t pgdock-postgres:18-walg3.0.9 ../images/postgres
+for major in 17 18; do
+	docker build ${PGDOCK_BUILD_FLAGS:-} --build-arg PG_MAJOR=$major -t pgdock-postgres:$major-walg3.0.9 ../images/postgres
+done
 # shellcheck disable=SC2086
 docker build ${PGDOCK_BUILD_FLAGS:-} -t "${PGDOCK_IMAGE:-pgdock:local}" ../..
 # shellcheck disable=SC2086

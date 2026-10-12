@@ -143,6 +143,21 @@ async function signedIn(page: Page) {
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
 }
 
+/** Confirms the password and a code when a sensitive action asks for them
+ * (the step-up dialog appears only when the last one has expired). */
+async function stepUpIfAsked(page: Page) {
+  const d = page.getByTestId("step-up");
+  try {
+    await d.waitFor({ timeout: 3_000 });
+  } catch {
+    return;
+  }
+  await d.getByLabel("Your password").fill(password);
+  await d.getByLabel("Your authenticator code").fill(await freshTotp(totpSecret));
+  await d.getByRole("button", { name: "Confirm" }).click();
+  await expect(d).toBeHidden();
+}
+
 async function count(url: string, sql: string): Promise<number> {
   const c = await connect(url);
   try {
@@ -661,6 +676,10 @@ test.describe("with the saved session", () => {
     await expect(page.getByTestId("instance-card")).toContainText("small");
     await expect(page.getByTestId("instance-card")).toContainText("5 GB volume");
     await shot(page, "19-dedicated-overview");
+    // V4-M35: the read replicas card (none yet: a replica needs another node).
+    await projectTab(page, "Compute");
+    await expect(page.getByTestId("replicas")).toContainText("Copies on other nodes that serve reads");
+    await expect(page.getByRole("button", { name: "Add replica…" })).toBeVisible();
 
     // 4. Point-in-time recovery into a new project, from the Backups tab.
     await projectTab(page, "Backups");
@@ -690,7 +709,17 @@ test.describe("with the saved session", () => {
     await page.getByRole("link", { name: "local" }).click();
     await expect(page.getByTestId("node-docker")).toHaveText("ok");
     await expect(page.getByTestId("instance-row").filter({ hasText: "dedicated" })).toHaveCount(2);
+    // M18: each instance shows its Postgres release (V3 §2.4).
+    await expect(page.getByTestId("instance-version").first()).toContainText("18");
     await shot(page, "22-node");
+    // V3.1-M1: the node's failure domain (rack), shown on the Nodes page.
+    await page.getByLabel("Failure domain").fill("rack-a");
+    await page.getByRole("button", { name: "Save" }).first().click();
+    await expect(page.getByText("Now: rack-a.")).toBeVisible();
+    // The maintenance window for minor releases, on the Nodes page.
+    await platformNav(page, "Nodes");
+    await expect(page.getByTestId("node-domain").first()).toHaveText("rack-a");
+    await expect(page.getByTestId("maintenance")).toBeVisible();
   });
   // The M5 "done when" (spec §14): a hobby project is promoted with its URL
   // unchanged and no lost commits, while an app keeps writing; then (M14,
@@ -737,6 +766,7 @@ test.describe("with the saved session", () => {
     // The wizard: target, size, the estimate, then live progress.
     await page.getByRole("link", { name: "Open the project" }).click();
     await projectTab(page, "Compute");
+    await expect(page.getByTestId("pg-version")).toHaveText("Postgres 18"); // M18: the newest supported, nothing to upgrade
     await page.getByRole("button", { name: "Promote…" }).click();
     await expect(page.getByText(/Estimated write freeze: about \d+ s/)).toBeVisible();
     await expect(page.getByTestId("promote-estimate")).toContainText("The database is");
@@ -744,8 +774,8 @@ test.describe("with the saved session", () => {
     await shot(page, "23-promote-wizard");
     await page.getByRole("button", { name: "Promote now" }).click();
     await expect(page.getByTestId("promote-done")).toBeVisible({ timeout: 240_000 });
-    await expect(page.getByTestId("operation-log")).toContainText("verified:");
-    await expect(page.getByTestId("operation-log")).toContainText("writes were frozen for");
+    await expect(page.getByTestId("operation-log")).toContainText("logical replication");
+    await expect(page.getByTestId("operation-log")).toContainText("writes were paused for");
     await shot(page, "24-promoted");
 
     // The writer keeps going on the new instance, then stops.
@@ -1132,6 +1162,256 @@ test.describe("with the saved session", () => {
     await page.goto("/admin/orgs");
     await page.getByRole("link", { name: "Metered team" }).click();
     await expect(page.getByRole("heading", { name: "Metered team" })).toBeVisible();
+  });
+
+  test("billing: upgrade with a prorated preview, spend controls, an invoice issued and downloaded", async ({ page }) => {
+    await signedIn(page);
+    // The organisation from the usage journey.
+    await page.getByTestId("org-switcher").click();
+    await page.getByRole("menuitem", { name: /Metered team/ }).click();
+    await expect(page.getByTestId("org-switcher-name")).toHaveText("Metered team");
+    await page.goto("/org/billing");
+    await expect(page.getByRole("heading", { name: "Billing", exact: true })).toBeVisible();
+    await expect(page.getByTestId("plan-name")).toHaveText("Free");
+
+    // Free → Pro: priced first (the rest of the month), then applied.
+    await page.getByRole("button", { name: "Change plan…" }).click();
+    await page.getByRole("radio", { name: /Pro/ }).check();
+    const preview = page.getByTestId("plan-preview");
+    await expect(preview).toContainText("Pro (monthly)");
+    await expect(preview).toContainText("On the next invoice");
+    // The owner accepts the SLA and DPA with the upgrade (V3 §7.3).
+    await page.getByTestId("accept-legal").getByRole("checkbox").check();
+    await shot(page, "50-billing-plan");
+    await page.getByRole("button", { name: "Change plan now" }).click();
+    await expect(page.getByTestId("plan-name")).toHaveText("Pro");
+
+    // A budget, business details and a billing contact.
+    await page.getByLabel("Monthly budget (₦)").fill("50,000");
+    await page.getByTestId("spend-controls").getByRole("button", { name: "Save" }).click();
+    await expect(page.getByTestId("spend-controls")).toContainText("Saved.");
+    await expect(page.getByTestId("forecast")).toContainText("Budget ₦50,000.00");
+    // The month so far, by service (V4 §12): at least the plan's fee.
+    await expect(page.locator('[data-testid="service-spend"][data-service="plan"]')).toContainText("Plan");
+    await page.getByLabel("Legal name").fill("Metered Team Ltd");
+    await page.getByTestId("business-details").getByRole("button", { name: "Save" }).click();
+    await expect(page.getByTestId("business-details")).toContainText("Saved.");
+    await page.getByLabel("Contact email").fill("accounts@metered.example");
+    await page.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(page.getByTestId("billing-contact")).toHaveText(/accounts@metered.example/);
+
+    // The platform admin drafts this month's invoices and issues the team's.
+    await page.goto("/admin/billing");
+    await page.getByRole("button", { name: /^Draft / }).click();
+    const row = page.getByTestId("admin-invoice-row").filter({ hasText: "Metered team" });
+    await expect(row).toContainText("Draft");
+    await row.getByRole("button", { name: "Issue" }).click();
+    await expect(row).toContainText(/PGD-\d{4}-\d{6}/);
+    await page.getByRole("radio", { name: "Ledger" }).click();
+    await expect(page.getByTestId("ledger")).toContainText("Balanced");
+    await shot(page, "51-admin-billing");
+
+    // The team sees it, with the details frozen on it, and downloads it.
+    await page.goto("/org/billing");
+    const inv = page.getByTestId("invoice-row").first();
+    await expect(inv).toContainText(/PGD-/);
+    await inv.getByRole("button").click();
+    await expect(page.getByTestId("invoice-panel")).toContainText("Pro (monthly)");
+    await expect(page.getByTestId("invoice-total")).toContainText("₦");
+    const [pdf] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name: /Download PDF/ }).click()]);
+    expect(pdf.suggestedFilename()).toMatch(/^PGD-\d{4}-\d{6}\.pdf$/);
+    expect(readFileSync((await pdf.path())!).subarray(0, 4).toString()).toBe("%PDF");
+    await shot(page, "52-invoice");
+    const total = ((await page.getByTestId("invoice-total").textContent()) ?? "").replace(/[^\d.,]/g, "");
+    await page.keyboard.press("Escape");
+
+    // The team pays by transfer to PGDock's account; the admin records it
+    // and the invoice is settled, with a receipt.
+    await page.goto("/admin/billing");
+    await page.getByRole("radio", { name: "Payments" }).click();
+    await page.getByRole("button", { name: "Record a payment" }).click();
+    const rec = page.getByTestId("record-payment");
+    await rec.getByLabel("Organisation").selectOption({ label: "Metered team" });
+    await rec.getByLabel("Amount received (₦)").fill(total);
+    await rec.getByLabel("Bank reference").fill("GTB-E2E-0001");
+    await rec.getByRole("button", { name: "Record" }).click();
+    await stepUpIfAsked(page);
+    const paid = page.getByTestId("admin-payment-row").filter({ hasText: "Metered team" });
+    await expect(paid).toContainText("GTB-E2E-0001");
+    await expect(paid).toContainText("manual");
+    await shot(page, "53-admin-payments");
+
+    // The org's billing terms, on its admin page.
+    await page.goto("/admin/orgs");
+    await page.getByRole("link", { name: "Metered team" }).click();
+    const terms = page.getByTestId("org-billing");
+    await expect(terms).toContainText("In good standing");
+    await expect(terms).toContainText("Pro (monthly)");
+    await terms.getByLabel("Payment terms (days)").fill("30");
+    await terms.getByRole("button", { name: "Save", exact: true }).click();
+    await stepUpIfAsked(page);
+    await expect(terms).toContainText("Saved.");
+    await expect(terms.getByLabel("Payment terms (days)")).toHaveValue("30");
+    await page.goto("/org/billing");
+    await expect(page.getByTestId("invoice-row").first()).toContainText("Paid");
+    await expect(page.getByTestId("payment-row").first()).toContainText("GTB-E2E-0001");
+    const [receipt] = await Promise.all([page.waitForEvent("download"), page.getByTestId("payment-row").first().getByRole("link", { name: /Receipt/ }).click()]);
+    expect(readFileSync((await receipt.path())!).subarray(0, 4).toString()).toBe("%PDF");
+    await shot(page, "54-billing-paid");
+
+    // Pricing: plans side by side and a month's estimate (V3 §11).
+    await page.goto("/pricing");
+    await expect(page.getByRole("heading", { name: "Pricing", exact: true })).toBeVisible();
+    await expect(page.getByTestId("plan-monthly-pro")).toContainText("₦");
+    await page.getByLabel("Dedicated vCPUs").fill("2");
+    await page.getByLabel("RAM (GB)").fill("4");
+    await expect(page.getByTestId("estimate-total")).toContainText("₦");
+    await shot(page, "55-pricing");
+  });
+
+  test("support, legal and revenue: a ticket answered from the console, agreements accepted, the month's MRR", async ({ page }) => {
+    await signedIn(page);
+    await page.getByTestId("org-switcher").click();
+    await page.getByRole("menuitem", { name: /Metered team/ }).click();
+    await expect(page.getByTestId("org-switcher-name")).toHaveText("Metered team");
+
+    // Accepted with the upgrade.
+    await page.goto("/org/legal");
+    await expect(page.getByTestId("legal-sla")).toContainText("Accepted ");
+    await expect(page.getByTestId("legal-dpa")).toContainText("Accepted ");
+
+    // A ticket from the dashboard.
+    await page.goto("/org/support");
+    await page.getByTestId("new-ticket").click();
+    await page.getByTestId("ticket-subject").fill("Slow monthly report");
+    await page.getByTestId("ticket-body").fill("The report query takes a minute since Tuesday.");
+    await page.getByTestId("ticket-submit").click();
+    await expect(page.getByTestId("ticket-panel")).toContainText("Slow monthly report");
+    await expect(page.getByTestId("ticket-panel").getByTestId("message-in")).toContainText("takes a minute");
+    await page.keyboard.press("Escape");
+
+    // The console: the organisation beside the thread; a note and a reply.
+    await page.goto("/admin/support");
+    await page.getByRole("row").filter({ hasText: "Slow monthly report" }).click();
+    const t = page.getByTestId("console-ticket");
+    await expect(t.getByTestId("console-context")).toContainText("Metered team");
+    await expect(t.getByTestId("console-context")).toContainText("pro");
+    await t.getByTestId("console-body").fill("Likely the missing index on created_at.");
+    await t.getByTestId("console-note").click();
+    await expect(t.getByTestId("message-note")).toContainText("missing index");
+    await t.getByTestId("console-body").fill("Could you add an index on orders(created_at)?");
+    await t.getByTestId("console-reply").click();
+    await expect(t.getByTestId("message-out")).toContainText("add an index");
+    await t.getByTestId("console-status").selectOption("pending");
+    await expect(t.getByTestId("console-status")).toHaveValue("pending");
+    await shot(page, "56-support-console");
+    await page.keyboard.press("Escape");
+
+    // The customer sees the reply, not the note.
+    await page.goto("/org/support");
+    await page.getByRole("row").filter({ hasText: "Slow monthly report" }).click();
+    const mine = page.getByTestId("ticket-panel");
+    await expect(mine.getByTestId("message-out")).toContainText("add an index");
+    await expect(mine.getByTestId("message-note")).toHaveCount(0);
+    await shot(page, "57-support-ticket");
+    await page.keyboard.press("Escape");
+
+    // The month's recurring revenue includes the team's Pro plan.
+    await page.goto("/admin/revenue");
+    await expect(page.getByTestId("revenue-mrr")).toContainText("₦");
+    await expect(page.getByTestId("revenue-mrr")).not.toContainText("₦0.00");
+    await expect(page.getByTestId("revenue-csv")).toHaveAttribute("href", /format=csv/);
+    await shot(page, "58-revenue");
+  });
+
+  test("capacity and costs: a node's cost, an exchange rate, and the month's margins", async ({ page }) => {
+    await signedIn(page);
+    await page.goto("/admin/capacity");
+    await expect(page.getByTestId("admin-capacity")).toContainText("registered by hand");
+    const row = page.getByTestId("capacity-node-local");
+    await expect(row).toContainText("manual");
+    await row.getByRole("button", { name: "Cost", exact: true }).click();
+    await page.getByLabel("Monthly cost").fill("40");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(row).toContainText("EUR 40.00");
+    await page.getByTestId("capacity-evaluate").click();
+    await expect(page.getByText("Thresholds checked.")).toBeVisible();
+    await shot(page, "59-capacity");
+
+    // Naira per euro, then today's costs attributed: the node's day, and
+    // the floating IP.
+    await page.goto("/admin/costs");
+    await page.getByTestId("fx-rate").fill("1700");
+    await page.getByTestId("fx-save").click();
+    await expect(page.getByTestId("fx-rates")).toContainText("1 EUR = ₦1,700");
+    await page.getByRole("button", { name: "Recompute" }).click();
+    await expect(page.getByTestId("costs-total")).not.toContainText("₦0.00");
+    await expect(page.getByTestId("cost-floating_ip")).toBeVisible();
+    await expect(page.getByTestId("costs-csv")).toHaveAttribute("href", /format=csv/);
+    await shot(page, "60-costs");
+  });
+
+  test("regions: a Lagos region, offered at project creation", async ({ page }) => {
+    await signedIn(page);
+    await page.goto("/admin/regions");
+    await expect(page.getByTestId("region-eu-central")).toContainText("home");
+    await page.getByRole("button", { name: "Add region" }).click();
+    await page.getByLabel("ID", { exact: true }).fill("ng-lagos");
+    await page.getByLabel("Name", { exact: true }).fill("Lagos");
+    await page.getByLabel("Country (two letters)").fill("NG");
+    await page.getByLabel("Pooler hostname").fill("db.ng.example.test");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    const lagos = page.getByTestId("region-ng-lagos");
+    await expect(lagos).toContainText("Lagos");
+    await expect(lagos).toContainText("db.ng.example.test");
+    await expect(lagos).toContainText("served by the home poolers");
+    await shot(page, "61-regions");
+
+    // New projects can choose it; the default stays the home region.
+    await page.goto("/projects/new");
+    const picker = page.getByLabel("Region");
+    await expect(picker).toContainText("Lagos (NG)");
+    await expect(picker).toContainText("(default)");
+
+    // An existing project shows its region in Settings.
+    const mine = (await page.evaluate(async () => (await fetch("/api/v1/projects")).json())) as { items: { id: string; region: string }[] };
+    await page.goto(`/projects/${mine.items[0].id}/settings`);
+    await expect(page.getByTestId("project-region")).toContainText(mine.items[0].region);
+  });
+
+  test("query insights: a slow lookup, its plan, and the index that fixes it", async ({ page }) => {
+    await signedIn(page);
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Catalogue");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    const appURL = await revealedValue(page, "credential-pooled-url");
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("link", { name: "Open the project" }).click();
+    await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}/);
+    const id = new URL(page.url()).pathname.split("/")[2];
+    const app = await connect(appURL);
+    await app.query(
+      "CREATE TABLE items (id serial PRIMARY KEY, category int NOT NULL, price numeric NOT NULL); " +
+        "INSERT INTO items (category, price) SELECT g % 500, g FROM generate_series(1, 60000) g; ANALYZE items",
+    );
+    // Statistics are read every 5 seconds here (every 5 minutes in production).
+    await expect(async () => {
+      for (let i = 0; i < 20; i++) await app.query(`SELECT avg(price) FROM items WHERE category = ${i}`);
+      await page.goto(`/projects/${id}/insights`);
+      await expect(page.getByTestId("project-insights").locator("tr", { hasText: "FROM items WHERE category" })).toBeVisible({ timeout: 3_000 });
+    }).toPass({ timeout: 60_000 });
+    await app.end();
+    await page.getByTestId("project-insights").locator("tr", { hasText: "FROM items WHERE category" }).click();
+    await page.getByTestId("insight-explain").click();
+    await expect(page.getByTestId("insight-plan")).toContainText("Seq Scan on public.items");
+    await shot(page, "62-query-insights");
+    await page.keyboard.press("Escape");
+    await page.getByRole("tab", { name: "Indexes" }).click();
+    const sg = page.getByTestId("suggestion-items-category");
+    await expect(sg).toContainText("CREATE INDEX CONCURRENTLY items_category_idx ON public.items (category);");
+    await shot(page, "63-index-suggestion");
   });
 
   test("API tokens: a restricted write token for CI, and a CLI device login", async ({ page }) => {
@@ -1548,6 +1828,261 @@ test.describe("with the saved session", () => {
     expect(await count(url, "SELECT n FROM order_counts")).toBe(1);
     await shot(page, "48-job-run");
     await db.end();
+  });
+
+  test("backend services: enable a project's API, keys shown once, a key made and revoked", async ({ page }) => {
+    await signedIn(page);
+    await page.goto("/projects/new");
+    await page.getByLabel("Name").fill("Storefront API");
+    await page.getByRole("button", { name: "Create project" }).click();
+    await expect(page.getByTestId("provision-ready")).toBeVisible({ timeout: 60_000 });
+    const dbURL = await revealedValue(page, "credential-pooled-url");
+    await page.getByLabel("I've saved the password somewhere safe").check();
+    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("link", { name: "Open the project" }).click();
+    await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}/);
+    const id = new URL(page.url()).pathname.split("/")[2];
+
+    await page.goto(`/projects/${id}/settings/api`);
+    await page.getByRole("button", { name: "Enable backend services" }).click();
+    const keys = page.getByTestId("new-api-keys");
+    await expect(keys.getByTestId("key-secret")).toContainText("pgd_sec_");
+    await expect(keys.getByTestId("key-publishable")).toContainText("pgd_pub_");
+    await shot(page, "70-api-keys-once");
+    await keys.getByRole("button", { name: "I've copied them" }).click();
+    await expect(page.getByTestId("services-url")).toContainText(/[a-z][a-z0-9]{7}/, { timeout: 30_000 });
+    const rows = page.getByTestId("api-key-row");
+    await expect(rows).toHaveCount(2);
+
+    // Rotation: a second secret key, then the first one revoked.
+    await page.getByTestId("services-keys").getByRole("button", { name: "New key" }).click();
+    await page.getByLabel("Name").fill("rotated");
+    await page.getByLabel("Kind").selectOption("secret");
+    await page.getByRole("button", { name: "Create" }).click();
+    await expect(page.getByTestId("new-api-keys").getByTestId("key-secret")).toContainText("pgd_sec_");
+    await page.getByRole("button", { name: "I've copied them" }).click();
+    await expect(rows).toHaveCount(3);
+    const first = rows.filter({ hasText: "default" }).filter({ hasText: "secret" });
+    await first.getByRole("button", { name: "Revoke" }).click();
+    await expect(first).toContainText("revoked");
+    await shot(page, "71-api-settings");
+
+    // M30: the advisor flags a table without row-level security, the
+    // explorer shows anon is refused, and the policy helper fixes it.
+    const db = await connect(dbURL);
+    await db.query("CREATE TABLE notes (id serial PRIMARY KEY, owner_id uuid NOT NULL, body text NOT NULL)");
+    await db.end();
+    const advisor = page.getByTestId("services-advisor");
+    await expect(async () => {
+      await advisor.getByRole("button", { name: "Check again" }).click();
+      await expect(advisor.getByTestId("advisor-finding").filter({ hasText: "public.notes" })).toContainText(/row-level security is off/i, { timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
+    const explorer = page.getByTestId("services-explorer");
+    await explorer.getByLabel("Path").fill("/data/v1/notes");
+    await explorer.getByRole("button", { name: "Send" }).click();
+    await expect(explorer.getByTestId("explorer-result")).toContainText("rls_required");
+    await shot(page, "72-api-advisor-explorer");
+
+    await page.goto(`/projects/${id}/tables`);
+    await page.getByTestId("schema-tree").getByRole("button", { name: "notes", exact: true }).click();
+    await page.getByTestId("policy-helper").click();
+    const pd = page.getByTestId("policy-dialog");
+    await expect(pd.getByTestId("policy-sql")).toContainText("owner_id = pgd_auth.uid()");
+    await shot(page, "73-policy-helper");
+    await pd.getByTestId("policy-apply").click();
+    await expect(pd).toBeHidden();
+
+    await page.goto(`/projects/${id}/settings/api`);
+    await expect(page.getByTestId("services-advisor")).toBeVisible();
+    await expect(page.getByTestId("advisor-finding").filter({ hasText: "public.notes" })).toHaveCount(0);
+    await explorer.getByLabel("Path").fill("/data/v1/notes");
+    await explorer.getByRole("button", { name: "Send" }).click();
+    await expect(explorer.getByTestId("explorer-result")).toContainText("200");
+
+    // V4.1-M8: the quick start and a table's docs carry the project's URL
+    // and publishable key, and "Try it" runs in the explorer.
+    const apiURL = (await page.getByTestId("services-url").innerText()).match(/https?:\/\/\S+/)![0];
+    const quick = page.getByTestId("services-quickstart");
+    await expect(quick.getByTestId("quickstart-values")).toContainText(apiURL);
+    await expect(quick.getByTestId("quickstart-values")).toContainText("pgd_pub_");
+    await expect(quick.locator("pre").last()).toContainText(`createClient("${apiURL}", "pgd_pub_`);
+    await quick.getByRole("radio", { name: "Dart" }).click();
+    await expect(quick.locator("pre").last()).toContainText(`PgdockClient('${apiURL}', 'pgd_pub_`);
+    await quick.getByRole("button", { name: "Hide" }).click();
+    await page.reload();
+    await expect(page.getByTestId("services-quickstart").getByRole("button", { name: "Show" })).toBeVisible();
+    const docs = page.getByTestId("services-docs");
+    await docs.getByLabel("Table or function").selectOption("t:notes");
+    await expect(docs.getByTestId("docs-table")).toContainText("owner_id");
+    await expect(docs.getByTestId("docs-table")).toContainText(/Row-level security\s*on/);
+    const read = docs.getByTestId("docs-example-read");
+    await expect(read).toContainText(`${apiURL}/data/v1/notes`);
+    await expect(read).toContainText("apikey: pgd_pub_");
+    await shot(page, "75-api-docs");
+    await read.getByRole("button", { name: "Try it" }).click();
+    await expect(explorer.getByLabel("Path")).toHaveValue(/^\/data\/v1\/notes\?select=/);
+    await explorer.getByRole("button", { name: "Send" }).click();
+    await expect(explorer.getByTestId("explorer-result")).toContainText("200");
+    await expect(page.getByTestId("services-usage").getByTestId("usage-row").first()).toContainText("Requests");
+
+    // M36: the Supabase migration helper. The users and files steps need the
+    // Supabase project's credentials; the policies step runs on its own.
+    const mig = page.getByTestId("migrate-supabase");
+    await expect(mig).toContainText("Migrate from Supabase");
+    await expect(mig.getByTestId("migrate-users")).toBeDisabled();
+    await expect(mig.getByTestId("migrate-storage")).toBeDisabled();
+    await mig.getByTestId("migrate-policies").click();
+    await expect(mig.getByTestId("operation-log")).toContainText("policies migrated", { timeout: 60_000 });
+    await shot(page, "74-migrate-supabase");
+
+    // M31: the app's users on Project → Authentication.
+    await page.goto(`/projects/${id}/auth`);
+    await expect(page.getByTestId("auth-users-empty")).toBeVisible();
+    await page.getByRole("button", { name: "Add user" }).click();
+    const add = page.getByTestId("add-auth-user");
+    await add.getByLabel("Email").fill("ada@example.com");
+    await add.getByRole("checkbox").first().click(); // a password instead of an invitation
+    await add.getByLabel("Password").fill("ada-password-1");
+    await add.getByRole("button", { name: "Create user" }).click();
+    const userRow = page.getByTestId("auth-user-row").filter({ hasText: "ada@example.com" });
+    await expect(userRow).toContainText("confirmed");
+    await userRow.click();
+    const panel = page.getByTestId("auth-user-panel");
+    await panel.getByRole("button", { name: "Ban for 24 hours" }).click();
+    await expect(panel).toContainText("Banned until");
+    await shot(page, "74-auth-user");
+    await page.keyboard.press("Escape");
+    await expect(userRow).toContainText("banned");
+    await page.getByRole("tab", { name: "Signing keys" }).click();
+    await expect(page.getByTestId("signing-key-row")).toHaveCount(1);
+    await page.getByRole("tab", { name: "Emails" }).click();
+    await expect(page.getByTestId("auth-email-sending")).toContainText("Platform email");
+    await shot(page, "75-auth-emails");
+
+    // M32: WhatsApp codes, Google, MFA and hooks.
+    await page.getByRole("tab", { name: "Phone" }).click();
+    const phone = page.getByTestId("auth-phone");
+    await phone.getByRole("switch", { name: "Codes by WhatsApp" }).click();
+    await phone.getByLabel("Daily cap").fill("50");
+    await phone.getByRole("button", { name: "Save" }).click();
+    await expect(phone).toContainText("Saved");
+    await expect(page.getByTestId("auth-phone-today")).toContainText("0 / 50");
+    await shot(page, "76-auth-phone");
+    await page.getByRole("tab", { name: "Providers" }).click();
+    const google = page.getByTestId("auth-oauth-google");
+    await google.getByRole("switch", { name: "Sign in with Google" }).click();
+    await google.getByLabel("Google client ID").fill("e2e-client.apps.googleusercontent.com");
+    await google.getByLabel("Google client secret").fill("e2e-secret");
+    await page.getByTestId("auth-providers").getByRole("button", { name: "Save" }).click();
+    await expect(google).toContainText("On");
+    await expect(google).toContainText("Stored; leave empty to keep it.");
+    await shot(page, "77-auth-providers");
+    await page.getByRole("tab", { name: "MFA and captcha" }).click();
+    await page.getByLabel("MFA policy").selectOption("required");
+    await page.getByTestId("auth-security").getByRole("button", { name: "Save" }).click();
+    await expect(page.getByTestId("auth-security")).toContainText("Saved");
+    await page.getByRole("tab", { name: "Hooks" }).click();
+    const hooks = page.getByTestId("auth-hooks");
+    await expect(hooks).toContainText("_auth_hook");
+    await hooks.getByLabel("Custom claims function").fill("public.not_a_real_hook");
+    await hooks.getByRole("button", { name: "Save" }).click();
+    await expect(hooks).toContainText("Saved");
+    await expect(page.getByTestId("auth-hook-deliveries")).toContainText("No webhook deliveries yet.");
+    await shot(page, "78-auth-hooks");
+
+    // M33: a bucket, a file uploaded into a folder, and the list.
+    await page.goto(`/projects/${id}/files`);
+    await page.getByTestId("new-bucket").click();
+    const bd = page.getByTestId("bucket-dialog");
+    await bd.getByLabel("Name").fill("docs");
+    await bd.getByLabel("Allowed file types").fill("text/*");
+    await bd.getByRole("button", { name: "Create bucket" }).click();
+    await expect(bd).toBeHidden();
+    await expect(page.getByTestId("bucket-row").filter({ hasText: "docs" })).toBeVisible();
+    await expect(page.getByTestId("files-empty")).toBeVisible();
+    await page.getByTestId("upload-input").setInputFiles({ name: "hello.txt", mimeType: "text/plain", buffer: Buffer.from("hello, files") });
+    const fileRow = page.getByTestId("file-row").filter({ hasText: "hello.txt" });
+    await expect(fileRow).toContainText("text/plain");
+    await expect(fileRow).toContainText("12 B");
+    await expect(page.getByTestId("files-stat-bytes")).toContainText("12 B", { timeout: 10_000 });
+    // A private bucket's file gets a signed link on the project's API URL.
+    await fileRow.getByRole("button", { name: "Signed URL" }).click();
+    const signed = page.getByRole("dialog", { name: "Signed URL" });
+    await expect(signed.getByLabel("Signed URL")).toHaveValue(/\/storage\/v1\/object\/sign\/docs\/hello\.txt\?token=.+/);
+    expect(await signed.getByLabel("Signed URL").inputValue()).toMatch(new RegExp("^" + apiURL.replaceAll(".", "\\.") + "/"));
+    await page.keyboard.press("Escape");
+    await expect(signed).toBeHidden();
+    await expect(fileRow.getByRole("link", { name: "Download" })).toHaveAttribute("href", /\/files\/buckets\/docs\/object\?path=hello\.txt$/);
+    await shot(page, "79-storage");
+    page.once("dialog", (d) => void d.accept());
+    await fileRow.getByTestId("delete-file").click();
+    await expect(page.getByTestId("files-empty")).toBeVisible();
+
+    // M34: realtime on for the notes table (it has row-level security now).
+    await page.goto(`/projects/${id}/realtime`);
+    const notesRow = page.getByTestId("realtime-table").filter({ hasText: "public.notes" });
+    await expect(notesRow).toContainText("on");
+    const sw = notesRow.getByRole("switch", { name: "Realtime for public.notes" });
+    await expect(sw).not.toBeChecked();
+    await sw.click();
+    await expect(sw).toBeChecked();
+    await page.getByLabel("Topics").fill("lobby");
+    await page.getByRole("button", { name: "Save" }).click();
+    await page.reload();
+    await expect(page.getByLabel("Topics")).toHaveValue("lobby");
+    await expect(page.getByTestId("realtime-table").filter({ hasText: "public.notes" }).getByRole("switch")).toBeChecked();
+    await shot(page, "80-realtime");
+  });
+
+  test("banners: a member sees the overdue invoice without amounts, and an incident affecting the projects", async ({ page, browser }) => {
+    await signedIn(page);
+    // The owner's personal organisation, where the earlier projects are.
+    const orgs = await page.evaluate(async () => (await (await fetch("/api/v1/orgs")).json()).items as { id: string; personal: boolean }[]);
+    const orgID = orgs.find((o) => o.personal)!.id;
+    await page.evaluate((id) => localStorage.setItem("pgdock.org", id), orgID);
+
+    // Dana joins as a plain member: no billing access.
+    const danaEmail = "dana@example.com";
+    await page.goto("/org/members");
+    await page.getByTestId("invite-member").click();
+    await page.getByLabel("Email").fill(danaEmail);
+    await page.getByLabel("Organisation role").selectOption("member");
+    await page.getByRole("button", { name: "Send invitation" }).click();
+    await expect(page.getByTestId("invitation-created")).toBeVisible();
+    await page.getByRole("button", { name: "Done" }).click();
+    const danaCtx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const dana = await danaCtx.newPage();
+    await acceptInvitation(dana, await mailLink(danaEmail, "invitation"), "Dana");
+    await dana.evaluate((id) => localStorage.setItem("pgdock.org", id), orgID);
+
+    // An overdue invoice: every member sees it; only the owner gets the pay link, and nobody sees an amount here.
+    expect(await apiStatus(page, `/api/v1/orgs/${orgID}/billing`)).toBe(200); // opens the billing account
+    await metadataSQL(`UPDATE billing_accounts SET dunning_state = 'overdue' WHERE org_id = '${orgID}'`);
+    await dana.goto("/projects");
+    const danaBanner = dana.getByTestId("billing-banner");
+    await expect(danaBanner).toContainText("has an overdue invoice");
+    await expect(danaBanner).toContainText("Ask an owner or a billing member");
+    await expect(danaBanner).not.toContainText("₦");
+    await expect(danaBanner.getByRole("link", { name: "Pay now" })).toHaveCount(0);
+    await page.goto("/projects");
+    await expect(page.getByTestId("billing-banner").getByRole("link", { name: "Pay now" })).toBeVisible();
+
+    // An open incident on the components the organisation's projects use.
+    const incidentID = await metadataSQL(`WITH i AS (INSERT INTO incidents (title, components, severity, status)
+      VALUES ('Connections are slow', ARRAY['shared-tier', 'dedicated'], 'major', 'investigating') RETURNING id),
+      u AS (INSERT INTO incident_updates (incident_id, status, body) SELECT id, 'investigating', 'We are looking into it.' FROM i)
+      SELECT id FROM i`);
+    await dana.reload();
+    await expect(dana.getByTestId("incident-banner")).toContainText("Connections are slow");
+    await expect(dana.getByTestId("incident-banner")).toContainText("We are looking into it.");
+    await shot(dana, "81-banners");
+
+    await metadataSQL(`UPDATE incidents SET status = 'resolved', resolved_at = now() WHERE id = '${incidentID}'`);
+    await metadataSQL(`UPDATE billing_accounts SET dunning_state = 'ok' WHERE org_id = '${orgID}'`);
+    await dana.reload();
+    await expect(dana.getByTestId("incident-banner")).toHaveCount(0);
+    await expect(dana.getByTestId("billing-banner")).toHaveCount(0);
+    await danaCtx.close();
   });
 
   test("the shell: keyboard shortcuts, and the menu on a narrow screen", async ({ page }) => {

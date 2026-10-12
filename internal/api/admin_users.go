@@ -275,11 +275,11 @@ func (s *Server) PublishTerms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sess, _ := sessionFrom(r.Context())
-	t, err := s.auth.PublishTerms(r.Context(), req.TermsMd, req.PrivacyMd, sess.UserID)
+	t, err := s.auth.PublishTerms(r.Context(), req.TermsMd, req.PrivacyMd, valueOr(req.AupMd, ""), sess.UserID)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 	auditFrom(r.Context()).set("version", t.Version)
-	writeJSON(w, http.StatusCreated, gen.Terms{Version: int(t.Version), TermsMd: t.TermsMd, PrivacyMd: t.PrivacyMd, PublishedAt: t.PublishedAt})
+	writeJSON(w, http.StatusCreated, gen.Terms{Version: int(t.Version), TermsMd: t.TermsMd, PrivacyMd: t.PrivacyMd, AupMd: &t.AupMd, PublishedAt: t.PublishedAt})
 }

@@ -155,7 +155,7 @@ func TestPromotionLiveWriter(t *testing.T) {
 	t.Logf("promotion log:\n%s", log)
 	t.Logf("tx writer: %d commits, %d errors %v; session writer: %d commits, %d errors %v",
 		len(tx.acked), len(tx.errs), tx.errs, len(session.acked), len(session.errs), session.errs)
-	for _, want := range []string{"writes frozen", "verified:", "route switched", "writes were frozen for", "base backup base_"} {
+	for _, want := range []string{"writes frozen", "logical replication", "match", "route switched", "writes were paused for", "base backup base_"} {
 		if !strings.Contains(log, want) {
 			t.Errorf("promotion log lacks %q", want)
 		}

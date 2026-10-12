@@ -205,7 +205,7 @@ func TestDedicatedProjectAndPITR(t *testing.T) {
 	// Base backups: listed, and on demand.
 	var list gen.BackupList
 	e.Do("GET", "/api/v1/backups?project_id="+c.Project.Id.String(), nil, &list)
-	if len(list.Items) != 2 || list.Items[0].Kind != gen.Base || list.Items[0].SizeBytes == nil {
+	if len(list.Items) != 2 || list.Items[0].Kind != gen.BackupKindBase || list.Items[0].SizeBytes == nil {
 		t.Fatalf("base backups: %+v", list.Items)
 	}
 	if code := e.Do("POST", "/api/v1/projects/"+c.Project.Id.String()+"/backups", nil, &op); code != http.StatusAccepted {

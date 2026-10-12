@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
@@ -42,7 +43,10 @@ func (s *Server) requireConsole(w http.ResponseWriter) bool {
 }
 
 func (s *Server) consoleError(w http.ResponseWriter, what string, err error) {
+	var asleep *console.AsleepError
 	switch {
+	case errors.As(err, &asleep):
+		s.writeAsleep(context.Background(), w, asleep.ProjectID, asleep.Lifecycle)
 	case errors.Is(err, console.ErrDisabled):
 		writeError(w, http.StatusForbidden, "console_disabled", err.Error())
 	case errors.Is(err, console.ErrNotActive):

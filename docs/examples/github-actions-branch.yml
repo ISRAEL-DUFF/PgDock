@@ -48,7 +48,10 @@ jobs:
       - id: migrate
         name: Migrate and test against the branch
         run: |
-          # DATABASE_URL (pooled) and DATABASE_URL_SESSION are set.
+          # DATABASE_URL (pooled) and DATABASE_URL_SESSION are set; with
+          # backend services on the project, so are the branch's own
+          # PGDOCK_API_URL, PGDOCK_PUBLISHABLE_KEY and PGDOCK_SECRET_KEY
+          # (add --copy-files above to copy its stored files too).
           npm ci
           npm run migrate
           npm test

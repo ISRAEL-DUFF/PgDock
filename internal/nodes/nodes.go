@@ -44,6 +44,7 @@ type Service struct {
 	ca         *agentca.CA
 	clientCert tls.Certificate
 	bootstrap  string // install-time token, see Register
+	home       string // the home region (V3 §6.1)
 	log        *slog.Logger
 
 	mu     sync.Mutex
@@ -57,6 +58,22 @@ type Status struct {
 	Metrics   agentapi.HostMetrics
 	Err       string
 	CheckedAt time.Time
+}
+
+// SetHomeRegion sets the region nodes are added to when none is named.
+func (s *Service) SetHomeRegion(r string) { s.home = r }
+
+// HomeRegion is the home region (V3 §6.1), or "eu-central" when unset.
+func (s *Service) HomeRegion() string { return s.regionOr("") }
+
+func (s *Service) regionOr(r string) string {
+	if r = strings.TrimSpace(r); r != "" {
+		return r
+	}
+	if s.home != "" {
+		return s.home
+	}
+	return "eu-central"
 }
 
 // NewService returns a Service. bootstrapToken (PGDOCK_AGENT_BOOTSTRAP_TOKEN)
@@ -258,19 +275,30 @@ func (s *Service) List(ctx context.Context) ([]store.Node, error) {
 	return store.New(s.db).ListNodes(ctx)
 }
 
-// Node roles (spec §9).
+// Node roles (spec §9). Database nodes can switch between the first three;
+// a pooler host (V3 §2.1) stays one.
 var roles = map[string]bool{"shared": true, "dedicated": true, "both": true}
+
+// RolePooler is an edge pooler host.
+const RolePooler = "pooler"
+
+// RoleEdge is a node that runs pgdock-edge only (V4.1 §11): never given a
+// database, its cost split by backend services' use.
+const RoleEdge = "edge"
 
 var nodeName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
 
 // CreateNode records a node an operator is adding and issues its one-time
 // registration token (spec §10: POST /nodes returns a token).
-func (s *Service) CreateNode(ctx context.Context, name, privateAddr, role string) (store.Node, string, time.Time, error) {
+func (s *Service) CreateNode(ctx context.Context, name, privateAddr, role, region, failureDomain string) (store.Node, string, time.Time, error) {
+	if err := checkDomain(failureDomain); err != nil {
+		return store.Node{}, "", time.Time{}, err
+	}
 	if !nodeName.MatchString(name) {
 		return store.Node{}, "", time.Time{}, fmt.Errorf("%w: node names are lowercase letters, digits, and dashes", ErrInvalid)
 	}
-	if !roles[role] {
-		return store.Node{}, "", time.Time{}, fmt.Errorf("%w: role must be shared, dedicated, or both", ErrInvalid)
+	if !roles[role] && role != RolePooler && role != RoleEdge {
+		return store.Node{}, "", time.Time{}, fmt.Errorf("%w: role must be shared, dedicated, both, pooler or edge", ErrInvalid)
 	}
 	privateAddr = strings.TrimSpace(privateAddr)
 	if privateAddr == "" || strings.ContainsAny(privateAddr, " /:") {
@@ -281,13 +309,47 @@ func (s *Service) CreateNode(ctx context.Context, name, privateAddr, role string
 		return store.Node{}, "", time.Time{}, err
 	}
 	n, err := store.New(s.db).InsertNode(ctx, store.InsertNodeParams{
-		Name: name, PrivateAddr: privateAddr, Role: role, RegistrationToken: &hash, RegistrationExpiresAt: &exp,
+		Name: name, PrivateAddr: privateAddr, Role: role, RegistrationToken: &hash, RegistrationExpiresAt: &exp, Region: s.regionOr(region),
 	})
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return store.Node{}, "", time.Time{}, fmt.Errorf("%w: a node named %s exists", ErrInvalid, name)
 	}
+	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+		return store.Node{}, "", time.Time{}, fmt.Errorf("%w: no region %q", ErrInvalid, region)
+	}
+	if err == nil && failureDomain != "" {
+		n, err = store.New(s.db).SetNodeFailureDomain(ctx, store.SetNodeFailureDomainParams{ID: n.ID, FailureDomain: &failureDomain})
+	}
 	return n, token, exp, err
+}
+
+var domainName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,62}$`)
+
+func checkDomain(d string) error {
+	if d != "" && !domainName.MatchString(d) {
+		return fmt.Errorf("%w: a failure domain is up to 63 letters, digits, dots, colons, dashes and underscores, e.g. lagos-dc1-r3", ErrInvalid)
+	}
+	return nil
+}
+
+// SetFailureDomain records what fails with the node (V3.1 §2); "" clears
+// it, so the node counts as alone again. Existing placements aren't moved:
+// the failure-domain check reports any that now share a domain.
+func (s *Service) SetFailureDomain(ctx context.Context, id uuid.UUID, d string) (store.Node, error) {
+	d = strings.TrimSpace(d)
+	if err := checkDomain(d); err != nil {
+		return store.Node{}, err
+	}
+	var arg *string
+	if d != "" {
+		arg = &d
+	}
+	n, err := store.New(s.db).SetNodeFailureDomain(ctx, store.SetNodeFailureDomainParams{ID: id, FailureDomain: arg})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return n, ErrNotFound
+	}
+	return n, err
 }
 
 // RemoveNode takes a node out of service once nothing runs on it: its
@@ -317,6 +379,9 @@ func (s *Service) RemoveNode(ctx context.Context, id uuid.UUID) error {
 func (s *Service) SetRole(ctx context.Context, id uuid.UUID, role string) (store.Node, error) {
 	if !roles[role] {
 		return store.Node{}, fmt.Errorf("%w: role must be shared, dedicated, or both", ErrInvalid)
+	}
+	if cur, err := store.New(s.db).GetNode(ctx, id); err == nil && cur.Role == RolePooler {
+		return store.Node{}, fmt.Errorf("%w: a pooler host can't become a database node; remove it and add the machine again", ErrInvalid)
 	}
 	n, err := store.New(s.db).SetNodeRole(ctx, store.SetNodeRoleParams{ID: id, Role: role})
 	if errors.Is(err, pgx.ErrNoRows) {

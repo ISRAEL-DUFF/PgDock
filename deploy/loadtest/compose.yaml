@@ -1,0 +1,94 @@
+# The 1,000-project backend load test's rig (V4.1 §13): six servers on one
+# private network. README.md has the steps; each server runs one profile
+# of this file with its own copy of loadtest.env:
+#
+#   node-1        deploy/compose (pgdock-server, poolers, shared cluster 1)
+#   node-2..4     docker compose --profile node up -d    (an agent; then a
+#                 shared cluster from Platform → Nodes)
+#   edge          docker compose --profile edge up -d    (pgdock-edge)
+#   load          docker compose --profile load run --rm load
+#
+# Every service uses the host's network: addresses in loadtest.env are the
+# servers' private ones.
+
+name: pgdock-loadtest
+
+services:
+  agent:
+    profiles: [node]
+    image: ${PGDOCK_AGENT_IMAGE:?set PGDOCK_AGENT_IMAGE in loadtest.env}
+    restart: unless-stopped
+    network_mode: host
+    # Root, for the Docker socket: the shared cluster is a sibling container.
+    user: "0:0"
+    environment:
+      PGDOCK_AGENT_SERVER: ${PGDOCK_SERVER_URL:?}
+      # One-time, from Platform → Nodes → Add node; the agent keeps its
+      # certificate afterwards.
+      PGDOCK_AGENT_TOKEN: ${PGDOCK_AGENT_TOKEN:-}
+      PGDOCK_AGENT_ADVERTISE: ${NODE_IP:?set NODE_IP to this server's private address}:7070
+      PGDOCK_AGENT_PUBLISH: ${NODE_IP}
+      PGDOCK_AGENT_PG_IMAGE: ${PGDOCK_PG_IMAGE:-pgdock-postgres:{major}-walg3.0.9}
+      # The cluster takes logins from node-1 (pgdock-server and the poolers)
+      # and moves within the network.
+      PGDOCK_AGENT_DB_ALLOW: ${NODE1_IP:?}/32
+      PGDOCK_AGENT_MOVE_ALLOW: ${PRIVATE_CIDR:-10.0.0.0/16}
+      PGDOCK_AGENT_LOG_FORMAT: json
+    volumes:
+      - agent-state:/var/lib/pgdock-agent
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  edge:
+    profiles: [edge]
+    image: ${PGDOCK_EDGE_IMAGE:?set PGDOCK_EDGE_IMAGE in loadtest.env}
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      PGDOCK_EDGE_NAME: loadtest-edge
+      PGDOCK_EDGE_CONTROL_URL: ${PGDOCK_SERVER_URL:?}
+      PGDOCK_EDGE_SECRET: ${PGDOCK_EDGE_SECRET:?}
+      PGDOCK_EDGE_DOMAIN: ${PGDOCK_API_DOMAIN:?}
+      PGDOCK_EDGE_LISTEN: ":443"
+      PGDOCK_EDGE_TLS_CERT: /tls/fullchain.pem
+      PGDOCK_EDGE_TLS_KEY: /tls/privkey.pem
+      # The poolers on node-1, over the private network.
+      PGDOCK_EDGE_POOLER_ADDR: ${NODE1_IP}:6543
+      PGDOCK_EDGE_SESSION_ADDR: ${NODE1_IP}:5432
+      PGDOCK_EDGE_LOG_FORMAT: json
+    volumes:
+      - ./tls:/tls:ro
+
+  # The load generator: TestBackendLoad from this checkout, against the
+  # install (PGDOCK_LOAD_TARGET). The report lands in ../../tmp.
+  load:
+    profiles: [load]
+    image: golang:1.26
+    network_mode: host
+    working_dir: /src
+    command: ["go", "test", "-count=1", "-timeout=3h", "-v", "-run=TestBackendLoad", "./test/load/"]
+    environment:
+      PGDOCK_TEST_LOAD: "1"
+      PGDOCK_LOAD_TARGET: ${PGDOCK_SERVER_URL:?}
+      PGDOCK_LOAD_EMAIL: ${PGDOCK_LOAD_EMAIL:?}
+      PGDOCK_LOAD_PASSWORD: ${PGDOCK_LOAD_PASSWORD:?}
+      PGDOCK_LOAD_TOTP_SECRET: ${PGDOCK_LOAD_TOTP_SECRET:?}
+      PGDOCK_LOAD_API_DOMAIN: ${PGDOCK_API_DOMAIN:?}
+      PGDOCK_LOAD_EDGE_ADDR: ${EDGE_IP:?}:443
+      PGDOCK_LOAD_EDGE_CA: ${PGDOCK_LOAD_EDGE_CA:-}
+      PGDOCK_LOAD_BACKEND_PROJECTS: ${PGDOCK_LOAD_BACKEND_PROJECTS:-1000}
+      PGDOCK_LOAD_RPS: ${PGDOCK_LOAD_RPS:-2000}
+      PGDOCK_LOAD_SECONDS: ${PGDOCK_LOAD_SECONDS:-60}
+      PGDOCK_LOAD_STEPS: ${PGDOCK_LOAD_STEPS:-500,1000,1500}
+      PGDOCK_LOAD_TRANSFORMS: ${PGDOCK_LOAD_TRANSFORMS:-200}
+      PGDOCK_LOAD_PARALLEL: ${PGDOCK_LOAD_PARALLEL:-16}
+    volumes:
+      - ../..:/src
+      - go-cache:/root/.cache/go-build
+      - go-mod:/go/pkg/mod
+    ulimits:
+      nofile: 65536
+
+volumes:
+  agent-state:
+  go-cache:
+  go-mod:

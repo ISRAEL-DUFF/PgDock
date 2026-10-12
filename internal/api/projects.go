@@ -10,6 +10,7 @@ import (
 
 	"github.com/israel-duff/pgdock/internal/api/gen"
 	"github.com/israel-duff/pgdock/internal/authz"
+	"github.com/israel-duff/pgdock/internal/dedicated"
 	"github.com/israel-duff/pgdock/internal/provision"
 	"github.com/israel-duff/pgdock/internal/store"
 )
@@ -113,8 +114,20 @@ func (s *Server) CreateProject(w http.ResponseWriter, r *http.Request) {
 	if req.Profile != nil {
 		cp.Profile = *req.Profile
 	}
+	cp.Preview = req.Preview != nil && *req.Preview
+	if req.PgVersion != nil {
+		cp.PgVersion = *req.PgVersion
+	}
 	if req.VolumeGb != nil {
 		cp.VolumeGB = *req.VolumeGb
+	}
+	if req.Region != nil {
+		cp.Region = *req.Region
+		a.set("region", cp.Region)
+	}
+	if req.DataResidency != nil && *req.DataResidency {
+		cp.DataResidency = true
+		a.set("data_residency", true)
 	}
 	if s.tenancy != nil {
 		if !s.checkQuota(w, s.tenancy.CheckCreateProject(r.Context(), acc.OrgID)) {
@@ -212,6 +225,11 @@ func (s *Server) RotateProjectPassword(w http.ResponseWriter, r *http.Request, i
 }
 
 func (s *Server) writeCredentials(w http.ResponseWriter, p store.Project, op store.Operation, password string) {
+	s.writeCredentialsWith(w, p, op, password, nil)
+}
+
+// writeCredentialsWith is writeCredentials with a branch's API keys.
+func (s *Server) writeCredentialsWith(w http.ResponseWriter, p store.Project, op store.Operation, password string, api *gen.BranchApi) {
 	gp, err := s.toAPIProject(p)
 	if err != nil {
 		s.internalError(w, "project credentials", err)
@@ -229,6 +247,7 @@ func (s *Server) writeCredentials(w http.ResponseWriter, p store.Project, op sto
 		Operation:  o,
 		Password:   password,
 		Connection: toAPIConnection(conn, password),
+		Api:        api,
 	})
 }
 
@@ -255,11 +274,20 @@ func (s *Server) toAPIProject(p store.Project) (gen.Project, error) {
 			IdleInTransactionSessionTimeout: set.IdleInTransactionTimeout,
 			DiskWarnBytes:                   set.DiskWarnBytes,
 			ConsoleReadOnly:                 set.ConsoleReadOnly,
+			BackupRetention:                 ptrTo(gen.BackupRetention(set.Retention())),
 		},
 		Connection:             toAPIConnection(s.projects.ConnectionFor(p), ""),
+		Region:                 &p.Region,
+		DataResidency:          &p.DataResidency,
+		ForwardRegion:          p.ForwardRegion,
+		ForwardUntil:           p.ForwardUntil,
 		StorageState:           ptrTo(gen.StorageState(p.StorageState)),
 		CanSwitchCredentials:   ptrTo(provision.CanSwitchCredentials(p)),
 		LegacyCredentialsUntil: p.LegacyUntil,
+		Lifecycle:              ptrTo(gen.ProjectLifecycle(p.Lifecycle)),
+		LastActiveAt:           p.LastActiveAt,
+		PausedAt:               p.PausedAt,
+		ArchivedAt:             p.ArchivedAt,
 	}
 	branchFields(&gp, p)
 	return gp, nil
@@ -325,6 +353,8 @@ func (s *Server) provisionError(w http.ResponseWriter, what string, err error) {
 			msg = "no shared cluster is available for new projects"
 		}
 		writeError(w, http.StatusServiceUnavailable, "no_capacity", msg)
+	case errors.Is(err, dedicated.ErrHostPending):
+		writeError(w, http.StatusConflict, "capacity_pending_approval", err.Error()+"; you'll be able to create the project once it is in service")
 	case errors.Is(err, provision.ErrNoDedicated), errors.Is(err, provision.ErrUnreachable):
 		writeError(w, http.StatusServiceUnavailable, "unavailable", err.Error())
 	default:
@@ -342,6 +372,10 @@ func provisionUpdate(req gen.UpdateProjectRequest) provision.UpdateParams {
 			IdleInTransactionTimeout: st.IdleInTransactionSessionTimeout,
 			DiskWarnBytes:            st.DiskWarnBytes,
 			ConsoleReadOnly:          st.ConsoleReadOnly,
+		}
+		if st.BackupRetention != nil {
+			v := string(*st.BackupRetention)
+			p.Settings.BackupRetention = &v
 		}
 	}
 	return p

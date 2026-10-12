@@ -31,9 +31,25 @@ when your organisation is removed.
 
 ## No guarantees
 
-The service is provided as is, without uptime or durability guarantees.
+Except where the service level agreement (the SLA) says otherwise, the
+service is provided as is, without uptime or durability guarantees.
 Keep your own copies of anything you cannot afford to lose: every project
 can be exported as a ` + "`pg_dump`" + ` file at any time.
+
+## Prices and repricing
+
+Paid plans are priced in naira, in versioned price books. Prices are
+reviewed at least quarterly. A new price book takes effect no sooner than
+30 days after your billing contacts are told, with a comparison of old and
+new prices for your usage; annual terms keep their prices until they renew.
+
+## Support
+
+Support is by email, from the dashboard, and (on Pro and Team) by
+WhatsApp. The first response comes within these targets, in Nigerian
+business hours (09:00 to 17:00 WAT, Monday to Friday): Free, best effort;
+Pro, one business day; Team, four business hours; urgent issues on a paid
+plan (an HA project down), one hour at any time.
 
 ## Acceptable use
 
@@ -64,4 +80,25 @@ What you store in your databases is yours. If it includes personal data
 about other people, you are responsible for having the right to hold it.
 
 You can ask the platform admin to delete your account at any time.
+`
+
+// DefaultAUP is version 1 of the acceptable use policy (V3 §7.3), accepted
+// with the terms. A template: have it reviewed before a paid launch.
+const DefaultAUP = `# Acceptable use policy
+
+You may not use PGDock, or let others use your projects, to:
+
+- break the law, or help anyone else break it;
+- store or process data you have no right to hold, or personal data
+  without a lawful basis;
+- send spam, or host phishing or malware;
+- attack, probe or overload PGDock, its other customers, or any other
+  system (including running scanners or crypto miners from scheduled jobs
+  or webhooks);
+- get around the limits of your plan, the Free tier's pause and archive,
+  or one Free organisation per person;
+- resell PGDock without a written agreement.
+
+We may suspend projects or organisations that do, with notice where the
+law and the situation allow. Report abuse to the support address.
 `

@@ -1,4 +1,4 @@
-import { ArrowDownUp, Columns3, Copy, Download, ListFilter, Plus, RefreshCw, Rows3, Trash2, X } from "lucide-react";
+import { ArrowDownUp, Columns3, Copy, Download, ListFilter, Plus, RefreshCw, Rows3, ShieldCheck, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import type { GridFilter, TableInfo } from "../../api/client";
 import { needsValue, opsFor, toGridFilters, type FilterRule, type SortRule } from "../../lib/tableEditor/filters";
@@ -175,6 +175,7 @@ export function Toolbar({
   onCopySelected,
   onClearSelection,
   onRefresh,
+  onPolicies,
 }: {
   info: TableInfo;
   filters: GridFilter[];
@@ -191,6 +192,7 @@ export function Toolbar({
   onCopySelected: () => void;
   onClearSelection: () => void;
   onRefresh: () => void;
+  onPolicies?: () => void;
 }) {
   const editable = canEdit && info.editable;
   return (
@@ -251,6 +253,11 @@ export function Toolbar({
             </span>
           )}
           <span className="flex-1" />
+          {editable && onPolicies && (info.kind === "table" || info.kind === "partitioned_table") && (
+            <Button size="tiny" variant="ghost" icon={<ShieldCheck className="h-3.5 w-3.5" />} onClick={onPolicies} data-testid="policy-helper">
+              Policies
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="tiny" variant="ghost" icon={<Download className="h-3.5 w-3.5" />} data-testid="export-menu">

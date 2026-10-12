@@ -107,6 +107,16 @@ func (s *Server) UpdateProject(w http.ResponseWriter, r *http.Request, id gen.Pr
 			}
 		}
 	}
+	if p.Settings != nil && p.Settings.BackupRetention != nil {
+		level, ok := store.BackupRetentionLevel(*p.Settings.BackupRetention)
+		if !ok {
+			writeError(w, http.StatusBadRequest, "bad_request", "backup_retention must be standard, extended or long")
+			return
+		}
+		if level > 0 && !s.addonAllowed(w, r, store.LimitBackupRetentionMax, level, "longer backup retention") {
+			return
+		}
+	}
 	upd, err := s.projects.Update(r.Context(), id, p, userID(r.Context()))
 	if err != nil {
 		s.provisionError(w, "update project", err)

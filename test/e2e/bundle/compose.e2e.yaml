@@ -50,6 +50,9 @@ services:
       PGDOCK_LOG_FORMAT: text
       # Charts fill in seconds rather than minutes.
       PGDOCK_METRICS_INTERVAL: 5s
+      # Backend services' API URLs (https://<ref>.api.e2e.test) for the API
+      # page's quick start and table docs; no edge serves them here.
+      PGDOCK_API_DOMAIN: api.e2e.test
     volumes:
       - ../../test/e2e/bundle/pebble.minica.pem:/etc/pgdock/pebble.minica.pem:ro
 

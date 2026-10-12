@@ -26,13 +26,16 @@ func TestMultiNodeSharedPlacement(t *testing.T) {
 		t.Fatalf("nodes: %+v", nodes.Items)
 	}
 	var updated gen.Node
-	if code := e.Do("PATCH", "/api/v1/nodes/"+nodes.Items[0].Id.String(), gen.UpdateNodeRequest{Role: gen.UpdateNodeRequestRoleShared}, &updated); code != http.StatusOK || updated.Role != "shared" {
+	sharedRole := gen.UpdateNodeRequestRoleShared
+	if code := e.Do("PATCH", "/api/v1/nodes/"+nodes.Items[0].Id.String(), gen.UpdateNodeRequest{Role: &sharedRole}, &updated); code != http.StatusOK || updated.Role != "shared" {
 		t.Fatalf("set role: %d %+v", code, updated)
 	}
 	tier := gen.ProjectTierDedicated
 	var apiErr gen.Error
 	e.ConfigureBackups()
-	if code := e.Do("POST", "/api/v1/projects", gen.CreateProjectRequest{Name: "Too early", Tier: &tier}, &apiErr); code != http.StatusServiceUnavailable || apiErr.Code != "no_capacity" {
+	// The harness can add hosts (a fake Hetzner, V4.1 §5.3), but with no
+	// infrastructure budget the host waits for the admin.
+	if code := e.Do("POST", "/api/v1/projects", gen.CreateProjectRequest{Name: "Too early", Tier: &tier}, &apiErr); code != http.StatusConflict || apiErr.Code != "capacity_pending_approval" {
 		t.Fatalf("dedicated without a dedicated node: %d %+v", code, apiErr)
 	}
 

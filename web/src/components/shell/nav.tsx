@@ -1,4 +1,7 @@
 import {
+  KeyRound,
+  HardDrive,
+  Radio,
   Activity,
   Bell,
   Building2,
@@ -8,6 +11,13 @@ import {
   Gauge,
   House,
   Inbox,
+  Coins,
+  Globe,
+  Layers,
+  LifeBuoy,
+  Scale,
+  TrendingUp,
+  Megaphone,
   ScrollText,
   Server,
   Settings,
@@ -15,6 +25,8 @@ import {
   Table2,
   Users,
   type LucideIcon,
+  Receipt,
+  Tag,
 } from "lucide-react";
 import type { Org, Project } from "../../api/client";
 
@@ -38,7 +50,10 @@ export type RailItem = {
   divider?: boolean;
 };
 
-export type ShellContext = { kind: "project"; projectId: string } | { kind: "platform" } | { kind: "org" };
+export type ShellContext =
+  | { kind: "project"; projectId: string }
+  | { kind: "platform" }
+  | { kind: "org" };
 
 const projectPath = /^\/projects\/([0-9a-f-]{36})(\/|$)/;
 const platformPaths = ["/nodes", "/alerts", "/admin", "/audit"];
@@ -48,12 +63,18 @@ const platformPaths = ["/nodes", "/alerts", "/admin", "/audit"];
 export function contextFor(pathname: string): ShellContext {
   const m = projectPath.exec(pathname);
   if (m) return { kind: "project", projectId: m[1] };
-  if (pathname === "/settings" || platformPaths.some((p) => pathname === p || pathname.startsWith(p + "/"))) return { kind: "platform" };
+  if (
+    pathname === "/settings" ||
+    platformPaths.some((p) => pathname === p || pathname.startsWith(p + "/"))
+  )
+    return { kind: "platform" };
   return { kind: "org" };
 }
 
 /** A project's sections (docs/ui-redesign.md, the navigation map). */
-export function projectRail(p: Pick<Project, "id" | "my_role" | "parent_project_id">): RailItem[] {
+export function projectRail(
+  p: Pick<Project, "id" | "my_role" | "parent_project_id">,
+): RailItem[] {
   const base = `/projects/${p.id}`;
   const admin = p.my_role === "admin";
   const dev = admin || p.my_role === "developer";
@@ -79,6 +100,7 @@ export function projectRail(p: Pick<Project, "id" | "my_role" | "parent_project_
           { label: "Database", to: `${base}/settings/database` },
           { label: "Compute and tier", to: `${base}/settings/compute` },
           { label: "Backup storage", to: `${base}/settings/storage` },
+          { label: "API", to: `${base}/settings/api` },
         ]
       : []),
     { label: "Members", to: `${base}/members` },
@@ -116,12 +138,44 @@ export function projectRail(p: Pick<Project, "id" | "my_role" | "parent_project_
       sidebar: { title: "Database", links: database },
       divider: true,
     },
+    ...(dev
+      ? [
+          {
+            key: "auth",
+            label: "Authentication",
+            icon: KeyRound,
+            to: `${base}/auth`,
+            match: [`${base}/auth`],
+          },
+          {
+            key: "files",
+            label: "Storage",
+            icon: HardDrive,
+            to: `${base}/files`,
+            match: [`${base}/files`],
+          },
+          {
+            key: "realtime",
+            label: "Realtime",
+            icon: Radio,
+            to: `${base}/realtime`,
+            match: [`${base}/realtime`],
+          },
+        ]
+      : []),
     {
       key: "reports",
       label: "Reports",
       icon: ChartNoAxesColumn,
       to: `${base}/metrics`,
       match: [`${base}/metrics`],
+    },
+    {
+      key: "insights",
+      label: "Query insights",
+      icon: Gauge,
+      to: `${base}/insights`,
+      match: [`${base}/insights`],
       divider: true,
     },
     {
@@ -168,7 +222,38 @@ export function orgRail(org: Org | undefined): RailItem[] {
       to: "/operations",
       match: ["/operations"],
     },
+    {
+      key: "support",
+      label: "Support",
+      icon: LifeBuoy,
+      to: "/org/support",
+      match: ["/org/support"],
+    },
+    {
+      key: "legal",
+      label: "Legal",
+      icon: Scale,
+      to: "/org/legal",
+      match: ["/org/legal"],
+    },
+    {
+      key: "pricing",
+      label: "Pricing",
+      icon: Tag,
+      to: "/pricing",
+      match: ["/pricing"],
+    },
   ];
+  // Owners and billing members see billing (V3 §3.2).
+  if (org?.role === "owner" || org?.role === "billing") {
+    items.push({
+      key: "billing",
+      label: "Billing",
+      icon: Receipt,
+      to: "/org/billing",
+      match: ["/org/billing"],
+    });
+  }
   if (manager) {
     items.push(
       {
@@ -198,8 +283,18 @@ export function orgRail(org: Org | undefined): RailItem[] {
   return items;
 }
 
-/** The platform admin's sections. */
-export function platformRail(): RailItem[] {
+const supportItem: RailItem = {
+  key: "support-console",
+  label: "Support",
+  icon: LifeBuoy,
+  to: "/admin/support",
+  match: ["/admin/support"],
+};
+
+/** The platform's sections: everything for a platform admin, the support
+ * console alone for support staff (V3 §7.1). */
+export function platformRail(role: string = "platform_admin"): RailItem[] {
+  if (role === "support") return [supportItem];
   return [
     {
       key: "nodes",
@@ -207,6 +302,27 @@ export function platformRail(): RailItem[] {
       icon: Server,
       to: "/nodes",
       match: ["/nodes"],
+    },
+    {
+      key: "capacity",
+      label: "Capacity",
+      icon: Layers,
+      to: "/admin/capacity",
+      match: ["/admin/capacity"],
+    },
+    {
+      key: "regions",
+      label: "Regions",
+      icon: Globe,
+      to: "/admin/regions",
+      match: ["/admin/regions"],
+    },
+    {
+      key: "pg-versions",
+      label: "Postgres versions",
+      icon: Layers,
+      to: "/admin/pg-versions",
+      match: ["/admin/pg-versions"],
     },
     {
       key: "orgs",
@@ -230,6 +346,35 @@ export function platformRail(): RailItem[] {
       match: ["/admin/plans"],
     },
     {
+      key: "billing",
+      label: "Billing",
+      icon: Receipt,
+      to: "/admin/billing",
+      match: ["/admin/billing"],
+    },
+    {
+      key: "revenue",
+      label: "Revenue",
+      icon: TrendingUp,
+      to: "/admin/revenue",
+      match: ["/admin/revenue"],
+    },
+    {
+      key: "costs",
+      label: "Costs & margins",
+      icon: Coins,
+      to: "/admin/costs",
+      match: ["/admin/costs"],
+    },
+    {
+      key: "legal",
+      label: "Legal documents",
+      icon: Scale,
+      to: "/admin/legal",
+      match: ["/admin/legal"],
+    },
+    supportItem,
+    {
       key: "requests",
       label: "Dedicated requests",
       icon: Inbox,
@@ -243,6 +388,13 @@ export function platformRail(): RailItem[] {
       to: "/alerts",
       match: ["/alerts"],
       divider: true,
+    },
+    {
+      key: "incidents",
+      label: "Incidents",
+      icon: Megaphone,
+      to: "/admin/incidents",
+      match: ["/admin/incidents"],
     },
     {
       key: "platform-audit",
@@ -263,7 +415,13 @@ export function platformRail(): RailItem[] {
 }
 
 /** Whether a rail entry (or a sidebar link) is the current page. */
-export function isActive(pathname: string, match: string[], exact?: boolean): boolean {
+export function isActive(
+  pathname: string,
+  match: string[],
+  exact?: boolean,
+): boolean {
   const path = pathname.replace(/\/$/, "");
-  return match.some((m) => (exact ? path === m : path === m || path.startsWith(m + "/")));
+  return match.some((m) =>
+    exact ? path === m : path === m || path.startsWith(m + "/"),
+  );
 }

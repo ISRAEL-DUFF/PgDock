@@ -1,0 +1,12 @@
+{
+  "description": "A DELETE: record is null, old_record the deleted row.",
+  "secret": "whsec_XAV-Im6uAXpO0hJfe2DTF8mj1c9I7wVTGmq-VVXLs7w",
+  "headers": {
+    "Content-Type": "application/json",
+    "PGDock-Event-Id": "evt_cf2c458a19a9_3",
+    "PGDock-Signature": "t=1791581570,v1=657c62615e5f584a5f9b2278eca6c3599a857a3ad20d4c28d78dee1fae365009",
+    "PGDock-Webhook": "taskiem-wf_sample",
+    "User-Agent": "PGDock-Webhooks/1"
+  },
+  "body": "{\"id\":\"evt_cf2c458a19a9_3\",\"webhook\":\"taskiem-wf_sample\",\"project\":\"p_r7trlpni7h\",\"project_id\":\"bf497edb-3bf5-4189-a124-52731c45d74a\",\"table\":\"public.orders\",\"type\":\"DELETE\",\"record\":null,\"old_record\":{\"id\":1,\"meta\":{\"channel\":\"web\"},\"paid\":true,\"tags\":[\"priority\",\"lagos\"],\"notes\":null,\"total\":1500.00,\"status\":\"paid\",\"created_at\":\"2026-10-09T21:32:50.235162+00:00\"},\"committed_at\":\"2026-10-09T21:32:50.235162Z\",\"primary_key\":{\"id\":1}}"
+}

@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/israel-duff/pgdock/internal/store"
 )
@@ -47,6 +49,9 @@ func (s *Service) CheckCreateProject(ctx context.Context, orgID uuid.UUID) error
 	if err := s.orgActive(o); err != nil {
 		return err
 	}
+	if err := s.CheckBillingStanding(ctx, orgID); err != nil {
+		return err
+	}
 	if limit, ok := l.Get(store.LimitProjects); ok {
 		n, err := store.New(s.db).CountOrgProjects(ctx, orgID)
 		if err != nil {
@@ -55,6 +60,34 @@ func (s *Service) CheckCreateProject(ctx context.Context, orgID uuid.UUID) error
 		if int64(n) >= limit {
 			return &QuotaError{Limit: store.LimitProjects, Used: int64(n), Max: limit}
 		}
+	}
+	return nil
+}
+
+// CheckSpendCap refuses a new billable resource (a branch, a dedicated
+// instance, HA) while the organisation is at its spend cap (V3 §3.10).
+// Nothing running is stopped.
+func (s *Service) CheckSpendCap(ctx context.Context, orgID uuid.UUID) error {
+	capped, err := store.New(s.db).OrgSpendCapped(ctx, orgID)
+	if err != nil {
+		return err
+	}
+	if capped {
+		return fmt.Errorf("%w: the organisation has reached its spend cap; new billable resources are paused until the cap is raised on the Billing page or next month starts", ErrConflict)
+	}
+	return nil
+}
+
+// CheckBillingStanding refuses new projects, branches and dedicated
+// instances while the organisation is restricted for an overdue balance
+// (V3 §3.8, day 3 on).
+func (s *Service) CheckBillingStanding(ctx context.Context, orgID uuid.UUID) error {
+	state, err := store.New(s.db).OrgDunningState(ctx, orgID)
+	if err != nil {
+		return err
+	}
+	if state == "restricted" || state == "suspended" {
+		return fmt.Errorf("%w: the organisation has an overdue balance; creating projects, branches and dedicated instances is blocked until it is paid (Billing page)", ErrConflict)
 	}
 	return nil
 }
@@ -68,6 +101,12 @@ func (s *Service) CheckCreateBranch(ctx context.Context, orgID uuid.UUID, parent
 		return err
 	}
 	if err := s.orgActive(o); err != nil {
+		return err
+	}
+	if err := s.CheckSpendCap(ctx, orgID); err != nil {
+		return err
+	}
+	if err := s.CheckBillingStanding(ctx, orgID); err != nil {
 		return err
 	}
 	q := store.New(s.db)
@@ -229,6 +268,29 @@ func (s *Service) WithinAllowance(ctx context.Context, orgID uuid.UUID, d Dedica
 		int(u.DiskGb)+d.DiskGB <= a.DiskGB, nil
 }
 
+// WithinAllowanceChange reports whether orgID may resize one of its
+// dedicated instances from one size to another without asking.
+func (s *Service) WithinAllowanceChange(ctx context.Context, orgID uuid.UUID, from, to Dedicated) (bool, error) {
+	_, o, err := s.Limits(ctx, orgID)
+	if err != nil {
+		return false, err
+	}
+	if o.PlanName == UnlimitedPlan {
+		return true, nil
+	}
+	a, err := store.DecodeDedicatedAllowance(o.DedicatedAllowance)
+	if err != nil {
+		return false, err
+	}
+	u, err := store.New(s.db).OrgDedicatedUse(ctx, orgID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return false, err
+	}
+	return u.Cpus-from.CPUs+to.CPUs <= a.CPUs+1e-9 &&
+		int(u.MemMb)-from.MemoryMB+to.MemoryMB <= a.MemoryMB &&
+		int(u.DiskGb)-from.DiskGB+to.DiskGB <= a.DiskGB, nil
+}
+
 // Quota is one limit with its current use, for the Usage & quotas page.
 type Quota struct {
 	Limit string
@@ -267,6 +329,30 @@ func (s *Service) Quotas(ctx context.Context, orgID uuid.UUID) ([]Quota, store.O
 	if err != nil {
 		return nil, o, err
 	}
+	// Backend services' files (V4 §10): what the sweep measured, and this
+	// month's downloads and image renders.
+	fileRows, err := q.OrgFileBytes(ctx, orgID)
+	if err != nil {
+		return nil, o, err
+	}
+	var fileBytes float64
+	for _, f := range fileRows {
+		fileBytes += float64(f.Bytes)
+	}
+	month := time.Now().UTC()
+	month = time.Date(month.Year(), month.Month(), 1, 0, 0, 0, 0, time.UTC)
+	egress, err := q.OrgUsageSince(ctx, store.OrgUsageSinceParams{OrgID: orgID, Metric: MetricStorageEgress, Since: month})
+	if err != nil {
+		return nil, o, err
+	}
+	renders, err := q.OrgUsageSince(ctx, store.OrgUsageSinceParams{OrgID: orgID, Metric: MetricImageTransforms, Since: month})
+	if err != nil {
+		return nil, o, err
+	}
+	rtMessages, err := q.OrgUsageSince(ctx, store.OrgUsageSinceParams{OrgID: orgID, Metric: MetricRealtimeMessages, Since: month})
+	if err != nil {
+		return nil, o, err
+	}
 	s.consoleMu.Lock()
 	console := s.console[orgID]
 	s.consoleMu.Unlock()
@@ -278,6 +364,10 @@ func (s *Service) Quotas(ctx context.Context, orgID uuid.UUID) ([]Quota, store.O
 		store.LimitOperationsInFlight: float64(ops),
 		store.LimitConsoleQueries:     float64(console),
 		store.LimitBackupStorageMB:    backups / (1 << 20),
+		store.LimitFileStorageMB:      fileBytes / (1 << 20),
+		store.LimitStorageEgressMBMo:  numericValue(egress) * 1000,
+		store.LimitImageTransformsMo:  numericValue(renders),
+		store.LimitRealtimeMessagesMo: numericValue(rtMessages),
 	}
 	var out []Quota
 	for _, k := range store.LimitKeys {
@@ -288,4 +378,12 @@ func (s *Service) Quotas(ctx context.Context, orgID uuid.UUID) ([]Quota, store.O
 		out = append(out, qt)
 	}
 	return out, o, nil
+}
+
+func numericValue(n pgtype.Numeric) float64 {
+	f, err := n.Float64Value()
+	if err != nil || !f.Valid {
+		return 0
+	}
+	return f.Float64
 }

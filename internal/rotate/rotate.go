@@ -29,6 +29,9 @@ func recoveryAAD(id uuid.UUID) []byte { return []byte("users.recovery_codes:" + 
 func storageAAD(id uuid.UUID) []byte  { return []byte("storage_targets.credentials:" + id.String()) }
 func nodeAAD(id uuid.UUID) []byte     { return []byte("nodes.pg_admin_secret:" + id.String()) }
 func instanceAAD(id uuid.UUID) []byte { return []byte("instances.admin_secret:" + id.String()) }
+
+// jwtKeyAAD matches services.JWTKeyAAD.
+func jwtKeyAAD(id uuid.UUID) []byte { return []byte("project_jwt_keys.private_enc:" + id.String()) }
 func opAAD(kind string, p uuid.UUID) []byte {
 	return []byte("operations.secrets.password:" + kind + ":" + p.String())
 }
@@ -147,6 +150,8 @@ func collect(ctx context.Context, tx pgx.Tx) ([]secret, error) {
 			`UPDATE nodes SET pg_admin_secret = $2 WHERE id = $1`},
 		{"instance admin credential", `SELECT id, admin_secret FROM instances WHERE admin_secret IS NOT NULL FOR UPDATE`, instanceAAD,
 			`UPDATE instances SET admin_secret = $2 WHERE id = $1`},
+		{"project signing key", `SELECT id, private_enc FROM project_jwt_keys FOR UPDATE`, jwtKeyAAD,
+			`UPDATE project_jwt_keys SET private_enc = $2 WHERE id = $1`},
 	} {
 		if err := add(c.what, c.query, c.aad, c.update); err != nil {
 			return nil, err

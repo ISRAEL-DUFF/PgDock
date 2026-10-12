@@ -1,0 +1,12 @@
+{
+  "description": "The event POST /projects/{id}/webhooks/{id}/test sends: type TEST, no table or row.",
+  "secret": "whsec_XAV-Im6uAXpO0hJfe2DTF8mj1c9I7wVTGmq-VVXLs7w",
+  "headers": {
+    "Content-Type": "application/json",
+    "PGDock-Event-Id": "evt_test_2ae453fab2c74b6a",
+    "PGDock-Signature": "t=1791581570,v1=09c9057b5d7c3b956ac7fe39488c78fc5f205f8e379a2d7fbcda4bd4b128d5d0",
+    "PGDock-Webhook": "taskiem-wf_sample",
+    "User-Agent": "PGDock-Webhooks/1"
+  },
+  "body": "{\"id\":\"evt_test_2ae453fab2c74b6a\",\"webhook\":\"taskiem-wf_sample\",\"project\":\"p_r7trlpni7h\",\"project_id\":\"bf497edb-3bf5-4189-a124-52731c45d74a\",\"table\":\"\",\"type\":\"TEST\",\"record\":{\"message\":\"A test event from PGDock\"},\"old_record\":null,\"committed_at\":\"2026-10-09T21:32:50.388500662Z\"}"
+}

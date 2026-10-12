@@ -16,6 +16,7 @@ import (
 	"github.com/israel-duff/pgdock/internal/auth"
 	"github.com/israel-duff/pgdock/internal/authz"
 	"github.com/israel-duff/pgdock/internal/backup"
+	"github.com/israel-duff/pgdock/internal/faildomain"
 	"github.com/israel-duff/pgdock/internal/nodes"
 	"github.com/israel-duff/pgdock/internal/storage"
 	"github.com/israel-duff/pgdock/internal/store"
@@ -613,8 +614,13 @@ func (s *Server) toAPINode(n store.Node) gen.Node {
 	gn := gen.Node{
 		Id: n.ID, Name: n.Name, PrivateAddr: n.PrivateAddr, Role: n.Role, Status: n.Status,
 		LastHeartbeat: n.LastHeartbeat, CreatedAt: n.CreatedAt,
-		Agent: gen.AgentStatus{Registered: n.AgentCertFp != nil, CertFingerprint: n.AgentCertFp, Version: n.AgentVersion},
+		Agent:  gen.AgentStatus{Registered: n.AgentCertFp != nil, CertFingerprint: n.AgentCertFp, Version: n.AgentVersion},
+		Region: &n.Region, Provider: &n.Provider, ServerType: n.ServerType, MonthlyCostMinor: n.MonthlyCostMinor,
+		CostCurrency: &n.CostCurrency, EmptySince: n.EmptySince, Keep: &n.Keep,
+		FailureDomain: n.FailureDomain, PlacementGroup: n.PlacementGroup, FailureDomainLabel: ptrTo(faildomain.Label(n)),
 	}
+	lc := gen.NodeLifecycle(n.Lifecycle)
+	gn.Lifecycle = &lc
 	if n.AgentCertFp != nil {
 		host := n.PrivateAddr
 		if n.AgentHost != nil && *n.AgentHost != "" {

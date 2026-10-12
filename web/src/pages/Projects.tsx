@@ -67,6 +67,7 @@ function ProjectCard({ p, branches }: { p: Project; branches: Project[] }) {
         <Badge tone={p.tier === "dedicated" ? "accent" : "muted"}>{p.tier === "dedicated" ? "Dedicated" : "Shared"}</Badge>
         {p.instance?.node_name && <Badge>{p.instance.node_name}</Badge>}
         {p.sensitive_data && <Badge tone="warn">sensitive</Badge>}
+        {p.lifecycle && p.lifecycle !== "active" && <Badge tone="warn">{p.lifecycle}</Badge>}
       </div>
       <div className="flex items-center justify-between text-[12px] text-muted">
         <span className="flex items-center gap-1">
@@ -243,7 +244,7 @@ export function ProjectsPage() {
                 <Badge tone={p.tier === "dedicated" ? "accent" : "muted"}>{p.tier === "dedicated" ? "Dedicated" : "Shared"}</Badge>
               </td>
               <td className="px-3 py-2">
-                <StatusBadge status={p.status} />
+                <StatusBadge status={p.status} /> {p.lifecycle && p.lifecycle !== "active" && <Badge tone="warn">{p.lifecycle}</Badge>}
               </td>
               <td className="px-3 py-2">
                 <LastBackup p={p} />

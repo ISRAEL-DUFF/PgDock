@@ -110,7 +110,17 @@ func (a *App) projectsInfo(args []string) error {
 		fmt.Fprintf(w, "ID:\t%s\n", p.Id)
 		fmt.Fprintf(w, "Tier:\t%s\n", p.Tier)
 		fmt.Fprintf(w, "Status:\t%s\n", p.Status)
+		if p.Lifecycle != nil && *p.Lifecycle != "active" {
+			fmt.Fprintf(w, "Lifecycle:\t%s for inactivity (pgdock resume %s)\n", *p.Lifecycle, p.Name)
+		}
 		fmt.Fprintf(w, "Database:\t%s\n", p.DbName)
+		if p.Region != nil {
+			res := ""
+			if p.DataResidency != nil && *p.DataResidency {
+				res = " (data residency on)"
+			}
+			fmt.Fprintf(w, "Region:\t%s%s\n", *p.Region, res)
+		}
 		fmt.Fprintf(w, "Host:\t%s (pooled %d, session %d)\n", p.Connection.Host, p.Connection.PooledPort, p.Connection.SessionPort)
 		if p.MyRole != nil {
 			fmt.Fprintf(w, "Your role:\t%s\n", *p.MyRole)
@@ -125,11 +135,14 @@ func (a *App) projectsCreate(args []string) error {
 	tier := fs.String("tier", "shared", "shared or dedicated")
 	profile := fs.String("profile", "", "dedicated size (small, medium, large)")
 	desc := fs.String("description", "", "a description")
+	version := fs.Int("pg-version", 0, "the Postgres major (default: the newest supported)")
+	region := fs.String("region", "", "the region (see pgdock regions; default: the platform's home region)")
+	residency := fs.Bool("data-residency", false, "keep the data, backups and branches in the region's country")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
 	}
-	if err := need(pos, 1, "projects create <name> [--tier shared|dedicated] [--profile …]"); err != nil {
+	if err := need(pos, 1, "projects create <name> [--tier shared|dedicated] [--profile …] [--pg-version 17] [--region ng-lagos [--data-residency]]"); err != nil {
 		return err
 	}
 	org, err := a.orgID()
@@ -143,6 +156,15 @@ func (a *App) projectsCreate(args []string) error {
 	}
 	if *desc != "" {
 		req.Description = desc
+	}
+	if *version != 0 {
+		req.PgVersion = version
+	}
+	if *region != "" {
+		req.Region = region
+	}
+	if *residency {
+		req.DataResidency = residency
 	}
 	c, cancel := ctx()
 	defer cancel()
@@ -450,5 +472,55 @@ func (a *App) demote(args []string) error {
 	}
 	return a.emit(op, func(w io.Writer) {
 		fmt.Fprintf(w, "Demoted %s to the shared tier (operation %s); its URL and every password are unchanged.\n", p.Name, op.Id)
+	})
+}
+
+func (a *App) resume(args []string) error {
+	pos, err := parse(flag.NewFlagSet("resume", flag.ContinueOnError), args)
+	if err != nil {
+		return err
+	}
+	if err := need(pos, 1, "resume <project>"); err != nil {
+		return err
+	}
+	p, err := a.project(pos[0])
+	if err != nil {
+		return err
+	}
+	c, cancel := ctx()
+	defer cancel()
+	r, err := a.api.ResumeProjectWithResponse(c, p.Id)
+	if err := check(r, err); err != nil {
+		return err
+	}
+	return a.followOp(r.JSON202, p.Name+" accepts connections again")
+}
+
+func (a *App) regionsList(args []string) error {
+	if _, err := parse(flag.NewFlagSet("regions", flag.ContinueOnError), args); err != nil {
+		return err
+	}
+	if err := a.connectAPI(); err != nil {
+		return err
+	}
+	c, cancel := ctx()
+	defer cancel()
+	r, err := a.api.ListRegionsWithResponse(c)
+	if err := check(r, err); err != nil {
+		return err
+	}
+	return a.emit(r.JSON200.Items, func(w io.Writer) {
+		fmt.Fprintln(w, "ID\tNAME\tCOUNTRY\tRESIDENCY")
+		for _, g := range r.JSON200.Items {
+			name := g.Name
+			if g.Home {
+				name += " (default)"
+			}
+			res := "no"
+			if g.Residency {
+				res = "offered"
+			}
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", g.Id, name, g.Country, res)
+		}
 	})
 }

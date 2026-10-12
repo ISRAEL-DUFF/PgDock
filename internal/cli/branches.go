@@ -112,6 +112,13 @@ func envLines(w io.Writer, cr *client.ProjectCredentials) {
 	fmt.Fprintf(w, "DATABASE_URL_SESSION=%s\n", cr.Connection.SessionUrl)
 	fmt.Fprintf(w, "PGDOCK_BRANCH_ID=%s\n", cr.Project.Id)
 	fmt.Fprintf(w, "PGDOCK_BRANCH=%s\n", cr.Project.Name)
+	if api := cr.Api; api != nil {
+		if api.Url != nil {
+			fmt.Fprintf(w, "PGDOCK_API_URL=%s\n", *api.Url)
+		}
+		fmt.Fprintf(w, "PGDOCK_PUBLISHABLE_KEY=%s\n", api.PublishableKey)
+		fmt.Fprintf(w, "PGDOCK_SECRET_KEY=%s\n", api.SecretKey)
+	}
 }
 
 func (a *App) branchCreate(args []string) error {
@@ -122,11 +129,12 @@ func (a *App) branchCreate(args []string) error {
 	ttl := fs.String("ttl", "7d", "delete the branch after this long, e.g. 72h or 7d; 0 keeps it")
 	env := fs.Bool("env", false, "print DATABASE_URL=… lines (for $GITHUB_ENV or a .env file)")
 	replace := fs.Bool("replace", false, "delete an existing branch of the same name first (one branch per pull request)")
+	copyFiles := fs.Bool("copy-files", false, "with backend services: copy the parent's stored files too, in the background")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
 	}
-	if err := need(pos, 2, "branch create <project> <name> [--from backup|live] [--schema-only] [--ttl 72h] [--env]"); err != nil {
+	if err := need(pos, 2, "branch create <project> <name> [--from backup|live] [--schema-only] [--ttl 72h] [--env] [--copy-files]"); err != nil {
 		return err
 	}
 	if *schemaOnly && *withData {
@@ -160,6 +168,9 @@ func (a *App) branchCreate(args []string) error {
 		return usageErrorf("the TTL must be at least 1h")
 	}
 	req := client.BranchRequest{Name: name, Source: &src, TtlHours: &hours}
+	if *copyFiles {
+		req.CopyFiles = copyFiles
+	}
 	switch {
 	case *schemaOnly:
 		req.SchemaOnly = schemaOnly
@@ -194,7 +205,12 @@ func (a *App) branchCreate(args []string) error {
 		fmt.Fprintf(w, "Pooled URL:\t%s\n", cr.Connection.PooledUrl)
 		fmt.Fprintf(w, "Session URL:\t%s\n", cr.Connection.SessionUrl)
 		fmt.Fprintf(w, "Password:\t%s\n", cr.Password)
-		fmt.Fprintln(w, "\nThe password is shown once: store it now. Resets keep it.")
+		if api := cr.Api; api != nil {
+			fmt.Fprintf(w, "API URL:\t%s\n", orDash(api.Url))
+			fmt.Fprintf(w, "Publishable key:\t%s\n", api.PublishableKey)
+			fmt.Fprintf(w, "Secret key:\t%s\n", api.SecretKey)
+		}
+		fmt.Fprintln(w, "\nThe password and keys are shown once: store them now. Resets keep them.")
 	})
 }
 

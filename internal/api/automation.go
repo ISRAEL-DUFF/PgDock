@@ -63,6 +63,10 @@ func (s *Server) toAPIWebhook(wh store.Webhook, backlog int64) gen.Webhook {
 		Id: wh.ID, ProjectId: wh.ProjectID, Name: wh.Name, Tables: wh.Tables, Events: wh.Events, Url: wh.Url,
 		HeaderNames: []string{}, Enabled: wh.Enabled, Status: gen.WebhookStatus(wh.Status), StatusReason: wh.StatusReason,
 		ConsecutiveFailures: int(wh.ConsecutiveFailures), Backlog: backlog, CreatedAt: wh.CreatedAt,
+		Description: wh.Description, Metadata: webhooks.Metadata(wh),
+	}
+	if wh.PreviousSecretExpiresAt != nil && time.Now().Before(*wh.PreviousSecretExpiresAt) {
+		out.PreviousSecretExpiresAt = wh.PreviousSecretExpiresAt
 	}
 	if len(wh.Columns) > 0 {
 		cols := wh.Columns
@@ -114,7 +118,7 @@ func (s *Server) ListWebhooks(w http.ResponseWriter, r *http.Request, _ gen.Proj
 // CreateWebhook implements POST /api/v1/projects/{id}/webhooks.
 func (s *Server) CreateWebhook(w http.ResponseWriter, r *http.Request, _ gen.ProjectID) {
 	p, ok := s.automationProject(w, r, "create webhook")
-	if !ok {
+	if !ok || s.writeAsleep(r.Context(), w, p.ID, p.Lifecycle) {
 		return
 	}
 	var req gen.WebhookRequest
@@ -131,6 +135,12 @@ func (s *Server) CreateWebhook(w http.ResponseWriter, r *http.Request, _ gen.Pro
 	}
 	if req.Headers != nil {
 		in.Headers = *req.Headers
+	}
+	if req.Description != nil {
+		in.Description = *req.Description
+	}
+	if req.Metadata != nil {
+		in.Metadata = *req.Metadata
 	}
 	c, err := s.webhooks.Create(r.Context(), p, in, userID(r.Context()))
 	if err != nil {
@@ -149,6 +159,11 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request, id gen.WebhookI
 	wh, err := store.New(s.db).GetWebhook(r.Context(), store.GetWebhookParams{ID: id, ProjectID: p.ID})
 	if err != nil {
 		s.automationError(w, what, err)
+		return p, wh, false
+	}
+	// Changes reach the project's database (its triggers and outbox);
+	// reads come from PGDock's own.
+	if r.Method != http.MethodGet && s.writeAsleep(r.Context(), w, p.ID, p.Lifecycle) {
 		return p, wh, false
 	}
 	a := auditFrom(r.Context())
@@ -177,7 +192,14 @@ func (s *Server) UpdateWebhook(w http.ResponseWriter, r *http.Request, _ gen.Pro
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	in := webhooks.Params{Name: wh.Name, Tables: wh.Tables, Events: wh.Events, Columns: wh.Columns, URL: wh.Url, Enabled: wh.Enabled}
+	in := webhooks.Params{Name: wh.Name, Tables: wh.Tables, Events: wh.Events, Columns: wh.Columns, URL: wh.Url, Enabled: wh.Enabled,
+		Description: wh.Description}
+	if req.Description != nil {
+		in.Description = *req.Description
+	}
+	if req.Metadata != nil {
+		in.Metadata = *req.Metadata
+	}
 	if req.Name != nil {
 		in.Name = *req.Name
 	}
@@ -254,12 +276,21 @@ func (s *Server) RotateWebhookSecret(w http.ResponseWriter, r *http.Request, _ g
 	if !ok {
 		return
 	}
-	secret, err := s.webhooks.RotateSecret(r.Context(), wh)
+	var req gen.WebhookRotateSecret
+	if !decodeOptionalJSON(w, r, &req) {
+		return
+	}
+	overlap := 0
+	if req.OverlapSeconds != nil {
+		overlap = *req.OverlapSeconds
+		auditFrom(r.Context()).set("overlap_seconds", overlap)
+	}
+	secret, until, err := s.webhooks.RotateSecret(r.Context(), wh, time.Duration(overlap)*time.Second)
 	if err != nil {
 		s.automationError(w, "rotate webhook secret", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, gen.WebhookSecret{Secret: secret})
+	writeJSON(w, http.StatusOK, gen.WebhookSecret{Secret: secret, PreviousSecretExpiresAt: until})
 }
 
 // ListWebhookDeliveries implements GET /api/v1/projects/{id}/webhooks/{webhook_id}/deliveries.

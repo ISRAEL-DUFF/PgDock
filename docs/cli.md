@@ -116,7 +116,7 @@ pgdock login | logout | context list | context use <name> | whoami
 pgdock orgs list | create <name>
 pgdock org members | invite <email> --role <r> | remove <email> | usage | quotas
 
-pgdock projects list | info <p> | create <name> [--tier] | delete <p> --confirm <name>
+pgdock projects list | info <p> | create <name> [--tier] [--pg-version 17] | delete <p> --confirm <name>
 pgdock connect <p> [--pooled|--session] [--psql]
 pgdock creds <p> [--rotate]
 pgdock sql <p> -c "select …" | -f file.sql [--json|--csv]
@@ -128,11 +128,38 @@ pgdock backup list <p> | create <p> | restore <p> --backup <id> [--into <name>]
 pgdock backup download <p> [--backup <id>] [-o file]   # organisation owners: a pg_dump file (a fresh backup by default)
 pgdock promote <p> [--node <id>] [--profile <size>]
 pgdock demote <p> [--node <id>] [--check] [--accept-warnings] [--console-writable]
+pgdock upgrade <p> --to <major> [--check]        # a newer Postgres major
+pgdock moves <p>                                  # recent moves, with the pause each took
+pgdock ha status <p> | enable <p> [--node <id>] [--sync] | disable <p>
+pgdock ha switchover <p> [--to <member>] | sync <p> on|off
+pgdock replicas list <p> | create <p> [--node <id>] [--region <r>] | delete <p> <replica>
+pgdock replicas detach <p> <replica> --name <new project>
+pgdock move <p> --node <id>                       # platform admins: put the project on another node
 
 pgdock webhooks list <p> | create <p> <name> --tables orders --url https://… [--events INSERT,UPDATE] [--columns c] [--header K=V]
 pgdock webhooks delete <p> <webhook> | deliveries <p> <webhook> [--dead] | replay <p> <webhook> --all | --ids 1,2
 pgdock jobs list <p> | create <p> <name> --cron '0 3 * * *' [--tz Europe/Berlin] (--sql '…' | --sql @file.sql | --url https://…)
 pgdock jobs pause|resume|run|history <p> <job>
+
+pgdock resume <p>   # wake a paused Free project, or restore an archived one
+
+pgdock services status <p> | enable <p> | disable <p>   # backend services: the project's API (docs/backend-services.md)
+pgdock keys list <p> | create <p> --name … [--kind publishable|secret] | revoke <p> <key id>
+pgdock gen types --lang ts|dart|go --project <p> [-o file] [--package name]   # types for the data API
+pgdock auth users list <p> [--search …] | show <p> <user> | invite <p> <email>   # the app's users
+pgdock auth users ban <p> <user> [--for 24h] | unban <p> <user> | signout <p> <user> | delete <p> <user>
+pgdock auth rotate-key <p>   # sign access tokens with a new key
+pgdock auth config <p>       # sign-in methods, phone caps and this month's spend
+pgdock auth set <p> '{"settings":{"phone_channels":["whatsapp"],"mfa_policy":"optional"}}'   # any AuthConfigUpdate
+pgdock auth hooks <p>        # recent auth webhook deliveries
+pgdock migrate supabase <p> [--step all|policies|users|storage] [--source <url>] \
+  [--s3-endpoint https://<ref>.supabase.co/storage/v1/s3 --s3-region <r> --s3-access-key <id> --s3-secret-key <secret>]
+                             # after importing a Supabase database (docs/migrate-from-supabase.md);
+                             # PGDOCK_SUPABASE_DB_URL and PGDOCK_SUPABASE_S3_SECRET keep secrets out of shell history
+
+pgdock billing show | plan free|pro|team [--annual] [--now] [--dry-run]   # owners and billing members
+pgdock billing invoices | invoice <number|id> [--pdf file.pdf]
+pgdock billing pay <number|id> [--wallet] | transfer | payments   # a link to pay, the bank account to transfer to, payments received
 
 pgdock members list <p> | invite <p> <email> --role <r> | remove <p> <email>
 pgdock tokens list | create --name … --scopes … [--project <p>] [--expires 90d] | revoke <id>
@@ -146,6 +173,10 @@ connections, database settings that reset) need `--accept-warnings`.
 `--node` picks the shared cluster by its node's id (by default the one
 with the most free capacity, or the organisation's own).
 
+`upgrade` prints its preflight first (including the trial restore of the
+schema on the new version) and stops there with `--check`; a blocked check
+refuses. See [moves and Postgres versions](moves.md).
+
 `webhooks create` and an HTTP `jobs create` print the signing secret
 once. See [webhooks and scheduled jobs](webhooks.md) for the payload, the
 signature, and delivery.
@@ -153,14 +184,24 @@ signature, and delivery.
 `<p>` is a project's name or id; `<branch>` is a branch's id, its name,
 or `<parent>/<name>`. `branch create --env` prints `DATABASE_URL=…`,
 `DATABASE_URL_SESSION=…`, `PGDOCK_BRANCH_ID=…` and `PGDOCK_BRANCH=…`
-lines for `$GITHUB_ENV` or a `.env` file; `--replace` deletes a branch
-of the same name first. `connect` prints a URL with your
+lines for `$GITHUB_ENV` or a `.env` file, and, when the parent has
+backend services, the branch's own `PGDOCK_API_URL=…`,
+`PGDOCK_PUBLISHABLE_KEY=…` and `PGDOCK_SECRET_KEY=…`; `--copy-files`
+copies the parent's stored files into the branch in the background;
+`--replace` deletes a branch of the same name first.
+
+`policies list <p> [--table t]` shows each table's row-level security
+and policies, with the roles as `anon`, `user`, `service` or `everyone`.
+`policies lint <p>` prints the security advisor's findings and exits 1
+when one is marked danger, for CI (`--json` for the list). `logs api <p>
+[--follow] [--status 5xx|404] [--path /data/v1/…]` prints the API's
+request log; `--follow` keeps printing new requests. `connect` prints a URL with your
 **personal** database login for the project (issuing one the first
 time, and remembering it in `~/.config/pgdock/credentials.toml`); `creds
 --rotate` issues a new password.
 
 Every command takes `--json` for scripts. Long operations (create,
-backup, restore, promote, demote, delete) stream their progress; `--no-wait`
+backup, restore, promote, demote, upgrade, move, delete) stream their progress; `--no-wait`
 returns the operation at once.
 
 Exit codes: `0` success, `1` error (including "not found"), `2` usage

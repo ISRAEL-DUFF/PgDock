@@ -62,10 +62,13 @@ type Collector struct {
 	interval time.Duration
 	log      *slog.Logger
 
-	mu       sync.Mutex
-	prevDB   map[uuid.UUID]dbCounters
-	prevNode map[uuid.UUID]nodeCounters
-	lastSize time.Time
+	mu     sync.Mutex
+	prevDB map[uuid.UUID]dbCounters
+	// prevXacts are the poolers' transaction counters per database at the
+	// last sample, keyed by pooler and database (activity, V3 §4.2).
+	prevXacts map[string]int64
+	prevNode  map[uuid.UUID]nodeCounters
+	lastSize  time.Time
 }
 
 type dbCounters struct {
@@ -85,7 +88,7 @@ func NewCollector(db *pgxpool.Pool, projects *provision.Service, pm *pooler.Mana
 	}
 	return &Collector{
 		db: db, projects: projects, pooler: pm, nodes: ns, interval: interval, log: log,
-		prevDB: map[uuid.UUID]dbCounters{}, prevNode: map[uuid.UUID]nodeCounters{},
+		prevDB: map[uuid.UUID]dbCounters{}, prevNode: map[uuid.UUID]nodeCounters{}, prevXacts: map[string]int64{},
 	}
 }
 
@@ -225,16 +228,55 @@ func (c *Collector) collectProjects(ctx context.Context, now time.Time, b *batch
 				waiting[p.Database] += p.ClWaiting
 			}
 		}
+		moved := c.transactionsMoved(ctx, &errs)
+		var active []uuid.UUID
 		for _, p := range ps {
 			var cl, wt int64
+			busy := false
 			for _, name := range store.PoolerNames(p) {
 				cl, wt = cl+clients[name], wt+waiting[name]
+				busy = busy || moved[name]
 			}
 			b.add(p.ID, PoolerClients, float64(cl))
 			b.add(p.ID, PoolerWaiting, float64(wt))
+			if cl > 0 || busy {
+				active = append(active, p.ID)
+			}
+		}
+		// Client connections are what keeps a Free project awake (V3 §4.2);
+		// PGDock's own sessions (backups, metrics) don't go through the
+		// poolers, so they don't count.
+		if len(active) > 0 {
+			if err := store.New(c.db).TouchProjectsActive(ctx, active); err != nil {
+				errs = append(errs, err)
+			}
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// transactionsMoved reports the databases whose pooler transaction
+// counters went up since the last sample. A counter going down (a pooler
+// restart) only resets the baseline.
+func (c *Collector) transactionsMoved(ctx context.Context, errs *[]error) map[string]bool {
+	out := map[string]bool{}
+	for _, a := range c.pooler.Admins() {
+		counts, err := a.Transactions(ctx)
+		if err != nil {
+			*errs = append(*errs, err)
+			continue
+		}
+		c.mu.Lock()
+		for db, n := range counts {
+			key := a.Name + "/" + a.Addr() + "/" + db
+			if prev, ok := c.prevXacts[key]; ok && n > prev {
+				out[db] = true
+			}
+			c.prevXacts[key] = n
+		}
+		c.mu.Unlock()
+	}
+	return out
 }
 
 func (c *Collector) collectInstance(ctx context.Context, now time.Time, instID uuid.UUID, group []store.Project, withSize bool, b *batch) error {

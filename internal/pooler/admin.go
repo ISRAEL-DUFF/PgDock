@@ -164,6 +164,18 @@ func (a *Admin) Databases(ctx context.Context) (map[string]string, error) {
 // TransferBytes runs SHOW STATS and returns the bytes each database has
 // received and sent since the pooler started.
 func (a *Admin) TransferBytes(ctx context.Context) (map[string]int64, error) {
+	return a.statsSum(ctx, "total_received", "total_sent")
+}
+
+// Transactions runs SHOW STATS and returns the transactions and queries
+// each database has served since the pooler started: a client that came
+// and went between two samples still moves it (V3 §4.2).
+func (a *Admin) Transactions(ctx context.Context) (map[string]int64, error) {
+	return a.statsSum(ctx, "total_xact_count", "total_query_count")
+}
+
+// statsSum sums SHOW STATS columns per database.
+func (a *Admin) statsSum(ctx context.Context, cols ...string) (map[string]int64, error) {
 	conn, err := pgx.ConnectConfig(ctx, a.cfg)
 	if err != nil {
 		return nil, fmt.Errorf("pooler %s (%s): connect admin console: %w", a.Name, a.Addr(), err)
@@ -189,7 +201,9 @@ func (a *Admin) TransferBytes(ctx context.Context) (map[string]int64, error) {
 	for rows.Next() {
 		raw := rows.RawValues()
 		if i, ok := col["database"]; ok && i < len(raw) {
-			out[string(raw[i])] += num(raw, "total_received") + num(raw, "total_sent")
+			for _, c := range cols {
+				out[string(raw[i])] += num(raw, c)
+			}
 		}
 	}
 	return out, rows.Err()

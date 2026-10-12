@@ -8,7 +8,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"slices"
 	"strconv"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -37,6 +40,8 @@ const (
 	StatusRestoring    = "restoring"
 	StatusPromoting    = "promoting"
 	StatusDemoting     = "demoting"
+	StatusMoving       = "moving"
+	StatusUpgrading    = "upgrading"
 	StatusDeleted      = "deleted"
 	StatusError        = "error"
 )
@@ -71,7 +76,18 @@ type Config struct {
 	// AdminSSLMode is the sslmode for admin connections to clusters
 	// (default "prefer").
 	AdminSSLMode string
+	// PGVersions are the supported Postgres majors (V3 §2.4), newest last;
+	// the newest is the default (default [17, 18]).
+	PGVersions []int
+	// HomeRegion is where projects go when they name no region (V3 §6.1);
+	// RegionHost returns a region's pooler hostname ("" for the database
+	// host above).
+	HomeRegion string
+	RegionHost func(region string) string
 }
+
+// DefaultPGVersions are the Postgres majors PGDock supports by default.
+var DefaultPGVersions = []int{17, 18}
 
 func (c *Config) setDefaults() {
 	if c.SSLMode == "" {
@@ -89,6 +105,21 @@ func (c *Config) setDefaults() {
 	if c.AdminSSLMode == "" {
 		c.AdminSSLMode = "prefer"
 	}
+	if len(c.PGVersions) == 0 {
+		c.PGVersions = DefaultPGVersions
+	}
+	slices.Sort(c.PGVersions)
+}
+
+// PGVersions are the supported Postgres majors, oldest first.
+func (s *Service) PGVersions() []int { return slices.Clone(s.cfg.PGVersions) }
+
+func joinInts(xs []int) string {
+	out := make([]string, len(xs))
+	for i, x := range xs {
+		out[i] = strconv.Itoa(x)
+	}
+	return strings.Join(out, ", ")
 }
 
 // Service runs project provisioning.
@@ -98,6 +129,8 @@ type Service struct {
 	pooler  *pooler.Manager
 	cfg     Config
 	log     *slog.Logger
+	// versionsSeeded: the configured majors are in pg_versions.
+	versionsSeeded atomic.Bool
 
 	// FinalBackup, if set, takes the final backup before a delete (spec
 	// §6.2). The backup service sets it.
@@ -112,6 +145,10 @@ type Service struct {
 	// false while its storage is hard-locked or its organisation is
 	// suspended (V2 §10.4, §10.8). The tenancy service sets it.
 	LoginGate func(ctx context.Context, p store.Project) (bool, error)
+	// DatabaseRecreated, when set, hears that p's database was dropped and
+	// made again empty (a restore in place, a branch reset, a move's
+	// target): backend services re-apply their schemas once it is filled.
+	DatabaseRecreated func(ctx context.Context, p store.Project)
 }
 
 // ErrNoDedicated means the dedicated tier is not available.
@@ -130,7 +167,8 @@ func NewService(db *pgxpool.Pool, keyring *crypto.Keyring, pm *pooler.Manager, c
 // Kinds returns the operation kinds this service handles.
 func (s *Service) Kinds() map[string]jobs.Kind {
 	kinds := map[string]jobs.Kind{
-		KindCreate: {Handler: s.runCreate, OnFail: s.rollbackCreate, MaxAttempts: 3},
+		// A dedicated create may wait up to 25 minutes for a host (V4.1 §5.3).
+		KindCreate: {Handler: s.runCreate, OnFail: s.rollbackCreate, MaxAttempts: 3, Timeout: 45 * time.Minute},
 		KindRotate: {Handler: s.runRotate, OnFail: s.rollbackRotate, MaxAttempts: 3},
 		KindDelete: {Handler: s.runDelete, OnFail: s.failDelete, MaxAttempts: 5},
 
@@ -158,6 +196,11 @@ func (s *Service) ConnectionFor(p store.Project) Connection {
 	host := s.cfg.DBHost
 	if s.cfg.DBHostFunc != nil {
 		if h := s.cfg.DBHostFunc(); h != "" {
+			host = h
+		}
+	}
+	if s.cfg.RegionHost != nil {
+		if h := s.cfg.RegionHost(p.Region); h != "" {
 			host = h
 		}
 	}
@@ -204,6 +247,19 @@ type CreateParams struct {
 	NodeID   *uuid.UUID
 	Profile  string
 	VolumeGB int
+	// InstanceID, for a dedicated project, is its instance's id (default:
+	// new): a detached read replica's instance keeps its member's id,
+	// which names its container and volume (V4 §7).
+	InstanceID *uuid.UUID
+	// PgVersion is the Postgres major (0: the default, the newest
+	// supported). Preview allows a major in preview (V4.1 §6.1).
+	PgVersion int
+	Preview   bool
+	// Region is where the project runs (empty: the home region, or NodeID's
+	// region); DataResidency keeps its data in that region's country, which
+	// the region must offer (V3 §6.3). A branch takes its parent's.
+	Region        string
+	DataResidency bool
 	// Branch makes the project a branch of another (V2 §8); it is always on
 	// the shared tier.
 	Branch *BranchSpec
@@ -326,14 +382,24 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 	if tier == "" {
 		tier = TierShared
 	}
+	use := ForProject
+	if p.Preview {
+		use = ForPreviewProject
+	}
+	if p.PgVersion, err = s.CheckVersion(ctx, p.PgVersion, use); err != nil {
+		return Created{}, err
+	}
+	if err := s.resolveRegion(ctx, &p); err != nil {
+		return Created{}, err
+	}
 	var profile Profile
 	var inst store.Instance
 	defaults := store.DefaultSharedSettings()
 	switch tier {
 	case TierShared:
-		inst, err = store.New(s.db).PickSharedInstance(ctx, &p.OrgID)
+		inst, err = store.New(s.db).PickSharedInstance(ctx, store.PickSharedInstanceParams{OrgID: &p.OrgID, PgVersion: int32(p.PgVersion), Region: p.Region})
 		if errors.Is(err, pgx.ErrNoRows) {
-			return Created{}, ErrNoCapacity
+			return Created{}, fmt.Errorf("%w (no shared cluster in %s runs Postgres %d)", ErrNoCapacity, p.Region, p.PgVersion)
 		}
 		if err != nil {
 			return Created{}, err
@@ -381,11 +447,14 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 			instanceID := inst.ID
 			if tier == TierDedicated {
 				iid := uuid.New()
+				if p.InstanceID != nil {
+					iid = *p.InstanceID
+				}
 				prefix := "instances/" + iid.String() + "/wal-g"
 				mem := int32(profile.MemoryMB)
 				vol := int32(p.VolumeGB)
 				ni, err := q.InsertInstance(ctx, store.InsertInstanceParams{
-					ID: iid, NodeID: *p.NodeID, Kind: TierDedicated, CpuLimit: numeric(profile.CPUs),
+					ID: iid, NodeID: *p.NodeID, Kind: TierDedicated, PgVersion: int32(p.PgVersion), CpuLimit: numeric(profile.CPUs),
 					MemLimitMb: &mem, VolumeGb: &vol, Profile: &profile.Name, WalgPrefix: &prefix,
 				})
 				if err != nil {
@@ -396,7 +465,7 @@ func (s *Service) Create(ctx context.Context, p CreateParams) (Created, error) {
 			proj, err := q.InsertProject(ctx, store.InsertProjectParams{
 				ID: id, OrgID: p.OrgID, Name: name, Slug: slug, DbName: dbName, OwnerRole: role,
 				ScramVerifier: verifier, Tier: tier, InstanceID: instanceID, Settings: settings,
-				Description: p.Description, CreatedBy: p.CreatedBy,
+				Description: p.Description, CreatedBy: p.CreatedBy, Region: p.Region, DataResidency: p.DataResidency,
 			})
 			if err != nil {
 				return err
@@ -599,4 +668,46 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (store.Project, error) 
 // List returns live projects, newest first.
 func (s *Service) List(ctx context.Context, status *string, limit int) ([]store.Project, error) {
 	return store.New(s.db).ListLiveProjects(ctx, store.ListLiveProjectsParams{Status: status, MaxRows: int32(limit)})
+}
+
+// resolveRegion settles where a new project runs: a branch where its
+// parent is, a chosen node where that node is, else the region asked for
+// or the home region. Data residency needs a region that offers it.
+func (s *Service) resolveRegion(ctx context.Context, p *CreateParams) error {
+	q := store.New(s.db)
+	switch {
+	case p.Branch != nil:
+		parent, err := q.GetProject(ctx, p.Branch.ParentID)
+		if err != nil {
+			return err
+		}
+		p.Region, p.DataResidency = parent.Region, parent.DataResidency
+	case p.NodeID != nil:
+		n, err := q.GetNode(ctx, *p.NodeID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: no such node", ErrInvalid)
+		} else if err != nil {
+			return err
+		}
+		if p.Region != "" && p.Region != n.Region {
+			return fmt.Errorf("%w: node %s is in %s, not %s", ErrInvalid, n.Name, n.Region, p.Region)
+		}
+		p.Region = n.Region
+	case p.Region == "":
+		p.Region = s.cfg.HomeRegion
+		if p.Region == "" {
+			p.Region = "eu-central"
+		}
+	}
+	r, err := q.GetRegion(ctx, p.Region)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && r.Status != "active" && p.Branch == nil) {
+		return fmt.Errorf("%w: no region %q", ErrInvalid, p.Region)
+	}
+	if err != nil {
+		return err
+	}
+	if p.DataResidency && !r.Residency {
+		return fmt.Errorf("%w: %s doesn't offer data residency", ErrInvalid, r.Name)
+	}
+	return nil
 }

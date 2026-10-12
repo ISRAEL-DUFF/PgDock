@@ -65,6 +65,9 @@ func NewEmpty(t testing.TB) *pgxpool.Pool {
 		t.Fatal(err)
 	}
 	cfg.ConnConfig.Database = name
+	// As pgdock-server sizes its pool (cmd/server connect): the test
+	// environment runs the same workers, two of which keep a connection.
+	cfg.MaxConns = max(cfg.MaxConns, 16)
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		t.Fatal(err)
