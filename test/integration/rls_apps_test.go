@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // The RLS sample apps (V4.1 §12.1): three small apps, each checked for
@@ -104,14 +104,14 @@ func TestRLSTodoApp(t *testing.T) {
 	sp := newStorageProject(t, "todo-app", false)
 	user := store.UserRole(sp.db)
 	rlsSQL(t, sp,
-		`CREATE TABLE todos (id serial PRIMARY KEY, owner uuid NOT NULL DEFAULT pgd_auth.uid(), body text NOT NULL)`,
+		`CREATE TABLE todos (id serial PRIMARY KEY, owner uuid NOT NULL DEFAULT xb_auth.uid(), body text NOT NULL)`,
 		`ALTER TABLE todos ENABLE ROW LEVEL SECURITY`,
-		fmt.Sprintf(`CREATE POLICY own ON todos FOR ALL TO %q USING (owner = pgd_auth.uid()) WITH CHECK (owner = pgd_auth.uid())`, user),
-		`SELECT pgd_realtime.enable('todos')`,
+		fmt.Sprintf(`CREATE POLICY own ON todos FOR ALL TO %q USING (owner = xb_auth.uid()) WITH CHECK (owner = xb_auth.uid())`, user),
+		`SELECT xb_realtime.enable('todos')`,
 		// Attachments live under <todo id>/: whoever owns the todo.
-		fmt.Sprintf(`CREATE POLICY todo_files ON pgd_storage.objects FOR ALL TO %q
-		   USING (bucket = 'attachments' AND EXISTS (SELECT 1 FROM todos WHERE id::text = pgd_storage.folder(path, 1)))
-		   WITH CHECK (bucket = 'attachments' AND EXISTS (SELECT 1 FROM todos WHERE id::text = pgd_storage.folder(path, 1)))`, user),
+		fmt.Sprintf(`CREATE POLICY todo_files ON xb_storage.objects FOR ALL TO %q
+		   USING (bucket = 'attachments' AND EXISTS (SELECT 1 FROM todos WHERE id::text = xb_storage.folder(path, 1)))
+		   WITH CHECK (bucket = 'attachments' AND EXISTS (SELECT 1 FROM todos WHERE id::text = xb_storage.folder(path, 1)))`, user),
 	)
 	if r := sp.admin.json("POST", "/storage/v1/bucket", `{"id":"attachments"}`, ""); r.Code != 200 && r.Code != 201 {
 		t.Fatalf("bucket: %s", r)
@@ -195,22 +195,22 @@ func TestRLSMarketplace(t *testing.T) {
 	rlsSQL(t, sp,
 		`CREATE TABLE sellers (user_id uuid PRIMARY KEY, name text NOT NULL)`,
 		`CREATE TABLE listings (id serial PRIMARY KEY, seller uuid NOT NULL REFERENCES sellers, title text NOT NULL, price int NOT NULL)`,
-		`CREATE TABLE orders (id serial PRIMARY KEY, listing_id int NOT NULL REFERENCES listings, buyer uuid NOT NULL DEFAULT pgd_auth.uid(), qty int NOT NULL)`,
+		`CREATE TABLE orders (id serial PRIMARY KEY, listing_id int NOT NULL REFERENCES listings, buyer uuid NOT NULL DEFAULT xb_auth.uid(), qty int NOT NULL)`,
 		`ALTER TABLE sellers ENABLE ROW LEVEL SECURITY`,
 		`ALTER TABLE listings ENABLE ROW LEVEL SECURITY`,
 		`ALTER TABLE orders ENABLE ROW LEVEL SECURITY`,
 		fmt.Sprintf(`CREATE POLICY read ON sellers FOR SELECT TO %q, %q USING (true)`, anon, user),
 		fmt.Sprintf(`CREATE POLICY read ON listings FOR SELECT TO %q, %q USING (true)`, anon, user),
-		fmt.Sprintf(`CREATE POLICY sell ON listings FOR INSERT TO %q WITH CHECK (seller = pgd_auth.uid())`, user),
-		fmt.Sprintf(`CREATE POLICY edit ON listings FOR UPDATE TO %q USING (seller = pgd_auth.uid()) WITH CHECK (seller = pgd_auth.uid())`, user),
+		fmt.Sprintf(`CREATE POLICY sell ON listings FOR INSERT TO %q WITH CHECK (seller = xb_auth.uid())`, user),
+		fmt.Sprintf(`CREATE POLICY edit ON listings FOR UPDATE TO %q USING (seller = xb_auth.uid()) WITH CHECK (seller = xb_auth.uid())`, user),
 		fmt.Sprintf(`CREATE POLICY parties ON orders FOR SELECT TO %q
-		   USING (buyer = pgd_auth.uid() OR EXISTS (SELECT 1 FROM listings l WHERE l.id = listing_id AND l.seller = pgd_auth.uid()))`, user),
-		fmt.Sprintf(`CREATE POLICY buy ON orders FOR INSERT TO %q WITH CHECK (buyer = pgd_auth.uid())`, user),
+		   USING (buyer = xb_auth.uid() OR EXISTS (SELECT 1 FROM listings l WHERE l.id = listing_id AND l.seller = xb_auth.uid()))`, user),
+		fmt.Sprintf(`CREATE POLICY buy ON orders FOR INSERT TO %q WITH CHECK (buyer = xb_auth.uid())`, user),
 		fmt.Sprintf(`INSERT INTO sellers VALUES ('%s', 'Alice''s Fabrics'), ('%s', 'Dave''s Shoes')`, sellerID, rivalID),
-		`SELECT pgd_realtime.enable('orders')`,
+		`SELECT xb_realtime.enable('orders')`,
 		// Invoices under <order id>/: the order's buyer and seller read them.
-		fmt.Sprintf(`CREATE POLICY invoice_parties ON pgd_storage.objects FOR SELECT TO %q
-		   USING (bucket = 'invoices' AND EXISTS (SELECT 1 FROM orders o WHERE o.id::text = pgd_storage.folder(path, 1)))`, user),
+		fmt.Sprintf(`CREATE POLICY invoice_parties ON xb_storage.objects FOR SELECT TO %q
+		   USING (bucket = 'invoices' AND EXISTS (SELECT 1 FROM orders o WHERE o.id::text = xb_storage.folder(path, 1)))`, user),
 	)
 	for _, b := range []string{`{"id":"listing-images","public":true}`, `{"id":"invoices"}`} {
 		if r := sp.admin.json("POST", "/storage/v1/bucket", b, ""); r.Code != 200 && r.Code != 201 {
@@ -343,20 +343,20 @@ func TestRLSChat(t *testing.T) {
 	rlsSQL(t, sp,
 		`CREATE TABLE rooms (id text PRIMARY KEY)`,
 		`CREATE TABLE members (room text NOT NULL REFERENCES rooms, user_id uuid NOT NULL, PRIMARY KEY (room, user_id))`,
-		`CREATE TABLE messages (id serial PRIMARY KEY, room text NOT NULL REFERENCES rooms, author uuid NOT NULL DEFAULT pgd_auth.uid(), body text NOT NULL)`,
+		`CREATE TABLE messages (id serial PRIMARY KEY, room text NOT NULL REFERENCES rooms, author uuid NOT NULL DEFAULT xb_auth.uid(), body text NOT NULL)`,
 		`ALTER TABLE members ENABLE ROW LEVEL SECURITY`,
 		`ALTER TABLE messages ENABLE ROW LEVEL SECURITY`,
 		// A security-definer check keeps the members policy from recursing.
 		`CREATE FUNCTION public.is_member(r text) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
-		   AS $$ SELECT EXISTS (SELECT 1 FROM members WHERE room = r AND user_id = pgd_auth.uid()) $$`,
+		   AS $$ SELECT EXISTS (SELECT 1 FROM members WHERE room = r AND user_id = xb_auth.uid()) $$`,
 		fmt.Sprintf(`CREATE POLICY see_room ON members FOR SELECT TO %q USING (public.is_member(room))`, user),
 		fmt.Sprintf(`CREATE POLICY read ON messages FOR SELECT TO %q USING (public.is_member(room))`, user),
-		fmt.Sprintf(`CREATE POLICY post ON messages FOR INSERT TO %q WITH CHECK (author = pgd_auth.uid() AND public.is_member(room))`, user),
-		fmt.Sprintf(`CREATE POLICY join_room ON pgd_realtime.channel_access FOR SELECT TO %q USING (public.is_member(topic))`, user),
-		fmt.Sprintf(`CREATE POLICY speak ON pgd_realtime.channel_access FOR INSERT TO %q WITH CHECK (public.is_member(topic))`, user),
+		fmt.Sprintf(`CREATE POLICY post ON messages FOR INSERT TO %q WITH CHECK (author = xb_auth.uid() AND public.is_member(room))`, user),
+		fmt.Sprintf(`CREATE POLICY join_room ON xb_realtime.channel_access FOR SELECT TO %q USING (public.is_member(topic))`, user),
+		fmt.Sprintf(`CREATE POLICY speak ON xb_realtime.channel_access FOR INSERT TO %q WITH CHECK (public.is_member(topic))`, user),
 		`INSERT INTO rooms VALUES ('general'), ('ops')`,
 		fmt.Sprintf(`INSERT INTO members VALUES ('general', '%s'), ('general', '%s'), ('ops', '%s')`, sp.aliceID, sp.bobID, carolID),
-		`SELECT pgd_realtime.enable('messages')`,
+		`SELECT xb_realtime.enable('messages')`,
 	)
 
 	// Data: members read and post; others neither.

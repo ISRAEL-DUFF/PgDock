@@ -13,13 +13,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/files"
-	"github.com/israel-duff/pgdock/internal/storage"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/files"
+	"github.com/israel-duff/xenibase/internal/storage"
 )
 
 // Storage (V4 §5): buckets and objects' metadata are rows in the project's
-// pgd_storage schema, read and written as the caller's role so the
+// xb_storage schema, read and written as the caller's role so the
 // project's row-level security policies decide every access; the bytes are
 // in the region's object store under the object's version, which no caller
 // chooses.
@@ -122,7 +122,7 @@ func (e *Edge) bucket(ctx context.Context, p *project, id string) (*Bucket, erro
 	if err != nil {
 		return nil, err
 	}
-	b, err := scanBucket(pool.QueryRow(ctx, `SELECT `+files.BucketCols+` FROM pgd_storage.buckets WHERE id = $1`, id))
+	b, err := scanBucket(pool.QueryRow(ctx, `SELECT `+files.BucketCols+` FROM xb_storage.buckets WHERE id = $1`, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, errNoBucket
 	}
@@ -175,7 +175,7 @@ func (e *Edge) buckets(c *call, req Request, rest string) {
 	id, sub, _ := strings.Cut(strings.Trim(rest, "/"), "/")
 	switch {
 	case id == "" && c.r.Method == http.MethodGet:
-		rows, err := pool.Query(ctx, `SELECT `+files.BucketCols+` FROM pgd_storage.buckets ORDER BY id`)
+		rows, err := pool.Query(ctx, `SELECT `+files.BucketCols+` FROM xb_storage.buckets ORDER BY id`)
 		if err != nil {
 			e.dbError(c, err)
 			return
@@ -219,7 +219,7 @@ func (e *Edge) buckets(c *call, req Request, rest string) {
 		if in.AllowedMIMETypes != nil && len(*in.AllowedMIMETypes) > 0 {
 			mimes = *in.AllowedMIMETypes
 		}
-		b, err := scanBucket(pool.QueryRow(ctx, `INSERT INTO pgd_storage.buckets (id, public, file_size_limit, allowed_mime_types, cache_seconds)
+		b, err := scanBucket(pool.QueryRow(ctx, `INSERT INTO xb_storage.buckets (id, public, file_size_limit, allowed_mime_types, cache_seconds)
 			VALUES ($1, $2, $3, $4, $5) RETURNING `+files.BucketCols, in.ID, in.Public != nil && *in.Public, in.FileSizeLimit, mimes, cache))
 		var pe *pgconn.PgError
 		if errors.As(err, &pe) && pe.Code == "23505" {
@@ -268,7 +268,7 @@ func (e *Edge) buckets(c *call, req Request, rest string) {
 		if in.CacheSeconds != nil {
 			cache = *in.CacheSeconds
 		}
-		b, err := scanBucket(pool.QueryRow(ctx, `UPDATE pgd_storage.buckets SET public = $2, file_size_limit = $3, allowed_mime_types = $4,
+		b, err := scanBucket(pool.QueryRow(ctx, `UPDATE xb_storage.buckets SET public = $2, file_size_limit = $3, allowed_mime_types = $4,
 			cache_seconds = $5, updated_at = now() WHERE id = $1 RETURNING `+files.BucketCols, id, public, limit, mimes, cache))
 		if errors.Is(err, pgx.ErrNoRows) {
 			errNoBucket.send(c)
@@ -283,7 +283,7 @@ func (e *Edge) buckets(c *call, req Request, rest string) {
 		}
 		c.json(http.StatusOK, b)
 	case id != "" && sub == "" && c.r.Method == http.MethodDelete:
-		tag, err := pool.Exec(ctx, `DELETE FROM pgd_storage.buckets WHERE id = $1`, id)
+		tag, err := pool.Exec(ctx, `DELETE FROM xb_storage.buckets WHERE id = $1`, id)
 		var pe *pgconn.PgError
 		if errors.As(err, &pe) && pe.Code == "23503" {
 			c.fail(http.StatusConflict, "bucket_not_empty", "the bucket still has objects: empty it first")
@@ -305,8 +305,8 @@ func (e *Edge) buckets(c *call, req Request, rest string) {
 		}
 		var n int64
 		for {
-			tag, err := pool.Exec(ctx, `DELETE FROM pgd_storage.objects WHERE id IN
-				(SELECT id FROM pgd_storage.objects WHERE bucket = $1 LIMIT 1000)`, id)
+			tag, err := pool.Exec(ctx, `DELETE FROM xb_storage.objects WHERE id IN
+				(SELECT id FROM xb_storage.objects WHERE bucket = $1 LIMIT 1000)`, id)
 			if err != nil {
 				e.dbError(c, err)
 				return
@@ -323,7 +323,7 @@ func (e *Edge) buckets(c *call, req Request, rest string) {
 	}
 }
 
-// bucketPrivate tells pgdock-server a public bucket went private, so its
+// bucketPrivate tells xenibase-server a public bucket went private, so its
 // files leave the CDN's cache (V4 §5.4).
 func (e *Edge) bucketPrivate(p *project, bucket string) {
 	ref := p.cfg.Ref

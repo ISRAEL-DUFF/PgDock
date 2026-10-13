@@ -1,4 +1,4 @@
-# PGDock — V3.1 Specification & Build Plan
+# Xenibase — V3.1 Specification & Build Plan
 
 *Builds on V3. References like "V3 §2.2" point to that document.*
 
@@ -20,7 +20,7 @@ promises still rest on manual work or on luck:
 
 | Gap | Today | Risk |
 | --- | --- | --- |
-| **Failure domains** (§2) | One Hetzner placement group for the whole platform (`PGDOCK_HETZNER_PLACEMENT_GROUP_ID`); manual nodes have no notion of rack or host. HA standbys, etcd members and pooler hosts only avoid the *same node*. | Two members of an HA pair, or two etcd members, on the same physical host or rack. One power or switch failure takes both, and the SLA with them. |
+| **Failure domains** (§2) | One Hetzner placement group for the whole platform (`XENIBASE_HETZNER_PLACEMENT_GROUP_ID`); manual nodes have no notion of rack or host. HA standbys, etcd members and pooler hosts only avoid the *same node*. | Two members of an HA pair, or two etcd members, on the same physical host or rack. One power or switch failure takes both, and the SLA with them. |
 | **etcd** (§3) | One cluster, set up once, in the home region. A dead member can't be replaced while HA projects use it; Lagos HA projects use etcd in the EU. | A lost etcd node is permanent degradation (one more loss and failover stops). Lagos failover depends on the link to Europe: a cut cable means no automatic failover in Lagos (writes continue thanks to failsafe mode, but nothing takes over a dead primary). |
 | **Announced maintenance** (§4) | V3 §2.7 excludes "scheduled maintenance announced 72 hours in advance" from the SLA, but nothing records an announcement, so nothing is excluded. Maintenance-window work (minor upgrades, rebalancing) counts as downtime. | Either the SLA record overstates downtime (credits owed that the terms don't require), or an admin edits the record by hand, which the SLA's credibility can't afford. |
 
@@ -47,7 +47,7 @@ per failure domain, is the target.
   the existing etcd cluster becomes the home region's, and no maintenance
   is announced.
 - **Refuse rather than pretend.** Where a placement can't satisfy the
-  failure-domain rule, PGDock says so and refuses (or, for existing
+  failure-domain rule, Xenibase says so and refuses (or, for existing
   placements, warns), as residency does in V3 §6.3.
 - **The SLA record is evidence.** Exclusions are derived from records made
   before the event (the announcement), never edited after it.
@@ -64,7 +64,7 @@ domain are assumed to fail together.
 
 | Provider | Where the domain comes from |
 | --- | --- |
-| Hetzner | Derived from the server's *spread* placement group (§2.3): servers in the same spread group are guaranteed different physical hosts, so each is its own domain. Servers in different groups might share a host, so PGDock doesn't count them as separated. |
+| Hetzner | Derived from the server's *spread* placement group (§2.3): servers in the same spread group are guaranteed different physical hosts, so each is its own domain. Servers in different groups might share a host, so Xenibase doesn't count them as separated. |
 | Manual (colocation, Lagos) | Set by the admin when adding the node (`rack-a`, `lagos-dc1-r3`), editable later. A node without one gets its own ID as its domain, as if alone. |
 
 The domain is a property of the node, shown in Platform → Nodes and on
@@ -79,7 +79,7 @@ domains**:
 | --- | --- | --- |
 | An HA project's primary and standby | Different domains | Enabling HA is refused, naming the domains available; a switchover or failover never moves a member, so it doesn't apply. |
 | A region's etcd members | All three in different domains | Setup and member replacement are refused. |
-| A region's two pooler hosts | Different domains | Adding the second host warns, and the region page shows "pooler hosts share a failure domain". (Pooler hosts are added by the admin; PGDock can't move them.) |
+| A region's two pooler hosts | Different domains | Adding the second host warns, and the region page shows "pooler hosts share a failure domain". (Pooler hosts are added by the admin; Xenibase can't move them.) |
 
 Shared projects aren't affected: they have no pair to separate. Drains
 and rebalancing don't move HA members (V3 moves them by switchover), so
@@ -87,10 +87,10 @@ they have nothing to check yet.
 
 ### 2.3 Hetzner placement groups
 
-`PGDOCK_HETZNER_PLACEMENT_GROUP_ID` is replaced by groups PGDock manages:
-one spread group per region (`pgdock-<region>`), created on first use and
+`XENIBASE_HETZNER_PLACEMENT_GROUP_ID` is replaced by groups Xenibase manages:
+one spread group per region (`xenibase-<region>`), created on first use and
 found by name at the provider; each server's group is recorded on its node. Hetzner caps a spread group at 10 servers; when a group is
-full, PGDock opens the next (`…-2`). Because only servers within one
+full, Xenibase opens the next (`…-2`). Because only servers within one
 group are known to be apart, the planner keeps a region's HA and etcd
 nodes in the same group where it can, and places a pair across groups
 only when no single group has room (with a warning).
@@ -124,7 +124,7 @@ only on Lagos.
   projects in other regions (possible in V3) keep using it until moved
   (§3.3), and the region page says so.
 - Every cluster uses the one platform etcd CA (as built: per-region CAs
-  would add no isolation, since pgdock-server holds every key, and one CA
+  would add no isolation, since xenibase-server holds every key, and one CA
   keeps Patroni's certificates valid across a move).
 
 ### 3.2 Replacing a member
@@ -181,11 +181,11 @@ project has no standby until step 3 finishes.
 A **maintenance announcement** is a status page incident of severity
 `maintenance` with a scheduled start and end, a region (or all regions),
 and optionally the projects or nodes it affects. It is created by the
-admin (Admin → Incidents → **Schedule maintenance**) or proposed by PGDock
+admin (Admin → Incidents → **Schedule maintenance**) or proposed by Xenibase
 for the weekly maintenance window when work is queued (minor upgrades,
 approved rebalancing) and confirmed by the admin.
 
-When it is created, PGDock:
+When it is created, Xenibase:
 
 - posts it to the status page as upcoming maintenance;
 - emails the owners of affected organisations (all organisations with
@@ -219,7 +219,7 @@ what was excluded and why.
 The weekly maintenance window (V3 §2.4) only starts disruptive work
 (minor-upgrade recreations, rebalancing moves, switchovers for node
 maintenance) for projects covered by an announcement for that window, when
-announcements are required (`PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT`,
+announcements are required (`XENIBASE_MAINTENANCE_REQUIRE_ANNOUNCEMENT`,
 default on for regions offering the SLA). Without one, the work waits for
 the next announced window.
 
@@ -328,7 +328,7 @@ hours ahead excludes nothing; work queued for an unannounced window
 waits; the month's SLA report lists excluded minutes with their
 announcement.
 
-(As built: the admin creates announcements; PGDock doesn't propose them
+(As built: the admin creates announcements; Xenibase doesn't propose them
 yet. Emails go to owners and admins. The outage minutes in the done-when
 test are inserted rather than produced by a switchover. See
 `docs/decisions.md`, V3.1-M3.)
@@ -357,7 +357,7 @@ test are inserted rather than produced by a switchover. See
    Lagos colocation have at launch? Three domains are needed for a Lagos
    etcd cluster; with two, the third member must sit elsewhere (another
    Lagos facility, or the EU, which brings back the dependency §3 removes).
-2. ~~**Branching.**~~ Answered: V3.1 lands on `feature/pgdock3`, as V3 did.
+2. ~~**Branching.**~~ Answered: V3.1 lands on `feature/xenibase3`, as V3 did.
 3. **Maintenance announcements by default.** Should the weekly window
    propose an announcement automatically 4 days ahead whenever work is
    queued (admin confirms), or should admins always create them by hand?

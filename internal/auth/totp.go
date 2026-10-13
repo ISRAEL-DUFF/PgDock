@@ -3,7 +3,7 @@ package auth
 import (
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/totp"
+	"github.com/israel-duff/xenibase/internal/totp"
 )
 
 // GenerateTOTPSecret returns a new 160-bit secret, base32-encoded.

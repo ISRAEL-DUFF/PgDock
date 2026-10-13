@@ -9,9 +9,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 func jobRuns(t *testing.T, e *testenv.Env, pid string, id string) []gen.JobRun {
@@ -145,10 +145,10 @@ func TestScheduledJobs(t *testing.T) {
 	}
 	e.Do("POST", "/api/v1/projects/"+pid+"/jobs/"+hj.Job.Id.String()+"/run", nil, nil)
 	got := rc.waitN(t, 1, 10*time.Second)
-	if got[0].Header.Get("PGDock-Job") != hj.Job.Id.String() || string(got[0].Body) != body {
+	if got[0].Header.Get("Xenibase-Job") != hj.Job.Id.String() || string(got[0].Body) != body {
 		t.Fatalf("HTTP job request: %v %s", got[0].Header, got[0].Body)
 	}
-	if err := outbound.Verify(*hj.Secret, got[0].Header.Get("PGDock-Signature"), got[0].Body, time.Now(), 5*time.Minute); err != nil {
+	if err := outbound.Verify(*hj.Secret, got[0].Header.Get("Xenibase-Signature"), got[0].Body, time.Now(), 5*time.Minute); err != nil {
 		t.Fatalf("HTTP job signature: %v", err)
 	}
 	runs = waitRun(t, e, pid, hj.Job.Id.String(), func(r []gen.JobRun) bool { return len(r) == 1 && finished(r[0]) })
@@ -182,7 +182,7 @@ func TestScheduledJobs(t *testing.T) {
 	}
 }
 
-// TestAutomationCLI drives webhooks and jobs with the pgdock binary and a
+// TestAutomationCLI drives webhooks and jobs with the xenibase binary and a
 // project-restricted write token, as a CI job would.
 func TestAutomationCLI(t *testing.T) {
 	e := testenv.Start(t, testenv.Options{})
@@ -197,7 +197,7 @@ func TestAutomationCLI(t *testing.T) {
 	rc := newReceiver(t)
 	allowLocal(t, e, e.OrgID)
 	token := e.CreateToken(map[string]any{"name": "automation", "org_id": e.OrgID, "scopes": []string{"write"}, "project_ids": []string{c.Project.Id.String()}})
-	env := []string{"PGDOCK_SERVER=" + e.URL, "PGDOCK_TOKEN=" + token, "PGDOCK_CONFIG_DIR=" + t.TempDir()}
+	env := []string{"XENIBASE_SERVER=" + e.URL, "XENIBASE_TOKEN=" + token, "XENIBASE_CONFIG_DIR=" + t.TempDir()}
 
 	r := runCLI(t, bin, env, "webhooks", "create", "Cli app", "orders-hook", "--tables", "orders", "--url", rc.URL, "--events", "INSERT,UPDATE",
 		"--columns", "status", "--header", "Authorization=Bearer x")
@@ -269,13 +269,13 @@ func TestJobSQLCannotEscalate(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i, sql := range []string{
-		"RESET ROLE; CREATE ROLE pgdock_escalated SUPERUSER LOGIN",
+		"RESET ROLE; CREATE ROLE xenibase_escalated SUPERUSER LOGIN",
 		"RESET ROLE; ALTER ROLE " + c.Project.OwnerRole + " SUPERUSER",
 		"RESET ROLE; INSERT INTO who SELECT current_user",
 		"RESET ROLE; SELECT pg_read_file('PG_VERSION')",
 		"SET ROLE " + other.Project.OwnerRole,
-		"SET SESSION AUTHORIZATION DEFAULT; CREATE ROLE pgdock_escalated SUPERUSER",
-		"COMMIT; RESET ROLE; CREATE ROLE pgdock_escalated SUPERUSER",
+		"SET SESSION AUTHORIZATION DEFAULT; CREATE ROLE xenibase_escalated SUPERUSER",
+		"COMMIT; RESET ROLE; CREATE ROLE xenibase_escalated SUPERUSER",
 	} {
 		var cj gen.JobCreated
 		if code := e.Do("POST", "/api/v1/projects/"+pid+"/jobs", gen.JobRequest{Name: "escape-" + string(rune('a'+i)), Cron: "0 3 * * *", Kind: gen.JobRequestKindSql, Sql: &sql}, &cj); code != http.StatusCreated {
@@ -291,12 +291,12 @@ func TestJobSQLCannotEscalate(t *testing.T) {
 	var escalated, super bool
 	admin := e.MustConnect(e.SharedAdminURL)
 	defer admin.Close(ctx)
-	if err := admin.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pgdock_escalated'),
+	if err := admin.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'xenibase_escalated'),
 		(SELECT rolsuper FROM pg_roles WHERE rolname = $1)`, c.Project.OwnerRole).Scan(&escalated, &super); err != nil {
 		t.Fatal(err)
 	}
 	if escalated || super {
-		_, _ = admin.Exec(ctx, `DROP ROLE IF EXISTS pgdock_escalated`)
+		_, _ = admin.Exec(ctx, `DROP ROLE IF EXISTS xenibase_escalated`)
 		_, _ = admin.Exec(ctx, `ALTER ROLE `+c.Project.OwnerRole+` NOSUPERUSER`)
 		t.Fatalf("a job became the superuser: created role %v, owner superuser %v", escalated, super)
 	}

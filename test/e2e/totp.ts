@@ -32,7 +32,7 @@ const lastStep = new Map<string, number>();
 
 /**
  * A code from a time step not used before in this run for this secret:
- * PGDock rejects replayed codes, so consecutive sign-ins of one account wait
+ * Xenibase rejects replayed codes, so consecutive sign-ins of one account wait
  * for the next 30s window.
  */
 export async function freshTotp(secret: string): Promise<string> {

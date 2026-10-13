@@ -20,9 +20,9 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestRealtimeLoad is V4-M34's load done-when (V4 §6.5, §13): 10,000
@@ -32,13 +32,13 @@ import (
 // same test binary), so each side has its own file descriptors. It writes
 // tmp/realtime-load-report.md.
 //
-//	PGDOCK_TEST_RT_CONNS (10000), PGDOCK_TEST_RT_HOLD (60s)
+//	XENIBASE_TEST_RT_CONNS (10000), XENIBASE_TEST_RT_HOLD (60s)
 func TestRealtimeLoad(t *testing.T) {
-	if os.Getenv("PGDOCK_TEST_LOAD") == "" {
-		t.Skip("set PGDOCK_TEST_LOAD=1 (make test-load)")
+	if os.Getenv("XENIBASE_TEST_LOAD") == "" {
+		t.Skip("set XENIBASE_TEST_LOAD=1 (make test-load)")
 	}
-	n := envInt("PGDOCK_TEST_RT_CONNS", 10000)
-	hold, err := time.ParseDuration(os.Getenv("PGDOCK_TEST_RT_HOLD"))
+	n := envInt("XENIBASE_TEST_RT_CONNS", 10000)
+	hold, err := time.ParseDuration(os.Getenv("XENIBASE_TEST_RT_HOLD"))
 	if err != nil || hold <= 0 {
 		hold = time.Minute
 	}
@@ -105,8 +105,8 @@ func TestRealtimeLoad(t *testing.T) {
 	for _, st := range []string{
 		`CREATE TABLE feed (id serial PRIMARY KEY, owner uuid NOT NULL, body text NOT NULL)`,
 		`ALTER TABLE feed ENABLE ROW LEVEL SECURITY`,
-		fmt.Sprintf(`CREATE POLICY own ON feed FOR SELECT TO %q USING (owner = pgd_auth.uid())`, store.UserRole(p.DbName)),
-		`SELECT pgd_realtime.enable('feed')`,
+		fmt.Sprintf(`CREATE POLICY own ON feed FOR SELECT TO %q USING (owner = xb_auth.uid())`, store.UserRole(p.DbName)),
+		`SELECT xb_realtime.enable('feed')`,
 	} {
 		if _, err := app.Exec(ctx, st); err != nil {
 			t.Fatalf("%s: %v", st, err)
@@ -115,10 +115,10 @@ func TestRealtimeLoad(t *testing.T) {
 
 	// The clients.
 	cmd := exec.Command(os.Args[0], "-test.run=^TestRealtimeLoadClient$", "-test.v", "-test.timeout=0")
-	cmd.Env = append(os.Environ(), "PGDOCK_RT_CHILD=1",
-		"PGDOCK_RT_URL="+strings.Replace(ed.URL, "http://", "ws://", 1)+"/realtime/v1/websocket?vsn=1.0.0&apikey="+url.QueryEscape(pub),
-		"PGDOCK_RT_HOST="+ref+"."+testenv.EdgeDomain, "PGDOCK_RT_TOKEN="+session.AccessToken,
-		fmt.Sprintf("PGDOCK_RT_N=%d", n), "PGDOCK_RT_HOLD="+hold.String())
+	cmd.Env = append(os.Environ(), "XENIBASE_RT_CHILD=1",
+		"XENIBASE_RT_URL="+strings.Replace(ed.URL, "http://", "ws://", 1)+"/realtime/v1/websocket?vsn=1.0.0&apikey="+url.QueryEscape(pub),
+		"XENIBASE_RT_HOST="+ref+"."+testenv.EdgeDomain, "XENIBASE_RT_TOKEN="+session.AccessToken,
+		fmt.Sprintf("XENIBASE_RT_N=%d", n), "XENIBASE_RT_HOLD="+hold.String())
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		t.Fatal(err)
@@ -208,12 +208,12 @@ func TestRealtimeLoad(t *testing.T) {
 
 // TestRealtimeLoadClient is TestRealtimeLoad's clients (run as its child).
 func TestRealtimeLoadClient(t *testing.T) {
-	if os.Getenv("PGDOCK_RT_CHILD") == "" {
+	if os.Getenv("XENIBASE_RT_CHILD") == "" {
 		t.Skip("run by TestRealtimeLoad")
 	}
-	u, host, token := os.Getenv("PGDOCK_RT_URL"), os.Getenv("PGDOCK_RT_HOST"), os.Getenv("PGDOCK_RT_TOKEN")
-	n := envInt("PGDOCK_RT_N", 10000)
-	hold, _ := time.ParseDuration(os.Getenv("PGDOCK_RT_HOLD"))
+	u, host, token := os.Getenv("XENIBASE_RT_URL"), os.Getenv("XENIBASE_RT_HOST"), os.Getenv("XENIBASE_RT_TOKEN")
+	n := envInt("XENIBASE_RT_N", 10000)
+	hold, _ := time.ParseDuration(os.Getenv("XENIBASE_RT_HOLD"))
 	var changes, broadcasts, alive, errs atomic.Int64
 	var got sync.WaitGroup
 	got.Add(n)

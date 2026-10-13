@@ -42,7 +42,7 @@ function fakeFetch(
   return { f: f as typeof fetch, calls };
 }
 
-const URL_ = "https://k7f3m2q9.api.pgdock.test";
+const URL_ = "https://k7f3m2q9.api.xenibase.test";
 
 function jwt(exp: number) {
   const b = (o: object) => btoa(JSON.stringify(o)).replace(/=+$/, "");
@@ -70,11 +70,11 @@ describe("filters", () => {
     const { f, calls } = fakeFetch(() => ({
       body: { data: [{ id: 1 }], next_cursor: "c2", count: 7 },
     }));
-    const pgd = createClient(URL_, "pgd_pub_x", {
+    const xb = createClient(URL_, "xb_pub_x", {
       fetch: f,
       auth: { storage: memoryStorage() },
     });
-    const r = await pgd.data
+    const r = await xb.data
       .from("todos")
       .select("id,title")
       .eq("done", false)
@@ -92,9 +92,9 @@ describe("filters", () => {
     expect(c.url.searchParams.getAll("where")).toEqual(["done:eq:false"]);
     expect(c.url.searchParams.get("or")).toBe("a:eq:1,b:eq:2");
     expect(c.url.searchParams.get("order")).toBe("created_at:desc");
-    expect(c.headers["apikey"]).toBe("pgd_pub_x");
+    expect(c.headers["apikey"]).toBe("xb_pub_x");
 
-    await pgd.data
+    await xb.data
       .from("api.items")
       .select()
       .not(cond("x", "is", null))
@@ -112,11 +112,11 @@ describe("filters", () => {
     const { f, calls } = fakeFetch(() => ({
       body: { affected: 1, data: [{ id: 7 }] },
     }));
-    const pgd = createClient(URL_, "pgd_pub_x", {
+    const xb = createClient(URL_, "xb_pub_x", {
       fetch: f,
       auth: { storage: memoryStorage() },
     });
-    const w = await pgd.data
+    const w = await xb.data
       .from("todos")
       .update({ done: true })
       .eq("id", 7)
@@ -124,16 +124,16 @@ describe("filters", () => {
     expect(w.affected).toBe(1);
     expect(calls[0]!.method).toBe("PATCH");
     expect(calls[0]!.url.searchParams.get("max_affected")).toBe("1");
-    await pgd.data.from("todos").delete().byKey(7);
+    await xb.data.from("todos").delete().byKey(7);
     expect(calls[1]!.url.pathname).toBe("/data/v1/todos/7");
-    await pgd.data
+    await xb.data
       .from("stock")
       .upsert({ item: "tea" }, { onConflict: ["item"], ignore: true });
     expect(calls[2]!.url.searchParams.get("on_conflict")).toBe("item");
     expect(calls[2]!.url.searchParams.get("resolution")).toBe("ignore");
   });
 
-  it("returns the API's errors as PgdockError", async () => {
+  it("returns the API's errors as XenibaseError", async () => {
     const { f } = fakeFetch(() => ({
       status: 403,
       body: {
@@ -144,11 +144,11 @@ describe("filters", () => {
         },
       },
     }));
-    const pgd = createClient(URL_, "pgd_pub_x", {
+    const xb = createClient(URL_, "xb_pub_x", {
       fetch: f,
       auth: { storage: memoryStorage() },
     });
-    const r = await pgd.data.from("todos").select();
+    const r = await xb.data.from("todos").select();
     expect(r.data).toBeNull();
     expect(r.error?.status).toBe(403);
     expect(r.error?.code).toBe("rls_required");
@@ -187,19 +187,19 @@ describe("auth", () => {
       }
       return { body: { data: [] } };
     });
-    const pgd = createClient(URL_, "pgd_pub_x", {
+    const xb = createClient(URL_, "xb_pub_x", {
       fetch: f,
       auth: { storage: memoryStorage(), autoRefresh: false },
     });
-    const s = await pgd.auth.signInWithPassword({
+    const s = await xb.auth.signInWithPassword({
       email: "a@b.c",
       password: "pw",
     });
     expect(s.error).toBeNull();
     // The token expires within the margin: both reads refresh it first, once.
     await Promise.all([
-      pgd.data.from("a").select(),
-      pgd.data.from("b").select(),
+      xb.data.from("a").select(),
+      xb.data.from("b").select(),
     ]);
     expect(refreshes).toBe(1);
     const reads = calls.filter((c) => c.url.pathname.startsWith("/data/"));
@@ -216,7 +216,7 @@ describe("auth", () => {
     const store = memoryStorage();
     const now = Math.floor(Date.now() / 1000);
     await store.setItem(
-      "pgdock.auth.k7f3m2q9.api.pgdock.test",
+      "xenibase.auth.k7f3m2q9.api.xenibase.test",
       JSON.stringify({
         access_token: "old",
         refresh_token: "used",
@@ -236,26 +236,26 @@ describe("auth", () => {
           }
         : { body: {} },
     );
-    const pgd = createClient(URL_, "pgd_pub_x", {
+    const xb = createClient(URL_, "xb_pub_x", {
       fetch: f,
       auth: { storage: store },
     });
     const events: string[] = [];
-    pgd.auth.onAuthStateChange((e) => events.push(e));
-    expect(await pgd.auth.getSession()).toBeNull();
+    xb.auth.onAuthStateChange((e) => events.push(e));
+    expect(await xb.auth.getSession()).toBeNull();
     expect(
-      await store.getItem("pgdock.auth.k7f3m2q9.api.pgdock.test"),
+      await store.getItem("xenibase.auth.k7f3m2q9.api.xenibase.test"),
     ).toBeNull();
     expect(events).toContain("SIGNED_OUT");
   });
 
   it("builds a PKCE authorize URL", async () => {
     const { f } = fakeFetch(() => ({ body: {} }));
-    const pgd = createClient(URL_, "pgd_pub_x", {
+    const xb = createClient(URL_, "xb_pub_x", {
       fetch: f,
       auth: { storage: memoryStorage() },
     });
-    const r = await pgd.auth.signInWithOAuth({
+    const r = await xb.auth.signInWithOAuth({
       provider: "google",
       redirectTo: "https://app.test/cb",
       skipRedirect: true,
@@ -271,13 +271,13 @@ describe("auth", () => {
 describe("server-side tokens", () => {
   it("sends the given access token and keeps no session", async () => {
     const { f, calls } = fakeFetch(() => ({ body: { data: [] } }));
-    const pgd = createClient(URL_, "pgd_pub_x", {
+    const xb = createClient(URL_, "xb_pub_x", {
       fetch: f,
       accessToken: async () => "from-cookie",
     });
-    await pgd.data.from("todos").select();
+    await xb.data.from("todos").select();
     expect(calls[0]!.headers["authorization"]).toBe("Bearer from-cookie");
-    expect(await pgd.auth.getSession()).toBeNull();
+    expect(await xb.auth.getSession()).toBeNull();
   });
 });
 
@@ -286,11 +286,11 @@ describe("storage", () => {
     const { f, calls } = fakeFetch(() => ({
       body: { id: "1", bucket: "avatars", path: "u 1/me.png" },
     }));
-    const pgd = createClient(URL_, "pgd_pub_x", {
+    const xb = createClient(URL_, "xb_pub_x", {
       fetch: f,
       auth: { storage: memoryStorage() },
     });
-    await pgd.storage
+    await xb.storage
       .bucket("avatars")
       .upload("u 1/me.png", new Uint8Array([1, 2]), {
         contentType: "image/png",
@@ -301,11 +301,11 @@ describe("storage", () => {
     );
     expect(calls[0]!.headers["x-upsert"]).toBe("true");
     expect(calls[0]!.headers["content-type"]).toBe("image/png");
-    expect(pgd.storage.bucket("docs").publicUrl("a/b.txt")).toBe(
+    expect(xb.storage.bucket("docs").publicUrl("a/b.txt")).toBe(
       URL_ + "/storage/v1/public/docs/a/b.txt",
     );
     expect(
-      pgd.storage
+      xb.storage
         .bucket("img")
         .publicUrl("x.png", { transform: { width: 100 } }),
     ).toBe(URL_ + "/storage/v1/render/img/x.png?width=100");

@@ -14,10 +14,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/edge"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/edge"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // realtimeProject is a project with backend services, two users, and a
@@ -82,9 +82,9 @@ func newRealtimeProject(t *testing.T, name string) *realtimeProject {
 	for _, st := range []string{
 		`CREATE TABLE todos (id serial PRIMARY KEY, owner uuid NOT NULL, body text NOT NULL, done boolean NOT NULL DEFAULT false)`,
 		`ALTER TABLE todos ENABLE ROW LEVEL SECURITY`,
-		fmt.Sprintf(`CREATE POLICY own_todos ON todos FOR ALL TO %q USING (owner = pgd_auth.uid()) WITH CHECK (owner = pgd_auth.uid())`,
+		fmt.Sprintf(`CREATE POLICY own_todos ON todos FOR ALL TO %q USING (owner = xb_auth.uid()) WITH CHECK (owner = xb_auth.uid())`,
 			store.UserRole(p.DbName)),
-		`SELECT pgd_realtime.enable('todos')`,
+		`SELECT xb_realtime.enable('todos')`,
 	} {
 		if _, err := app.Exec(ctx, st); err != nil {
 			t.Fatalf("%s: %v", st, err)
@@ -106,13 +106,13 @@ func TestRealtimeCapture(t *testing.T) {
 	app := rp.ownerConn(t)
 	defer app.Close(ctx)
 
-	if _, err := app.Exec(ctx, `SELECT pgd_realtime.enable('pgd_realtime.outbox')`); err == nil {
+	if _, err := app.Exec(ctx, `SELECT xb_realtime.enable('xb_realtime.outbox')`); err == nil {
 		t.Fatal("enabled realtime on a platform table")
 	}
 	if _, err := app.Exec(ctx, `CREATE TABLE nokey (x int)`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.Exec(ctx, `SELECT pgd_realtime.enable('nokey')`); err == nil {
+	if _, err := app.Exec(ctx, `SELECT xb_realtime.enable('nokey')`); err == nil {
 		t.Fatal("enabled realtime on a table without a primary key")
 	}
 	tx, err := app.Begin(ctx)
@@ -143,7 +143,7 @@ func TestRealtimeCapture(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer adm.Close(ctx)
-	rows, err := adm.Query(ctx, `SELECT op, coalesce(record ->> 'body', ''), coalesce(old_record::text, '-') FROM pgd_realtime.outbox ORDER BY xid, id`)
+	rows, err := adm.Query(ctx, `SELECT op, coalesce(record ->> 'body', ''), coalesce(old_record::text, '-') FROM xb_realtime.outbox ORDER BY xid, id`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,14 +162,14 @@ func TestRealtimeCapture(t *testing.T) {
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Fatalf("outbox: %q, want %q", got, want)
 	}
-	if _, err := app.Exec(ctx, `SELECT pgd_realtime.disable('todos')`); err != nil {
+	if _, err := app.Exec(ctx, `SELECT xb_realtime.disable('todos')`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := app.Exec(ctx, `INSERT INTO todos (owner, body) VALUES ($1, 'after')`, rp.aliceID); err != nil {
 		t.Fatal(err)
 	}
 	var n int
-	if err := adm.QueryRow(ctx, `SELECT count(*) FROM pgd_realtime.outbox WHERE record ->> 'body' = 'after'`).Scan(&n); err != nil || n != 0 {
+	if err := adm.QueryRow(ctx, `SELECT count(*) FROM xb_realtime.outbox WHERE record ->> 'body' = 'after'`).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("captured after disable: %d %v", n, err)
 	}
 
@@ -203,7 +203,7 @@ func TestRealtimeCapture(t *testing.T) {
 	// ---- The CLI -------------------------------------------------------------------
 	bin := buildCLI(t)
 	token := rp.e.CreateToken(map[string]any{"name": "rt", "org_id": rp.e.OrgID, "scopes": []string{"read", "write"}})
-	env := []string{"PGDOCK_SERVER=" + rp.e.URL, "PGDOCK_TOKEN=" + token, "PGDOCK_CONFIG_DIR=" + t.TempDir()}
+	env := []string{"XENIBASE_SERVER=" + rp.e.URL, "XENIBASE_TOKEN=" + token, "XENIBASE_CONFIG_DIR=" + t.TempDir()}
 	pid := rp.pid.String()
 	for _, args := range [][]string{{"realtime", "disable", pid, "todos"}, {"realtime", "enable", pid, "public.todos"}, {"realtime", "history", pid, "lobby"}} {
 		if r := runCLI(t, bin, env, args...); r.code != 0 {
@@ -471,7 +471,7 @@ func TestRealtime(t *testing.T) {
 			t.Fatalf("%s: %s %s", name, st, resp)
 		}
 	}
-	if _, err := app.Exec(ctx, `SELECT pgd_realtime.enable('notes')`); err != nil {
+	if _, err := app.Exec(ctx, `SELECT xb_realtime.enable('notes')`); err != nil {
 		t.Fatal(err)
 	}
 	if st, resp := alice.join("realtime:notes", map[string]any{"postgres_changes": []map[string]any{{"event": "*", "schema": "public", "table": "notes"}}}, rp.alice); st != "error" ||
@@ -501,8 +501,8 @@ func isBroadcast(event string) func(rtMessage) bool {
 }
 
 // TestRealtimeBroadcast: broadcast and presence between clients on two
-// pgdock-edge processes (relayed through the project's database), private
-// channels decided by policies on pgd_realtime.channel_access, persisted
+// xenibase-edge processes (relayed through the project's database), private
+// channels decided by policies on xb_realtime.channel_access, persisted
 // history, the HTTP broadcast, the change rate cap, the connection limit,
 // and metering.
 func TestRealtimeBroadcast(t *testing.T) {
@@ -510,7 +510,7 @@ func TestRealtimeBroadcast(t *testing.T) {
 	ctx := context.Background()
 	// Topics kept as history are read every few seconds: list it first.
 	owner := rp.ownerConn(t)
-	if _, err := owner.Exec(ctx, `INSERT INTO pgd_realtime.persisted_topics (topic) VALUES ('vip')`); err != nil {
+	if _, err := owner.Exec(ctx, `INSERT INTO xb_realtime.persisted_topics (topic) VALUES ('vip')`); err != nil {
 		t.Fatal(err)
 	}
 	owner.Close(ctx)
@@ -575,8 +575,8 @@ func TestRealtimeBroadcast(t *testing.T) {
 		`CREATE TABLE members (room text NOT NULL, user_id uuid NOT NULL, PRIMARY KEY (room, user_id))`,
 		fmt.Sprintf(`INSERT INTO members VALUES ('vip', '%s')`, rp.bobID),
 		fmt.Sprintf(`GRANT SELECT ON members TO %q`, store.UserRole(rp.db)),
-		fmt.Sprintf(`CREATE POLICY room_members ON pgd_realtime.channel_access FOR SELECT TO %q
-		  USING (EXISTS (SELECT 1 FROM members m WHERE m.room = topic AND m.user_id = pgd_auth.uid()))`, store.UserRole(rp.db)),
+		fmt.Sprintf(`CREATE POLICY room_members ON xb_realtime.channel_access FOR SELECT TO %q
+		  USING (EXISTS (SELECT 1 FROM members m WHERE m.room = topic AND m.user_id = xb_auth.uid()))`, store.UserRole(rp.db)),
 	} {
 		if _, err := app.Exec(ctx, st); err != nil {
 			t.Fatalf("%s: %v", st, err)
@@ -595,8 +595,8 @@ func TestRealtimeBroadcast(t *testing.T) {
 	bob.next(5*time.Second, "the refused send", func(m rtMessage) bool {
 		return m.Event == "phx_reply" && m.Ref != nil && *m.Ref == ref && strings.Contains(string(m.Payload), "not allowed to send")
 	})
-	if _, err := app.Exec(ctx, fmt.Sprintf(`CREATE POLICY room_send ON pgd_realtime.channel_access FOR INSERT TO %q
-		WITH CHECK (EXISTS (SELECT 1 FROM members m WHERE m.room = topic AND m.user_id = pgd_auth.uid()))`, store.UserRole(rp.db))); err != nil {
+	if _, err := app.Exec(ctx, fmt.Sprintf(`CREATE POLICY room_send ON xb_realtime.channel_access FOR INSERT TO %q
+		WITH CHECK (EXISTS (SELECT 1 FROM members m WHERE m.room = topic AND m.user_id = xb_auth.uid()))`, store.UserRole(rp.db))); err != nil {
 		t.Fatal(err)
 	}
 	if st, _ := bob.join("realtime:vip", private, rp.bob); st != "ok" {

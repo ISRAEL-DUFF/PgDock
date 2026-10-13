@@ -1,4 +1,4 @@
-// Command pgdock-server is the PGDock control plane: REST API, embedded web
+// Command xenibase-server is the Xenibase control plane: REST API, embedded web
 // UI, operation workers, and (in later milestones) pooler management.
 package main
 
@@ -26,64 +26,63 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/agentca"
-	"github.com/israel-duff/pgdock/internal/alerts"
-	"github.com/israel-duff/pgdock/internal/api"
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/billing/flutterwave"
-	"github.com/israel-duff/pgdock/internal/billing/ispend"
-	"github.com/israel-duff/pgdock/internal/branching"
-	"github.com/israel-duff/pgdock/internal/capacity"
-	"github.com/israel-duff/pgdock/internal/cdn"
-	"github.com/israel-duff/pgdock/internal/cloud"
-	"github.com/israel-duff/pgdock/internal/config"
-	"github.com/israel-duff/pgdock/internal/console"
-	"github.com/israel-duff/pgdock/internal/costs"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/dedicated"
-	"github.com/israel-duff/pgdock/internal/floatip"
-	"github.com/israel-duff/pgdock/internal/freetier"
-	"github.com/israel-duff/pgdock/internal/ha"
-	"github.com/israel-duff/pgdock/internal/incidents"
-	"github.com/israel-duff/pgdock/internal/insights"
-	"github.com/israel-duff/pgdock/internal/isocheck"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/legal"
-	"github.com/israel-duff/pgdock/internal/logging"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/messaging"
-	"github.com/israel-duff/pgdock/internal/metrics"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/orgs"
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/internal/pgversions"
-	"github.com/israel-duff/pgdock/internal/pooler"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/regions"
-	"github.com/israel-duff/pgdock/internal/rotate"
-	"github.com/israel-duff/pgdock/internal/schedjobs"
-	"github.com/israel-duff/pgdock/internal/services"
-	"github.com/israel-duff/pgdock/internal/settings"
-	"github.com/israel-duff/pgdock/internal/statusapi"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/support"
-	"github.com/israel-duff/pgdock/internal/tenancy"
-	"github.com/israel-duff/pgdock/internal/tlscert"
-	"github.com/israel-duff/pgdock/internal/tokens"
-	"github.com/israel-duff/pgdock/internal/version"
-	"github.com/israel-duff/pgdock/internal/waker"
-	"github.com/israel-duff/pgdock/internal/webhooks"
-	"github.com/israel-duff/pgdock/web"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/agentca"
+	"github.com/israel-duff/xenibase/internal/alerts"
+	"github.com/israel-duff/xenibase/internal/api"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/billing/iswallet"
+	"github.com/israel-duff/xenibase/internal/branching"
+	"github.com/israel-duff/xenibase/internal/capacity"
+	"github.com/israel-duff/xenibase/internal/cdn"
+	"github.com/israel-duff/xenibase/internal/cloud"
+	"github.com/israel-duff/xenibase/internal/config"
+	"github.com/israel-duff/xenibase/internal/console"
+	"github.com/israel-duff/xenibase/internal/costs"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/floatip"
+	"github.com/israel-duff/xenibase/internal/freetier"
+	"github.com/israel-duff/xenibase/internal/ha"
+	"github.com/israel-duff/xenibase/internal/incidents"
+	"github.com/israel-duff/xenibase/internal/insights"
+	"github.com/israel-duff/xenibase/internal/isocheck"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/legal"
+	"github.com/israel-duff/xenibase/internal/logging"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/messaging"
+	"github.com/israel-duff/xenibase/internal/metrics"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/orgs"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/internal/pgversions"
+	"github.com/israel-duff/xenibase/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/regions"
+	"github.com/israel-duff/xenibase/internal/rotate"
+	"github.com/israel-duff/xenibase/internal/schedjobs"
+	"github.com/israel-duff/xenibase/internal/services"
+	"github.com/israel-duff/xenibase/internal/settings"
+	"github.com/israel-duff/xenibase/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/support"
+	"github.com/israel-duff/xenibase/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/tlscert"
+	"github.com/israel-duff/xenibase/internal/tokens"
+	"github.com/israel-duff/xenibase/internal/version"
+	"github.com/israel-duff/xenibase/internal/waker"
+	"github.com/israel-duff/xenibase/internal/webhooks"
+	"github.com/israel-duff/xenibase/web"
 )
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, "pgdock-server:", err)
+		fmt.Fprintln(os.Stderr, "xenibase-server:", err)
 		os.Exit(1)
 	}
 }
@@ -94,16 +93,16 @@ func run() error {
 	}
 	showVersion := flag.Bool("version", false, "print version and exit")
 	requireUI := flag.Bool("require-ui", false, "exit with an error if only the placeholder UI is embedded")
-	genKey := flag.Bool("gen-master-key", false, "print a new random master key for PGDOCK_MASTER_KEY and exit")
+	genKey := flag.Bool("gen-master-key", false, "print a new random master key for XENIBASE_MASTER_KEY and exit")
 	healthcheck := flag.String("healthcheck", "", "GET this URL's /healthz and exit 0 if healthy (for container health checks)")
 	rotateKey := flag.Bool("rotate-master-key", false,
-		"re-encrypt every stored secret under PGDOCK_MASTER_KEY (old key in PGDOCK_MASTER_KEY_PREVIOUS), verify, and exit")
+		"re-encrypt every stored secret under XENIBASE_MASTER_KEY (old key in XENIBASE_MASTER_KEY_PREVIOUS), verify, and exit")
 	flag.Parse()
 
 	v := version.Get()
 	switch {
 	case *showVersion:
-		fmt.Printf("pgdock-server %s (commit %s, built %s, %s)\n", v.Version, v.Commit, v.BuildDate, v.GoVersion)
+		fmt.Printf("xenibase-server %s (commit %s, built %s, %s)\n", v.Version, v.Commit, v.BuildDate, v.GoVersion)
 		return nil
 	case *requireUI:
 		if !web.HasUI() {
@@ -255,9 +254,15 @@ func run() error {
 
 	// Billing (V3 §3): price books, accounts, plan changes.
 	billingSvc := billing.New(pool, mailSvc, cfg.Insight.PublicURL, log)
-	billingSvc.SetPayments(paymentProviders(cfg.Payments), billing.Routing{
-		Cards: cfg.Payments.Cards, VAPrimary: cfg.Payments.VAPrimary, VAFallback: cfg.Payments.VAFallback, Wallet: cfg.Payments.Wallet,
-	}, keyring)
+	if !cfg.Payments.ISwalletOn() {
+		// Prices in dollars are converted to naira at the wallet provider's
+		// rate: without a provider a new platform prices in naira.
+		billingSvc.SetDefaultPrices(billing.DefaultPricesNGN)
+	}
+	if cfg.Payments.ISwalletOn() {
+		billingSvc.SetWallets(iswallet.New(iswallet.Config{BaseURL: cfg.Payments.ISwalletURL, APIKey: cfg.Payments.ISwalletAPIKey,
+			WebhookSecret: cfg.Payments.ISwalletWebhookSecret, ClientID: cfg.Payments.ISwalletClientID, Log: log}), cfg.Payments.ISwalletOwnerPrefix)
+	}
 	if backups != nil {
 		billingSvc.SetDocStore(billingDocs{backups})
 	}
@@ -361,14 +366,14 @@ func run() error {
 			}()
 			log.Info("waker listening", "listen", cfg.FreeTier.WakerListen, "pooler_address", cfg.FreeTier.WakerAddr)
 		} else {
-			log.Info("PGDOCK_WAKER_ADDR is not set: idle Free projects are not paused")
+			log.Info("XENIBASE_WAKER_ADDR is not set: idle Free projects are not paused")
 		}
 		bg.Add(1)
 		go func() { defer bg.Done(); freeSvc.Run(bgCtx, time.Hour) }()
 	}
 
 	// Backend services (V4 §2): per-project API keys, roles and the feed
-	// pgdock-edge follows.
+	// xenibase-edge follows.
 	var servicesSvc *services.Service
 	if projects != nil {
 		servicesSvc = services.New(pool, projects, services.Config{Domain: cfg.Edge.Domain, EdgeSecret: cfg.Edge.Secret}, log)
@@ -437,7 +442,7 @@ func run() error {
 	if backups != nil {
 		var edgeBoot *cloud.EdgeBootstrap
 		if cfg.Cloud.EdgeImage != "" && cfg.Edge.Secret != "" && cfg.Edge.Domain != "" {
-			// Edge nodes (V4.1 §11) run pgdock-edge with the edge secret.
+			// Edge nodes (V4.1 §11) run xenibase-edge with the edge secret.
 			edgeBoot = &cloud.EdgeBootstrap{Image: cfg.Cloud.EdgeImage, ControlURL: cfg.Cloud.ServerURL,
 				Secret: cfg.Edge.Secret, Domain: cfg.Edge.Domain}
 		}
@@ -513,7 +518,7 @@ func run() error {
 		go func() { defer bg.Done(); insightSvc.Run(bgCtx) }()
 	}
 	if cfg.Insight.ConsoleDisabled {
-		log.Warn("SQL console disabled (PGDOCK_CONSOLE_DISABLED)")
+		log.Warn("SQL console disabled (XENIBASE_CONSOLE_DISABLED)")
 	}
 
 	var certs *tlscert.Manager
@@ -524,7 +529,7 @@ func run() error {
 	}
 
 	// The status page (V3 §2.6): incidents, and heartbeats for what
-	// pgdock-status can't probe from outside.
+	// xenibase-status can't probe from outside.
 	incidentSvc := incidents.New(pool, incidents.Config{
 		URL: cfg.Status.URL, Secret: cfg.Status.PushSecret, Components: cfg.Status.Components, Region: cfg.Status.Region,
 	}, log)
@@ -561,7 +566,7 @@ func run() error {
 		log.Warn("web UI not embedded; serving placeholder page")
 	}
 	if cfg.DevEndpoints {
-		log.Warn("development endpoints enabled (PGDOCK_DEV_ENDPOINTS); do not use in production")
+		log.Warn("development endpoints enabled (XENIBASE_DEV_ENDPOINTS); do not use in production")
 	}
 
 	tlsStatus := func() gen.TlsStatus { return gen.TlsStatus{Mode: gen.TlsStatusModeOff, State: gen.TlsStatusStateOff} }
@@ -629,7 +634,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	log.Info("pgdock-server listening",
+	log.Info("xenibase-server listening",
 		"addr", ln.Addr().String(), "version", v.Version, "commit", v.Commit)
 	if certs != nil {
 		// Only once listening: ACME challenges are answered by this server.
@@ -671,7 +676,7 @@ func run() error {
 // one-time setup code the first-run wizard asks for.
 func setupAuth(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, keyring *crypto.Keyring, log *slog.Logger) (*auth.Service, error) {
 	if !cfg.Web.SecureCookies {
-		log.Warn("PGDOCK_COOKIE_SECURE=false: session cookies are sent over plain HTTP; development only")
+		log.Warn("XENIBASE_COOKIE_SECURE=false: session cookies are sent over plain HTTP; development only")
 	}
 	code := cfg.Web.SetupCode
 	if code == "" {
@@ -683,7 +688,7 @@ func setupAuth(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, keyri
 		code = base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(b)
 	}
 	if cfg.Insight.PublicURL == "" {
-		log.Warn("PGDOCK_PUBLIC_URL is not set: links in account and invitation emails will be relative")
+		log.Warn("XENIBASE_PUBLIC_URL is not set: links in account and invitation emails will be relative")
 	}
 	svc := auth.NewService(pool, keyring, auth.Config{PublicURL: cfg.Insight.PublicURL}, code, log)
 	needed, err := svc.SetupNeeded(ctx)
@@ -729,11 +734,11 @@ func setupPoolerTLS(cfg config.Config, pm *pooler.Manager, st *settings.Store, l
 	if path := cfg.PoolerTLS.ACMECARoots; path != "" {
 		pemBytes, err := os.ReadFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("PGDOCK_ACME_CA_ROOTS: %w", err)
+			return nil, fmt.Errorf("XENIBASE_ACME_CA_ROOTS: %w", err)
 		}
 		tc.ACMERoots = x509.NewCertPool()
 		if !tc.ACMERoots.AppendCertsFromPEM(pemBytes) {
-			return nil, fmt.Errorf("PGDOCK_ACME_CA_ROOTS: no certificates in %s", path)
+			return nil, fmt.Errorf("XENIBASE_ACME_CA_ROOTS: no certificates in %s", path)
 		}
 	}
 	m, err := tlscert.New(tc, st.DBHost())
@@ -781,7 +786,7 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 	}
 	pc := cfg.Pooler
 	if pc.ConfigDir == "" {
-		log.Warn("project provisioning disabled: PGDOCK_POOLER_CONFIG_DIR is not set")
+		log.Warn("project provisioning disabled: XENIBASE_POOLER_CONFIG_DIR is not set")
 		return nil, nil, nil
 	}
 
@@ -791,7 +796,7 @@ func setupProvisioning(ctx context.Context, cfg config.Config, pool *pgxpool.Poo
 	if err != nil {
 		return nil, nil, fmt.Errorf("pooler admin password: %w", err)
 	}
-	// The poolers next to pgdock-server (V1/V2), unless the edge runs on
+	// The poolers next to xenibase-server (V1/V2), unless the edge runs on
 	// pooler hosts (V3 §2.1), which are administered through their nodes.
 	var admins []*pooler.Admin
 	if pc.Local {
@@ -895,17 +900,17 @@ func setupBackups(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, ke
 	return bs, ns, nil
 }
 
-// defaultMaxConns is the metadata pool size unless PGDOCK_DATABASE_URL sets
+// defaultMaxConns is the metadata pool size unless XENIBASE_DATABASE_URL sets
 // pool_max_conns.
 const defaultMaxConns = 16
 
 func connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	pcfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
-		return nil, fmt.Errorf("PGDOCK_DATABASE_URL: %w", err)
+		return nil, fmt.Errorf("XENIBASE_DATABASE_URL: %w", err)
 	}
 	if pcfg.ConnConfig.RuntimeParams["application_name"] == "" {
-		pcfg.ConnConfig.RuntimeParams["application_name"] = "pgdock-server"
+		pcfg.ConnConfig.RuntimeParams["application_name"] = "xenibase-server"
 	}
 	// pgx's default (4 on a small box) is too few: the webhook and job
 	// schedulers each keep a connection for their lock, and a burst of
@@ -931,7 +936,7 @@ func connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 // it all.
 func rotateMasterKey(cfg config.Config, keyring *crypto.Keyring, log *slog.Logger) error {
 	if len(cfg.PreviousMasterKeys) == 0 {
-		return errors.New("set the old key in PGDOCK_MASTER_KEY_PREVIOUS and the new one in PGDOCK_MASTER_KEY")
+		return errors.New("set the old key in XENIBASE_MASTER_KEY_PREVIOUS and the new one in XENIBASE_MASTER_KEY")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
@@ -957,22 +962,9 @@ func rotateMasterKey(cfg config.Config, keyring *crypto.Keyring, log *slog.Logge
 	for what, n := range res.Checked {
 		log.Info("secrets re-encrypted", "kind", what, "checked", n, "rewrapped", res.Rewrapped[what])
 	}
-	log.Info("master key rotated; remove PGDOCK_MASTER_KEY_PREVIOUS and restart", "key_id", keyring.PrimaryID().String(),
+	log.Info("master key rotated; remove XENIBASE_MASTER_KEY_PREVIOUS and restart", "key_id", keyring.PrimaryID().String(),
 		"sign_in_challenges_cleared", res.Cleared)
 	return nil
-}
-
-// paymentProviders are the configured payment providers (V3 §3.4).
-func paymentProviders(c config.Payments) []billing.PaymentProvider {
-	var out []billing.PaymentProvider
-	if c.FlutterwaveOn() {
-		out = append(out, flutterwave.New(flutterwave.Config{BaseURL: c.FlutterwaveURL, SecretKey: c.FlutterwaveSecretKey,
-			WebhookHash: c.FlutterwaveWebhookHash, BVN: c.FlutterwaveBVN}))
-	}
-	if c.ISpendOn() {
-		out = append(out, ispend.New(ispend.Config{BaseURL: c.ISpendURL, APIKey: c.ISpendAPIKey, WebhookSecret: c.ISpendWebhookSecret}))
-	}
-	return out
 }
 
 // billingDocs keeps billing documents (proofs of payment, WHT credit

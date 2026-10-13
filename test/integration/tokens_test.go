@@ -10,8 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 func sqlBody(q string) map[string]any {
@@ -41,7 +41,7 @@ func TestRestrictedWriteTokenInCI(t *testing.T) {
 		"name": "GitHub Actions — blog", "org_id": e.OrgID, "scopes": []string{"write"},
 		"project_ids": []uuid.UUID{blog.Project.Id}, "expires_in_days": 30,
 	})
-	if !strings.HasPrefix(token, "pgd_") || len(token) != 47 {
+	if !strings.HasPrefix(token, "xb_") || len(token) != 47 {
 		t.Fatalf("token format: %q", token)
 	}
 	blogPath := "/api/v1/projects/" + blog.Project.Id.String()
@@ -114,7 +114,7 @@ func TestAPITokens(t *testing.T) {
 	}
 
 	read := e.CreateToken(map[string]any{"name": "laptop", "org_id": e.OrgID, "scopes": []string{"read"}})
-	if e.SMTP.Count(testenv.OwnerEmail, "New PGDock API token") == 0 {
+	if e.SMTP.Count(testenv.OwnerEmail, "New Xenibase API token") == 0 {
 		t.Error("no creation email")
 	}
 
@@ -160,7 +160,7 @@ func TestAPITokens(t *testing.T) {
 			t.Errorf("%s with a token: %d %s", path, code, raw)
 		}
 	}
-	if code, raw := e.BearerDo("pgd_notarealtoken0000000000000000000000000000", "GET", "/api/v1/me", nil, nil); code != http.StatusUnauthorized || errCode(raw) != "invalid_token" {
+	if code, raw := e.BearerDo("xb_notarealtoken0000000000000000000000000000", "GET", "/api/v1/me", nil, nil); code != http.StatusUnauthorized || errCode(raw) != "invalid_token" {
 		t.Fatalf("a made-up token: %d %s", code, raw)
 	}
 
@@ -276,10 +276,10 @@ func TestDeviceLogin(t *testing.T) {
 	team := e.CreateOrg("CLI team")
 
 	var start gen.DeviceAuthorization
-	if code, raw := e.BearerDo("", "POST", "/api/v1/auth/device", map[string]any{"client_name": "pgdock CLI on laptop", "scopes": []string{"read", "write"}}, &start); code != http.StatusOK {
+	if code, raw := e.BearerDo("", "POST", "/api/v1/auth/device", map[string]any{"client_name": "xenibase CLI on laptop", "scopes": []string{"read", "write"}}, &start); code != http.StatusOK {
 		t.Fatalf("start: %d %s", code, raw)
 	}
-	if !strings.HasPrefix(start.VerificationUriComplete, "https://pgdock.test/device?code=") || len(start.UserCode) != 9 {
+	if !strings.HasPrefix(start.VerificationUriComplete, "https://xenibase.test/device?code=") || len(start.UserCode) != 9 {
 		t.Fatalf("start: %+v", start)
 	}
 	poll := func() (int, string, gen.CreatedToken) {
@@ -295,7 +295,7 @@ func TestDeviceLogin(t *testing.T) {
 	}
 
 	var req gen.DeviceRequest
-	if code := e.Do("GET", "/api/v1/auth/device/requests/"+strings.ToLower(start.UserCode), nil, &req); code != http.StatusOK || req.ClientName != "pgdock CLI on laptop" {
+	if code := e.Do("GET", "/api/v1/auth/device/requests/"+strings.ToLower(start.UserCode), nil, &req); code != http.StatusOK || req.ClientName != "xenibase CLI on laptop" {
 		t.Fatalf("lookup: %d %+v", code, req)
 	}
 	// More than the CLI asked for is refused.
@@ -308,7 +308,7 @@ func TestDeviceLogin(t *testing.T) {
 	}
 	e.Advance(10 * time.Second)
 	code, _, got := poll()
-	if code != http.StatusOK || got.Token.Id != approved.Id || !strings.HasPrefix(got.Secret, "pgd_") {
+	if code != http.StatusOK || got.Token.Id != approved.Id || !strings.HasPrefix(got.Secret, "xb_") {
 		t.Fatalf("collect: %d %+v", code, got)
 	}
 	if _, c, _ := poll(); c != "expired_token" {

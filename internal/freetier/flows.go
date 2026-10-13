@@ -8,10 +8,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // setConnections lets the project's database accept connections or not,
@@ -61,7 +61,7 @@ func (s *Service) runPause(ctx context.Context, op store.Operation, log *jobs.St
 	if err := log.Info(ctx, "database", "%s no longer accepts connections; its data is kept", p.DbName); err != nil {
 		return err
 	}
-	s.notify(ctx, p, fmt.Sprintf("[PGDock] %s is paused", p.Name), fmt.Sprintf(
+	s.notify(ctx, p, fmt.Sprintf("[Xenibase] %s is paused", p.Name), fmt.Sprintf(
 		"%s had no client connections for %d days, so it is paused. Its data is kept.\n\n"+
 			"It resumes by itself the next time a client connects (the first connection is refused with a message; retry after about 30 seconds), or resume it now:\n%s\n\n"+
 			"A Free project paused for %d days is archived; paid plans are never paused.",
@@ -154,7 +154,7 @@ func (s *Service) runArchive(ctx context.Context, op store.Operation, log *jobs.
 	if err := log.Info(ctx, "database", "dropped %s; it is restored from the archive on the next connection", p.DbName); err != nil {
 		return err
 	}
-	s.notify(ctx, p, fmt.Sprintf("[PGDock] %s is archived", p.Name), fmt.Sprintf(
+	s.notify(ctx, p, fmt.Sprintf("[Xenibase] %s is archived", p.Name), fmt.Sprintf(
 		"%s was paused for %d days, so it is archived: its data is in a verified backup and its database is removed. Its connection string and credentials are kept.\n\n"+
 			"The next connection restores it from the archive (minutes, not seconds), or restore it now:\n%s\n\n"+
 			"An archived Free project is deleted after %d days archived; you will be told %d and %d days before.",
@@ -210,7 +210,7 @@ func (s *Service) runUnarchive(ctx context.Context, op store.Operation, log *job
 	if err := s.projects.SyncPooler(ctx, log, "pooler", "the route points at the database again"); err != nil {
 		return err
 	}
-	s.notify(ctx, p, fmt.Sprintf("[PGDock] %s is restored", p.Name), fmt.Sprintf(
+	s.notify(ctx, p, fmt.Sprintf("[Xenibase] %s is restored", p.Name), fmt.Sprintf(
 		"%s is restored from its archive and accepts connections again.\n\n%s", p.Name, s.projectLink(p)))
 	return log.Info(ctx, "done", "%s restored from its archive", p.Name)
 }

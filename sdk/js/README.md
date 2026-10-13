@@ -1,20 +1,20 @@
-# @pgdock/client
+# @xenibase/client
 
-PGDock's client for web, React Native and Node apps. It covers the data
+Xenibase's client for web, React Native and Node apps. It covers the data
 API, auth (email, phone and WhatsApp codes, OAuth, MFA), storage and
 realtime.
 
-    npm install @pgdock/client
+    npm install @xenibase/client
 
 ```ts
-import { createClient } from "@pgdock/client";
+import { createClient } from "@xenibase/client";
 
-const pgd = createClient("https://<ref>.api.pgdock.ng", "pgd_pub_…");
-await pgd.auth.signInWithOtp({ phone: "+2348012345678", channel: "whatsapp" });
-const { data, error } = await pgd.data.from("todos").select("id, title").eq("done", false).limit(20);
+const xb = createClient("https://<ref>.api.xenibase.ng", "xb_pub_…");
+await xb.auth.signInWithOtp({ phone: "+2348012345678", channel: "whatsapp" });
+const { data, error } = await xb.data.from("todos").select("id, title").eq("done", false).limit(20);
 ```
 
-- Typed rows come from `pgdock gen types --lang ts`.
+- Typed rows come from `xenibase gen types --lang ts`.
 - Tokens refresh by themselves.
 - `live()` keeps a query current.
 

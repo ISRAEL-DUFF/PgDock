@@ -22,7 +22,7 @@ var migrations embed.FS
 // on it can corrupt data (a column it doesn't set, a constraint it doesn't
 // meet). Start the release that migrated it, or restore the metadata backup
 // taken before that upgrade.
-var ErrSchemaNewer = errors.New("the metadata database was migrated by a newer PGDock than this one")
+var ErrSchemaNewer = errors.New("the metadata database was migrated by a newer Xenibase than this one")
 
 // Migrate applies all pending migrations, after refusing a database whose
 // schema is newer than this release. Rolling back is therefore not just

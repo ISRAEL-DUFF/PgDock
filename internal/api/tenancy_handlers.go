@@ -15,12 +15,12 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/dedicated"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
 // requireTenancy answers 503 when the server runs without the tenancy
@@ -163,7 +163,7 @@ func (s *Server) GetOrgUsage(w http.ResponseWriter, r *http.Request, org gen.Org
 	}
 	if (p.Format != nil && *p.Format == gen.GetOrgUsageParamsFormatCsv) || strings.Contains(r.Header.Get("Accept"), "text/csv") {
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-		w.Header().Set("Content-Disposition", `attachment; filename="pgdock-usage.csv"`)
+		w.Header().Set("Content-Disposition", `attachment; filename="xenibase-usage.csv"`)
 		cw := csv.NewWriter(w)
 		_ = cw.Write([]string{"period_start", "granularity", "metric", "project_id", "project", "quantity"})
 		for _, u := range rows {
@@ -875,7 +875,7 @@ func (s *Server) mailRequester(r *http.Request, dr store.DedicatedRequest, outco
 	if note != nil && *note != "" {
 		body += "\n\nNote from the platform admin: " + *note
 	}
-	if err := s.mail.Send(r.Context(), mailMessage([]string{email}, "[PGDock] Dedicated instance request "+outcome, body)); err != nil {
+	if err := s.mail.Send(r.Context(), mailMessage([]string{email}, "[Xenibase] Dedicated instance request "+outcome, body)); err != nil {
 		s.log.Warn("dedicated request email", "err", err)
 	}
 }
@@ -1015,7 +1015,7 @@ func (s *Server) requestDedicated(w http.ResponseWriter, r *http.Request, org, p
 				body += "\n\nReason: " + *reason
 			}
 			body += "\n\nReview it in Admin -> Dedicated requests."
-			if err := s.mail.Send(r.Context(), mailMessage(admins, "[PGDock] Dedicated instance request", body)); err != nil {
+			if err := s.mail.Send(r.Context(), mailMessage(admins, "[Xenibase] Dedicated instance request", body)); err != nil {
 				s.log.Warn("dedicated request email", "err", err)
 			}
 		}

@@ -12,9 +12,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/walg"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/walg"
 )
 
 // Storage target errors.
@@ -118,7 +118,7 @@ var ErrResidency = errors.New("data residency")
 // residencyAllows: a data-residency project may use only targets marked
 // as in its region.
 func residencyAllows(p store.Project, row store.StorageTarget) error {
-	if !p.DataResidency || (row.PgdockRegion != nil && *row.PgdockRegion == p.Region) {
+	if !p.DataResidency || (row.XenibaseRegion != nil && *row.XenibaseRegion == p.Region) {
 		return nil
 	}
 	return fmt.Errorf("%w: the project's data must stay in %s, and storage target %s is not marked as in that region", ErrResidency, p.Region, row.Name)
@@ -261,12 +261,12 @@ func (s *Service) ProjectKeyFile(ctx context.Context, p store.Project) (string, 
 }
 
 func keyReadme(p store.Project, k store.BackupKey) string {
-	return fmt.Sprintf(`PGDock backup key for project %s (%s)
+	return fmt.Sprintf(`Xenibase backup key for project %s (%s)
 Key fingerprint: %s
 Created: %s
 
 Keep this file secret and offline. Anyone with it can read the backups
-listed below; without it (and the PGDock server) they cannot be read.
+listed below; without it (and the Xenibase server) they cannot be read.
 
 What it opens
 -------------
@@ -278,7 +278,7 @@ What it opens
 Backups made before the key was enabled (or with an earlier key) keep the
 key they were made with.
 
-Restore with standard tools (no PGDock needed)
+Restore with standard tools (no Xenibase needed)
 ----------------------------------------------
 1. Fetch the object with any S3 client, e.g.
      aws s3 cp s3://<bucket>/<prefix>projects/%s/logical/<time>.dump.gpg backup.dump.gpg

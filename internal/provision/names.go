@@ -15,7 +15,7 @@ import (
 
 const (
 	maxNameLen = 64
-	maxSlugLen = 40 // the slug lives only in PGDock's metadata
+	maxSlugLen = 40 // the slug lives only in Xenibase's metadata
 )
 
 // ErrInvalid wraps validation failures that are the caller's fault.

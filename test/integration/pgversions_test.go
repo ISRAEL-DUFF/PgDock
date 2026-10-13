@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // waitMail waits for the n-th message to addr containing substr.
@@ -195,7 +195,7 @@ func TestDedicatedUpgradePreflight(t *testing.T) {
 		if !gone {
 			t.Errorf("scratch instance %s isn't marked deleted", id)
 		}
-		if _, err := dockerInspect(t, "pgdock-"+id, "{{.Id}}"); err == nil {
+		if _, err := dockerInspect(t, "xenibase-"+id, "{{.Id}}"); err == nil {
 			t.Errorf("scratch instance %s's container survived", id)
 		}
 	}

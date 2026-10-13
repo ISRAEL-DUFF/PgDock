@@ -1,7 +1,7 @@
-// Package edge is pgdock-edge (V4 §2.1): the per-region gateway that
+// Package edge is xenibase-edge (V4 §2.1): the per-region gateway that
 // serves every project's backend services at https://<ref>.<domain>. It
 // keeps an in-memory copy of each project's configuration, followed from
-// pgdock-server's feed, resolves exactly one project per request from the
+// xenibase-server's feed, resolves exactly one project per request from the
 // hostname, checks the API key (and a user's token) against that project
 // only, and runs the request in one transaction through the edge pooler,
 // as the project's anon, user or service role with the caller's claims
@@ -30,15 +30,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/jwtes"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/jwtes"
 )
 
-// Config is pgdock-edge's configuration.
+// Config is xenibase-edge's configuration.
 type Config struct {
 	// Name identifies this edge in reports (its hostname).
 	Name string
-	// ControlURL and Secret reach pgdock-server's edge feed.
+	// ControlURL and Secret reach xenibase-server's edge feed.
 	ControlURL string
 	Secret     string
 	// Region limits the edge to one region's projects ("" for all).
@@ -60,7 +60,7 @@ type Config struct {
 	ResyncEvery time.Duration
 	ReportEvery time.Duration
 	// AliveEvery is the longest the edge goes without a report, sending an
-	// empty one when it has nothing to say (default 30s), so pgdock-server
+	// empty one when it has nothing to say (default 30s), so xenibase-server
 	// sees it is up (V4.1 §7.2).
 	AliveEvery time.Duration
 	// AuthRateScale multiplies the per-IP limits on auth endpoints (tests
@@ -77,7 +77,7 @@ type Config struct {
 	// CacheBytes bounds the anonymous-read cache (default 64 MB).
 	CacheBytes int
 	// RenderWorker is the command a render worker runs as (V4.1 §12.4),
-	// e.g. {"/usr/local/bin/pgdock-edge", "render-worker"}; empty renders
+	// e.g. {"/usr/local/bin/xenibase-edge", "render-worker"}; empty renders
 	// in the edge's own process.
 	RenderWorker []string
 	// RenderWorkerEnv is added to the workers' environment (GOMEMLIMIT,
@@ -464,7 +464,7 @@ func (e *Edge) loginPool(ctx context.Context, p *project, login string, replica 
 	}
 	u := url.URL{Scheme: "postgres", User: url.UserPassword(user, password),
 		Host: net.JoinHostPort(host, strconv.Itoa(port)), Path: "/" + database,
-		RawQuery: url.Values{"sslmode": {e.cfg.PoolerSSLMode}, "application_name": {"pgdock-edge"}}.Encode()}
+		RawQuery: url.Values{"sslmode": {e.cfg.PoolerSSLMode}, "application_name": {"xenibase-edge"}}.Encode()}
 	cfg, err := pgxpool.ParseConfig(u.String())
 	if err != nil {
 		return nil, err
@@ -485,7 +485,7 @@ func (e *Edge) loginPool(ctx context.Context, p *project, login string, replica 
 	return pool, nil
 }
 
-// errNoLogin is a feed from a pgdock-server older than M32, without the
+// errNoLogin is a feed from a xenibase-server older than M32, without the
 // request roles' logins: the edge login switches to the role instead.
 var errNoLogin = errors.New("no login for the role")
 
@@ -554,7 +554,7 @@ func (e *Edge) WithRequest(ctx context.Context, p *project, req Request, fn func
 				return err
 			}
 		}
-		if _, err := tx.Exec(ctx, `SELECT set_config('pgd.claims', $1, true), set_config('statement_timeout', $2, true)`,
+		if _, err := tx.Exec(ctx, `SELECT set_config('xb.claims', $1, true), set_config('statement_timeout', $2, true)`,
 			string(claims), strconv.FormatInt(timeout.Milliseconds(), 10)); err != nil {
 			return err
 		}
@@ -563,7 +563,7 @@ func (e *Edge) WithRequest(ctx context.Context, p *project, req Request, fn func
 }
 
 // Explore serves one data API request for the project pc as role with
-// claims, without a key or the rate limits: pgdock-server's request
+// claims, without a key or the rate limits: xenibase-server's request
 // explorer. The project's pool is kept between calls.
 func (e *Edge) Explore(ctx context.Context, pc edgeapi.Project, role string, claims map[string]any, method, path string, body []byte) (int, http.Header, []byte) {
 	e.apply([]edgeapi.Project{pc})

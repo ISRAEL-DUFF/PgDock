@@ -13,12 +13,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/alerts"
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/alerts"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // Failure injection (spec §13): kill the agent mid-dump, kill the pooler,
@@ -58,15 +58,15 @@ func backupRows(t *testing.T, e *testenv.Env, id string) map[string]int {
 // object behind that looks like a backup.
 func onlySucceededObjects(t *testing.T, e *testenv.Env) {
 	t.Helper()
-	objs, err := e.S3.Objects("pgdock-test")
+	objs, err := e.S3.Objects("xenibase-test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, o := range objs {
-		if !strings.HasPrefix(o, "pgdock/projects/") {
+		if !strings.HasPrefix(o, "xenibase/projects/") {
 			continue
 		}
-		key := strings.TrimPrefix(o, "pgdock/")
+		key := strings.TrimPrefix(o, "xenibase/")
 		var status string
 		err := e.DB.QueryRow(context.Background(), `SELECT status FROM backups WHERE object_key = $1`, key).Scan(&status)
 		if err != nil || status != "succeeded" {
@@ -196,8 +196,8 @@ func TestFailureLoseS3(t *testing.T) {
 	if err := e.DB.QueryRow(ctx, `SELECT object_key FROM backups WHERE project_id = $1 AND status = 'failed' ORDER BY started_at DESC LIMIT 1`, id).Scan(&leftover); err != nil {
 		t.Fatal(err)
 	}
-	tgt := e.S3.Target("pgdock-test")
-	tgt.Prefix = "pgdock/"
+	tgt := e.S3.Target("xenibase-test")
+	tgt.Prefix = "xenibase/"
 	sc, err := storage.New(tgt)
 	if err != nil {
 		t.Fatal(err)
@@ -220,9 +220,9 @@ func TestFailureLoseS3(t *testing.T) {
 }
 
 func TestFailureKillPooler(t *testing.T) {
-	container := os.Getenv("PGDOCK_TEST_POOLER_TX_CONTAINER")
+	container := os.Getenv("XENIBASE_TEST_POOLER_TX_CONTAINER")
 	if container == "" {
-		t.Skip("PGDOCK_TEST_POOLER_TX_CONTAINER not set")
+		t.Skip("XENIBASE_TEST_POOLER_TX_CONTAINER not set")
 	}
 	e := testenv.Start(t, testenv.Options{})
 	ctx := context.Background()
@@ -303,9 +303,9 @@ func TestFailureKillPooler(t *testing.T) {
 
 func TestFailureDiskFull(t *testing.T) {
 	needDedicated(t)
-	smallURL := os.Getenv("PGDOCK_TEST_SMALL_ADMIN_URL")
+	smallURL := os.Getenv("XENIBASE_TEST_SMALL_ADMIN_URL")
 	if smallURL == "" {
-		t.Skip("PGDOCK_TEST_SMALL_ADMIN_URL not set")
+		t.Skip("XENIBASE_TEST_SMALL_ADMIN_URL not set")
 	}
 	e := testenv.Start(t, testenv.Options{})
 	e.StartAgent()
@@ -330,7 +330,7 @@ func TestFailureDiskFull(t *testing.T) {
 
 	// Only the small cluster takes new shared projects now.
 	if err := provision.RegisterSharedCluster(ctx, e.DB, e.Keyring, provision.SharedCluster{
-		NodeName: "small", AdminURL: smallURL, PoolerHost: os.Getenv("PGDOCK_TEST_SMALL_POOLER_HOST"), PoolerPort: 5432, NodeRole: "shared",
+		NodeName: "small", AdminURL: smallURL, PoolerHost: os.Getenv("XENIBASE_TEST_SMALL_POOLER_HOST"), PoolerPort: 5432, NodeRole: "shared",
 	}, slogDiscard()); err != nil {
 		t.Fatal(err)
 	}

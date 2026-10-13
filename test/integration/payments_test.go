@@ -1,17 +1,19 @@
 package integration
 
 import (
+	"bytes"
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/billing/iswallet"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // awaitPay polls cond until it holds (webhooks arrive asynchronously).
@@ -83,78 +85,144 @@ func invoiceStatus(e *testenv.Env, id uuid.UUID) string {
 	return string(d.Invoice.Status)
 }
 
-// TestPaymentsAcrossProviders is M21's done-when, against fakes of the
-// Flutterwave and iSpend sandboxes whose webhooks reach the API: card
-// payments and tokenised charges, transfers into both kinds of virtual
-// account (full, short by WHT, partial, over), wallet payments and mandate
-// charges, a revoked mandate, a failed card, duplicate and missed
-// webhooks, an iSpend outage falling back to a Flutterwave account, and
-// reconciliation against both providers with zero differences.
-func TestPaymentsAcrossProviders(t *testing.T) {
+// openWallet opens org's wallet (and its bank account) through the API.
+func openWallet(t *testing.T, e *testenv.Env, org uuid.UUID, name string) gen.Wallet {
+	t.Helper()
+	var w gen.Wallet
+	if code := e.Do("POST", "/api/v1/orgs/"+org.String()+"/billing/wallet", gen.WalletSetup{BusinessName: name + " Ltd", Email: "ap@" + strings.ToLower(strings.ReplaceAll(name, " ", "")) + ".example", Bvn: "22222222222"}, &w); code != http.StatusCreated ||
+		w.WalletId == nil || w.Account == nil {
+		t.Fatalf("open the wallet: %d %+v", code, w)
+	}
+	return w
+}
+
+func walletOf(e *testenv.Env, org uuid.UUID) gen.Wallet {
+	var w gen.Wallet
+	e.Do("GET", "/api/v1/orgs/"+org.String()+"/billing/wallet", nil, &w)
+	return w
+}
+
+// TestPaymentsThroughWallets is the payment path end to end, against a fake
+// of the wallet provider whose webhooks reach the API: a deposit lands in
+// the org's wallet and settles nothing by itself; consent debits it for the
+// invoice; a button pays one invoice without consent; duplicate, lost and
+// forged webhooks; a deposit nobody owns attributed by hand; manual bank
+// payments (short by WHT, partial, over); and reconciliation with zero
+// differences.
+func TestPaymentsThroughWallets(t *testing.T) {
 	e := testenv.Start(t, testenv.Options{})
 	ctx := context.Background()
-	q := store.New(e.DB)
 	start := time.Now().Add(-time.Minute)
-
-	// 1. Cards: pay an invoice on the hosted page; the card is saved.
-	card := newPayOrg(t, e, "Card Co", false)
-	cid := card.id.String()
-	var co struct {
-		Reference   string `json:"reference"`
-		CheckoutURL string `json:"checkout_url"`
-		AmountMinor int64  `json:"amount_minor"`
-	}
-	if code := e.Do("POST", "/api/v1/orgs/"+cid+"/billing/checkout", map[string]any{"channel": "card", "purpose": "invoice", "invoice_id": card.inv.Id}, &co); code != http.StatusCreated ||
-		co.AmountMinor != card.inv.TotalMinor || !strings.Contains(co.CheckoutURL, co.Reference) {
-		t.Fatalf("checkout: %d %+v", code, co)
-	}
-	if _, err := e.Flutterwave.CompleteCheckout(co.Reference, true); err != nil {
-		t.Fatal(err)
-	}
-	awaitPay(t, "the card payment", func() bool { return invoiceStatus(e, card.inv.Id) == "paid" })
-	// The card is saved just after the payment settles the invoice.
-	var methods struct{ Items []gen.PaymentMethod }
-	awaitPay(t, "the saved card", func() bool {
-		e.Do("GET", "/api/v1/orgs/"+cid+"/billing/payment-methods", nil, &methods)
-		return len(methods.Items) > 0
-	})
-	if len(methods.Items) != 1 || *methods.Items[0].Last4 != "4081" {
-		t.Fatalf("saved card: %+v", methods)
-	}
-	// A duplicate webhook changes nothing.
 	countPays := func(org uuid.UUID) int {
 		var pays gen.PaymentList
 		e.Do("GET", "/api/v1/orgs/"+org.String()+"/billing/payments", nil, &pays)
 		return len(pays.Items)
 	}
-	e.Flutterwave.RedeliverLast()
-	time.Sleep(500 * time.Millisecond)
-	if n := countPays(card.id); n != 1 {
-		t.Fatalf("payments after a duplicate webhook: %d", n)
+
+	// 1. A deposit is held; agreeing to debits pays the invoice from it.
+	held := newPayOrg(t, e, "Wallet Co", false)
+	hid := held.id.String()
+	if w := walletOf(e, held.id); !w.Available || w.WalletId != nil {
+		t.Fatalf("before the wallet is opened: %+v", w)
 	}
-	// A tokenised charge, then a failed one.
-	m, err := q.DefaultPaymentMethod(ctx, card.id)
+	w := openWallet(t, e, held.id, "Wallet Co")
+	const gross = 2_000_000
+	_, _, credited, err := e.ISWallet.Deposit(w.Account.AccountNumber, gross)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out, err := e.Billing.ChargeMethod(ctx, m, nil, 750_000); err != nil || !out.Succeeded {
-		t.Fatalf("tokenised charge: %+v %v", out, err)
+	awaitPay(t, "the deposit", func() bool { return walletOf(e, held.id).LedgerMinor == credited })
+	if s := invoiceStatus(e, held.inv.Id); s != "issued" {
+		t.Fatalf("a deposit settled the invoice: %s", s)
 	}
-	e.Flutterwave.Decline("flw-t1-"+co.Reference, "Do not honour")
-	if out, err := e.Billing.ChargeMethod(ctx, m, nil, 750_000); err != nil || out.Succeeded || out.Unavailable {
-		t.Fatalf("failed card: %+v %v", out, err)
+	// A duplicate webhook changes nothing.
+	e.ISWallet.RedeliverLast()
+	time.Sleep(500 * time.Millisecond)
+	if n := countPays(held.id); n != 1 {
+		t.Fatalf("payments after a duplicate webhook: %d", n)
+	}
+	if got := walletOf(e, held.id); got.LedgerMinor != credited || got.OwedMinor != held.inv.TotalMinor {
+		t.Fatalf("after a duplicate webhook: %+v", got)
+	}
+	if code := e.Do("POST", "/api/v1/orgs/"+hid+"/billing/debit-consent", gen.DebitConsentRequest{TermsVersion: w.TermsVersion}, nil); code != http.StatusOK {
+		t.Fatalf("consent: %d", code)
+	}
+	awaitPay(t, "the debit", func() bool { return invoiceStatus(e, held.inv.Id) == "paid" })
+	if got := walletOf(e, held.id); got.LedgerMinor != credited-held.inv.TotalMinor || got.OwedMinor != 0 || e.ISWallet.WalletBalance(*w.WalletId) != got.LedgerMinor {
+		t.Errorf("the wallet after the debit: %+v, provider holds %d", got, e.ISWallet.WalletBalance(*w.WalletId))
 	}
 
-	// 2. Transfers into an iSpend account: short by WHT, then partial and over.
-	wht := newPayOrg(t, e, "Tax Co", true)
-	var va gen.VirtualAccount
-	if code := e.Do("POST", "/api/v1/orgs/"+wht.id.String()+"/billing/virtual-account", nil, &va); code != http.StatusOK || va.Provider != "ispend" {
-		t.Fatalf("iSpend account: %d %+v", code, va)
-	}
-	if _, err := e.ISpend.Transfer(va.AccountNumber, wht.inv.TotalMinor-wht.inv.WhtExpectedMinor); err != nil {
+	// 2. Without consent, one invoice is paid on the org's say-so.
+	btn := newPayOrg(t, e, "Button Co", false)
+	bw := openWallet(t, e, btn.id, "Button Co")
+	if _, _, _, err := e.ISWallet.Deposit(bw.Account.AccountNumber, gross); err != nil {
 		t.Fatal(err)
 	}
-	awaitPay(t, "the WHT-short transfer", func() bool { return invoiceStatus(e, wht.inv.Id) == "paid_wht_pending" })
+	awaitPay(t, "the deposit", func() bool { return walletOf(e, btn.id).LedgerMinor > 0 })
+	var ch gen.WalletCharge
+	if code := e.Do("POST", "/api/v1/orgs/"+btn.id.String()+"/billing/invoices/"+btn.inv.Id.String()+"/pay-from-wallet", nil, &ch); code != http.StatusOK || !ch.Succeeded || ch.PaidMinor != btn.inv.TotalMinor {
+		t.Fatalf("pay from the wallet: %d %+v", code, ch)
+	}
+	if s := invoiceStatus(e, btn.inv.Id); s != "paid" {
+		t.Errorf("after paying from the wallet: %s", s)
+	}
+
+	// 3. A lost webhook: the re-query finds the deposit.
+	lost := newPayOrg(t, e, "Lost Co", false)
+	lw := openWallet(t, e, lost.id, "Lost Co")
+	e.ISWallet.DropWebhooks(1)
+	if _, _, _, err := e.ISWallet.Deposit(lw.Account.AccountNumber, gross); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(300 * time.Millisecond)
+	if got := walletOf(e, lost.id).LedgerMinor; got != 0 {
+		t.Fatalf("a dropped webhook was posted: %d", got)
+	}
+	if n, err := e.Billing.Requery(ctx, start, time.Now().Add(time.Minute)); err != nil || n != 1 {
+		t.Fatalf("re-query: %d %v", n, err)
+	}
+	if got := walletOf(e, lost.id).LedgerMinor; got != e.ISWallet.WalletBalance(*lw.WalletId) || got == 0 {
+		t.Errorf("after the re-query: the books hold %d, the provider %d", got, e.ISWallet.WalletBalance(*lw.WalletId))
+	}
+
+	// 4. Money paid into an account Xenibase has no record of waits for an
+	// admin to say whose it is.
+	own := newPayOrg(t, e, "Owner Co", false)
+	ow := openWallet(t, e, own.id, "Owner Co")
+	if _, err := e.DB.Exec(ctx, `DELETE FROM virtual_accounts WHERE org_id = $1`, own.id); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, err := e.ISWallet.Deposit(ow.Account.AccountNumber, 300_000); err != nil {
+		t.Fatal(err)
+	}
+	var events struct{ Items []gen.PaymentEvent }
+	awaitPay(t, "the unmatched event", func() bool {
+		e.Do("GET", "/api/v1/admin/payment-events?outcome=unmatched", nil, &events)
+		return len(events.Items) == 1
+	})
+	if n := countPays(own.id); n != 0 {
+		t.Fatalf("unmatched money was posted: %d", n)
+	}
+	var attributed gen.Payment
+	if code := e.Do("POST", "/api/v1/admin/payment-events/"+strconv.FormatInt(events.Items[0].Id, 10)+"/attribute", map[string]any{"org_id": own.id}, &attributed); code != http.StatusOK ||
+		attributed.OrgId != own.id || attributed.Provider != "iswallet" {
+		t.Fatalf("attribute: %d %+v", code, attributed)
+	}
+	if got := walletOf(e, own.id).LedgerMinor; got != attributed.AmountMinor {
+		t.Errorf("the wallet after attribution: %d, want %d", got, attributed.AmountMinor)
+	}
+
+	// 5. Manual bank payments: short by WHT, then partial and over.
+	wht := newPayOrg(t, e, "Tax Co", true)
+	var pay gen.Payment
+	if code := e.Do("POST", "/api/v1/admin/payments", map[string]any{
+		"org_id": wht.id, "amount_minor": wht.inv.TotalMinor - wht.inv.WhtExpectedMinor, "reference": "GTB-WHT-1", "invoice_id": wht.inv.Id,
+	}, &pay); code != http.StatusCreated {
+		t.Fatalf("WHT-short payment: %d", code)
+	}
+	if s := invoiceStatus(e, wht.inv.Id); s != "paid_wht_pending" {
+		t.Fatalf("after the WHT-short payment: %s", s)
+	}
 	pdf := []byte("%PDF-1.4\n%%EOF")
 	if code, body := e.DoBytes("POST", "/api/v1/orgs/"+wht.id.String()+"/billing/invoices/"+wht.inv.Id.String()+"/wht-certificate?filename=wht.pdf", "application/octet-stream", pdf); code != http.StatusCreated {
 		t.Fatalf("WHT credit note: %d %s", code, body)
@@ -164,90 +232,57 @@ func TestPaymentsAcrossProviders(t *testing.T) {
 	}
 
 	part := newPayOrg(t, e, "Partial Co", false)
-	var pva gen.VirtualAccount
-	e.Do("POST", "/api/v1/orgs/"+part.id.String()+"/billing/virtual-account", nil, &pva)
-	if _, err := e.ISpend.Transfer(pva.AccountNumber, part.inv.TotalMinor/2); err != nil {
-		t.Fatal(err)
+	record := func(amount int64, ref string) {
+		t.Helper()
+		if code := e.Do("POST", "/api/v1/admin/payments", map[string]any{"org_id": part.id, "amount_minor": amount, "reference": ref}, nil); code != http.StatusCreated {
+			t.Fatalf("record %s: %d", ref, code)
+		}
 	}
-	awaitPay(t, "the partial transfer", func() bool { return invoiceStatus(e, part.inv.Id) == "partially_paid" })
-	// The rest and ₦1,000 more, whose webhook is lost: re-query finds it.
-	e.ISpend.DropWebhooks(1)
-	if _, err := e.ISpend.Transfer(pva.AccountNumber, part.inv.TotalMinor-part.inv.TotalMinor/2+100_000); err != nil {
-		t.Fatal(err)
-	}
-	time.Sleep(300 * time.Millisecond)
+	record(part.inv.TotalMinor/2, "GTB-P-1")
 	if s := invoiceStatus(e, part.inv.Id); s != "partially_paid" {
-		t.Fatalf("a dropped webhook was posted: %s", s)
+		t.Fatalf("after half: %s", s)
 	}
-	if n, err := e.Billing.Requery(ctx, start, time.Now().Add(time.Minute)); err != nil || n != 1 {
-		t.Fatalf("re-query: %d %v", n, err)
+	if code := e.Do("POST", "/api/v1/admin/payments", map[string]any{"org_id": part.id, "amount_minor": 1, "reference": "GTB-P-1"}, nil); code != http.StatusConflict {
+		t.Errorf("a repeated bank reference: %d", code)
 	}
+	record(part.inv.TotalMinor-part.inv.TotalMinor/2+100_000, "GTB-P-2")
 	if s := invoiceStatus(e, part.inv.Id); s != "paid" {
-		t.Errorf("after the re-query: %s", s)
+		t.Errorf("after the rest: %s", s)
 	}
 	var acct gen.BillingAccount
 	if e.Do("GET", "/api/v1/orgs/"+part.id.String()+"/billing", nil, &acct); acct.CreditMinor == nil || *acct.CreditMinor != 100_000 {
 		t.Errorf("credit from the overpayment: %+v", acct.CreditMinor)
 	}
 
-	// 3. An iSpend outage: the account comes from Flutterwave and settles alike.
-	fb := newPayOrg(t, e, "Fallback Co", false)
-	e.ISpend.SetVirtualAccountsDown(true)
-	var fva gen.VirtualAccount
-	if code := e.Do("POST", "/api/v1/orgs/"+fb.id.String()+"/billing/virtual-account", nil, &fva); code != http.StatusOK || fva.Provider != "flutterwave" {
-		t.Fatalf("fallback account: %d %+v", code, fva)
+	// 6. Forged webhooks are refused.
+	hook := e.URL + "/api/v1/payments/webhooks/iswallet"
+	body := []byte(`{"id":"evt-forged","event_type":"wallet.credit.posted","data":{"txn_id":"t1"}}`)
+	if code, _ := e.DoBytes("POST", "/api/v1/payments/webhooks/iswallet", "application/json", body); code != http.StatusUnauthorized {
+		t.Errorf("unsigned webhook: %d", code)
 	}
-	e.ISpend.SetVirtualAccountsDown(false)
-	if _, err := e.Flutterwave.Transfer(fva.AccountNumber, fb.inv.TotalMinor); err != nil {
+	ts := time.Now().Unix()
+	req, err := http.NewRequest("POST", hook, bytes.NewReader(body))
+	if err != nil {
 		t.Fatal(err)
 	}
-	awaitPay(t, "the transfer into the Flutterwave account", func() bool { return invoiceStatus(e, fb.inv.Id) == "paid" })
-
-	// 4. Pay with iSpend with a mandate; a mandate charge; the mandate revoked.
-	wal := newPayOrg(t, e, "Wallet Co", false)
-	var wco struct {
-		Reference   string `json:"reference"`
-		CheckoutURL string `json:"checkout_url"`
-	}
-	if code := e.Do("POST", "/api/v1/orgs/"+wal.id.String()+"/billing/checkout", map[string]any{"channel": "wallet", "purpose": "invoice", "invoice_id": wal.inv.Id,
-		"mandate_limit_minor": 10_000_000}, &wco); code != http.StatusCreated {
-		t.Fatalf("wallet checkout: %d", code)
-	}
-	if _, err := e.ISpend.Approve(wco.CheckoutURL, 20_000_000); err != nil {
+	req.Header.Set("X-iSpend-Timestamp", strconv.FormatInt(ts, 10))
+	req.Header.Set("X-iSpend-Signature", iswallet.Sign("another-secret-0123456", ts, body))
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
 		t.Fatal(err)
 	}
-	awaitPay(t, "the wallet payment", func() bool { return invoiceStatus(e, wal.inv.Id) == "paid" })
-	// The mandate is saved just after the payment settles the invoice.
-	var mm store.PaymentMethod
-	awaitPay(t, "the saved mandate", func() bool {
-		mm, err = q.DefaultPaymentMethod(ctx, wal.id)
-		return err == nil
-	})
-	if mm.Kind != "mandate" {
-		t.Fatalf("mandate: %+v %v", mm, err)
-	}
-	if out, err := e.Billing.ChargeMethod(ctx, mm, nil, 1_000_000); err != nil || !out.Succeeded {
-		t.Fatalf("mandate charge: %+v %v", out, err)
-	}
-	e.ISpend.RevokeMandate(*mm.ProviderRef)
-	awaitPay(t, "the revocation", func() bool {
-		var ms struct{ Items []gen.PaymentMethod }
-		e.Do("GET", "/api/v1/orgs/"+wal.id.String()+"/billing/payment-methods", nil, &ms)
-		return len(ms.Items) == 0
-	})
-
-	// 5. Forged webhooks are refused.
-	if code, _ := e.DoBytes("POST", "/api/v1/payments/webhooks/flutterwave", "application/json", []byte(`{"event":"charge.completed","data":{"id":1}}`)); code != http.StatusUnauthorized {
-		t.Errorf("unsigned Flutterwave webhook: %d", code)
+	res.Body.Close()
+	if res.StatusCode != http.StatusUnauthorized {
+		t.Errorf("webhook signed with another secret: %d", res.StatusCode)
 	}
 
-	// 6. Receipts, the ledger, and reconciliation against both providers.
+	// 7. Receipts, the ledger, and reconciliation against the provider.
 	var pays gen.PaymentList
-	e.Do("GET", "/api/v1/orgs/"+cid+"/billing/payments", nil, &pays)
-	if len(pays.Items) < 2 {
-		t.Fatalf("card payments: %+v", pays)
+	e.Do("GET", "/api/v1/orgs/"+hid+"/billing/payments", nil, &pays)
+	if len(pays.Items) != 1 {
+		t.Fatalf("the wallet org's payments: %+v", pays)
 	}
-	if code, body := e.DoBytes("GET", "/api/v1/orgs/"+cid+"/billing/payments/"+pays.Items[0].Id.String()+"/receipt", "", nil); code != http.StatusOK || !strings.HasPrefix(string(body), "%PDF") {
+	if code, body := e.DoBytes("GET", "/api/v1/orgs/"+hid+"/billing/payments/"+pays.Items[0].Id.String()+"/receipt", "", nil); code != http.StatusOK || !strings.HasPrefix(string(body), "%PDF") {
 		t.Errorf("receipt: %d", code)
 	}
 	var check gen.LedgerCheck
@@ -255,7 +290,7 @@ func TestPaymentsAcrossProviders(t *testing.T) {
 		t.Fatalf("ledger: %+v", check)
 	}
 	var rec struct{ Items []gen.Reconciliation }
-	if code := e.Do("POST", "/api/v1/admin/reconciliation", map[string]any{"from": start, "to": time.Now().Add(time.Minute)}, &rec); code != http.StatusOK || len(rec.Items) != 2 {
+	if code := e.Do("POST", "/api/v1/admin/reconciliation", map[string]any{"from": start, "to": time.Now().Add(time.Minute)}, &rec); code != http.StatusOK || len(rec.Items) == 0 {
 		t.Fatalf("reconciliation: %d %+v", code, rec)
 	}
 	for _, r := range rec.Items {

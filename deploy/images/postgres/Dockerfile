@@ -1,7 +1,7 @@
 # PostgreSQL with WAL-G, the image for dedicated instances (spec §3.2,
 # §6.4) and agent-run shared clusters, one per supported major (V3 §2.4).
-#   docker build -t pgdock-postgres:18-walg3.0.9 deploy/images/postgres
-#   docker build --build-arg PG_MAJOR=17 -t pgdock-postgres:17-walg3.0.9 deploy/images/postgres
+#   docker build -t xenibase-postgres:18-walg3.0.9 deploy/images/postgres
+#   docker build --build-arg PG_MAJOR=17 -t xenibase-postgres:17-walg3.0.9 deploy/images/postgres
 #
 # WAL-G is built from a pinned commit through the Go module proxy, without
 # cgo: no system packages, and encryption via OpenPGP (pure Go).
@@ -47,7 +47,7 @@ COPY --from=patroni /usr/local/bin/python3.13 /usr/local/bin/
 COPY --from=patroni /opt/patroni /opt/patroni
 RUN ln -s python3.13 /usr/local/bin/python3 && ln -s python3 /usr/local/bin/python \
  && ldconfig && /opt/patroni/bin/patroni --version
-COPY --chmod=755 pgdock-patroni.sh /usr/local/bin/pgdock-patroni
-COPY --chmod=755 pgdock-hba.sh /docker-entrypoint-initdb.d/10-pgdock-hba.sh
-LABEL org.opencontainers.image.title="pgdock-postgres" \
-      org.opencontainers.image.description="PostgreSQL ${PG_MAJOR} with WAL-G v3.0.9 and hypopg for PGDock instances"
+COPY --chmod=755 xenibase-patroni.sh /usr/local/bin/xenibase-patroni
+COPY --chmod=755 xenibase-hba.sh /docker-entrypoint-initdb.d/10-xenibase-hba.sh
+LABEL org.opencontainers.image.title="xenibase-postgres" \
+      org.opencontainers.image.description="PostgreSQL ${PG_MAJOR} with WAL-G v3.0.9 and hypopg for Xenibase instances"

@@ -1,8 +1,8 @@
-// Package statuspage is pgdock-status (V3 §2.6): a public status page that
-// runs away from PGDock, probes it from outside, takes signed heartbeats
-// and incidents from pgdock-server, opens and resolves incidents by itself,
+// Package statuspage is xenibase-status (V3 §2.6): a public status page that
+// runs away from Xenibase, probes it from outside, takes signed heartbeats
+// and incidents from xenibase-server, opens and resolves incidents by itself,
 // keeps 90 days of history, and emails subscribers. Its state is one SQLite
-// file; it never touches PGDock's database.
+// file; it never touches Xenibase's database.
 package statuspage
 
 import (
@@ -15,15 +15,15 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/statusapi"
 )
 
 // Config is status.toml.
 type Config struct {
 	// Listen is the HTTP address (default :8080). Put TLS in front.
 	Listen string `toml:"listen"`
-	// Data is the SQLite file (default /var/lib/pgdock-status/status.db).
+	// Data is the SQLite file (default /var/lib/xenibase-status/status.db).
 	Data string `toml:"data"`
 	// PublicURL is where the page is reached, for links in emails and RSS.
 	PublicURL string `toml:"public_url"`
@@ -37,7 +37,7 @@ type Config struct {
 	// HeartbeatTTL: a heartbeat component with nothing newer is "unknown"
 	// (default 5m).
 	HeartbeatTTL duration `toml:"heartbeat_ttl"`
-	// PushSecret signs pgdock-server's heartbeats and incidents (or
+	// PushSecret signs xenibase-server's heartbeats and incidents (or
 	// PushSecretFile). Without one, pushes are refused.
 	PushSecret     string `toml:"push_secret"`
 	PushSecretFile string `toml:"push_secret_file"`
@@ -66,7 +66,7 @@ type Component struct {
 	Name        string `toml:"name"`
 	Region      string `toml:"region"`
 	Description string `toml:"description"`
-	// Heartbeat components take their state from pgdock-server's
+	// Heartbeat components take their state from xenibase-server's
 	// heartbeats: the states it reports for HeartbeatID (default ID) in
 	// the component's region, or for all regions. A heartbeat component
 	// may have probes too (V4.1 §7.2); the worse of the two wins.
@@ -132,10 +132,10 @@ func (c *Config) resolve() error {
 		c.Listen = ":8080"
 	}
 	if c.Data == "" {
-		c.Data = "/var/lib/pgdock-status/status.db"
+		c.Data = "/var/lib/xenibase-status/status.db"
 	}
 	if c.Title == "" {
-		c.Title = "PGDock status"
+		c.Title = "Xenibase status"
 	}
 	if c.Interval.Duration == 0 {
 		c.Interval.Duration = time.Minute

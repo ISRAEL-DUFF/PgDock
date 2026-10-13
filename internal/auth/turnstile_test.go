@@ -8,7 +8,7 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/auth"
+	"github.com/israel-duff/xenibase/internal/auth"
 )
 
 // A Turnstile challenge and the per-IP cap on open signup (V3 §7.4).

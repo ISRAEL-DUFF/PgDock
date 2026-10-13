@@ -35,14 +35,14 @@ func TestHetznerAgainstFake(t *testing.T) {
 		t.Error("an impossible size fit")
 	}
 
-	s, err := h.CreateServer(ctx, ServerSpec{Name: "pgd-eu-1", Type: "cpx31", Location: "fsn1", Image: "ubuntu-24.04", UserData: "#cloud-config\n", Labels: map[string]string{"pgdock": "node"}})
+	s, err := h.CreateServer(ctx, ServerSpec{Name: "xb-eu-1", Type: "cpx31", Location: "fsn1", Image: "ubuntu-24.04", UserData: "#cloud-config\n", Labels: map[string]string{"xenibase": "node"}})
 	if err != nil || s.ID == "" || s.Type != "cpx31" || s.PrivateIP == "" {
 		t.Fatalf("create: %+v %v", s, err)
 	}
-	if _, err := h.CreateServer(ctx, ServerSpec{Name: "pgd-eu-1", Type: "cpx31"}); err == nil {
+	if _, err := h.CreateServer(ctx, ServerSpec{Name: "xb-eu-1", Type: "cpx31"}); err == nil {
 		t.Error("a duplicate name was created")
 	}
-	list, err := h.ListServers(ctx, Filter{Labels: map[string]string{"pgdock": "node"}})
+	list, err := h.ListServers(ctx, Filter{Labels: map[string]string{"xenibase": "node"}})
 	if err != nil || len(list) != 1 || list[0].ID != s.ID {
 		t.Fatalf("list: %+v %v", list, err)
 	}
@@ -66,11 +66,11 @@ func TestHetznerAgainstFake(t *testing.T) {
 		t.Errorf("after delete: %+v", list)
 	}
 	// Spread placement groups (V3.1 §2.3): created once, found after.
-	g, err := h.EnsurePlacementGroup(ctx, "pgdock-ng-lagos", map[string]string{"pgdock-region": "ng-lagos"})
+	g, err := h.EnsurePlacementGroup(ctx, "xenibase-ng-lagos", map[string]string{"xenibase-region": "ng-lagos"})
 	if err != nil || g.ID == "" || g.Servers != 0 {
 		t.Fatalf("placement group: %+v %v", g, err)
 	}
-	if again, err := h.EnsurePlacementGroup(ctx, "pgdock-ng-lagos", nil); err != nil || again.ID != g.ID {
+	if again, err := h.EnsurePlacementGroup(ctx, "xenibase-ng-lagos", nil); err != nil || again.ID != g.ID {
 		t.Fatalf("placement group again: %+v %v", again, err)
 	}
 	for i := range SpreadGroupLimit {
@@ -78,7 +78,7 @@ func TestHetznerAgainstFake(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if full, _ := h.EnsurePlacementGroup(ctx, "pgdock-ng-lagos", nil); full.Servers != SpreadGroupLimit {
+	if full, _ := h.EnsurePlacementGroup(ctx, "xenibase-ng-lagos", nil); full.Servers != SpreadGroupLimit {
 		t.Fatalf("full group: %+v", full)
 	}
 	if _, err := h.CreateServer(ctx, ServerSpec{Name: "ng-over", Type: "cpx11", PlacementGroup: g.ID}); err == nil || !strings.Contains(err.Error(), "full") {
@@ -106,8 +106,8 @@ func TestManualProvider(t *testing.T) {
 
 func TestCloudInit(t *testing.T) {
 	b := Bootstrap{
-		NodeName: "pgd-eu-2", ServerURL: "https://pgdock.example.com", Token: "pgdreg_abc-DEF_123",
-		AgentImage: "ghcr.io/acme/pgdock-agent:3.0.0", PGImage: "ghcr.io/acme/pgdock-postgres:{major}-walg3.0.9",
+		NodeName: "xb-eu-2", ServerURL: "https://xenibase.example.com", Token: "xbreg_abc-DEF_123",
+		AgentImage: "ghcr.io/acme/xenibase-agent:3.0.0", PGImage: "ghcr.io/acme/xenibase-postgres:{major}-walg3.0.9",
 		PrivateCIDR: "10.0.0.0/16", SSHKeys: []string{"ssh-ed25519 AAAA ops"},
 		ServerCA: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n",
 	}
@@ -130,29 +130,29 @@ func TestCloudInit(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(doc), &parsed); err != nil {
 		t.Fatalf("YAML: %v\n%s", err, doc)
 	}
-	if parsed.Hostname != "pgd-eu-2" || len(parsed.Runcmd) != 1 || len(parsed.Keys) != 1 {
+	if parsed.Hostname != "xb-eu-2" || len(parsed.Runcmd) != 1 || len(parsed.Keys) != 1 {
 		t.Errorf("parsed: %+v", parsed)
 	}
 	files := map[string]string{}
 	for _, f := range parsed.WriteFiles {
 		files[f.Path] = f.Content
-		if f.Path == "/etc/pgdock/agent.env" && f.Permissions != "0600" {
+		if f.Path == "/etc/xenibase/agent.env" && f.Permissions != "0600" {
 			t.Errorf("agent.env permissions %s", f.Permissions)
 		}
 	}
-	env := files["/etc/pgdock/agent.env"]
-	for _, want := range []string{"PGDOCK_AGENT_TOKEN=pgdreg_abc-DEF_123", "PGDOCK_AGENT_DB_ALLOW=10.0.0.0/16", "PGDOCK_AGENT_SERVER_CA=/etc/pgdock/server-ca.pem"} {
+	env := files["/etc/xenibase/agent.env"]
+	for _, want := range []string{"XENIBASE_AGENT_TOKEN=xbreg_abc-DEF_123", "XENIBASE_AGENT_DB_ALLOW=10.0.0.0/16", "XENIBASE_AGENT_SERVER_CA=/etc/xenibase/server-ca.pem"} {
 		if !strings.Contains(env, want) {
 			t.Errorf("agent.env lacks %s:\n%s", want, env)
 		}
 	}
-	if !strings.Contains(files["/etc/ssh/sshd_config.d/90-pgdock.conf"], "PasswordAuthentication no") {
+	if !strings.Contains(files["/etc/ssh/sshd_config.d/90-xenibase.conf"], "PasswordAuthentication no") {
 		t.Error("SSH isn't hardened")
 	}
-	if !strings.Contains(files["/etc/pgdock/server-ca.pem"], "BEGIN CERTIFICATE") {
+	if !strings.Contains(files["/etc/xenibase/server-ca.pem"], "BEGIN CERTIFICATE") {
 		t.Error("the CA isn't written")
 	}
-	if !strings.Contains(files["/usr/local/sbin/pgdock-join"], "ufw --force enable") {
+	if !strings.Contains(files["/usr/local/sbin/xenibase-join"], "ufw --force enable") {
 		t.Error("no firewall")
 	}
 	if got := TokenFromCloudInit(doc); got != b.Token {
@@ -173,15 +173,15 @@ func TestCloudInit(t *testing.T) {
 	}
 }
 
-// TestCloudInitEdge: an edge node runs pgdock-edge beside the agent, with
+// TestCloudInitEdge: an edge node runs xenibase-edge beside the agent, with
 // its secret in a root-only file (V4.1 §11).
 func TestCloudInitEdge(t *testing.T) {
 	b := Bootstrap{
-		NodeName: "pgd-ng-lagos-4", ServerURL: "https://pgdock.example.com", Token: "pgdreg_abc",
-		AgentImage: "ghcr.io/acme/pgdock-agent:3.0.0", PGImage: "ghcr.io/acme/pgdock-postgres:{major}",
+		NodeName: "xb-ng-lagos-4", ServerURL: "https://xenibase.example.com", Token: "xbreg_abc",
+		AgentImage: "ghcr.io/acme/xenibase-agent:3.0.0", PGImage: "ghcr.io/acme/xenibase-postgres:{major}",
 		PrivateCIDR: "10.0.0.0/16", ServerCA: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n",
-		Edge: &EdgeBootstrap{Image: "ghcr.io/acme/pgdock-edge:4.1.0", ControlURL: "https://pgdock.example.com",
-			Secret: strings.Repeat("s", 40), Domain: "api.pgdock.ng", Region: "ng-lagos"},
+		Edge: &EdgeBootstrap{Image: "ghcr.io/acme/xenibase-edge:4.1.0", ControlURL: "https://xenibase.example.com",
+			Secret: strings.Repeat("s", 40), Domain: "api.xenibase.ng", Region: "ng-lagos"},
 	}
 	doc, err := b.CloudInit()
 	if err != nil {
@@ -199,21 +199,21 @@ func TestCloudInitEdge(t *testing.T) {
 	for _, f := range parsed.WriteFiles {
 		files[f.Path], perms[f.Path] = f.Content, f.Permissions
 	}
-	env := files["/etc/pgdock/edge.env"]
-	for _, want := range []string{"PGDOCK_EDGE_NAME=pgd-ng-lagos-4", "PGDOCK_EDGE_SECRET=" + strings.Repeat("s", 40),
-		"PGDOCK_EDGE_DOMAIN=api.pgdock.ng", "PGDOCK_EDGE_REGION=ng-lagos", "PGDOCK_EDGE_CONTROL_URL=https://pgdock.example.com"} {
+	env := files["/etc/xenibase/edge.env"]
+	for _, want := range []string{"XENIBASE_EDGE_NAME=xb-ng-lagos-4", "XENIBASE_EDGE_SECRET=" + strings.Repeat("s", 40),
+		"XENIBASE_EDGE_DOMAIN=api.xenibase.ng", "XENIBASE_EDGE_REGION=ng-lagos", "XENIBASE_EDGE_CONTROL_URL=https://xenibase.example.com"} {
 		if !strings.Contains(env, want) {
 			t.Errorf("edge.env lacks %s:\n%s", want, env)
 		}
 	}
-	if perms["/etc/pgdock/edge.env"] != "0600" {
-		t.Errorf("edge.env permissions %s", perms["/etc/pgdock/edge.env"])
+	if perms["/etc/xenibase/edge.env"] != "0600" {
+		t.Errorf("edge.env permissions %s", perms["/etc/xenibase/edge.env"])
 	}
-	if !strings.Contains(files["/etc/pgdock/agent.env"], "PGDOCK_AGENT_SERVER_CA=") || strings.Contains(env, "AGENT") {
-		t.Errorf("the env files are mixed up:\nagent: %s\nedge: %s", files["/etc/pgdock/agent.env"], env)
+	if !strings.Contains(files["/etc/xenibase/agent.env"], "XENIBASE_AGENT_SERVER_CA=") || strings.Contains(env, "AGENT") {
+		t.Errorf("the env files are mixed up:\nagent: %s\nedge: %s", files["/etc/xenibase/agent.env"], env)
 	}
-	join := files["/usr/local/sbin/pgdock-join"]
-	for _, want := range []string{"ufw allow 8443/tcp", "--name pgdock-edge", "--env-file /etc/pgdock/edge.env", "ghcr.io/acme/pgdock-edge:4.1.0", "--name pgdock-agent"} {
+	join := files["/usr/local/sbin/xenibase-join"]
+	for _, want := range []string{"ufw allow 8443/tcp", "--name xenibase-edge", "--env-file /etc/xenibase/edge.env", "ghcr.io/acme/xenibase-edge:4.1.0", "--name xenibase-agent"} {
 		if !strings.Contains(join, want) {
 			t.Errorf("the join script lacks %s:\n%s", want, join)
 		}
@@ -221,7 +221,7 @@ func TestCloudInitEdge(t *testing.T) {
 	for name, mut := range map[string]func(*EdgeBootstrap){
 		"short secret":  func(e *EdgeBootstrap) { e.Secret = "short" },
 		"quoted secret": func(e *EdgeBootstrap) { e.Secret = strings.Repeat("s", 40) + "'" },
-		"bad domain":    func(e *EdgeBootstrap) { e.Domain = "api pgdock" },
+		"bad domain":    func(e *EdgeBootstrap) { e.Domain = "api xenibase" },
 		"bad image":     func(e *EdgeBootstrap) { e.Image = "a b" },
 	} {
 		e := *b.Edge
@@ -234,7 +234,7 @@ func TestCloudInitEdge(t *testing.T) {
 	}
 	plain := b
 	plain.Edge = nil
-	if doc, _ := plain.CloudInit(); strings.Contains(doc, "pgdock-edge") {
+	if doc, _ := plain.CloudInit(); strings.Contains(doc, "xenibase-edge") {
 		t.Error("a database node runs the edge")
 	}
 }

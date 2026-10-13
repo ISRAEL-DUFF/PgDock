@@ -12,9 +12,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
 // usage records qty of metric for project at every hour of [from, to).
@@ -158,7 +158,7 @@ func TestMonthWithMidMonthUpgrade(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if issued.Number == nil || *issued.Number != "PGD-2026-000001" || issued.Status != billing.StatusIssued ||
+	if issued.Number == nil || *issued.Number != "XB-2026-000001" || issued.Status != billing.StatusIssued ||
 		!issued.DueAt.Equal(clk.t.AddDate(0, 0, 14)) {
 		t.Fatalf("issued: %+v", issued)
 	}
@@ -168,7 +168,7 @@ func TestMonthWithMidMonthUpgrade(t *testing.T) {
 	if again, err := s.Draft(ctx, org, day(31)); err != nil || again.Status != billing.StatusIssued {
 		t.Errorf("re-drafting an issued month: %+v %v", again, err)
 	}
-	if n := len(sent.msgs); n != 1 || !strings.Contains(sent.msgs[0].Subject, "PGD-2026-000001") || sent.msgs[0].To[0] != "ap@acme.example" {
+	if n := len(sent.msgs); n != 1 || !strings.Contains(sent.msgs[0].Subject, "XB-2026-000001") || sent.msgs[0].To[0] != "ap@acme.example" {
 		t.Errorf("invoice email: %+v", sent.msgs)
 	}
 
@@ -186,7 +186,7 @@ func TestMonthWithMidMonthUpgrade(t *testing.T) {
 
 	// Credit notes: VAT at the invoice's rate, never more than the total.
 	cn, err := s.CreditNote(ctx, inv.ID, 10_000, "Goodwill for the October outage", nil)
-	if err != nil || cn.VatMinor != 750 || cn.Number != "PGD-CN-2026-000001" {
+	if err != nil || cn.VatMinor != 750 || cn.Number != "XB-CN-2026-000001" {
 		t.Fatalf("credit note: %+v %v", cn, err)
 	}
 	if b := balance(t, db, &org, billing.AccReceivable); b != r.Total-10_750 {
@@ -261,7 +261,7 @@ func TestInvoicingCycle(t *testing.T) {
 			t.Errorf("invoice for %s", r.PeriodStart.Time)
 		}
 	}
-	if strings.Join(numbers, ",") != "PGD-2026-000001,PGD-2026-000002" && strings.Join(numbers, ",") != "PGD-2026-000002,PGD-2026-000001" {
+	if strings.Join(numbers, ",") != "XB-2026-000001,XB-2026-000002" && strings.Join(numbers, ",") != "XB-2026-000002,XB-2026-000001" {
 		t.Errorf("numbers %v", numbers)
 	}
 	// Running again changes nothing.

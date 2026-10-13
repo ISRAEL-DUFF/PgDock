@@ -13,11 +13,11 @@ ON CONFLICT (project_id) DO UPDATE SET config = EXCLUDED.config, providers_enc =
 RETURNING *;
 
 -- name: EdgeAuthConfigs :many
--- tenant: system - pgdock-edge's configuration feed: auth settings.
+-- tenant: system - xenibase-edge's configuration feed: auth settings.
 SELECT project_id, config, providers_enc FROM project_auth_config WHERE project_id = ANY(@project_ids::uuid[]);
 
 -- name: EdgeSigningKeys :many
--- tenant: system - pgdock-edge's configuration feed: the active signing keys.
+-- tenant: system - xenibase-edge's configuration feed: the active signing keys.
 SELECT project_id, id, kid, private_enc FROM project_jwt_keys
 WHERE project_id = ANY(@project_ids::uuid[]) AND status = 'active';
 
@@ -32,7 +32,7 @@ UPDATE project_jwt_keys SET status = 'retired', retired_at = now()
 WHERE status = 'verifying' AND verify_until IS NOT NULL AND verify_until < now();
 
 -- name: InsertAuthMessage :exec
--- tenant: system - a message pgdock-edge asked for, for the project it named.
+-- tenant: system - a message xenibase-edge asked for, for the project it named.
 INSERT INTO auth_message_outbox (id, project_id, channel, kind, via, message_enc, recipient_hash, country)
 VALUES (@id, @project_id, @channel, @kind, @via, @message_enc, @recipient_hash, @country);
 
@@ -87,7 +87,7 @@ GROUP BY channel ORDER BY channel;
 INSERT INTO auth_alerts (project_id, kind, day, details) VALUES (@project_id, @kind, @day, @details) ON CONFLICT DO NOTHING;
 
 -- name: InsertAuthHook :exec
--- tenant: system - a hook event pgdock-edge sent, for the project it named.
+-- tenant: system - a hook event xenibase-edge sent, for the project it named.
 INSERT INTO auth_hook_outbox (id, project_id, event, payload) VALUES (@id, @project_id, @event, @payload);
 
 -- name: ClaimAuthHooks :many
@@ -123,7 +123,7 @@ WHERE project_id = @project_id AND created_at > @since
 GROUP BY channel, provider, status ORDER BY channel, provider, status;
 
 -- name: InsertActiveUser :execrows
--- tenant: system - pgdock-edge's report, for projects it serves.
+-- tenant: system - xenibase-edge's report, for projects it serves.
 INSERT INTO auth_mau (project_id, month, user_id) VALUES (@project_id, @month, @user_id) ON CONFLICT DO NOTHING;
 
 -- name: ProjectMAU :one

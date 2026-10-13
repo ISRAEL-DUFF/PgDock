@@ -91,7 +91,7 @@ export function pushRecent(list: string[], expr: string, max = 10): string[] {
   return [e, ...list.filter((x) => x !== e)].slice(0, max);
 }
 
-const key = (project: string, schema: string, table: string) => `pgdock.where.${project}.${schema}.${table}`;
+const key = (project: string, schema: string, table: string) => `xenibase.where.${project}.${schema}.${table}`;
 
 export function loadRecent(project: string, schema: string, table: string): string[] {
   try {

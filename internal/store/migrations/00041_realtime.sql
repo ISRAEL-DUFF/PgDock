@@ -1,7 +1,7 @@
 -- +goose Up
 -- V4-M34: backend services' realtime (V4 §6). Captured changes, private
 -- channel policies and broadcast history live in each project's database
--- (pgd_realtime, schema version 5); pgdock-edge serves the WebSockets.
+-- (xb_realtime, schema version 5); xenibase-edge serves the WebSockets.
 
 -- What the edge applies, recomputed by the realtime sweep: concurrent
 -- connections per edge process (null is unlimited) and whether the month's

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // newerMinorImage points the Postgres 17 image tag at a copy that reports
@@ -18,9 +18,9 @@ import (
 // back when the test ends.
 func newerMinorImage(t *testing.T) {
 	t.Helper()
-	tmpl := os.Getenv("PGDOCK_TEST_PG_IMAGE")
+	tmpl := os.Getenv("XENIBASE_TEST_PG_IMAGE")
 	if !strings.Contains(tmpl, "{major}") {
-		t.Skip("PGDOCK_TEST_PG_IMAGE is not a {major} template")
+		t.Skip("XENIBASE_TEST_PG_IMAGE is not a {major} template")
 	}
 	tag := strings.ReplaceAll(tmpl, "{major}", "17")
 	orig, err := exec.Command("docker", "image", "inspect", "--format", "{{.Id}} {{range .Config.Env}}{{.}} {{end}}", tag).Output()
@@ -32,7 +32,7 @@ func newerMinorImage(t *testing.T) {
 	}
 	orig = []byte(strings.Fields(string(orig))[0])
 	// FROM takes a name, not an image ID.
-	const base = "pgdock-minor-test-base:latest"
+	const base = "xenibase-minor-test-base:latest"
 	if out, err := exec.Command("docker", "tag", tag, base).CombinedOutput(); err != nil {
 		t.Fatalf("tag %s: %v\n%s", base, err, out)
 	}

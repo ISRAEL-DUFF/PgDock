@@ -156,17 +156,17 @@ function AddNode({ onClose }: { onClose: () => void }) {
         <div className="flex flex-col gap-3 text-sm">
           <p>
             On <strong>{created.node.name}</strong>, put this one-time token in <code className="font-mono">deploy/pooler-host/.env</code> as{" "}
-            <code className="font-mono">PGDOCK_AGENT_TOKEN</code> within 24 hours (until {formatDate(created.expires_at)}), with the host's private address as{" "}
-            <code className="font-mono">PGDOCK_AGENT_ADVERTISE</code>, then start the pooler host and its keepalived with{" "}
+            <code className="font-mono">XENIBASE_AGENT_TOKEN</code> within 24 hours (until {formatDate(created.expires_at)}), with the host's private address as{" "}
+            <code className="font-mono">XENIBASE_AGENT_ADVERTISE</code>, then start the pooler host and its keepalived with{" "}
             <code className="font-mono">docker compose up -d</code> (docs/edge-poolers.md).
           </p>
-          <CodeBlock code={`PGDOCK_AGENT_TOKEN=${created.token}`} />
+          <CodeBlock code={`XENIBASE_AGENT_TOKEN=${created.token}`} />
           <p className="text-xs text-muted">It appears under Edge pooler hosts once its agent registers and takes the configuration.</p>
         </div>
       ) : created ? (
         <div className="flex flex-col gap-3 text-sm">
           <p>
-            On <strong>{created.node.name}</strong>, with Docker installed and the <code className="font-mono">pgdock-agent</code> binary, run this within 24
+            On <strong>{created.node.name}</strong>, with Docker installed and the <code className="font-mono">xenibase-agent</code> binary, run this within 24
             hours (until {formatDate(created.expires_at)}). The token works once.
           </p>
           <CodeBlock code={created.command} />
@@ -209,7 +209,7 @@ function AddNode({ onClose }: { onClose: () => void }) {
 
 const eventLabel: Record<string, string> = {
   took_ip: "Took the floating IP",
-  reassigned: "Floating IP moved by PGDock",
+  reassigned: "Floating IP moved by Xenibase",
   split_brain: "Split brain",
   stale: "Configuration stale",
   push_failed: "Push failed",
@@ -241,12 +241,12 @@ function PoolerHostsPanel() {
           ? d.holder_name
             ? `The floating IP routes to ${d.holder_name}. Configuration generation ${d.generation}.`
             : "The floating IP is not assigned to a pooler host."
-          : `keepalived moves the shared address; PGDock doesn't manage a floating IP. Configuration generation ${d.generation}.`
+          : `keepalived moves the shared address; Xenibase doesn't manage a floating IP. Configuration generation ${d.generation}.`
       }
       actions={d.checked_at && <span className="text-xs text-muted">checked {relativeTime(d.checked_at)}</span>}
     >
       <div className="flex flex-col gap-3">
-        {d.split_brain && <Alert title="Split brain">More than one pooler host says keepalived made it MASTER. PGDock keeps the floating IP on one healthy host.</Alert>}
+        {d.split_brain && <Alert title="Split brain">More than one pooler host says keepalived made it MASTER. Xenibase keeps the floating IP on one healthy host.</Alert>}
         {d.no_healthy && <Alert title="No healthy pooler host">Connections through the edge pooler are failing.</Alert>}
         {d.holder_error && (
           <Alert tone="warn" title="Floating IP">
@@ -523,7 +523,7 @@ function FailureDomainField({ node, onSave }: { node: Node; onSave: (d: string) 
   return (
     <Field
       label="Failure domain"
-      hint={`What fails with this node: a rack, host or power feed. ${node.placement_group ? `Placement group ${node.placement_group}. ` : ""}PGDock keeps HA pairs, etcd members and pooler hosts in different ones. Now: ${node.failure_domain_label ?? "—"}.`}
+      hint={`What fails with this node: a rack, host or power feed. ${node.placement_group ? `Placement group ${node.placement_group}. ` : ""}Xenibase keeps HA pairs, etcd members and pooler hosts in different ones. Now: ${node.failure_domain_label ?? "—"}.`}
     >
       {(fid) => (
         <div className="flex gap-2">

@@ -1,4 +1,4 @@
-# PGDock — V4.1 Specification & Build Plan
+# Xenibase — V4.1 Specification & Build Plan
 
 *Builds on V3, V3.1 and V4. References like "V3 §3.1" point to those
 documents; "Gap n" points to the gap review of 2026-10-09 (V3 to V4
@@ -8,7 +8,7 @@ against their specs and build plans).*
 | --- | --- |
 | **Status** | Draft v1, for review |
 | **Theme** | Finish what V3, V3.1 and V4 promised but didn't build, and close the launch gates that are still open |
-| **Builds on** | V4 (M28–M37), merged into `feature/pgdock4` |
+| **Builds on** | V4 (M28–M37), merged into `feature/xenibase4` |
 | **Scope** | Every gap in the review except those the decisions log already records as deliberate deviations |
 
 ---
@@ -149,7 +149,7 @@ compares with the limits and sends two flags per project on the feed:
 - Overshoot is bounded by one sweep interval of traffic, as for storage
   (V4-M33 decision 9). Documented.
 
-**SMS cap from the plan.** The pumping check at pgdock-server
+**SMS cap from the plan.** The pumping check at xenibase-server
 (V4-M32 decision 4) reads the cap from the org's quota plan instead of
 the flat 200, with the project's own lower cap still honoured.
 
@@ -180,7 +180,7 @@ RatePerKey}`, `APIRequestsExhausted bool`, `MAUExhausted bool`,
   and `plan_ceilings`.
 - Project → API → Access and limits: the effective values and ceilings.
 - Org → Usage: API requests and MAU bars against the plan's limit.
-- `pgdock services status` prints effective limits.
+- `xenibase services status` prints effective limits.
 
 ### 3.5 Done when
 
@@ -263,7 +263,7 @@ Today `backup.DefaultRetention = {Daily: 7, Weekly: 4}` for every project.
   /projects/{id}/instance` (new, also used by §5) accepts `pitr_days`.
 - Price book editor (Admin → Billing → Price books) shows the new fields;
   the preview (V3 §3.9) includes them.
-- `pgdock backup retention <p> extended`, `pgdock pitr window <p> 30`.
+- `xenibase backup retention <p> extended`, `xenibase pitr window <p> 30`.
 
 ### 4.5 Done when
 
@@ -335,7 +335,7 @@ Today creation fails with `no capacity` when no host fits.
 
 - Project → Settings → Instance: size picker and disk field, each with
   `CostEstimate` (V3 §3.10 "cost estimate before every billable action").
-- `pgdock instance resize <p> --cpus 4 --memory 8192`, `pgdock instance
+- `xenibase instance resize <p> --cpus 4 --memory 8192`, `xenibase instance
   disk <p> --gb 160`.
 
 ### 5.5 Done when
@@ -358,7 +358,7 @@ proposal.
 
 - New table `pg_versions (major int PRIMARY KEY, status text, -- preview |
   supported | deprecated | retired, deprecated_at timestamptz,
-  retires_at timestamptz, notes text)`, seeded from `PGDOCK_PG_VERSIONS`
+  retires_at timestamptz, notes text)`, seeded from `XENIBASE_PG_VERSIONS`
   on upgrade.
 - **Preview** (V3 §2.4 "the next major once it has had its first minor
   release"): selectable for new projects only behind a flag on the create
@@ -406,14 +406,14 @@ not started; the temporary instance is gone afterwards.
 
 ### 7.1 Automatic subscriptions (V3 §2.6)
 
-- pgdock-status gains a signed endpoint `PUT /api/v1/subscribers/managed`
+- xenibase-status gains a signed endpoint `PUT /api/v1/subscribers/managed`
   taking the full list of managed subscribers: email, the components
   (and regions) they care about. Managed subscribers skip double opt-in
   (they are customers' billing contacts or owners, under the terms) but
   every email carries the unsubscribe link, and an unsubscribe is
-  remembered (pgdock-status keeps a tombstone so the next sync doesn't
+  remembered (xenibase-status keeps a tombstone so the next sync doesn't
   re-add them).
-- pgdock-server sends the list hourly: for each paying org (plan not
+- xenibase-server sends the list hourly: for each paying org (plan not
   Free, not suspended), its billing contacts and owners, with the
   components their projects use (shared tier / dedicated / HA / backend
   services) in their projects' regions.
@@ -428,7 +428,7 @@ not started; the temporary instance is gone afterwards.
   region: degraded when an edge stopped reporting (`edge_reports` older
   than 2 minutes) for some edges, down when for all; plus an external
   probe of `/healthz` on each region's edge address, configurable in
-  pgdock-status's TOML).
+  xenibase-status's TOML).
 - Heartbeats are sent per region (`ComponentState.Region`); the page
   groups components by region as the config already allows.
 
@@ -478,7 +478,7 @@ Platform → Regions → region:
 ### 8.2 Proposed announcements (V3.1 §4.1, open question 3)
 
 - When work is queued that the window gate holds (an HA minor upgrade, an
-  approved rebalance batch), PGDock **drafts** an announcement for the
+  approved rebalance batch), Xenibase **drafts** an announcement for the
   next window that is at least 96 hours away (72 for the SLA plus a day
   for the admin to confirm), scoped to the affected projects.
 - Drafts appear in Admin → Incidents → Maintenance with **Confirm**
@@ -548,11 +548,11 @@ per service (the M37 breakdown, filtered to this project).
 
 ### 9.4 CLI (V4 §8.2)
 
-- `pgdock policies list <p> [--table t]`: policies per table with roles
+- `xenibase policies list <p> [--table t]`: policies per table with roles
   and expressions, in the friendly role names.
-- `pgdock policies lint <p>`: the security advisor's findings, exit code
+- `xenibase policies lint <p>`: the security advisor's findings, exit code
   1 on any `danger` finding (for CI), `--json`.
-- `pgdock logs api <p> [--follow] [--status 5xx] [--path /data/v1/…]`:
+- `xenibase logs api <p> [--follow] [--status 5xx] [--path /data/v1/…]`:
   the request log; `--follow` long-polls a new
   `GET /projects/{id}/services/logs?after=<cursor>&wait=25s`.
 
@@ -569,8 +569,8 @@ When the parent has backend services enabled, creating a branch
 - leaves auth users as the data copy made them (with V2 §8.5's
   sensitive-data rule: a schema-only branch has none);
 - returns the branch's API URL and keys in the create response and
-  `pgdock branch create --env` output (`PGDOCK_API_URL`,
-  `PGDOCK_PUBLISHABLE_KEY`, `PGDOCK_SECRET_KEY`).
+  `xenibase branch create --env` output (`XENIBASE_API_URL`,
+  `XENIBASE_PUBLISHABLE_KEY`, `XENIBASE_SECRET_KEY`).
 - **Optional file copy** (V4 §2.5 "an option to copy files"): `copy_files:
   true` on branch create copies the parent's objects into the branch's
   prefix in the background (a `copy_branch_files` operation, server-side
@@ -669,7 +669,7 @@ realtime**:
 `docs/security-review.md` gains **V4 auth against ASVS 4.0 level 2**: a
 table of the V2 (authentication), V3 (session), V6 (stored
 cryptography) and V11 (business logic: rate limits) requirements that
-apply, how PGDock meets each, and the test that shows it; gaps found are
+apply, how Xenibase meets each, and the test that shows it; gaps found are
 fixed in this milestone or listed as accepted.
 
 ### 12.3 Code brute force
@@ -682,7 +682,7 @@ be reused.
 
 ### 12.4 Transforms in a separate pool (V4 §16)
 
-Image renders run in a child process pool (`pgdock-edge render-worker`,
+Image renders run in a child process pool (`xenibase-edge render-worker`,
 the same binary, started by the edge, talking over a pipe), so a decoder
 crash or a memory blow-up kills a worker, not the edge. Pool size one per
 two CPUs as now; memory per worker capped (`GOMEMLIMIT`, and
@@ -699,8 +699,8 @@ Mostly work for people; this milestone gives each a script and a record.
 | Gate | Engineering part | Operator part | Recorded in |
 | --- | --- | --- | --- |
 | **20 GB move** (M18 done-when) | `make test-move` already exists; add a CI job (`workflow_dispatch`) for a runner with ≥ 80 GB disk | Run it once; record copy time, pause and commits | `docs/moves.md`, decisions |
-| **1,000 projects at 2,000 req/s** (V4 §13) | `deploy/loadtest/`: compose for an edge host, a load host and 4 shared nodes; `TestBackendLoad` against remote addresses (`PGDOCK_LOAD_TARGET`) | Run on 6 Hetzner servers (≈ €2 for the hour); record | `docs/load-test.md` |
-| **Payment sandboxes** (M21) | A `make test-payments-sandbox` target that runs `TestPaymentsAcrossProviders` against `PGDOCK_FLW_*`/`PGDOCK_ISPEND_*` sandbox values, skipping simulated outages it can't cause | Get sandbox keys; run; fix differences | `docs/payments.md` |
+| **1,000 projects at 2,000 req/s** (V4 §13) | `deploy/loadtest/`: compose for an edge host, a load host and 4 shared nodes; `TestBackendLoad` against remote addresses (`XENIBASE_LOAD_TARGET`) | Run on 6 Hetzner servers (≈ €2 for the hour); record | `docs/load-test.md` |
+| **Payment sandboxes** (M21) | A `make test-payments-sandbox` target that runs `TestPaymentsAcrossProviders` against `XENIBASE_FLW_*`/`XENIBASE_ISPEND_*` sandbox values, skipping simulated outages it can't cause | Get sandbox keys; run; fix differences | `docs/payments.md` |
 | **Hetzner floating IP rehearsal** (M17) | `scripts/rehearse-pooler-failover.sh`: kills the holder and times recovery from a client | Run on two real servers | `docs/edge-poolers.md` |
 | **Accountant's answers** (M27) | — | Six questions in `docs/billing-audit.md`; change settings to match | `docs/billing-audit.md` |
 | **Lagos failure domains** (V3.1 open question 1) | A launch check that refuses to un-hide a region offering HA unless its etcd has three domains | Confirm racks or feeds with the facility | `docs/lagos-launch.md` |
@@ -754,7 +754,7 @@ ALTER TABLE nodes DROP CONSTRAINT nodes_role_check,
 | `POST /admin/regions/{id}/etcd-move-all` | Move all | M7 |
 | `POST /admin/maintenance/announcements/preview` | email preview | M7 |
 | `POST /admin/maintenance/announcements/{id}/confirm` | confirm a draft | M7 |
-| pgdock-status `PUT /api/v1/subscribers/managed` (signed) | managed subscribers | M6 |
+| xenibase-status `PUT /api/v1/subscribers/managed` (signed) | managed subscribers | M6 |
 
 ## 16. Build plan and timeline
 

@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
 func (a *App) orgsList(args []string) error {
@@ -386,7 +386,7 @@ func (a *App) tokensCreate(args []string) error {
 		return err
 	}
 	if *name == "" {
-		return usageErrorf("usage: pgdock tokens create --name … --scopes read,write [--project <p>] [--expires 90d]")
+		return usageErrorf("usage: xenibase tokens create --name … --scopes read,write [--project <p>] [--expires 90d]")
 	}
 	days, err := parseExpiry(*expires)
 	if err != nil {
@@ -435,7 +435,7 @@ func (a *App) tokensRevoke(args []string) error {
 	}
 	id, err := uuid.Parse(pos[0])
 	if err != nil {
-		return usageErrorf("not a token id: %s (pgdock tokens list)", pos[0])
+		return usageErrorf("not a token id: %s (xenibase tokens list)", pos[0])
 	}
 	if err := a.connectAPI(); err != nil {
 		return err

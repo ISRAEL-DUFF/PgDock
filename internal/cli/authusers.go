@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
 // A project's app users (V4 §4.9, §8.2).

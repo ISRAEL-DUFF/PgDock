@@ -8,12 +8,12 @@ import (
 	"time"
 )
 
-// TestAgainstDaemon runs when PGDOCK_TEST_DOCKER=1 and a daemon is reachable.
+// TestAgainstDaemon runs when XENIBASE_TEST_DOCKER=1 and a daemon is reachable.
 func TestAgainstDaemon(t *testing.T) {
-	if os.Getenv("PGDOCK_TEST_DOCKER") == "" {
-		t.Skip("PGDOCK_TEST_DOCKER not set")
+	if os.Getenv("XENIBASE_TEST_DOCKER") == "" {
+		t.Skip("XENIBASE_TEST_DOCKER not set")
 	}
-	image := os.Getenv("PGDOCK_TEST_DOCKER_IMAGE")
+	image := os.Getenv("XENIBASE_TEST_DOCKER_IMAGE")
 	if image == "" {
 		image = "postgres:18"
 	}
@@ -29,12 +29,12 @@ func TestAgainstDaemon(t *testing.T) {
 	if ok, err := c.ImageExists(ctx, image); err != nil || !ok {
 		t.Skipf("image %s not present: %v", image, err)
 	}
-	if ok, _ := c.ImageExists(ctx, "pgdock/definitely-missing:0"); ok {
+	if ok, _ := c.ImageExists(ctx, "xenibase/definitely-missing:0"); ok {
 		t.Fatal("missing image reported present")
 	}
-	name := "pgdock-docker-test"
+	name := "xenibase-docker-test"
 	_ = c.RemoveContainer(ctx, name)
-	if err := c.CreateVolume(ctx, name, map[string]string{"pgdock.test": "1"}); err != nil {
+	if err := c.CreateVolume(ctx, name, map[string]string{"xenibase.test": "1"}); err != nil {
 		t.Fatal(err)
 	}
 	defer func() {

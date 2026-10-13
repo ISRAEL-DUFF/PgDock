@@ -117,7 +117,7 @@ export const CodeEditor = forwardRef<
     e.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => onRunRef.current?.());
     e.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, () => void e.getAction("editor.action.formatDocument")?.run());
     const sub = e.onDidChangeModelContent(() => {
-      monaco.editor.setModelMarkers(e.getModel()!, "pgdock", []);
+      monaco.editor.setModelMarkers(e.getModel()!, "xenibase", []);
       onChangeRef.current?.(e.getValue());
     });
     return () => {
@@ -154,12 +154,12 @@ export const CodeEditor = forwardRef<
       const model = e?.getModel();
       if (!e || !model) return;
       if (pos == null) {
-        monaco.editor.setModelMarkers(model, "pgdock", []);
+        monaco.editor.setModelMarkers(model, "xenibase", []);
         return;
       }
       const { line, column } = positionAt(model.getValue(), pos);
       const word = model.getWordAtPosition({ lineNumber: line, column });
-      monaco.editor.setModelMarkers(model, "pgdock", [
+      monaco.editor.setModelMarkers(model, "xenibase", [
         {
           severity: monaco.MarkerSeverity.Error,
           message: message ?? "Error",

@@ -12,9 +12,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestDataAPIIdempotencyKey is Taskiem's P1-G2: a write repeated with the
@@ -51,7 +51,7 @@ func TestDataAPIIdempotencyKey(t *testing.T) {
 	for _, stmt := range []string{
 		`CREATE TABLE orders (id bigserial PRIMARY KEY, owner uuid, status text NOT NULL CHECK (status <> 'bad'))`,
 		`ALTER TABLE orders ENABLE ROW LEVEL SECURITY`,
-		fmt.Sprintf(`CREATE POLICY own ON orders FOR ALL TO %q USING (owner = pgd_auth.uid()) WITH CHECK (owner = pgd_auth.uid())`, store.UserRole(p.DbName)),
+		fmt.Sprintf(`CREATE POLICY own ON orders FOR ALL TO %q USING (owner = xb_auth.uid()) WITH CHECK (owner = xb_auth.uid())`, store.UserRole(p.DbName)),
 		`CREATE FUNCTION bump() RETURNS bigint LANGUAGE sql AS 'INSERT INTO orders (status) VALUES (''bumped'') RETURNING id'`,
 	} {
 		if _, err := app.Exec(ctx, stmt); err != nil {
@@ -203,7 +203,7 @@ func TestDataAPIIdempotencyKey(t *testing.T) {
 
 	// ---- After a day, a key is free again ------------------------------------------------
 	admin := e.SharedAdmin(p.DbName)
-	if _, err := admin.Exec(ctx, `UPDATE pgd_auth.idempotency SET created_at = now() - interval '25 hours' WHERE key = $1`, k1); err != nil {
+	if _, err := admin.Exec(ctx, `UPDATE xb_auth.idempotency SET created_at = now() - interval '25 hours' WHERE key = $1`, k1); err != nil {
 		t.Fatal(err)
 	}
 	before = count()
@@ -216,7 +216,7 @@ func TestDataAPIIdempotencyKey(t *testing.T) {
 		t.Fatalf("the OpenAPI document doesn't describe Idempotency-Key: %d", code)
 	}
 	// The request roles can't read the stored answers.
-	if _, err := app.Exec(ctx, `SELECT * FROM pgd_auth.idempotency`); err == nil {
+	if _, err := app.Exec(ctx, `SELECT * FROM xb_auth.idempotency`); err == nil {
 		t.Fatal("the project's owner can read the stored answers")
 	}
 }

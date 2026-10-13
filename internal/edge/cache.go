@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/datacat"
+	"github.com/israel-duff/xenibase/internal/datacat"
 )
 
 // Edge caching of anonymous reads (V4.1 §10): a project lists tables and

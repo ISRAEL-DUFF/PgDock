@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/logical"
+	"github.com/israel-duff/xenibase/internal/logical"
 )
 
 // logicalPair is a database on the dev shared cluster (the source) and the
@@ -42,14 +42,14 @@ func dbURL(t *testing.T, u, db string) string {
 
 func newLogicalPair(t *testing.T, ddl string) *logicalPair {
 	t.Helper()
-	srcURL, dstURL := os.Getenv("PGDOCK_TEST_SHARED_ADMIN_URL"), os.Getenv("PGDOCK_TEST_SMALL_ADMIN_URL")
+	srcURL, dstURL := os.Getenv("XENIBASE_TEST_SHARED_ADMIN_URL"), os.Getenv("XENIBASE_TEST_SMALL_ADMIN_URL")
 	if srcURL == "" || dstURL == "" {
-		t.Skip("PGDOCK_TEST_SHARED_ADMIN_URL and PGDOCK_TEST_SMALL_ADMIN_URL are not set")
+		t.Skip("XENIBASE_TEST_SHARED_ADMIN_URL and XENIBASE_TEST_SMALL_ADMIN_URL are not set")
 	}
 	ctx := context.Background()
 	p := &logicalPair{name: "lm_" + strings.ReplaceAll(uuid.NewString()[:8], "-", ""), srcURL: srcURL}
-	port, _ := strconv.Atoi(os.Getenv("PGDOCK_TEST_SHARED_POOLER_PORT"))
-	p.endpoint = logical.Endpoint{Host: os.Getenv("PGDOCK_TEST_SHARED_POOLER_HOST"), Port: port, SSLMode: "disable"}
+	port, _ := strconv.Atoi(os.Getenv("XENIBASE_TEST_SHARED_POOLER_PORT"))
+	p.endpoint = logical.Endpoint{Host: os.Getenv("XENIBASE_TEST_SHARED_POOLER_HOST"), Port: port, SSLMode: "disable"}
 	connect := func(u, db string) *pgx.Conn {
 		c, err := pgx.Connect(ctx, dbURL(t, u, db))
 		if err != nil {
@@ -129,7 +129,7 @@ func TestLogicalEngine(t *testing.T) {
 	t.Cleanup(func() {
 		_, _ = p.srcAdmin.Exec(context.Background(), "DROP OWNED BY "+p.name+"_tenant; DROP ROLE IF EXISTS "+p.name+"_tenant")
 	})
-	tenantURL := strings.Replace(dbURL(t, p.srcURL, p.name), "pgdock_admin:pgdock_admin", p.name+"_tenant:tenant-pw", 1)
+	tenantURL := strings.Replace(dbURL(t, p.srcURL, p.name), "xenibase_admin:xenibase_admin", p.name+"_tenant:tenant-pw", 1)
 	tenant, err := pgx.Connect(ctx, tenantURL)
 	if err != nil {
 		t.Fatal(err)
@@ -237,7 +237,7 @@ func TestLogicalEngine(t *testing.T) {
 	var left int
 	if err := p.src.QueryRow(ctx, `SELECT (SELECT count(*) FROM pg_replication_slots WHERE slot_name = $1)
 		+ (SELECT count(*) FROM pg_publication WHERE pubname = $1) + (SELECT count(*) FROM pg_roles WHERE rolname = $1)
-		+ (SELECT count(*) FROM pg_event_trigger WHERE evtname LIKE 'pgdock_move%') + (SELECT count(*) FROM pg_namespace WHERE nspname = 'pgdock_move')`,
+		+ (SELECT count(*) FROM pg_event_trigger WHERE evtname LIKE 'xenibase_move%') + (SELECT count(*) FROM pg_namespace WHERE nspname = 'xenibase_move')`,
 		m.Name).Scan(&left); err != nil || left != 0 {
 		t.Fatalf("left on the source after cleanup: %d %v", left, err)
 	}

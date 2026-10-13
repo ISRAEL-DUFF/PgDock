@@ -11,11 +11,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/datacat"
-	"github.com/israel-duff/pgdock/internal/edge"
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/typegen"
+	"github.com/israel-duff/xenibase/internal/datacat"
+	"github.com/israel-duff/xenibase/internal/edge"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/typegen"
 )
 
 // Developer tools for backend services (V4 §3.6, §3.7, §8.3): generated
@@ -154,7 +154,7 @@ func (s *Service) Advisor(ctx context.Context, p store.Project) ([]Finding, erro
 		if everyone && writes && (open(qual) || open(check) || (cmd == "INSERT" && check == "")) {
 			out = append(out, Finding{"danger", "policy_allows_everything", schema + "." + table + " / " + name,
 				fmt.Sprintf("Policy %s lets anyone %s every row.", name, strings.ToLower(strings.ReplaceAll(cmd, "ALL", "read and change"))),
-				"Limit it with a condition such as owner_id = pgd_auth.uid(), or to the user role."})
+				"Limit it with a condition such as owner_id = xb_auth.uid(), or to the user role."})
 		} else if everyone && cmd == "SELECT" && open(qual) {
 			out = append(out, Finding{"info", "public_read_policy", schema + "." + table + " / " + name, "Anyone with the publishable key can read every row.", ""})
 		}

@@ -13,10 +13,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/store/storetest"
 )
 
 type sentMail struct {
@@ -35,13 +35,30 @@ type clock struct{ t time.Time }
 
 func (c *clock) Now() time.Time { return c.t }
 
+// fixedRate prices a dollar at ₦1,500, as of the test clock: the rate source
+// of a service with no wallet provider.
+type fixedRate struct{ clk *clock }
+
+func (r fixedRate) Rate(_ context.Context, _, _ string, _ int64) (billing.FXRate, error) {
+	return billing.FXRate{From: "USD", To: "NGN", Market: billing.D("1500"), Effective: billing.D("1500"), FetchedAt: r.clk.Now(), Sources: []string{"test"}}, nil
+}
+
 func newService(t *testing.T) (*billing.Service, *pgxpool.Pool, *clock, *sentMail) {
+	t.Helper()
+	// The older tests count in naira.
+	return newServiceWith(t, billing.DefaultPricesNGN)
+}
+
+// newServiceWith is a billing service whose first price book is first().
+func newServiceWith(t *testing.T, first func() billing.Prices) (*billing.Service, *pgxpool.Pool, *clock, *sentMail) {
 	t.Helper()
 	db := storetest.New(t)
 	m := &sentMail{}
 	clk := &clock{t: time.Date(2026, 10, 13, 15, 0, 0, 0, time.UTC)}
-	s := billing.New(db, m, "https://pgdock.example", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	s := billing.New(db, m, "https://xenibase.example", slog.New(slog.NewTextHandler(io.Discard, nil)))
 	s.Now = clk.Now
+	s.SetRateSource(fixedRate{clk})
+	s.SetDefaultPrices(first)
 	if err := s.Init(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +197,7 @@ func TestPriceBookPublishing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p := billing.DefaultPrices()
+	p := billing.DefaultPricesNGN()
 	pro := p.Plans[billing.PlanPro]
 	pro.MonthlyMinor, pro.AnnualMinor = 2_000_000, 20_000_000
 	p.Plans[billing.PlanPro] = pro

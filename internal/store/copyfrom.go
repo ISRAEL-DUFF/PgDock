@@ -92,7 +92,7 @@ func (r iteratorForInsertRequestLogs) Err() error {
 	return nil
 }
 
-// tenant: system - pgdock-edge's request logs.
+// tenant: system - xenibase-edge's request logs.
 func (q *Queries) InsertRequestLogs(ctx context.Context, arg []InsertRequestLogsParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"api_request_logs"}, []string{"project_id", "at", "request_id", "method", "path", "status", "latency_ms", "role", "user_id", "key_id", "ip", "bytes_out"}, &iteratorForInsertRequestLogs{rows: arg})
 }

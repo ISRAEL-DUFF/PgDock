@@ -1,9 +1,9 @@
-# pgdock-server (with the web UI embedded) and, as the agent target,
-# pgdock-agent.
-#   docker build -t pgdock .
+# xenibase-server (with the web UI embedded) and, as the agent target,
+# xenibase-agent.
+#   docker build -t xenibase .
 #
 # Behind a TLS-intercepting proxy, pass its CA as a build secret:
-#   docker build --secret id=ca_bundle,src=/path/to/ca.pem -t pgdock .
+#   docker build --secret id=ca_bundle,src=/path/to/ca.pem -t xenibase .
 # Base images can come from a mirror, e.g.
 #   --build-arg REGISTRY=mirror.gcr.io/library/
 
@@ -30,32 +30,34 @@ COPY --from=ui /src/web/dist/ ./web/dist/
 ARG VERSION=dev
 ARG COMMIT=unknown
 RUN CGO_ENABLED=0 go build -trimpath \
-      -ldflags "-s -w -X github.com/israel-duff/pgdock/internal/version.Version=${VERSION} -X github.com/israel-duff/pgdock/internal/version.Commit=${COMMIT} -X github.com/israel-duff/pgdock/internal/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      -ldflags "-s -w -X github.com/israel-duff/xenibase/internal/version.Version=${VERSION} -X github.com/israel-duff/xenibase/internal/version.Commit=${COMMIT} -X github.com/israel-duff/xenibase/internal/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       -tags nodynamic \
-      -o /out/usr/local/bin/pgdock-server ./cmd/server \
- && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/usr/local/bin/pgdock-agent ./cmd/agent \
- && /out/usr/local/bin/pgdock-server -require-ui \
- && mkdir -p /out/var/lib/pgdock/pooler
+      -o /out/usr/local/bin/xenibase-server ./cmd/server \
+ && CGO_ENABLED=0 go build -trimpath \
+      -ldflags "-s -w -X github.com/israel-duff/xenibase/internal/version.Version=${VERSION} -X github.com/israel-duff/xenibase/internal/version.Commit=${COMMIT} -X github.com/israel-duff/xenibase/internal/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      -o /out/usr/local/bin/xenibase-agent ./cmd/agent \
+ && /out/usr/local/bin/xenibase-server -require-ui \
+ && mkdir -p /out/var/lib/xenibase/pooler
 
-# pgdock-agent runs next to Postgres and needs its client tools (spec §3.2):
-#   docker build --target agent -t pgdock-agent .
+# xenibase-agent runs next to Postgres and needs its client tools (spec §3.2):
+#   docker build --target agent -t xenibase-agent .
 FROM ${REGISTRY}postgres:18 AS agent
-COPY --from=build /out/usr/local/bin/pgdock-agent /usr/local/bin/pgdock-agent
-RUN install -d -o postgres -g postgres -m 700 /var/lib/pgdock-agent
+COPY --from=build /out/usr/local/bin/xenibase-agent /usr/local/bin/xenibase-agent
+RUN install -d -o postgres -g postgres -m 700 /var/lib/xenibase-agent
 USER postgres
-ENV PGDOCK_AGENT_STATE_DIR=/var/lib/pgdock-agent \
-    PGDOCK_AGENT_DISK_PATH=/var/lib/pgdock-agent
+ENV XENIBASE_AGENT_STATE_DIR=/var/lib/xenibase-agent \
+    XENIBASE_AGENT_DISK_PATH=/var/lib/xenibase-agent
 EXPOSE 7070
-ENTRYPOINT ["/usr/local/bin/pgdock-agent"]
+ENTRYPOINT ["/usr/local/bin/xenibase-agent"]
 CMD ["run"]
 
 FROM ${RUNTIME_IMAGE}
 # uid 70 matches the PgBouncer image, so the poolers can read the 0640
-# config, auth file, and TLS key pgdock-server writes.
+# config, auth file, and TLS key xenibase-server writes.
 COPY --from=build --chown=70:70 /out/ /
 USER 70:70
-ENV PGDOCK_LISTEN_ADDR=0.0.0.0:8080 \
-    PGDOCK_DATA_DIR=/var/lib/pgdock \
-    PGDOCK_POOLER_CONFIG_DIR=/var/lib/pgdock/pooler
+ENV XENIBASE_LISTEN_ADDR=0.0.0.0:8080 \
+    XENIBASE_DATA_DIR=/var/lib/xenibase \
+    XENIBASE_POOLER_CONFIG_DIR=/var/lib/xenibase/pooler
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/pgdock-server"]
+ENTRYPOINT ["/usr/local/bin/xenibase-server"]

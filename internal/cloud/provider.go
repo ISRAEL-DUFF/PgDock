@@ -1,4 +1,4 @@
-// Package cloud creates and deletes the machines PGDock runs on (V3 §5.1):
+// Package cloud creates and deletes the machines Xenibase runs on (V3 §5.1):
 // a provider interface, Hetzner Cloud as its first implementation, and a
 // manual provider for machines registered by hand. Capacity automation
 // (package capacity) decides when; this package only talks to providers.
@@ -112,8 +112,8 @@ type Provider interface {
 	PriceCatalog(ctx context.Context) ([]ServerPrice, error)
 }
 
-// ManualProvider is for machines PGDock can't create (colocated servers,
-// V3 §6.2): an operator registers them, and PGDock treats them as a fixed
+// ManualProvider is for machines Xenibase can't create (colocated servers,
+// V3 §6.2): an operator registers them, and Xenibase treats them as a fixed
 // pool. Its catalog is what the operator entered.
 type ManualProvider struct {
 	Catalog []ServerPrice
@@ -136,7 +136,7 @@ func (ManualProvider) EnsurePlacementGroup(context.Context, string, map[string]s
 // DeleteServer can't: the operator decommissions the machine.
 func (ManualProvider) DeleteServer(context.Context, string) error { return ErrManual }
 
-// ListServers lists nothing: manual machines are only in PGDock's nodes.
+// ListServers lists nothing: manual machines are only in Xenibase's nodes.
 func (ManualProvider) ListServers(context.Context, Filter) ([]Server, error) { return nil, nil }
 
 // CreateVolume can't.

@@ -203,7 +203,6 @@ type BillingAccount struct {
 	PaymentTermsDays    int32
 	BudgetMinor         *int64
 	SpendCapMinor       *int64
-	AutoTopup           []byte
 	DunningState        string
 	GraceUntil          *time.Time
 	ForecastMinor       *int64
@@ -218,7 +217,10 @@ type BillingAccount struct {
 	BalanceAlerted      int32
 	BalanceMonth        pgtype.Date
 	ZeroBalanceAt       *time.Time
-	CardFailingSince    *time.Time
+	ChargeFailingSince  *time.Time
+	DebitConsentAt      *time.Time
+	DebitConsentBy      *uuid.UUID
+	DebitTermsVersion   *string
 }
 
 type BillingContact struct {
@@ -545,6 +547,10 @@ type Invoice struct {
 	PaidMinor        int64
 	WhtDeductedMinor int64
 	WhtEvidencedAt   *time.Time
+	UsdSubtotalMinor *int64
+	UsdVatMinor      *int64
+	UsdTotalMinor    *int64
+	Fx               []byte
 }
 
 type InvoiceLine struct {
@@ -558,6 +564,8 @@ type InvoiceLine struct {
 	UnitPriceMinor pgtype.Numeric
 	AmountMinor    int64
 	RevenueAccount string
+	UsdUnitPrice   pgtype.Numeric
+	UsdAmountMinor *int64
 }
 
 type JobRun struct {
@@ -823,24 +831,6 @@ type PaymentIntent struct {
 	Error       *string
 	CreatedAt   time.Time
 	CompletedAt *time.Time
-}
-
-type PaymentMethod struct {
-	ID           uuid.UUID
-	OrgID        uuid.UUID
-	Provider     string
-	Kind         string
-	TokenSealed  []byte
-	ProviderRef  *string
-	Brand        *string
-	Last4        *string
-	ExpMonth     *int32
-	ExpYear      *int32
-	LimitMinor   *int64
-	IsDefault    bool
-	Status       string
-	RemindedDays int32
-	CreatedAt    time.Time
 }
 
 type PgVersion struct {
@@ -1255,21 +1245,21 @@ type StorageCleanup struct {
 }
 
 type StorageTarget struct {
-	ID           uuid.UUID
-	Name         string
-	Endpoint     string
-	Bucket       string
-	Prefix       string
-	Credentials  []byte
-	IsDefault    bool
-	CreatedAt    time.Time
-	OrgID        *uuid.UUID
-	Region       string
-	PathStyle    bool
-	CreatedBy    *uuid.UUID
-	UpdatedAt    time.Time
-	DeletedAt    *time.Time
-	PgdockRegion *string
+	ID             uuid.UUID
+	Name           string
+	Endpoint       string
+	Bucket         string
+	Prefix         string
+	Credentials    []byte
+	IsDefault      bool
+	CreatedAt      time.Time
+	OrgID          *uuid.UUID
+	Region         string
+	PathStyle      bool
+	CreatedBy      *uuid.UUID
+	UpdatedAt      time.Time
+	DeletedAt      *time.Time
+	XenibaseRegion *string
 }
 
 type TermsAcceptance struct {

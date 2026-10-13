@@ -1,7 +1,7 @@
-# pgdock-edge, backend services' gateway (V4 §2.1): one per region, on the
-# region's nodes. Stateless; it follows pgdock-server's configuration feed.
+# xenibase-edge, backend services' gateway (V4 §2.1): one per region, on the
+# region's nodes. Stateless; it follows xenibase-server's configuration feed.
 #
-#   docker build -f deploy/edge/Dockerfile -t pgdock-edge .
+#   docker build -f deploy/edge/Dockerfile -t xenibase-edge .
 #
 # Behind a TLS-intercepting proxy, pass its CA as a build secret
 # (--secret id=ca_bundle,src=ca.pem); base images can come from a mirror
@@ -19,13 +19,13 @@ COPY . .
 ARG VERSION=dev
 ARG COMMIT=unknown
 RUN CGO_ENABLED=0 go build -trimpath \
-      -ldflags "-s -w -X github.com/israel-duff/pgdock/internal/version.Version=${VERSION} -X github.com/israel-duff/pgdock/internal/version.Commit=${COMMIT}" \
+      -ldflags "-s -w -X github.com/israel-duff/xenibase/internal/version.Version=${VERSION} -X github.com/israel-duff/xenibase/internal/version.Commit=${COMMIT}" \
       -tags nodynamic \
-      -o /out/pgdock-edge ./cmd/edge
+      -o /out/xenibase-edge ./cmd/edge
 
 FROM ${RUNTIME_IMAGE}
-COPY --from=build /out/pgdock-edge /usr/local/bin/pgdock-edge
+COPY --from=build /out/xenibase-edge /usr/local/bin/xenibase-edge
 USER 65532:65532
 EXPOSE 8443
-ENTRYPOINT ["/usr/local/bin/pgdock-edge"]
+ENTRYPOINT ["/usr/local/bin/xenibase-edge"]
 CMD ["run"]

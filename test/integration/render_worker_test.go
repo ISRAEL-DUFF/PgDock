@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/edge"
+	"github.com/israel-duff/xenibase/internal/edge"
 )
 
 // TestRenderWorkerCrash is V4.1-M11's render isolation check (V4.1 §12.4):
@@ -17,9 +17,9 @@ import (
 func TestRenderWorkerCrash(t *testing.T) {
 	sp := newStorageProject(t, "gallery", false)
 	e := sp.e
-	// A second edge rendering in workers (pgdock-edge render-worker), with the
+	// A second edge rendering in workers (xenibase-edge render-worker), with the
 	// test's crash marker: a worker that sees it panics, as a broken decoder would.
-	const marker = "PGDOCK-CRASH-THE-DECODER"
+	const marker = "XENIBASE-CRASH-THE-DECODER"
 	ed := e.StartEdge(func(c *edge.Config) {
 		c.Name = "edge-render"
 		c.RenderWorker = []string{e.EdgeBinary(), "render-worker"}

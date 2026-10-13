@@ -16,9 +16,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/floatip"
-	"github.com/israel-duff/pgdock/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/floatip"
+	"github.com/israel-duff/xenibase/internal/pooler"
 )
 
 // PoolerConfig turns the agent into a pooler host's agent (V3 §2.1): it
@@ -43,10 +43,10 @@ type PoolerConfig struct {
 	PidFiles []string
 }
 
-const poolerStateFile = ".pgdock-pooler.json"
+const poolerStateFile = ".xenibase-pooler.json"
 
 // poolerState is persisted next to the files so a restart keeps what
-// generation is served and what generation pgdock-server expects.
+// generation is served and what generation xenibase-server expects.
 type poolerState struct {
 	Generation int64  `json:"generation"`
 	Hash       string `json:"hash"`
@@ -93,7 +93,7 @@ func (p *poolerHost) saveLocked() error {
 }
 
 // errOlder means a push carried a generation older than the one served:
-// two pgdock-server processes raced, and the newer one already won.
+// two xenibase-server processes raced, and the newer one already won.
 var errOlder = errors.New("bundle is older than the configuration already served")
 
 func (p *poolerHost) apply(b agentapi.PoolerBundle) error {
@@ -174,7 +174,7 @@ func (p *poolerHost) status() agentapi.PoolerStatus {
 		why = append(why, "no configuration received yet")
 	}
 	if st.Stale {
-		why = append(why, fmt.Sprintf("serving generation %d, pgdock-server has %d", st.Generation, st.Expected))
+		why = append(why, fmt.Sprintf("serving generation %d, xenibase-server has %d", st.Generation, st.Expected))
 	}
 	if !st.Session {
 		why = append(why, "the session PgBouncer is not accepting connections")

@@ -16,15 +16,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/edge"
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/jwtes"
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/internal/services"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/totp"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/edge"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/jwtes"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/internal/services"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/totp"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // fakeGoogle is an OAuth provider that signs in one user for the code
@@ -146,7 +146,7 @@ func TestAuthPhoneOAuthMFA(t *testing.T) {
 	app := e.MustConnect(creds.Connection.PooledUrl)
 	defer app.Close(ctx)
 	for _, stmt := range []string{
-		`CREATE TABLE members (user_id uuid PRIMARY KEY REFERENCES pgd_auth.users (id) ON DELETE CASCADE, org_id text NOT NULL)`,
+		`CREATE TABLE members (user_id uuid PRIMARY KEY REFERENCES xb_auth.users (id) ON DELETE CASCADE, org_id text NOT NULL)`,
 		fmt.Sprintf(`GRANT SELECT ON members TO %q`, hookRole),
 		`CREATE FUNCTION public.add_claims(event jsonb) RETURNS jsonb LANGUAGE sql STABLE AS $$
 		   SELECT jsonb_build_object('claims', (event -> 'claims') || coalesce(
@@ -156,7 +156,7 @@ func TestAuthPhoneOAuthMFA(t *testing.T) {
 		     THEN '{"decision":"reject","message":"this domain can''t sign up"}'::jsonb ELSE '{}'::jsonb END $$`,
 		`CREATE TABLE docs (id bigserial PRIMARY KEY, org_id text NOT NULL, title text NOT NULL)`,
 		`ALTER TABLE docs ENABLE ROW LEVEL SECURITY`,
-		fmt.Sprintf(`CREATE POLICY same_org ON docs FOR SELECT TO %q USING (org_id = pgd_auth.claim('org_id'))`, store.UserRole(p.DbName)),
+		fmt.Sprintf(`CREATE POLICY same_org ON docs FOR SELECT TO %q USING (org_id = xb_auth.claim('org_id'))`, store.UserRole(p.DbName)),
 		`INSERT INTO docs (org_id, title) VALUES ('acme', 'acme plan'), ('acme', 'acme budget'), ('globex', 'globex secrets')`,
 	} {
 		if _, err := app.Exec(ctx, stmt); err != nil {
@@ -274,7 +274,7 @@ func TestAuthPhoneOAuthMFA(t *testing.T) {
 		ev.Data.User.Phone != ngozi {
 		t.Fatalf("after-sign-up event: %s (%v)", got[0].Body, err)
 	}
-	if err := outbound.Verify(*cfg.HookSecret, got[0].Header.Get("PGDock-Signature"), got[0].Body, time.Now(), 5*time.Minute); err != nil {
+	if err := outbound.Verify(*cfg.HookSecret, got[0].Header.Get("Xenibase-Signature"), got[0].Body, time.Now(), 5*time.Minute); err != nil {
 		t.Fatalf("hook signature: %v", err)
 	}
 
@@ -620,7 +620,7 @@ func TestAuthPhoneOAuthMFA(t *testing.T) {
 		`CREATE FUNCTION public.whoami() RETURNS text LANGUAGE plpgsql VOLATILE AS $$
 		   BEGIN RESET ROLE; RETURN session_user || '/' || current_user; END $$`,
 		`CREATE FUNCTION public.escape_auth() RETURNS text LANGUAGE plpgsql VOLATILE AS $$
-		   BEGIN RESET ROLE; RETURN (SELECT encrypted_password FROM pgd_auth.users WHERE encrypted_password IS NOT NULL LIMIT 1); END $$`,
+		   BEGIN RESET ROLE; RETURN (SELECT encrypted_password FROM xb_auth.users WHERE encrypted_password IS NOT NULL LIMIT 1); END $$`,
 		fmt.Sprintf(`CREATE FUNCTION public.escape_service() RETURNS bigint LANGUAGE plpgsql VOLATILE AS $$
 		   BEGIN RESET ROLE; SET ROLE %q; RETURN (SELECT count(*) FROM docs); END $$`, svcRole),
 	} {

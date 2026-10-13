@@ -7,11 +7,11 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/dedicated"
-	"github.com/israel-duff/pgdock/internal/faildomain"
-	"github.com/israel-duff/pgdock/internal/ha"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/faildomain"
+	"github.com/israel-duff/xenibase/internal/ha"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func (s *Server) etcdSvc(w http.ResponseWriter) *ha.Service {

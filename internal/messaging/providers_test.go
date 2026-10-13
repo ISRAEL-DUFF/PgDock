@@ -29,14 +29,14 @@ func capture(t *testing.T, answer string) (*httptest.Server, *[]*http.Request, *
 
 func TestTermii(t *testing.T) {
 	s, reqs, bodies := capture(t, `{"message_id":"3017544054459","message":"Successfully Sent","balance":9,"user":"x"}`)
-	p := Termii{BaseURL: s.URL, APIKey: "k", SenderID: "PGDock"}
+	p := Termii{BaseURL: s.URL, APIKey: "k", SenderID: "Xenibase"}
 	sent, err := p.Send(context.Background(), Message{Channel: SMS, To: "+2348031234567", Body: "123456 is your code"})
 	if err != nil || sent.ID != "3017544054459" {
 		t.Fatalf("%+v %v", sent, err)
 	}
 	var b map[string]string
 	_ = json.Unmarshal([]byte((*bodies)[0]), &b)
-	if (*reqs)[0].URL.Path != "/api/sms/send" || b["to"] != "2348031234567" || b["channel"] != "dnd" || b["from"] != "PGDock" || b["api_key"] != "k" {
+	if (*reqs)[0].URL.Path != "/api/sms/send" || b["to"] != "2348031234567" || b["channel"] != "dnd" || b["from"] != "Xenibase" || b["api_key"] != "k" {
 		t.Fatalf("%s %v", (*reqs)[0].URL.Path, b)
 	}
 	if _, err := p.Send(context.Background(), Message{Channel: WhatsApp}); !errors.Is(err, ErrUnsupported) {
@@ -46,13 +46,13 @@ func TestTermii(t *testing.T) {
 
 func TestWhatsAppCloud(t *testing.T) {
 	s, reqs, bodies := capture(t, `{"messaging_product":"whatsapp","messages":[{"id":"wamid.X"}]}`)
-	p := WhatsAppCloud{BaseURL: s.URL, PhoneNumberID: "123", AccessToken: "tok", Template: "pgdock_otp"}
+	p := WhatsAppCloud{BaseURL: s.URL, PhoneNumberID: "123", AccessToken: "tok", Template: "xenibase_otp"}
 	sent, err := p.Send(context.Background(), Message{Channel: WhatsApp, To: "+2348031234567", Code: "654321"})
 	if err != nil || sent.ID != "wamid.X" {
 		t.Fatalf("%+v %v", sent, err)
 	}
 	if (*reqs)[0].URL.Path != "/123/messages" || (*reqs)[0].Header.Get("Authorization") != "Bearer tok" ||
-		!strings.Contains((*bodies)[0], `"name":"pgdock_otp"`) || strings.Count((*bodies)[0], `"654321"`) != 2 {
+		!strings.Contains((*bodies)[0], `"name":"xenibase_otp"`) || strings.Count((*bodies)[0], `"654321"`) != 2 {
 		t.Fatalf("%s %s", (*reqs)[0].URL.Path, (*bodies)[0])
 	}
 }

@@ -10,7 +10,7 @@ const steps: { step: Step; title: string; what: string }[] = [
   {
     step: "policies",
     title: "1. Policies",
-    what: "Rewrites the imported policies and column defaults: anon, authenticated and service_role become this project's request roles, and auth.uid() becomes pgd_auth.uid().",
+    what: "Rewrites the imported policies and column defaults: anon, authenticated and service_role become this project's request roles, and auth.uid() becomes xb_auth.uid().",
   },
   {
     step: "users",

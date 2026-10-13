@@ -215,7 +215,7 @@ client
       (change) => console.log(change))
   .subscribe()`}</pre>
         <p className="mt-2 text-xs text-muted">
-          Private channels check policies on pgd_realtime.channel_access: SELECT
+          Private channels check policies on xb_realtime.channel_access: SELECT
           to join and receive, INSERT to send.
         </p>
       </Panel>

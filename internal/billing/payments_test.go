@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // issuedProInvoice puts org on Pro from 1 October and issues October's
@@ -58,9 +58,9 @@ func TestPaymentShortByWHT(t *testing.T) {
 	if inv.WhtExpectedMinor != 150_000 { // 5% of ₦30,000
 		t.Fatalf("expected WHT %d", inv.WhtExpectedMinor)
 	}
-	// A transfer of the total less the expected WHT.
-	st, err := s.RecordPayment(ctx, billing.PaymentIn{OrgID: org, Provider: billing.ProviderISpend, Channel: billing.ChannelTransfer,
-		ProviderRef: "isp-1", AmountMinor: 3_075_000, FeeMinor: 5_000})
+	// A bank transfer of the total less the expected WHT, recorded by hand.
+	st, err := s.RecordPayment(ctx, billing.PaymentIn{OrgID: org, Provider: billing.ProviderBank, Channel: billing.ChannelManual,
+		ProviderRef: "GTB/0001", AmountMinor: 3_075_000, FeeMinor: 5_000})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,10 +75,10 @@ func TestPaymentShortByWHT(t *testing.T) {
 			t.Errorf("%s = %d, want %d", acct, b, want)
 		}
 	}
-	if b := balance(t, db, nil, "cash:ispend"); b != 3_070_000 {
+	if b := balance(t, db, nil, "cash:bank"); b != 3_070_000 {
 		t.Errorf("cash %d", b)
 	}
-	if b := balance(t, db, nil, "fees:ispend"); b != 5_000 {
+	if b := balance(t, db, nil, "fees:bank"); b != 5_000 {
 		t.Errorf("fees %d", b)
 	}
 	mustCheck(t, db)
@@ -94,27 +94,27 @@ func TestPartialOverAndDuplicatePayments(t *testing.T) {
 	// Partial, and a WHT-sized shortfall from an org that doesn't deduct WHT is partial too.
 	pay := func(ref string, amount int64) billing.Settlement {
 		t.Helper()
-		st, err := s.RecordPayment(ctx, billing.PaymentIn{OrgID: org, Provider: billing.ProviderFlutterwave, Channel: billing.ChannelTransfer, ProviderRef: ref, AmountMinor: amount})
+		st, err := s.RecordPayment(ctx, billing.PaymentIn{OrgID: org, Provider: billing.ProviderBank, Channel: billing.ChannelManual, ProviderRef: ref, AmountMinor: amount})
 		if err != nil {
 			t.Fatal(err)
 		}
 		return st
 	}
-	if st := pay("flw-1", 1_000_000); st.Allocations[0].Status != billing.StatusPartiallyPaid {
+	if st := pay("GTB/1", 1_000_000); st.Allocations[0].Status != billing.StatusPartiallyPaid {
 		t.Fatalf("partial: %+v", st)
 	}
 	if b := balance(t, db, &org, billing.AccReceivable); b != 2_225_000 {
 		t.Errorf("receivable after the partial %d", b)
 	}
 	// The same transfer again changes nothing.
-	if st := pay("flw-1", 1_000_000); !st.Duplicate {
+	if st := pay("GTB/1", 1_000_000); !st.Duplicate {
 		t.Fatal("a duplicate was recorded")
 	}
 	if b := balance(t, db, &org, billing.AccReceivable); b != 2_225_000 {
 		t.Errorf("receivable after the duplicate %d", b)
 	}
 	// Over: the rest and ₦5,000 more, which becomes credit.
-	if st := pay("flw-2", 2_725_000); st.Allocations[0].Amount != 2_225_000 || st.Credit != 500_000 {
+	if st := pay("GTB/2", 2_725_000); st.Allocations[0].Amount != 2_225_000 || st.Credit != 500_000 {
 		t.Fatalf("over: %+v", st)
 	}
 	if got := invoiceNow(t, q, inv.ID); got.Status != billing.StatusPaid || got.PaidMinor != inv.TotalMinor || got.PaidAt == nil {
@@ -177,8 +177,8 @@ func TestManualPaymentAndRefund(t *testing.T) {
 	mustCheck(t, db)
 }
 
-// A refund of money that paid an invoice reopens the invoice, when asked;
-// a refund the provider refuses pays it again.
+// A refund of money that paid an invoice reopens the invoice, when asked.
+// Money in a wallet isn't Xenibase's to refund.
 func TestRefundReopensInvoices(t *testing.T) {
 	s, db, clk, _ := newService(t)
 	ctx := context.Background()
@@ -218,21 +218,16 @@ func TestRefundReopensInvoices(t *testing.T) {
 	}
 	mustCheck(t, db)
 
-	// The provider (here, not configured) refuses: the invoice is paid again.
-	org2 := newOrg(t, db, "globex")
-	inv2 := issuedProInvoice(t, s, clk, org2)
-	st2, err := s.RecordPayment(ctx, billing.PaymentIn{OrgID: org2, Provider: billing.ProviderFlutterwave, Channel: billing.ChannelCard, ProviderRef: "c-ref", AmountMinor: inv2.TotalMinor})
+	// A deposit into a wallet is refused: it stays in the wallet.
+	dep, err := s.RecordPayment(ctx, billing.PaymentIn{OrgID: org, Provider: billing.ProviderISwallet, Channel: billing.ChannelTransfer, ProviderRef: "w1:t1", AmountMinor: 100_000})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r, err := s.Refund(ctx, st2.Payment.ID, inv2.TotalMinor, "chargeback", true, nil); err == nil || r.Status != "failed" {
-		t.Fatalf("refused refund: %+v %v", r, err)
+	if _, err := s.Refund(ctx, dep.Payment.ID, 100_000, "changed my mind", true, nil); !errors.Is(err, billing.ErrInvalid) {
+		t.Errorf("refund of a wallet deposit: %v", err)
 	}
-	if now := invoiceNow(t, q, inv2.ID); now.Status != billing.StatusPaid || now.PaidMinor != inv2.TotalMinor {
-		t.Errorf("after a refused refund: %s paid %d", now.Status, now.PaidMinor)
-	}
-	if c, _ := s.CreditAvailable(ctx, db, org2); c != 0 {
-		t.Errorf("credit %d", c)
+	if b := balance(t, db, &org, billing.AccWalletBalance); b != -100_000 {
+		t.Errorf("wallet balance after the refused refund %d", b)
 	}
 	mustCheck(t, db)
 }
@@ -244,7 +239,7 @@ func TestCreditNoteOnPaidInvoiceBecomesCredit(t *testing.T) {
 	ctx := context.Background()
 	org := newOrg(t, db, "acme")
 	inv := issuedProInvoice(t, s, clk, org)
-	if _, err := s.RecordPayment(ctx, billing.PaymentIn{OrgID: org, Provider: billing.ProviderFlutterwave, Channel: billing.ChannelCard, ProviderRef: "c1", AmountMinor: inv.TotalMinor}); err != nil {
+	if _, err := s.RecordPayment(ctx, billing.PaymentIn{OrgID: org, Provider: billing.ProviderBank, Channel: billing.ChannelManual, ProviderRef: "GTB/0044", AmountMinor: inv.TotalMinor}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.CreditNote(ctx, inv.ID, 100_000, "outage", nil); err != nil {

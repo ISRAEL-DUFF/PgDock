@@ -13,11 +13,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/logical"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/logical"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
 // KindDemote moves a dedicated project back to the shared tier (V2 §5).
@@ -320,7 +320,7 @@ func (s *Service) preflight(ctx context.Context, p store.Project, o DemoteOption
 		name, _, _ := strings.Cut(kv, "=")
 		switch name {
 		case "statement_timeout", "idle_in_transaction_session_timeout", "temp_file_limit":
-			continue // PGDock's own guardrails, listed with the resets
+			continue // Xenibase's own guardrails, listed with the resets
 		}
 		custom2 = append(custom2, kv)
 	}

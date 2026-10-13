@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Branches of a project with backend services (V4.1 §9.5): the branch gets
@@ -76,7 +76,7 @@ func (s *Service) PrepareBranch(ctx context.Context, parentID, branchID uuid.UUI
 }
 
 // EnableBranch turns on the API PrepareBranch made, once the branch holds
-// its copy of the parent: the roles, pgd_* schemas and a signing key of its
+// its copy of the parent: the roles, xb_* schemas and a signing key of its
 // own. The parent's sessions came with the copy and are dropped, so a
 // parent's refresh token can't be used here. With copyFiles, the parent's
 // stored files are copied in the background. A branch without a prepared
@@ -114,14 +114,14 @@ func (s *Service) purgeSessions(ctx context.Context, p store.Project, log *jobs.
 	}
 	defer conn.Close(context.Background())
 	var has bool
-	if err := conn.QueryRow(ctx, `SELECT to_regclass('pgd_auth.sessions') IS NOT NULL`).Scan(&has); err != nil || !has {
+	if err := conn.QueryRow(ctx, `SELECT to_regclass('xb_auth.sessions') IS NOT NULL`).Scan(&has); err != nil || !has {
 		return err
 	}
-	tag, err := conn.Exec(ctx, `DELETE FROM pgd_auth.sessions`) // refresh tokens and MFA challenges go with them
+	tag, err := conn.Exec(ctx, `DELETE FROM xb_auth.sessions`) // refresh tokens and MFA challenges go with them
 	if err != nil {
 		return err
 	}
-	for _, t := range []string{"pgd_auth.refresh_tokens", "pgd_auth.flow_state", "pgd_auth.one_time_codes", "pgd_auth.mfa_challenges"} {
+	for _, t := range []string{"xb_auth.refresh_tokens", "xb_auth.flow_state", "xb_auth.one_time_codes", "xb_auth.mfa_challenges"} {
 		if _, err := conn.Exec(ctx, `DELETE FROM `+t); err != nil {
 			return fmt.Errorf("%s: %w", t, err)
 		}
@@ -157,7 +157,7 @@ func (s *Service) runCopyBranchFiles(ctx context.Context, op store.Operation, lo
 	if err != nil {
 		return err
 	}
-	rows, err := conn.Query(ctx, `SELECT version FROM pgd_storage.objects ORDER BY created_at`)
+	rows, err := conn.Query(ctx, `SELECT version FROM xb_storage.objects ORDER BY created_at`)
 	if err != nil {
 		conn.Close(context.Background())
 		return err

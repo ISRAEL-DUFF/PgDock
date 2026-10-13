@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
 // A dedicated project's read replicas (V4 §7).
@@ -35,7 +35,7 @@ func (a *App) replicasList(args []string) error {
 	return a.emit(r.JSON200, func(w io.Writer) {
 		o := r.JSON200
 		if len(o.Replicas) == 0 {
-			fmt.Fprintf(w, "No read replicas (up to %d): pgdock replicas create %s\n", o.MaxReplicas, p.Name)
+			fmt.Fprintf(w, "No read replicas (up to %d): xenibase replicas create %s\n", o.MaxReplicas, p.Name)
 			return
 		}
 		tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
@@ -105,7 +105,7 @@ func (a *App) replicaArgs(pos []string, usage string) (client.Project, uuid.UUID
 	}
 	id, err := uuid.Parse(pos[1])
 	if err != nil {
-		return p, uuid.Nil, usageErrorf("the replica is named by its id (pgdock replicas list %s)", pos[0])
+		return p, uuid.Nil, usageErrorf("the replica is named by its id (xenibase replicas list %s)", pos[0])
 	}
 	return p, id, nil
 }

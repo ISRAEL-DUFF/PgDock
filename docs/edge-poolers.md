@@ -1,20 +1,20 @@
 # Standby edge pooler
 
-PGDock's PgBouncers (session mode on 5432, transaction mode on 6543) can run
+Xenibase's PgBouncers (session mode on 5432, transaction mode on 6543) can run
 on a **pair of pooler hosts** behind a floating IP, so losing one machine
 doesn't take every database connection down (V3 §2.1). This page covers
 setting the pair up on Hetzner Cloud, checking it, and what to do when it
 reports a problem.
 
-Without pooler hosts, PGDock keeps running its PgBouncers next to
-pgdock-server, as in V2. Nothing changes until you add them.
+Without pooler hosts, Xenibase keeps running its PgBouncers next to
+xenibase-server, as in V2. Nothing changes until you add them.
 
 ## How it works
 
 - Each pooler host runs two containers. The first, **pooler-host**, holds
-  both PgBouncers and `pgdock-agent` in pooler mode. The second is
+  both PgBouncers and `xenibase-agent` in pooler mode. The second is
   **keepalived**, the only one with `NET_ADMIN`.
-- pgdock-server renders the routes, the auth file and the TLS pair once and
+- xenibase-server renders the routes, the auth file and the TLS pair once and
   pushes them to every pooler host's agent (mTLS, like any node). Each push
   carries a **generation** number and a SHA-256 hash. The agent writes the
   files, reloads its PgBouncers, and reports what it serves.
@@ -26,7 +26,7 @@ pgdock-server, as in V2. Nothing changes until you add them.
 - When keepalived makes a host MASTER, the agent asks Hetzner's API to
   route the floating IP to that server. This takes about 3–4 seconds after
   the active host dies.
-- pgdock-server's **arbiter** checks both hosts every 3 seconds. If the
+- xenibase-server's **arbiter** checks both hosts every 3 seconds. If the
   floating IP points at an unhealthy host for two checks in a row while the
   other host is healthy, the arbiter moves it. It leaves a healthy holder
   alone, so it never fights keepalived. Every move is a pooler event,
@@ -45,18 +45,18 @@ pgdock-server, as in V2. Nothing changes until you add them.
   the address to the interface in netplan. The API decides which server
   receives its traffic.
 - A Hetzner Cloud API token with read and write access. Both the pooler
-  hosts and pgdock-server use it to assign the floating IP.
-- The two images, built in a PGDock checkout:
+  hosts and xenibase-server use it to assign the floating IP.
+- The two images, built in a Xenibase checkout:
 
   ```sh
-  make pooler-host-images        # pgdock-pooler-host:local, pgdock-keepalived:local
-  docker save pgdock-pooler-host:local pgdock-keepalived:local | ssh edge-a docker load
-  docker save pgdock-pooler-host:local pgdock-keepalived:local | ssh edge-b docker load
+  make pooler-host-images        # xenibase-pooler-host:local, xenibase-keepalived:local
+  docker save xenibase-pooler-host:local xenibase-keepalived:local | ssh edge-a docker load
+  docker save xenibase-pooler-host:local xenibase-keepalived:local | ssh edge-b docker load
   ```
 
 ## Set up
 
-1. **Register both hosts.** In PGDock, go to Admin → Nodes → Add node, with
+1. **Register both hosts.** In Xenibase, go to Admin → Nodes → Add node, with
    role **pooler** and the host's private address. Do this once per host.
    Each gives you a one-time token, valid for 24 hours.
 
@@ -64,31 +64,31 @@ pgdock-server, as in V2. Nothing changes until you add them.
    host. Next to it, create `.env` with that host's values:
 
    ```sh
-   PGDOCK_AGENT_SERVER=https://pgdock.example.com
-   PGDOCK_AGENT_TOKEN=...            # from step 1, this host's
-   PGDOCK_AGENT_ADVERTISE=10.0.0.11:7070
-   PGDOCK_EDGE_SELF_IP=10.0.0.11     # this host's private IP
-   PGDOCK_EDGE_PEER_IP=10.0.0.12     # the other host's
-   PGDOCK_EDGE_INTERFACE=enp7s0      # the private network's interface
-   PGDOCK_EDGE_VRRP_PASSWORD=...     # the same on both, at most 8 characters
-   PGDOCK_EDGE_PRIORITY=110          # 110 on one host, 100 on the other
-   PGDOCK_AGENT_FLOATING_IP_ID=...   # the floating IP's ID
-   PGDOCK_AGENT_HETZNER_TOKEN=...
+   XENIBASE_AGENT_SERVER=https://xenibase.example.com
+   XENIBASE_AGENT_TOKEN=...            # from step 1, this host's
+   XENIBASE_AGENT_ADVERTISE=10.0.0.11:7070
+   XENIBASE_EDGE_SELF_IP=10.0.0.11     # this host's private IP
+   XENIBASE_EDGE_PEER_IP=10.0.0.12     # the other host's
+   XENIBASE_EDGE_INTERFACE=enp7s0      # the private network's interface
+   XENIBASE_EDGE_VRRP_PASSWORD=...     # the same on both, at most 8 characters
+   XENIBASE_EDGE_PRIORITY=110          # 110 on one host, 100 on the other
+   XENIBASE_AGENT_FLOATING_IP_ID=...   # the floating IP's ID
+   XENIBASE_AGENT_HETZNER_TOKEN=...
    ```
 
-   Leave `PGDOCK_EDGE_VIP` unset on Hetzner. The floating IP is already on
+   Leave `XENIBASE_EDGE_VIP` unset on Hetzner. The floating IP is already on
    both interfaces; keepalived only decides which host claims it.
 
    The server ID comes from Hetzner's metadata service. Set
-   `PGDOCK_AGENT_SERVER_ID` only if that isn't reachable.
+   `XENIBASE_AGENT_SERVER_ID` only if that isn't reachable.
 
    The firewall must allow the following:
 
    | Traffic | Port | From |
    | --- | --- | --- |
    | VRRP (IP protocol 112) | — | the peer |
-   | Agent | 7070 | pgdock-server |
-   | PgBouncers | 5432, 6543 | pgdock-server and clients |
+   | Agent | 7070 | xenibase-server |
+   | PgBouncers | 5432, 6543 | xenibase-server and clients |
 
 3. **Start them**, on each host:
 
@@ -97,14 +97,14 @@ pgdock-server, as in V2. Nothing changes until you add them.
    ```
 
    The PgBouncers start with placeholder files. A host isn't ready, and
-   can't take the floating IP, until pgdock-server's first push arrives.
+   can't take the floating IP, until xenibase-server's first push arrives.
    That push comes within seconds of the agent registering.
 
-4. **Let pgdock-server manage the floating IP.** In its `.env`:
+4. **Let xenibase-server manage the floating IP.** In its `.env`:
 
    ```sh
-   PGDOCK_FLOATING_IP_ID=...
-   PGDOCK_HETZNER_TOKEN_FILE=/run/secrets/hetzner-token   # or PGDOCK_HETZNER_TOKEN
+   XENIBASE_FLOATING_IP_ID=...
+   XENIBASE_HETZNER_TOKEN_FILE=/run/secrets/hetzner-token   # or XENIBASE_HETZNER_TOKEN
    ```
 
    Then restart it. Without these, keepalived alone moves the address and
@@ -115,12 +115,12 @@ pgdock-server, as in V2. Nothing changes until you add them.
    that connections work through it.
 
 6. **Retire the local PgBouncers** once traffic flows through the pair. Set
-   `PGDOCK_POOLER_LOCAL=false` on pgdock-server, restart it, and stop the
+   `XENIBASE_POOLER_LOCAL=false` on xenibase-server, restart it, and stop the
    `pooler-session` and `pooler-tx` services in the install bundle.
 
 Put the two hosts in different racks (or Hetzner spread placement groups),
 and record each one's [failure domain](failure-domains.md) when you add it.
-PGDock warns when the second host shares the first's domain.
+Xenibase warns when the second host shares the first's domain.
 
 ## Check it
 
@@ -143,7 +143,7 @@ goes stale (`TestChaosPoolerSplitBrain`).
 through the floating IP:
 
 ```sh
-ssh edge-a docker kill pgdock-edge-pooler-host-1
+ssh edge-a docker kill xenibase-edge-pooler-host-1
 ```
 
 Queries should succeed again within 10 seconds. The pooler events then show
@@ -156,9 +156,9 @@ rejoins as BACKUP and doesn't take the address back (keepalived runs with
 | You see | Meaning | Do |
 | --- | --- | --- |
 | A host is **stale** | It missed a push (it was down or unreachable). | Nothing, usually: the arbiter pushes again every 15 s. If it stays stale, check the host's agent logs (`docker compose logs pooler-host`). |
-| **Push failed** events | pgdock-server couldn't reach that host's agent. | Check the host is up and port 7070 is open from pgdock-server. |
-| **Split brain** | Both hosts' keepalived say MASTER, usually because VRRP between them is blocked. | Open IP protocol 112 between the hosts. Meanwhile PGDock keeps the floating IP on one healthy host. |
-| **Floating IP moved by PGDock** | keepalived didn't move it, so the arbiter did. | Check keepalived's logs on both hosts (`docker compose logs keepalived`). |
+| **Push failed** events | xenibase-server couldn't reach that host's agent. | Check the host is up and port 7070 is open from xenibase-server. |
+| **Split brain** | Both hosts' keepalived say MASTER, usually because VRRP between them is blocked. | Open IP protocol 112 between the hosts. Meanwhile Xenibase keeps the floating IP on one healthy host. |
+| **Floating IP moved by Xenibase** | keepalived didn't move it, so the arbiter did. | Check keepalived's logs on both hosts (`docker compose logs keepalived`). |
 | **No healthy pooler host** | Neither host can serve. | Look at both hosts' reasons in Admin → Nodes. Every connection is failing. |
 
 ## Tested, and not yet
@@ -166,7 +166,7 @@ rejoins as BACKUP and doesn't take the address back (keepalived runs with
 `TestPoolerHostFailover` runs two real pooler-host containers with
 keepalived on a Docker network, against a fake Hetzner API. It kills the
 active host and requires queries through the shared address to recover
-within 10 seconds (about 4 s in practice). A pgdock-status container
+within 10 seconds (about 4 s in practice). A xenibase-status container
 outside that network then has to mark the edge pooler down, open an
 incident, and resolve it once a host is back.
 
@@ -181,7 +181,7 @@ client's side and fails above 10 seconds:
 
 ```sh
 DATABASE_URL='postgresql://<user>:<password>@db.eu.<domain>:6543/<db>?sslmode=require' \
-KILL_CMD='ssh edge-a docker kill pgdock-edge-pooler-host-1' \
+KILL_CMD='ssh edge-a docker kill xenibase-edge-pooler-host-1' \
 scripts/rehearse-pooler-failover.sh
 ```
 

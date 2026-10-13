@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/messaging"
+	"github.com/israel-duff/xenibase/internal/messaging"
 )
 
-// TestDPAListsMessageProviders: every message provider PGDock holds its own
+// TestDPAListsMessageProviders: every message provider Xenibase holds its own
 // account with is a sub-processor in the default DPA (V4 §2.5).
 func TestDPAListsMessageProviders(t *testing.T) {
 	for _, p := range messaging.PlatformProviders {

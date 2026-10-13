@@ -23,9 +23,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Categories of cost_allocations.
@@ -111,7 +111,7 @@ type Settings struct {
 	// Overheads are fixed monthly costs no organisation is charged with.
 	Overheads []Overhead `json:"overheads"`
 	// EdgeSharePercent is the share of shared nodes' cost moved to the edge
-	// category where pgdock-edge runs on them (V4.1 §11): 0 to 100.
+	// category where xenibase-edge runs on them (V4.1 §11): 0 to 100.
 	EdgeSharePercent float64 `json:"edge_share_percent"`
 }
 

@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestBackupDownload covers V2 §10.10's data export: an organisation owner

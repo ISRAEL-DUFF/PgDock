@@ -11,13 +11,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/faildomain"
-	"github.com/israel-duff/pgdock/internal/ha"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/faildomain"
+	"github.com/israel-duff/xenibase/internal/ha"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // HA for dedicated instances (V3 §2.2): enabling it puts the instance
@@ -30,7 +30,7 @@ const (
 	KindHADisable = "ha_disable"
 
 	// replicationUser streams WAL between an HA instance's members.
-	replicationUser = "pgdock_replicator"
+	replicationUser = "xenibase_replicator"
 )
 
 // DefaultPeerAllow are the CIDRs HA members accept each other's
@@ -131,7 +131,7 @@ func (s *Service) memberSpec(ctx context.Context, inst store.Instance, member uu
 // Member is an HA instance's member with its node.
 type Member = store.ListInstanceMembersRow
 
-// restAddr is where pgdock-server reaches a member's Patroni REST API.
+// restAddr is where xenibase-server reaches a member's Patroni REST API.
 func (s *Service) restAddr(res agentapi.Instance, agent *nodes.Agent) (string, int) {
 	if s.cfg.AdminVia == "published" && res.PublishedRestPort > 0 {
 		host := res.PublishedHost
@@ -143,7 +143,7 @@ func (s *Service) restAddr(res agentapi.Instance, agent *nodes.Agent) (string, i
 	return res.Host, res.RestPort
 }
 
-// adminAddr is where pgdock-server reaches a member's Postgres.
+// adminAddr is where xenibase-server reaches a member's Postgres.
 func (s *Service) adminAddr(res agentapi.Instance, agent *nodes.Agent) (*string, *int32) {
 	if s.cfg.AdminVia == "published" && res.PublishedPort > 0 {
 		host := res.PublishedHost

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/incidents"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/incidents"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func (s *Server) requireIncidents(w http.ResponseWriter) bool {

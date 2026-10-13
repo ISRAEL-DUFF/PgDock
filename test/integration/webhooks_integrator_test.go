@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestWebhookIntegratorContract is what integrators such as Taskiem build
@@ -130,8 +130,8 @@ func TestWebhookIntegratorContract(t *testing.T) {
 	verifyBoth := func(h hookReq, secrets ...string) {
 		t.Helper()
 		for _, s := range secrets {
-			if err := outbound.Verify(s, h.Header.Get("PGDock-Signature"), h.Body, time.Now(), 5*time.Minute); err != nil {
-				t.Fatalf("verify with %s…: %v (%s)", s[:10], err, h.Header.Get("PGDock-Signature"))
+			if err := outbound.Verify(s, h.Header.Get("Xenibase-Signature"), h.Body, time.Now(), 5*time.Minute); err != nil {
+				t.Fatalf("verify with %s…: %v (%s)", s[:10], err, h.Header.Get("Xenibase-Signature"))
 			}
 		}
 	}
@@ -139,7 +139,7 @@ func TestWebhookIntegratorContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	got = rc.waitN(t, 5, 15*time.Second)
-	sig := got[4].Header.Get("PGDock-Signature")
+	sig := got[4].Header.Get("Xenibase-Signature")
 	if strings.Count(sig, "v1=") != 2 {
 		t.Fatalf("during the overlap: %s", sig)
 	}
@@ -154,12 +154,12 @@ func TestWebhookIntegratorContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	got = rc.waitN(t, 6, 15*time.Second)
-	if strings.Count(got[5].Header.Get("PGDock-Signature"), "v1=") != 1 {
-		t.Fatalf("after a rotation without an overlap: %s", got[5].Header.Get("PGDock-Signature"))
+	if strings.Count(got[5].Header.Get("Xenibase-Signature"), "v1=") != 1 {
+		t.Fatalf("after a rotation without an overlap: %s", got[5].Header.Get("Xenibase-Signature"))
 	}
 	verifyBoth(got[5], rot2.Secret)
 	for _, s := range []string{old, rot.Secret} {
-		if outbound.Verify(s, got[5].Header.Get("PGDock-Signature"), got[5].Body, time.Now(), 5*time.Minute) == nil {
+		if outbound.Verify(s, got[5].Header.Get("Xenibase-Signature"), got[5].Body, time.Now(), 5*time.Minute) == nil {
 			t.Fatal("a rotated-out secret still verifies")
 		}
 	}

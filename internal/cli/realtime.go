@@ -7,7 +7,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
 // A project's realtime (V4 §6, §8.2): which tables' changes are delivered.
@@ -100,7 +100,7 @@ func (a *App) realtimeHistory(args []string) error {
 		return err
 	}
 	if len(pos) < 1 {
-		return usageErrorf("usage: pgdock realtime history <project> [topic…]  (no topics: keep none)")
+		return usageErrorf("usage: xenibase realtime history <project> [topic…]  (no topics: keep none)")
 	}
 	p, err := a.project(pos[0])
 	if err != nil {

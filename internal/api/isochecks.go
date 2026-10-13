@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/isocheck"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/isocheck"
 )
 
 func (s *Server) requireIsoChecks(w http.ResponseWriter) bool {

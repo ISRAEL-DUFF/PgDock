@@ -3,7 +3,7 @@
 # docs/edge-poolers.md "Rehearse a failover").
 #
 #   DATABASE_URL='postgresql://user:pass@db.eu.example.ng:6543/db?sslmode=require' \
-#   KILL_CMD='ssh edge-a docker kill pgdock-edge-pooler-host-1' \
+#   KILL_CMD='ssh edge-a docker kill xenibase-edge-pooler-host-1' \
 #   scripts/rehearse-pooler-failover.sh
 #
 # It runs `SELECT 1` through the floating address every INTERVAL seconds,

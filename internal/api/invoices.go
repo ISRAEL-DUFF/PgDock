@@ -11,12 +11,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func toAPIInvoice(i store.Invoice, orgName *string) gen.Invoice {
+	out := toAPIInvoiceBase(i, orgName)
+	out.UsdSubtotalMinor, out.UsdVatMinor, out.UsdTotalMinor = i.UsdSubtotalMinor, i.UsdVatMinor, i.UsdTotalMinor
+	if len(i.Fx) > 0 {
+		var q billing.FXQuote
+		if json.Unmarshal(i.Fx, &q) == nil {
+			fx := toAPIQuote(q)
+			out.Fx = &fx
+		}
+	}
+	return out
+}
+
+func toAPIInvoiceBase(i store.Invoice, orgName *string) gen.Invoice {
 	return gen.Invoice{
 		Id: i.ID, OrgId: i.OrgID, OrgName: orgName, Number: i.Number,
 		PeriodStart: openapi_types.Date{Time: i.PeriodStart.Time}, PeriodEnd: openapi_types.Date{Time: i.PeriodEnd.Time},
@@ -50,6 +63,7 @@ func (s *Server) invoiceDetail(w http.ResponseWriter, r *http.Request, inv store
 		out.Lines = append(out.Lines, gen.InvoiceLine{
 			Kind: gen.InvoiceLineKind(l.Kind), Description: l.Description, ProjectId: pid, Metric: l.Metric,
 			Quantity: billing.DecFromNumeric(l.Quantity).String(), UnitPrice: billing.DecFromNumeric(l.UnitPriceMinor).String(), Amount: l.AmountMinor,
+			AmountUsd: l.UsdAmountMinor, UnitPriceUsd: usdUnit(l),
 		})
 	}
 	out.Lines = withServices(out.Lines)
@@ -179,6 +193,8 @@ func (s *Server) AdminListInvoices(w http.ResponseWriter, r *http.Request, param
 			Held: row.Held, HoldReason: row.HoldReason, SubtotalMinor: row.SubtotalMinor, VatMinor: row.VatMinor, TotalMinor: row.TotalMinor,
 			WhtExpectedMinor: row.WhtExpectedMinor, VatRate: row.VatRate, PriceBookVersion: row.PriceBookVersion,
 			IssuedAt: row.IssuedAt, DueAt: row.DueAt, PaidAt: row.PaidAt, CreatedAt: row.CreatedAt,
+			PaidMinor: row.PaidMinor, WhtDeductedMinor: row.WhtDeductedMinor, WhtEvidencedAt: row.WhtEvidencedAt,
+			UsdSubtotalMinor: row.UsdSubtotalMinor, UsdVatMinor: row.UsdVatMinor, UsdTotalMinor: row.UsdTotalMinor, Fx: row.Fx,
 		}, &name))
 	}
 	writeJSON(w, http.StatusOK, out)
@@ -418,4 +434,13 @@ func (s *Server) PreviewPriceBook(w http.ResponseWriter, r *http.Request, versio
 func mustMarshal(v any) []byte {
 	b, _ := json.Marshal(v)
 	return b
+}
+
+// usdUnit is a line's unit price in dollars, when it has one.
+func usdUnit(l store.InvoiceLine) *string {
+	if l.UsdAmountMinor == nil {
+		return nil
+	}
+	v := billing.DecFromNumeric(l.UsdUnitPrice).String()
+	return &v
 }

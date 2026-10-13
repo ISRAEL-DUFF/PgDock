@@ -42,7 +42,7 @@ export function ProjectWebhooksPage() {
       title="Database Webhooks"
       description={
         <>
-          When rows of the chosen tables change, PGDock POSTs the change to your URL, signed with the webhook&rsquo;s secret. Changes are recorded in the same
+          When rows of the chosen tables change, Xenibase POSTs the change to your URL, signed with the webhook&rsquo;s secret. Changes are recorded in the same
           transaction, so a rolled-back change never sends anything, and each webhook&rsquo;s events arrive in commit order. Failed deliveries are retried for
           24 hours, then kept as dead letters you can replay.
         </>
@@ -264,7 +264,7 @@ function WebhookDetail({
         {secret && (
           <Alert tone="ok" title={`Signing secret for ${w.name}`}>
             <div className="flex flex-col gap-2" data-testid="webhook-secret">
-              <span>Shown once: store it where your receiver checks the PGDock-Signature header.</span>
+              <span>Shown once: store it where your receiver checks the Xenibase-Signature header.</span>
               <CopyField label="Secret" value={secret} secret testId="webhook-secret-value" />
               <Button className="self-start text-xs" onClick={onSecretStored}>
                 I&rsquo;ve stored it

@@ -10,12 +10,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/freetier"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/waker"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/freetier"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/waker"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // lifecycle reads a project's lifecycle.
@@ -149,7 +149,7 @@ func TestFreeProjectPausesAndArchives(t *testing.T) {
 	if err := e.SharedAdmin("postgres").QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)`, c.Project.DbName).Scan(&exists); err != nil || exists {
 		t.Fatalf("the archived database is still there: %v %v", exists, err)
 	}
-	if n := e.SMTP.Count(testenv.OwnerEmail, "[PGDock] Hobby is archived"); n != 1 {
+	if n := e.SMTP.Count(testenv.OwnerEmail, "[Xenibase] Hobby is archived"); n != 1 {
 		t.Errorf("archive notices: %d", n)
 	}
 
@@ -237,13 +237,13 @@ func TestFreeTierSweepRules(t *testing.T) {
 	})
 }
 
-// TestCLIResume wakes a paused project from the pgdock binary.
+// TestCLIResume wakes a paused project from the xenibase binary.
 func TestCLIResume(t *testing.T) {
 	e := testenv.Start(t, testenv.Options{})
 	ctx := context.Background()
 	bin := buildCLI(t)
 	token := e.CreateToken(map[string]any{"name": "cli", "org_id": e.OrgID, "scopes": []string{"read", "write"}})
-	env := []string{"PGDOCK_SERVER=" + e.URL, "PGDOCK_TOKEN=" + token, "PGDOCK_CONFIG_DIR=" + t.TempDir()}
+	env := []string{"XENIBASE_SERVER=" + e.URL, "XENIBASE_TOKEN=" + token, "XENIBASE_CONFIG_DIR=" + t.TempDir()}
 	c := e.CreateProject("Sleepy")
 	if _, err := e.DB.Exec(ctx, `UPDATE projects SET lifecycle = 'paused', paused_at = now() WHERE id = $1`, c.Project.Id); err != nil {
 		t.Fatal(err)

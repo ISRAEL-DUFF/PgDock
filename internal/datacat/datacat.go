@@ -1,6 +1,6 @@
 // Package datacat reads the parts of a project database the data API
 // serves (V4 §3): relations, columns, keys, foreign keys and functions in
-// the exposed schemas. pgdock-edge caches it per project; pgdock-server
+// the exposed schemas. xenibase-edge caches it per project; xenibase-server
 // uses it for type generation and the security advisor.
 package datacat
 

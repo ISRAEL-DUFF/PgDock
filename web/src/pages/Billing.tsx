@@ -9,6 +9,7 @@ import {
   type Invoice,
   type InvoiceLine,
   type PlanChange,
+  type PlanOption,
 } from "../api/client";
 import {
   Alert,
@@ -26,15 +27,25 @@ import {
   Stat,
   Table,
 } from "../components/ui";
-import { INVOICE_STATUS, naira, parseNaira, periodLabel } from "../lib/billing";
+import {
+  INVOICE_STATUS,
+  approxNaira,
+  bps,
+  nairaRate,
+  naira,
+  parseNaira,
+  periodLabel,
+  rate,
+  usd,
+  usdUnit,
+} from "../lib/billing";
 import { formatDate } from "../lib/format";
 import { setCurrentOrg, useCurrentOrg } from "../lib/org";
 import {
-  BalancePanel,
   InvoicePay,
-  MethodsPanel,
   PaymentsPanel,
   StandingBanner,
+  WalletPanel,
 } from "../components/BillingPayments";
 import { LegalBanner } from "./Legal";
 
@@ -55,9 +66,19 @@ export function canSeeBilling(role: string | undefined): boolean {
   return role === "owner" || role === "billing";
 }
 
+/** An invoice's lines. Lines priced in dollars show the dollar amount with
+ * the naira it converted to; older naira lines show kobo unit prices. */
 export function LinesTable({ lines }: { lines: InvoiceLine[] }) {
+  const dollars = lines.some((l) => l.amount_usd != null);
   return (
-    <Table head={["Description", "Quantity", "Unit (kobo)", "Amount"]}>
+    <Table
+      head={[
+        "Description",
+        "Quantity",
+        dollars ? "Unit price" : "Unit (kobo)",
+        "Amount",
+      ]}
+    >
       {lines.map((l, i) => (
         <tr key={i} data-testid="invoice-line" data-kind={l.kind}>
           <td className="px-3 py-2">{l.description}</td>
@@ -65,15 +86,49 @@ export function LinesTable({ lines }: { lines: InvoiceLine[] }) {
             {l.quantity}
           </td>
           <td className="px-3 py-2 text-right tabular-nums text-muted">
-            {l.unit_price}
+            {l.amount_usd != null && l.unit_price_usd != null
+              ? usdUnit(Number(l.unit_price_usd))
+              : l.unit_price}
           </td>
           <td className="px-3 py-2 text-right tabular-nums">
-            {naira(l.amount)}
+            {l.amount_usd != null ? (
+              <>
+                {usd(l.amount_usd)}
+                <span className="block text-[12px] text-muted">
+                  {naira(l.amount)}
+                </span>
+              </>
+            ) : (
+              naira(l.amount)
+            )}
           </td>
         </tr>
       ))}
     </Table>
   );
+}
+
+/** An invoice's total in dollars and naira; a draft's naira is an estimate
+ * at the indicative rate until the invoice is issued. */
+export function InvoiceTotal({ inv }: { inv: Invoice }) {
+  if (inv.usd_total_minor == null) return <>{naira(inv.total_minor)}</>;
+  return (
+    <>
+      {usd(inv.usd_total_minor)} ·{" "}
+      {inv.status === "draft" ? (
+        <span className="text-muted">
+          ≈ {naira(inv.total_minor)} (estimate)
+        </span>
+      ) : (
+        naira(inv.total_minor)
+      )}
+    </>
+  );
+}
+
+/** "12 Oct 2026". */
+function day(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
 }
 
 export function InvoiceStatus({ inv }: { inv: Invoice }) {
@@ -220,10 +275,7 @@ export function BillingPage() {
           )}
         </Panel>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <BalancePanel org={org.id} a={a} />
-        <MethodsPanel org={org.id} a={a} />
-      </div>
+      <WalletPanel org={org.id} orgName={org.name} a={a} />
       <SpendControls org={org.id} a={a} />
       <DetailsPanel org={org.id} a={a} />
       <ContactsPanel org={org.id} />
@@ -249,7 +301,7 @@ export function BillingPage() {
                   {periodLabel(inv.period_start.slice(0, 7))}
                 </td>
                 <td className="px-3 py-2 tabular-nums">
-                  {naira(inv.total_minor)}
+                  <InvoiceTotal inv={inv} />
                 </td>
                 <td className="px-3 py-2">
                   <InvoiceStatus inv={inv} />
@@ -273,12 +325,23 @@ export function BillingPage() {
       <PaymentsPanel org={org.id} />
       <InvoicePanel
         org={org.id}
-        a={a}
         id={openInvoice}
         onClose={() => setOpenInvoice(undefined)}
       />
     </Page>
   );
+}
+
+/** A plan fee in the price book's currency; dollars add the naira at the
+ * indicative rate: "$10.00 ≈ ₦15,150". */
+function planFee(
+  p: PlanOption,
+  k: "monthly_minor" | "annual_minor",
+  fx: BillingAccount["fx"],
+) {
+  if (p.currency !== "USD") return naira(p[k]);
+  const n = approxNaira(p[k], fx);
+  return n ? `${usd(p[k])} ${n}` : usd(p[k]);
 }
 
 function PlanPanel({
@@ -359,15 +422,10 @@ function PlanPanel({
               ? `Annual, renews ${formatDate(a.term_ends_at)}`
               : "Monthly",
           ],
-          [
-            "Billing",
-            a.mode === "prepaid"
-              ? "Prepaid"
-              : `Postpaid, invoices due in ${a.payment_terms_days} days`,
-          ],
+          ["Billing", `Invoices due in ${a.payment_terms_days} days`],
           [
             "Price book",
-            `Version ${a.price_book_version}${a.grandfathered ? " (kept for you)" : ""}`,
+            `Version ${a.price_book_version}${a.grandfathered ? " (kept for you)" : ""}${a.price_currency === "USD" ? ", prices in US dollars" : ""}`,
           ],
         ]}
       />
@@ -421,9 +479,20 @@ function PlanPanel({
                   <span className="font-medium">{p.name}</span>
                   {p.id === a.plan && <Badge tone="muted">Current</Badge>}
                 </span>
-                <span className="text-muted">
-                  {p.monthly_minor ? `${naira(p.monthly_minor)}/month` : "Free"}
-                  {p.annual_minor ? ` · ${naira(p.annual_minor)}/year` : ""}
+                <span className="text-right text-muted">
+                  {p.monthly_minor ? (
+                    <>
+                      {planFee(p, "monthly_minor", a.fx)} / month
+                    </>
+                  ) : (
+                    "Free"
+                  )}
+                  {p.annual_minor ? (
+                    <>
+                      {" · "}
+                      {planFee(p, "annual_minor", a.fx)} / year
+                    </>
+                  ) : null}
                 </span>
               </label>
             ))}
@@ -484,9 +553,19 @@ function PlanPanel({
               {preview.lines.length > 0 ? (
                 <>
                   <LinesTable lines={preview.lines} />
-                  <p className="text-right font-medium">
-                    On the next invoice: {naira(preview.total_minor)} + VAT
+                  <p className="text-right font-medium" data-testid="plan-total">
+                    On the next invoice:{" "}
+                    {preview.total_usd_minor != null
+                      ? `${usd(preview.total_usd_minor)} (${naira(preview.total_minor)})`
+                      : naira(preview.total_minor)}{" "}
+                    + VAT
                   </p>
+                  {preview.total_usd_minor != null && preview.fx && (
+                    <p className="text-right text-[12px] text-muted">
+                      At {rate(preview.fx)}, the rate today; the invoice uses
+                      the rate when it is issued.
+                    </p>
+                  )}
                 </>
               ) : (
                 <p className="text-muted">
@@ -788,12 +867,10 @@ function ContactsPanel({ org }: { org: string }) {
 function InvoicePanel({
   org,
   id,
-  a,
   onClose,
 }: {
   org: string;
   id?: string;
-  a?: BillingAccount;
   onClose: () => void;
 }) {
   const q = useQuery({
@@ -822,7 +899,7 @@ function InvoicePanel({
       {q.isError && <Alert>{errorMessage(q.error)}</Alert>}
       {d && (
         <div className="flex flex-col gap-4">
-          <InvoicePay org={org} inv={d.invoice} a={a} />
+          <InvoicePay org={org} inv={d.invoice} />
           <InvoiceBody d={d} />
         </div>
       )}
@@ -854,6 +931,33 @@ export function InvoiceBody({
         ]}
       />
       <LinesTable lines={d.lines} />
+      {inv.usd_total_minor != null && (
+        <div
+          className="ml-auto grid w-72 grid-cols-2 gap-1 tabular-nums"
+          data-testid="invoice-usd"
+        >
+          <span className="text-muted">Subtotal</span>
+          <span className="text-right">{usd(inv.usd_subtotal_minor ?? 0)}</span>
+          <span className="text-muted">VAT</span>
+          <span className="text-right">{usd(inv.usd_vat_minor ?? 0)}</span>
+          <span className="font-medium">Total</span>
+          <span
+            className="text-right font-medium"
+            data-testid="invoice-usd-total"
+          >
+            {usd(inv.usd_total_minor)}
+          </span>
+        </div>
+      )}
+      {inv.usd_total_minor != null && inv.fx && (
+        <p className="text-right text-[13px] text-muted" data-testid="invoice-fx">
+          {inv.status === "draft"
+            ? `Estimated at ${rate(inv.fx)}, the indicative rate; the rate is fixed when the invoice is issued`
+            : `Converted at ${rate(inv.fx)} on ${day(inv.issued_at ?? inv.fx.quoted_at)}`}{" "}
+          (market {nairaRate(inv.fx.market_rate)}, spread{" "}
+          {bps(inv.fx.spread_bps)}).
+        </p>
+      )}
       <div className="ml-auto grid w-72 grid-cols-2 gap-1 tabular-nums">
         <span className="text-muted">Subtotal</span>
         <span className="text-right">{naira(inv.subtotal_minor)}</span>
@@ -861,7 +965,9 @@ export function InvoiceBody({
           VAT at {(Number(inv.vat_rate) * 100).toFixed(1).replace(/\.0$/, "")}%
         </span>
         <span className="text-right">{naira(inv.vat_minor)}</span>
-        <span className="font-medium">Total</span>
+        <span className="font-medium">
+          {inv.usd_total_minor != null ? "Total in naira" : "Total"}
+        </span>
         <span className="text-right font-medium" data-testid="invoice-total">
           {naira(inv.total_minor)}
         </span>

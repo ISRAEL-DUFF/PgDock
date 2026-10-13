@@ -22,9 +22,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 const (
@@ -39,7 +39,7 @@ const (
 	maxCell = 64 << 10
 	// appPrefix tags console sessions in pg_stat_activity, so a cancel can
 	// find the backend from any server.
-	appPrefix = "pgdock-console "
+	appPrefix = "xenibase-console "
 )
 
 // Errors the API maps to client responses.
@@ -224,7 +224,7 @@ func (s *Service) connect(ctx context.Context, p store.Project, queryID uuid.UUI
 	if m == modeJob {
 		// The admin connection's read_only=off would override the database's
 		// soft-lock default.
-		cfg.RuntimeParams["application_name"] = "pgdock-job"
+		cfg.RuntimeParams["application_name"] = "xenibase-job"
 		delete(cfg.RuntimeParams, "default_transaction_read_only")
 	}
 	sess := &session{}

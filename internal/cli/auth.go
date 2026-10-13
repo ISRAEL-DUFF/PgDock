@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
-// login: pgdock login --server https://… [--name ctx] [--scopes read,write]
-// [--token pgd_…] [--no-browser] [--ca-file f]
+// login: xenibase login --server https://… [--name ctx] [--scopes read,write]
+// [--token xb_…] [--no-browser] [--ca-file f]
 func (a *App) login(args []string) error {
 	fs := flag.NewFlagSet("login", flag.ContinueOnError)
 	name := fs.String("name", "", "context name (default: the server's host and the organisation)")
@@ -28,17 +28,17 @@ func (a *App) login(args []string) error {
 	}
 	server := strings.TrimRight(a.server, "/")
 	if server == "" {
-		server = strings.TrimRight(a.getenv("PGDOCK_SERVER"), "/")
+		server = strings.TrimRight(a.getenv("XENIBASE_SERVER"), "/")
 	}
 	if server == "" {
-		return usageErrorf("usage: pgdock login --server https://pgdock.example.com")
+		return usageErrorf("usage: xenibase login --server https://xenibase.example.com")
 	}
 	if u, err := url.Parse(server); err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
-		return usageErrorf("--server must be a URL like https://pgdock.example.com")
+		return usageErrorf("--server must be a URL like https://xenibase.example.com")
 	}
 	ca := *caFile
 	if ca == "" {
-		ca = a.getenv("PGDOCK_CA_FILE")
+		ca = a.getenv("XENIBASE_CA_FILE")
 	}
 	if err := a.useTarget(target{Server: server, CAFile: ca}); err != nil {
 		return err
@@ -108,7 +108,7 @@ func (a *App) login(args []string) error {
 func (a *App) deviceLogin(clientName, scopes string, noBrowser bool) (string, error) {
 	if clientName == "" {
 		host, _ := os.Hostname()
-		clientName = "pgdock CLI"
+		clientName = "xenibase CLI"
 		if host != "" {
 			clientName += " on " + host
 		}
@@ -155,7 +155,7 @@ func (a *App) deviceLogin(clientName, scopes string, noBrowser bool) (string, er
 			return "", err
 		}
 	}
-	return "", fmt.Errorf("the login code expired; run pgdock login again")
+	return "", fmt.Errorf("the login code expired; run xenibase login again")
 }
 
 func (a *App) logout(args []string) error {

@@ -62,18 +62,18 @@ func ScanDeprecated(ctx context.Context, db *pgx.Conn, from, to int) ([]Finding,
 	if len(rules) == 0 {
 		return nil, nil
 	}
-	// The project's own objects: not the catalogs, not PGDock's schemas,
+	// The project's own objects: not the catalogs, not Xenibase's schemas,
 	// not what extensions installed.
 	rows, err := db.Query(ctx, `
 		SELECT 'function ' || format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)), p.prosrc
 		FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-		WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pgdock', 'pgdock_move', 'pgd_auth', 'pgd_storage', 'pgd_realtime')
+		WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'xenibase', 'xenibase_move', 'xb_auth', 'xb_storage', 'xb_realtime')
 		  AND n.nspname NOT LIKE 'pg_toast%' AND p.prolang <> (SELECT oid FROM pg_language WHERE lanname = 'c')
 		  AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e')
 		UNION ALL
 		SELECT (CASE c.relkind WHEN 'm' THEN 'materialized view ' ELSE 'view ' END) || format('%I.%I', n.nspname, c.relname), pg_get_viewdef(c.oid)
 		FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-		WHERE c.relkind IN ('v', 'm') AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pgdock', 'pgdock_move', 'pgd_auth', 'pgd_storage', 'pgd_realtime')
+		WHERE c.relkind IN ('v', 'm') AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'xenibase', 'xenibase_move', 'xb_auth', 'xb_storage', 'xb_realtime')
 		  AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.deptype = 'e')
 		UNION ALL
 		SELECT 'setting', array_to_string(s.setconfig, ' ')

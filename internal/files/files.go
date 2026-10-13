@@ -1,7 +1,7 @@
-// Package files holds what pgdock-edge and pgdock-server share about
+// Package files holds what xenibase-edge and xenibase-server share about
 // backend services' storage (V4 §5): bucket and path rules, where an
 // object's bytes are, the MIME checks, the signed URL tokens, and the SQL
-// on pgd_storage.
+// on xb_storage.
 package files
 
 import (
@@ -178,7 +178,7 @@ func Sign(secret []byte, t Token) string {
 
 func mac(secret []byte, payload string) []byte {
 	m := hmac.New(sha256.New, secret)
-	m.Write([]byte("pgdock storage url\x00" + payload))
+	m.Write([]byte("xenibase storage url\x00" + payload))
 	return m.Sum(nil)
 }
 
@@ -225,7 +225,7 @@ const BucketCols = `id, public, file_size_limit, allowed_mime_types, cache_secon
 // conflict it replaces the object (upsert) or fails with a unique
 // violation.
 func InsertSQL(upsert bool) string {
-	s := `INSERT INTO pgd_storage.objects (bucket, path, version, size, mime_type, etag, checksum, owner, user_metadata)
+	s := `INSERT INTO xb_storage.objects (bucket, path, version, size, mime_type, etag, checksum, owner, user_metadata)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 	if upsert {
 		s += ` ON CONFLICT (bucket, path) DO UPDATE SET version = EXCLUDED.version, size = EXCLUDED.size,
@@ -257,7 +257,7 @@ const ListFolderSQL = `SELECT name, folder,
 	  CASE WHEN folder THEN NULL ELSE (array_agg(created_at))[1] END,
 	  CASE WHEN folder THEN NULL ELSE (array_agg(updated_at))[1] END
 	FROM (SELECT split_part(substr(path, $3), '/', 1) AS name, strpos(substr(path, $3), '/') > 0 AS folder, o.*
-	      FROM pgd_storage.objects o WHERE bucket = $1 AND path LIKE $2 ESCAPE '\') x
+	      FROM xb_storage.objects o WHERE bucket = $1 AND path LIKE $2 ESCAPE '\') x
 	WHERE (name, folder) > ($4, $5)
 	GROUP BY name, folder ORDER BY name, folder LIMIT $6`
 

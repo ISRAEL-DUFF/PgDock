@@ -19,12 +19,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/storage"
+	"github.com/israel-duff/xenibase/internal/storage"
 )
 
 // DiskS3 is a small S3-compatible server that keeps objects and multipart
 // parts in files, for uploads too large to hold in memory (the fake S3
-// keeps everything in memory). It serves what pgdock's storage client uses:
+// keeps everything in memory). It serves what xenibase's storage client uses:
 // objects (ranges, copies), listings and multipart uploads. Signatures are
 // not checked.
 type DiskS3 struct {
@@ -44,7 +44,7 @@ type diskUpload struct {
 // NewDiskS3 starts the server on addr ("" for a loopback port), storing
 // under a temporary directory removed on Close.
 func NewDiskS3(addr string) (*DiskS3, error) {
-	dir, err := os.MkdirTemp("", "pgdock-disks3-*")
+	dir, err := os.MkdirTemp("", "xenibase-disks3-*")
 	if err != nil {
 		return nil, err
 	}

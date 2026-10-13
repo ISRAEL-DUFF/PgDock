@@ -9,10 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/incidents"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/incidents"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // mailParts splits a received message (its lines joined with newlines)
@@ -154,7 +154,7 @@ func TestMaintenanceProposals(t *testing.T) {
 	waitFor(t, 20*time.Second, "the announcement email", func() bool { return e.SMTP.Count(testenv.OwnerEmail, "Scheduled for") > 0 })
 	var sent testenv.Mail
 	for _, m := range e.SMTP.Mail() {
-		if strings.Contains(m.Data, "X-PGDock-Event: maintenance") {
+		if strings.Contains(m.Data, "X-Xenibase-Event: maintenance") {
 			sent = m
 		}
 	}

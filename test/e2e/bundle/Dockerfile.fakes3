@@ -1,7 +1,7 @@
 # An in-memory S3 server, a catch-all SMTP server and a webhook receiver
 # for the e2e bundle.
 # Build from the repository root:
-#   docker build -f test/e2e/bundle/Dockerfile.fakes3 -t pgdock-fakes3:local .
+#   docker build -f test/e2e/bundle/Dockerfile.fakes3 -t xenibase-fakes3:local .
 ARG REGISTRY=
 FROM ${REGISTRY}golang:1.26-alpine AS build
 WORKDIR /src

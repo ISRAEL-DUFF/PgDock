@@ -2,7 +2,7 @@
 # install bundle, with Pebble standing in for Let's Encrypt.
 #
 # - challtestsrv answers DNS for every name with Caddy's address, so Pebble
-#   validates the DB hostname over HTTP-01 through Caddy -> pgdock-server.
+#   validates the DB hostname over HTTP-01 through Caddy -> xenibase-server.
 # - Caddy serves the UI from its internal CA (no public DNS in tests).
 # - Host ports are offset to stay clear of the dev environment.
 # - fakes3 stands in for the backup bucket, fakesmtp for the mail server;
@@ -11,7 +11,7 @@
 
 services:
   challtestsrv:
-    image: pgdock-pebble:local
+    image: xenibase-pebble:local
     command: ["/pebble/pebble-challtestsrv", "-defaultIPv4", "172.31.250.10", "-defaultIPv6", "",
               "-dnsserver", ":8053", "-http01", "", "-https01", "", "-tlsalpn01", "", "-doh", "",
               "-management", ":8055"]
@@ -20,7 +20,7 @@ services:
         ipv4_address: 172.31.250.20
 
   pebble:
-    image: pgdock-pebble:local
+    image: xenibase-pebble:local
     command: ["/pebble/pebble", "-config", "/etc/pebble/config.json", "-dnsserver", "172.31.250.20:8053"]
     environment:
       PEBBLE_VA_NOSLEEP: "1"
@@ -34,45 +34,45 @@ services:
 
   caddy:
     ports: !override
-      - "127.0.0.1:${PGDOCK_HTTP_PORT:-18081}:80"
-      - "127.0.0.1:${PGDOCK_HTTPS_PORT:-18443}:443"
+      - "127.0.0.1:${XENIBASE_HTTP_PORT:-18081}:80"
+      - "127.0.0.1:${XENIBASE_HTTPS_PORT:-18443}:443"
     environment:
       CADDY_UI_TLS: "tls internal"
 
-  pgdock-server:
+  xenibase-server:
     depends_on:
       pebble:
         condition: service_started
     environment:
-      PGDOCK_ACME_CA: https://pebble:14000/dir
-      PGDOCK_ACME_CA_ROOTS: /etc/pgdock/pebble.minica.pem
-      PGDOCK_SETUP_CODE: e2e-setup-code
-      PGDOCK_LOG_FORMAT: text
+      XENIBASE_ACME_CA: https://pebble:14000/dir
+      XENIBASE_ACME_CA_ROOTS: /etc/xenibase/pebble.minica.pem
+      XENIBASE_SETUP_CODE: e2e-setup-code
+      XENIBASE_LOG_FORMAT: text
       # Charts fill in seconds rather than minutes.
-      PGDOCK_METRICS_INTERVAL: 5s
+      XENIBASE_METRICS_INTERVAL: 5s
       # Backend services' API URLs (https://<ref>.api.e2e.test) for the API
       # page's quick start and table docs; no edge serves them here.
-      PGDOCK_API_DOMAIN: api.e2e.test
+      XENIBASE_API_DOMAIN: api.e2e.test
     volumes:
-      - ../../test/e2e/bundle/pebble.minica.pem:/etc/pgdock/pebble.minica.pem:ro
+      - ../../test/e2e/bundle/pebble.minica.pem:/etc/xenibase/pebble.minica.pem:ro
 
-  pgdock-agent:
-    image: pgdock-agent:local
+  xenibase-agent:
+    image: xenibase-agent:local
 
   fakes3:
-    image: pgdock-fakes3:local
-    command: ["-listen", ":9000", "-buckets", "pgdock-e2e,org-e2e"]
+    image: xenibase-fakes3:local
+    command: ["-listen", ":9000", "-buckets", "xenibase-e2e,org-e2e"]
 
   # Account email: the wizard points SMTP here; tests read the inbox over HTTP.
   fakesmtp:
-    image: pgdock-fakes3:local
+    image: xenibase-fakes3:local
     entrypoint: ["/usr/local/bin/fakesmtp"]
     ports:
       - "127.0.0.1:18025:8025"
 
   # Webhooks and HTTP jobs post here; tests read what arrived over HTTP.
   fakehook:
-    image: pgdock-fakes3:local
+    image: xenibase-fakes3:local
     entrypoint: ["/usr/local/bin/fakehook"]
     ports:
       - "127.0.0.1:18090:8080"

@@ -40,7 +40,16 @@ func TestDec(t *testing.T) {
 }
 
 func TestDefaultPricesValidate(t *testing.T) {
-	p := DefaultPrices()
+	// Both the dollar book (the default) and the naira one are valid.
+	for _, d := range []Prices{DefaultPrices(), DefaultPricesNGN()} {
+		if err := d.Validate(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if DefaultPrices().Currency != CurrencyUSD {
+		t.Error("the default price book is in dollars")
+	}
+	p := DefaultPricesNGN()
 	if err := p.Validate(); err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +64,7 @@ func TestDefaultPricesValidate(t *testing.T) {
 		t.Error("prices don't round-trip")
 	}
 	bad := []func(*Prices){
-		func(p *Prices) { p.Currency = "USD" },
+		func(p *Prices) { p.Currency = "EUR" },
 		func(p *Prices) { delete(p.Plans, PlanTeam) },
 		func(p *Prices) { pl := p.Plans[PlanFree]; pl.MonthlyMinor = 100; p.Plans[PlanFree] = pl },
 		func(p *Prices) { p.Plans[PlanPro].Unit["made_up_metric"] = D("1") },
@@ -68,7 +77,7 @@ func TestDefaultPricesValidate(t *testing.T) {
 		func(p *Prices) { p.AddOns.RegionPremiumPercent = map[string]Dec{"NG Lagos": D("25")} },
 	}
 	for i, f := range bad {
-		p := DefaultPrices()
+		p := DefaultPricesNGN()
 		f(&p)
 		if err := p.Validate(); err == nil {
 			t.Errorf("case %d: validated", i)
@@ -85,7 +94,7 @@ func sum(lines []Line) int64 {
 }
 
 func TestProrateMidMonthUpgrade(t *testing.T) {
-	p := DefaultPrices()
+	p := DefaultPricesNGN()
 	at := time.Date(2026, 10, 13, 15, 4, 0, 0, time.UTC) // 19 of October's 31 days left, the 13th included
 	lines, ends := Prorate(p, PlanPro, TermMonthly, nil, PlanTeam, TermMonthly, at)
 	if ends != nil || len(lines) != 2 {
@@ -115,7 +124,7 @@ func TestProrateMidMonthUpgrade(t *testing.T) {
 }
 
 func TestProrateAnnual(t *testing.T) {
-	p := DefaultPrices()
+	p := DefaultPricesNGN()
 	at := time.Date(2026, 10, 13, 9, 0, 0, 0, time.UTC)
 	// Monthly Pro to annual Pro: the month's unused part back, a year paid.
 	lines, ends := Prorate(p, PlanPro, TermMonthly, nil, PlanPro, TermAnnual, at)

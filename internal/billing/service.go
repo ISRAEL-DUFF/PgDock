@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Mailer sends email (the mail service).
@@ -31,42 +31,40 @@ type Service struct {
 	// Now is the clock (tests move it).
 	Now func() time.Time
 
-	// Payments (V3 §3.4): the configured providers by name, which channel
-	// goes where, and what to do once money arrives.
+	// Payments (V3 §3.4): the configured providers by name, and what to do
+	// once money arrives.
 	providers map[string]PaymentProvider
-	routing   Routing
 	onPaid    func(ctx context.Context, orgID uuid.UUID)
 	// onChargeFailed runs when an automatic charge is declined (dunning).
-	onChargeFailed func(ctx context.Context, orgID uuid.UUID)
+	// why is the wallet's reason.
+	onChargeFailed func(ctx context.Context, orgID uuid.UUID, why string)
 	suspender      Suspender
 	remover        Remover
-	seal           Sealer
 	docs           DocStore
+
+	// Wallets (V4.1): the wallet provider, and the prefix of the owner
+	// references Xenibase gives it (xenibase:<environment>).
+	wallets     WalletProvider
+	defaults    func() Prices // the first price book (DefaultPrices unless set)
+	rates       RateSource
+	walletOwner string
+	fx          fxCache
 }
 
-// Routing is which provider serves each channel (V3 §3.4.1: configuration,
-// not code). Empty means the channel isn't offered.
-type Routing struct {
-	Cards      string // hosted checkout and saved-card charges
-	VAPrimary  string // virtual accounts
-	VAFallback string
-	Wallet     string // Pay with iSpend and mandates
-}
+// SetDefaultPrices sets the first price book published on a new platform
+// (DefaultPrices, in dollars, unless a platform prices in naira).
+func (s *Service) SetDefaultPrices(f func() Prices) { s.defaults = f }
 
-// Sealer encrypts card tokens at rest (the master key).
-type Sealer interface {
-	Encrypt(plaintext, aad []byte) ([]byte, error)
-	Decrypt(ciphertext, aad []byte) ([]byte, error)
-}
-
-// SetPayments configures payment providers and routing.
-func (s *Service) SetPayments(providers []PaymentProvider, r Routing, seal Sealer) {
-	s.providers = map[string]PaymentProvider{}
-	for _, p := range providers {
-		s.providers[p.Name()] = p
+// SetWallets configures the wallet provider and the owner-reference prefix
+// (xenibase:<environment>) that keeps this installation's wallets apart from
+// any other's at the provider. The provider also serves virtual accounts
+// and deposit events through the usual payment machinery.
+func (s *Service) SetWallets(w WalletProvider, ownerPrefix string) {
+	if s.providers == nil {
+		s.providers = map[string]PaymentProvider{}
 	}
-	s.routing = r
-	s.seal = seal
+	s.wallets, s.rates, s.walletOwner = w, w, strings.Trim(ownerPrefix, ":")
+	s.providers[w.Name()] = w
 }
 
 // Provider returns a configured provider.
@@ -108,16 +106,16 @@ type Settings struct {
 	// AutoIssue issues each month's drafts on the 1st; otherwise the admin
 	// issues them.
 	AutoIssue bool `json:"auto_issue"`
-	// Stablecoin allows USDT top-ups through iSpend (V3 §3.4.5); off until
-	// the regulatory position is confirmed.
-	Stablecoin bool `json:"stablecoin"`
 	// DeleteForNonPayment lets dunning delete an org's paid resources 47
 	// days after payment was due (V3 §3.8); off, such orgs are listed for
 	// the admin instead.
 	DeleteForNonPayment bool `json:"delete_for_non_payment"`
+	// FXMaxAgeHours is how old the dollar's rate may be when an invoice is
+	// converted to naira; older fails the conversion and alerts (4 when 0).
+	FXMaxAgeHours int `json:"fx_max_age_hours,omitempty"`
 }
 
-// Seller is PGDock's company on invoices.
+// Seller is Xenibase's company on invoices.
 type Seller struct {
 	LegalName string `json:"legal_name"`
 	Address   string `json:"address"`
@@ -129,7 +127,7 @@ type Seller struct {
 // DefaultSettings: VAT at 7.5% and WHT at 5%. Drafts aren't issued
 // automatically until an admin turns it on (when payments are live).
 func DefaultSettings() Settings {
-	return Settings{VATRate: D("0.075"), WHTRate: D("0.05"), Seller: Seller{LegalName: "PGDock"}}
+	return Settings{VATRate: D("0.075"), WHTRate: D("0.05"), Seller: Seller{LegalName: "Xenibase"}}
 }
 
 // Validate checks the rates.
@@ -205,7 +203,11 @@ func (s *Service) Init(ctx context.Context) error {
 		return err
 	}
 	if n == 0 {
-		raw, _ := json.Marshal(DefaultPrices())
+		first := DefaultPrices
+		if s.defaults != nil {
+			first = s.defaults
+		}
+		raw, _ := json.Marshal(first())
 		now := s.Now()
 		notes := "Default prices: replace them with ones derived from measured costs."
 		if _, err := q.InsertPriceBook(ctx, store.InsertPriceBookParams{EffectiveAt: seedEffective, Prices: raw, Notes: &notes, PublishedAt: &now}); err != nil {
@@ -418,10 +420,10 @@ func (s *Service) notifyRepricing(ctx context.Context, b Book) int {
 		}
 		msg := mail.Message{
 			To:      to,
-			Subject: "PGDock prices are changing on " + b.EffectiveAt.UTC().Format("2 January 2006"),
+			Subject: "Xenibase prices are changing on " + b.EffectiveAt.UTC().Format("2 January 2006"),
 			Body: fmt.Sprintf("Prices for %s's plan change from %s.\n\n%s\nThe full price list: %s/pricing\n",
 				a.OrgName, when, body, s.publicURL),
-			Headers: map[string]string{"X-PGDock-Event": "billing.repricing"},
+			Headers: map[string]string{"X-Xenibase-Event": "billing.repricing"},
 		}
 		if err := s.mail.Send(ctx, msg); err != nil {
 			s.log.Warn("repricing notice", "org", a.OrgID, "err", err)
@@ -436,12 +438,17 @@ func (s *Service) notifyRepricing(ctx context.Context, b Book) int {
 func comparePrices(old, next Prices, plan, term string) string {
 	op, np := old.Plans[plan], next.Plans[plan]
 	var b strings.Builder
-	if f, g := op.Fee(term), np.Fee(term); f != g {
-		fmt.Fprintf(&b, "  %s plan (%s): %s → %s\n", np.Name, term, Naira(f), Naira(g))
+	cur := func(minor int64) string { return Money(next.Currency, minor) }
+	unit := "kobo"
+	if next.Currency == CurrencyUSD {
+		unit = "cents"
+	}
+	if f, g := op.Fee(term), np.Fee(term); f != g || old.Currency != next.Currency {
+		fmt.Fprintf(&b, "  %s plan (%s): %s → %s\n", np.Name, term, Money(old.Currency, f), cur(g))
 	}
 	for _, m := range PlanMetrics {
 		if a, c := op.Unit[m], np.Unit[m]; a.Cmp(c) != 0 {
-			fmt.Fprintf(&b, "  %s: %s → %s kobo per unit\n", m, a, c)
+			fmt.Fprintf(&b, "  %s: %s → %s %s per unit\n", m, a, c, unit)
 		}
 		if a, c := op.Included[m], np.Included[m]; a.Cmp(c) != 0 {
 			fmt.Fprintf(&b, "  %s included: %s → %s\n", m, a, c)
@@ -453,10 +460,34 @@ func comparePrices(old, next Prices, plan, term string) string {
 		"Dedicated disk GB-hour": {old.Dedicated.DiskGBHour, next.Dedicated.DiskGBHour},
 	} {
 		if pair[0].Cmp(pair[1]) != 0 {
-			fmt.Fprintf(&b, "  %s: %s → %s kobo\n", name, pair[0], pair[1])
+			fmt.Fprintf(&b, "  %s: %s → %s %s\n", name, pair[0], pair[1], unit)
 		}
 	}
 	return b.String()
+}
+
+// Money formats minor units of a price currency: "$10.00" or "NGN 15,000.00".
+func Money(currency string, minor int64) string {
+	if currency != CurrencyUSD {
+		return Naira(minor)
+	}
+	neg := minor < 0
+	if neg {
+		minor = -minor
+	}
+	whole := fmt.Sprintf("%d", minor/100)
+	var b strings.Builder
+	for i, c := range whole {
+		if i > 0 && (len(whole)-i)%3 == 0 {
+			b.WriteByte(',')
+		}
+		b.WriteRune(c)
+	}
+	s := fmt.Sprintf("$%s.%02d", b.String(), minor%100)
+	if neg {
+		s = "-" + s
+	}
+	return s
 }
 
 // Naira formats kobo as "NGN 15,000.00".
@@ -490,7 +521,7 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 	var daily time.Time   // the last day the daily work ran
 	var nightly time.Time // the last day re-queried in full
 	for {
-		// Prepaid deductions, balance alerts, card reminders: daily, after
+		// Prepaid deductions and balance alerts: daily, after
 		// midnight's usage is recorded.
 		if now := s.Now(); now.UTC().Hour() >= 1 && daily.Before(dayStart(now)) {
 			if err := s.Daily(ctx); err != nil && ctx.Err() == nil {
@@ -541,16 +572,15 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 }
 
 // Channels are the payment channels offered now.
-type Channels struct{ Card, Wallet, Transfer, Stablecoin bool }
+type Channels struct{ Wallet, Transfer bool }
 
-// Channels reports which payment channels are configured.
-func (s *Service) Channels(ctx context.Context) Channels {
-	has := func(name string) bool { _, ok := s.providers[name]; return name != "" && ok }
-	c := Channels{Card: has(s.routing.Cards), Wallet: has(s.routing.Wallet), Transfer: has(s.routing.VAPrimary) || has(s.routing.VAFallback)}
-	if c.Wallet {
-		if set, err := s.Settings(ctx); err == nil {
-			c.Stablecoin = set.Stablecoin
-		}
+// Channels reports which payment channels the configured providers offer.
+func (s *Service) Channels() Channels {
+	var c Channels
+	for _, p := range s.providers {
+		caps := p.Capabilities()
+		c.Wallet = c.Wallet || caps.Wallet
+		c.Transfer = c.Transfer || caps.VirtualAccounts
 	}
 	return c
 }

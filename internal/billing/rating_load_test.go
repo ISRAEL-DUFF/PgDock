@@ -14,21 +14,21 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
 // TestRatingLoad is M27's load test of rating (V3 §14): 1,000
 // organisations on a mix of plans, a month of hourly usage for 2,000+
 // projects, then the month end: every invoice drafted and issued, and the
-// ledger audit run over the result. PGDOCK_LOAD_RATING_ORGS changes its
+// ledger audit run over the result. XENIBASE_LOAD_RATING_ORGS changes its
 // size; it writes tmp/load-report-rating.md.
 func TestRatingLoad(t *testing.T) {
-	if os.Getenv("PGDOCK_TEST_LOAD") == "" {
-		t.Skip("set PGDOCK_TEST_LOAD=1 (make test-load)")
+	if os.Getenv("XENIBASE_TEST_LOAD") == "" {
+		t.Skip("set XENIBASE_TEST_LOAD=1 (make test-load)")
 	}
 	orgs := 1000
-	if v, err := strconv.Atoi(os.Getenv("PGDOCK_LOAD_RATING_ORGS")); err == nil && v > 0 {
+	if v, err := strconv.Atoi(os.Getenv("XENIBASE_LOAD_RATING_ORGS")); err == nil && v > 0 {
 		orgs = v
 	}
 	s, db, clk, _ := newService(t)

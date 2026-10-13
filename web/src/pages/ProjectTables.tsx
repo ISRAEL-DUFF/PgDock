@@ -45,7 +45,7 @@ import {
 } from "../lib/tableEditor/prefs";
 import { useProject } from "./ProjectOverview";
 
-const PAGE_SIZE_KEY = "pgdock.editor.pageSize";
+const PAGE_SIZE_KEY = "xenibase.editor.pageSize";
 
 function storedPageSize(): number {
   try {
@@ -59,7 +59,7 @@ function storedPageSize(): number {
 type Review = { change: SchemaChange; title?: string; success?: string; after?: () => void };
 
 /** The table editor (docs/ui-redesign.md, phase 2): Studio's layout and
- * behaviour on PGDock's grid, row and schema APIs. */
+ * behaviour on Xenibase's grid, row and schema APIs. */
 export function ProjectTablesPage() {
   const { data: p } = useProject();
   if (!p) return null;

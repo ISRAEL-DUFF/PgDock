@@ -1,6 +1,6 @@
 # Support
 
-PGDock keeps every support conversation in one place. Tickets come from the
+Xenibase keeps every support conversation in one place. Tickets come from the
 dashboard, from email and from WhatsApp, and the support console shows each
 one with the organisation it came from (V3 §7.1).
 
@@ -9,7 +9,7 @@ one with the organisation it came from (V3 §7.1).
 **Organisation → Support** lists the organisation's tickets. Owners and
 admins see all of them; other members see the ones they opened.
 **New ticket** asks for a subject and a description. Tick **Urgent** when
-production is down or data is at risk. PGDock emails an acknowledgement
+production is down or data is at risk. Xenibase emails an acknowledgement
 with the ticket's reference, such as `[T-1001]`. Replying to any email
 about the ticket adds the reply to it, and so does replying on the
 dashboard.
@@ -25,7 +25,7 @@ WAT, Monday to Friday. Public holidays aren't counted yet.
 | Urgent, on Pro or Team | Within 1 hour, at any time |
 
 **WhatsApp** is for Pro and Team organisations. An owner or admin
-registers the numbers that may write to PGDock (Organisation → Support →
+registers the numbers that may write to Xenibase (Organisation → Support →
 WhatsApp). Local Nigerian numbers such as `0803…` are stored as `+234…`. A
 message from a registered number opens a ticket for that organisation,
 or adds to its open ticket from the same number, and replies arrive on
@@ -55,7 +55,7 @@ not billing settings, nodes, other organisations' pages or their data.
   *closed*. A reply from the customer reopens the ticket. You can
   also set the priority and the assignee. The assignee must be support
   staff or a platform admin.
-- An email from someone PGDock can't place opens a ticket with no
+- An email from someone Xenibase can't place opens a ticket with no
   organisation. The sender is matched first by an organisation's billing
   contact, then by membership of exactly one organisation.
 
@@ -63,28 +63,28 @@ not billing settings, nodes, other organisations' pages or their data.
 
 | Variable | What |
 | --- | --- |
-| `PGDOCK_SUPPORT_EMAIL` | The support address, e.g. `support@example.com`. It is the Reply-To of support emails, and mail from it is never turned into tickets. |
-| `PGDOCK_SUPPORT_INBOUND_SECRET` (or `_FILE`) | At least 16 characters. The email provider's inbound webhook presents it. |
-| `PGDOCK_WHATSAPP_PHONE_NUMBER_ID` | The WhatsApp Business number's ID (Meta Cloud API). |
-| `PGDOCK_WHATSAPP_ACCESS_TOKEN` | A system-user token with `whatsapp_business_messaging`. |
-| `PGDOCK_WHATSAPP_APP_SECRET` | The Meta app's secret, at least 16 characters. It checks `X-Hub-Signature-256` on every webhook. |
-| `PGDOCK_WHATSAPP_VERIFY_TOKEN` | Any string. Meta sends it back when you register the webhook. |
-| `PGDOCK_WHATSAPP_GRAPH_URL` | Optional; defaults to `https://graph.facebook.com/v21.0`. |
+| `XENIBASE_SUPPORT_EMAIL` | The support address, e.g. `support@example.com`. It is the Reply-To of support emails, and mail from it is never turned into tickets. |
+| `XENIBASE_SUPPORT_INBOUND_SECRET` (or `_FILE`) | At least 16 characters. The email provider's inbound webhook presents it. |
+| `XENIBASE_WHATSAPP_PHONE_NUMBER_ID` | The WhatsApp Business number's ID (Meta Cloud API). |
+| `XENIBASE_WHATSAPP_ACCESS_TOKEN` | A system-user token with `whatsapp_business_messaging`. |
+| `XENIBASE_WHATSAPP_APP_SECRET` | The Meta app's secret, at least 16 characters. It checks `X-Hub-Signature-256` on every webhook. |
+| `XENIBASE_WHATSAPP_VERIFY_TOKEN` | Any string. Meta sends it back when you register the webhook. |
+| `XENIBASE_WHATSAPP_GRAPH_URL` | Optional; defaults to `https://graph.facebook.com/v21.0`. |
 
-The bundle's `compose.yaml` passes all of these to pgdock-server. Without
+The bundle's `compose.yaml` passes all of these to xenibase-server. Without
 an inbound secret, email can't open tickets, though dashboard tickets and
 replies by email still work. Without the WhatsApp variables, the WhatsApp
 channel is off.
 
 **Inbound email.** Point your email provider's inbound webhook at:
 
-    https://<your PGDock>/api/v1/support/inbound/email
+    https://<your Xenibase>/api/v1/support/inbound/email
 
 Authenticate it in one of two ways:
 
 - basic auth, with any username and the inbound secret as the password
-  (e.g. `https://inbound:<secret>@<your PGDock>/…`, as Postmark sends it);
-- an `X-PGDock-Inbound-Secret` header.
+  (e.g. `https://inbound:<secret>@<your Xenibase>/…`, as Postmark sends it);
+- an `X-Xenibase-Inbound-Secret` header.
 
 The endpoint accepts either of these JSON bodies:
 
@@ -93,16 +93,16 @@ The endpoint accepts either of these JSON bodies:
   `in_reply_to`, `references`.
 
 A reply joins its ticket by the `[T-n]` reference in its subject, or by
-`In-Reply-To` or `References` naming one of PGDock's emails. Quoted text
+`In-Reply-To` or `References` naming one of Xenibase's emails. Quoted text
 (`On … wrote:` and the lines starting with `>`) is removed. A redelivered
 email is recorded once.
 
 **WhatsApp.** In the Meta app, set the webhook's callback URL and verify
 token, and subscribe to `messages`:
 
-- callback URL: `https://<your PGDock>/api/v1/support/whatsapp`
-- verify token: the value of `PGDOCK_WHATSAPP_VERIFY_TOKEN`
+- callback URL: `https://<your Xenibase>/api/v1/support/whatsapp`
+- verify token: the value of `XENIBASE_WHATSAPP_VERIFY_TOKEN`
 
 Replies outside WhatsApp's 24-hour customer-service window need an
-approved template, which PGDock doesn't send yet. Answer within the day,
+approved template, which Xenibase doesn't send yet. Answer within the day,
 or ask the customer to write again.

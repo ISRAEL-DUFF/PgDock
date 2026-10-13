@@ -16,25 +16,25 @@ import (
 	"strings"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/docker"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/docker"
 )
 
 // The node's etcd member (V3 §2.2): one container per node, its data in a
-// volume, TLS for clients and peers with certificates from pgdock-server's
+// volume, TLS for clients and peers with certificates from xenibase-server's
 // etcd CA, and /health on a plain-HTTP metrics port for this agent.
 const (
 	etcdClientPort  = 2379
 	etcdPeerPort    = 2380
 	etcdMetricsPort = 2381
-	etcdCertDir     = "/etc/pgdock-etcd"
+	etcdCertDir     = "/etc/xenibase-etcd"
 	etcdDataDir     = "/var/lib/etcd"
 	// DefaultEtcdImage is the official etcd image.
 	DefaultEtcdImage = "gcr.io/etcd-development/etcd:v3.6.5"
 )
 
 func (s *Service) etcdNames() (container, volume string) {
-	return "pgdock-etcd-" + s.cfg.NodeID, "pgdock-etcd-" + s.cfg.NodeID
+	return "xenibase-etcd-" + s.cfg.NodeID, "xenibase-etcd-" + s.cfg.NodeID
 }
 
 // peerMode reports how other nodes reach containers here: on the node's
@@ -50,7 +50,7 @@ func (in *instances) peerMode() (publish bool, err error) {
 	if in.cfg.Network != "" {
 		return false, nil
 	}
-	return false, errors.New("other nodes can't reach this node's containers: set PGDOCK_AGENT_PUBLISH to the node's private address, or PGDOCK_AGENT_NETWORK")
+	return false, errors.New("other nodes can't reach this node's containers: set XENIBASE_AGENT_PUBLISH to the node's private address, or XENIBASE_AGENT_NETWORK")
 }
 
 func (s *Service) etcdAddress() (agentapi.EtcdAddress, error) {
@@ -158,7 +158,7 @@ func (s *Service) startEtcd(ctx context.Context, spec agentapi.EtcdSpec) (agenta
 			return agentapi.Etcd{}, err
 		}
 	}
-	labels := map[string]string{"pgdock.etcd": s.cfg.NodeID}
+	labels := map[string]string{"xenibase.etcd": s.cfg.NodeID}
 	if err := in.dc.CreateVolume(ctx, vol, labels); err != nil {
 		return agentapi.Etcd{}, err
 	}
@@ -209,10 +209,10 @@ func (s *Service) startEtcd(ctx context.Context, spec agentapi.EtcdSpec) (agenta
 		return agentapi.Etcd{}, err
 	}
 	if err := in.dc.CopyTo(ctx, name, "/etc", []docker.File{
-		{Name: "pgdock-etcd/", Mode: 0o700},
-		{Name: "pgdock-etcd/ca.pem", Mode: 0o644, Data: []byte(spec.CAPEM)},
-		{Name: "pgdock-etcd/member.pem", Mode: 0o644, Data: []byte(spec.CertPEM)},
-		{Name: "pgdock-etcd/member-key.pem", Mode: 0o600, Data: []byte(spec.KeyPEM)},
+		{Name: "xenibase-etcd/", Mode: 0o700},
+		{Name: "xenibase-etcd/ca.pem", Mode: 0o644, Data: []byte(spec.CAPEM)},
+		{Name: "xenibase-etcd/member.pem", Mode: 0o644, Data: []byte(spec.CertPEM)},
+		{Name: "xenibase-etcd/member-key.pem", Mode: 0o600, Data: []byte(spec.KeyPEM)},
 	}); err != nil {
 		_ = in.dc.RemoveContainer(context.WithoutCancel(ctx), name)
 		return agentapi.Etcd{}, fmt.Errorf("etcd certificates: %w", err)
@@ -294,7 +294,7 @@ func (s *Service) removeEtcd(w http.ResponseWriter, r *http.Request) {
 
 // etcdMembers lists, adds or removes cluster members through this node's
 // member (V3.1 §3.2), over etcd's JSON gateway with the client
-// certificate pgdock-server sends.
+// certificate xenibase-server sends.
 func (s *Service) etcdMembers(w http.ResponseWriter, r *http.Request) {
 	var req agentapi.EtcdMembersRequest
 	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {

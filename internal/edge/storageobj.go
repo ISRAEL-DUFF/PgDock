@@ -25,9 +25,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/files"
-	"github.com/israel-duff/pgdock/internal/storage"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/files"
+	"github.com/israel-duff/xenibase/internal/storage"
 )
 
 // Object is an object as the API shows it.
@@ -58,25 +58,25 @@ func scanObject(row pgx.Row) (*Object, error) {
 // getObject reads bucket/path in q's transaction (as its role: policies
 // decide whether the row is there); nil when it isn't.
 func getObject(ctx context.Context, q pgx.Tx, bucket, path string) (*Object, error) {
-	o, err := scanObject(q.QueryRow(ctx, `SELECT `+files.ObjectCols+` FROM pgd_storage.objects WHERE bucket = $1 AND path = $2`, bucket, path))
+	o, err := scanObject(q.QueryRow(ctx, `SELECT `+files.ObjectCols+` FROM xb_storage.objects WHERE bucket = $1 AND path = $2`, bucket, path))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	return o, err
 }
 
-// objectsGate refuses anon and user while pgd_storage.objects has no
+// objectsGate refuses anon and user while xb_storage.objects has no
 // row-level security (an owner who turned it off would expose every file).
 func objectsGate(ctx context.Context, tx pgx.Tx, role string) error {
 	if role == "service" {
 		return nil
 	}
 	var on bool
-	if err := tx.QueryRow(ctx, `SELECT relrowsecurity FROM pg_class WHERE oid = 'pgd_storage.objects'::regclass`).Scan(&on); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT relrowsecurity FROM pg_class WHERE oid = 'xb_storage.objects'::regclass`).Scan(&on); err != nil {
 		return err
 	}
 	if !on {
-		return refuse(http.StatusForbidden, "rls_required", "pgd_storage.objects has no row-level security, so files can't be reached with the publishable key: turn it back on")
+		return refuse(http.StatusForbidden, "rls_required", "xb_storage.objects has no row-level security, so files can't be reached with the publishable key: turn it back on")
 	}
 	return nil
 }
@@ -257,7 +257,7 @@ func (e *Edge) edgeObject(ctx context.Context, p *project, bucket, path string) 
 	if err != nil {
 		return nil, err
 	}
-	o, err := scanObject(pool.QueryRow(ctx, `SELECT `+files.ObjectCols+` FROM pgd_storage.objects WHERE bucket = $1 AND path = $2`, bucket, path))
+	o, err := scanObject(pool.QueryRow(ctx, `SELECT `+files.ObjectCols+` FROM xb_storage.objects WHERE bucket = $1 AND path = $2`, bucket, path))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -373,7 +373,7 @@ func (e *Edge) checkSize(ctx context.Context, c *call, sc *edgeapi.StorageConfig
 			return err
 		}
 		var used int64
-		if err := pool.QueryRow(ctx, `SELECT coalesce((SELECT bytes FROM pgd_storage.usage), 0)`).Scan(&used); err != nil {
+		if err := pool.QueryRow(ctx, `SELECT coalesce((SELECT bytes FROM xb_storage.usage), 0)`).Scan(&used); err != nil {
 			return err
 		}
 		if used+size > sc.QuotaBytes {
@@ -466,7 +466,7 @@ func uploadBody(c *call) (body, error) {
 // spool writes up to limit bytes of r to a temporary file, so an upload of
 // unknown length gets one; it fails past limit.
 func spool(r io.Reader, limit int64) (*os.File, int64, error) {
-	f, err := os.CreateTemp("", "pgdock-upload-*")
+	f, err := os.CreateTemp("", "xenibase-upload-*")
 	if err != nil {
 		return nil, 0, err
 	}
@@ -626,7 +626,7 @@ func (e *Edge) list(c *call, req Request, bucket string, in listInput) {
 	next := ""
 	err := e.asRole(ctx, c, req, func(tx pgx.Tx) error {
 		if in.Recursive {
-			rows, err := tx.Query(ctx, `SELECT `+files.ObjectCols+` FROM pgd_storage.objects WHERE bucket = $1 AND path LIKE $2 ESCAPE '\'
+			rows, err := tx.Query(ctx, `SELECT `+files.ObjectCols+` FROM xb_storage.objects WHERE bucket = $1 AND path LIKE $2 ESCAPE '\'
 				AND path > $3 ORDER BY path LIMIT $4`, bucket, files.LikePrefix(prefix), in.Cursor, in.Limit+1)
 			if err != nil {
 				return err
@@ -795,7 +795,7 @@ func (e *Edge) moveOrCopy(c *call, req Request, copyIt bool) {
 		var o *Object
 		err := e.asRole(ctx, c, req, func(tx pgx.Tx) error {
 			var err error
-			o, err = scanObject(tx.QueryRow(ctx, `UPDATE pgd_storage.objects SET bucket = $3, path = $4, updated_at = now()
+			o, err = scanObject(tx.QueryRow(ctx, `UPDATE xb_storage.objects SET bucket = $3, path = $4, updated_at = now()
 				WHERE bucket = $1 AND path = $2 RETURNING `+files.ObjectCols, in.Bucket, in.From, in.ToBucket, in.To))
 			if errors.Is(err, pgx.ErrNoRows) {
 				return refuse(http.StatusForbidden, "not_allowed", "the project's storage policies don't allow moving this object")
@@ -850,7 +850,7 @@ func (e *Edge) remove(c *call, req Request, bucket string, paths []string, singl
 	defer cancel()
 	deleted := []*Object{}
 	err := e.asRole(ctx, c, req, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `DELETE FROM pgd_storage.objects WHERE bucket = $1 AND path = ANY($2) RETURNING `+files.ObjectCols, bucket, paths)
+		rows, err := tx.Query(ctx, `DELETE FROM xb_storage.objects WHERE bucket = $1 AND path = ANY($2) RETURNING `+files.ObjectCols, bucket, paths)
 		if err != nil {
 			return err
 		}
@@ -932,7 +932,7 @@ func (e *Edge) collect(ctx context.Context, p *project) (int, error) {
 	for {
 		n := 0
 		err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
-			rows, err := tx.Query(ctx, `SELECT version FROM pgd_storage.garbage WHERE at < now() - make_interval(secs => $1)
+			rows, err := tx.Query(ctx, `SELECT version FROM xb_storage.garbage WHERE at < now() - make_interval(secs => $1)
 				ORDER BY at LIMIT 100 FOR UPDATE SKIP LOCKED`, e.cfg.GarbageGrace.Seconds())
 			if err != nil {
 				return err
@@ -945,7 +945,7 @@ func (e *Edge) collect(ctx context.Context, p *project) (int, error) {
 			for _, v := range vs {
 				// A row may point at it again (a restore): keep those.
 				var used bool
-				if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pgd_storage.objects WHERE version = $1)`, v).Scan(&used); err != nil {
+				if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM xb_storage.objects WHERE version = $1)`, v).Scan(&used); err != nil {
 					return err
 				}
 				if !used {
@@ -959,7 +959,7 @@ func (e *Edge) collect(ctx context.Context, p *project) (int, error) {
 				done = append(done, v)
 			}
 			n = len(done)
-			_, err = tx.Exec(ctx, `DELETE FROM pgd_storage.garbage WHERE version = ANY($1)`, done)
+			_, err = tx.Exec(ctx, `DELETE FROM xb_storage.garbage WHERE version = ANY($1)`, done)
 			return err
 		})
 		total += n

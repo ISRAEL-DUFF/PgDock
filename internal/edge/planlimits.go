@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/bloom"
+	"github.com/israel-duff/xenibase/internal/bloom"
 )
 
 // mauLocalMax bounds the users one edge process remembers per project for

@@ -11,11 +11,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/console"
-	"github.com/israel-duff/pgdock/internal/metrics"
-	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/console"
+	"github.com/israel-duff/xenibase/internal/metrics"
+	"github.com/israel-duff/xenibase/internal/provision"
 )
 
 // haveConsole reports whether the console service (also extensions) runs.
@@ -289,14 +289,14 @@ func (s *Server) GetNodeMetrics(w http.ResponseWriter, r *http.Request, id gen.N
 }
 
 // GetPrometheusMetrics implements GET /metrics: a bearer token
-// (PGDOCK_METRICS_TOKEN) or a signed-in operator.
+// (XENIBASE_METRICS_TOKEN) or a signed-in operator.
 func (s *Server) GetPrometheusMetrics(w http.ResponseWriter, r *http.Request) {
 	if s.db == nil {
 		writeError(w, http.StatusServiceUnavailable, "unavailable", "metrics are not configured")
 		return
 	}
 	if !s.metricsAuthorized(r) {
-		w.Header().Set("WWW-Authenticate", `Bearer realm="pgdock"`)
+		w.Header().Set("WWW-Authenticate", `Bearer realm="xenibase"`)
 		writeError(w, http.StatusUnauthorized, "unauthenticated", "a metrics token or a platform admin session is required")
 		return
 	}

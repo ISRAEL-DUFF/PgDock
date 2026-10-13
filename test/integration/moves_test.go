@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // liveWriter commits numbered rows through the pooler until stopped,
@@ -282,7 +282,7 @@ func TestDedicatedNodeMove(t *testing.T) {
 	if maxN < w.acked.Load() || count != maxN {
 		t.Fatalf("ledger: %d rows, max %d; acknowledged %d", count, maxN, w.acked.Load())
 	}
-	if state, err := dockerInspect(t, "pgdock-"+before.Instance.Id.String(), "{{.State.Running}}"); err != nil || state != "false" {
+	if state, err := dockerInspect(t, "xenibase-"+before.Instance.Id.String(), "{{.State.Running}}"); err != nil || state != "false" {
 		t.Fatalf("old instance should be stopped and kept: %q %v", state, err)
 	}
 	t.Logf("writes paused %d ms; %d commits acknowledged", *mv.FreezeMs, w.acked.Load())

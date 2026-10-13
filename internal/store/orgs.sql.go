@@ -1322,7 +1322,7 @@ func (q *Queries) ListUserOrgs(ctx context.Context, userID uuid.UUID) ([]ListUse
 }
 
 const lockOrgMembers = `-- name: LockOrgMembers :exec
-SELECT pg_advisory_xact_lock(hashtext('pgdock_org_members:' || $1::text))
+SELECT pg_advisory_xact_lock(hashtext('xenibase_org_members:' || $1::text))
 `
 
 // Serializes membership changes in one organisation (the last-owner rule).

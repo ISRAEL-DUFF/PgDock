@@ -1,7 +1,7 @@
 // Package projauth is the auth data of a project (V4 §4.2): users,
 // sessions, rotating refresh tokens, one-time codes and the audit log in
-// the project's pgd_auth schema. pgdock-edge serves auth through it, as
-// the project's edge login; pgdock-server's dashboard manages users
+// the project's xb_auth schema. xenibase-edge serves auth through it, as
+// the project's edge login; xenibase-server's dashboard manages users
 // through it, as the platform's admin. Every function runs on the
 // caller's transaction.
 package projauth
@@ -25,7 +25,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/israel-duff/pgdock/internal/argonpw"
+	"github.com/israel-duff/xenibase/internal/argonpw"
 )
 
 // Querier is a transaction (or a connection).
@@ -76,7 +76,7 @@ func HashPassword(pw string) (string, error) { return argonpw.Hash(pw, Hashing) 
 // dummyHash is checked for unknown emails, so a sign-in for a missing
 // user costs the same as a wrong password.
 var dummyHash = func() string {
-	h, err := HashPassword("pgdock-dummy-password-for-timing")
+	h, err := HashPassword("xenibase-dummy-password-for-timing")
 	if err != nil {
 		panic(err)
 	}
@@ -119,7 +119,7 @@ func Rehash(ctx context.Context, q Querier, u *User, pw string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := q.Exec(ctx, `UPDATE pgd_auth.users SET encrypted_password = $2, updated_at = now() WHERE id = $1 AND encrypted_password = $3`,
+	if _, err := q.Exec(ctx, `UPDATE xb_auth.users SET encrypted_password = $2, updated_at = now() WHERE id = $1 AND encrypted_password = $3`,
 		u.ID, h, *u.passwordHash); err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ func scanUser(row pgx.Row) (*User, error) {
 
 // GetUser is the user id names; lock takes a row lock for an update.
 func GetUser(ctx context.Context, q Querier, id uuid.UUID, lock bool) (*User, error) {
-	sql := `SELECT ` + userCols + ` FROM pgd_auth.users WHERE id = $1`
+	sql := `SELECT ` + userCols + ` FROM xb_auth.users WHERE id = $1`
 	if lock {
 		sql += ` FOR UPDATE`
 	}
@@ -185,7 +185,7 @@ func GetUser(ctx context.Context, q Querier, id uuid.UUID, lock bool) (*User, er
 
 // UserByPhone is the user with phone (E.164), or ErrNotFound.
 func UserByPhone(ctx context.Context, q Querier, phone string, lock bool) (*User, error) {
-	sql := `SELECT ` + userCols + ` FROM pgd_auth.users WHERE phone = $1`
+	sql := `SELECT ` + userCols + ` FROM xb_auth.users WHERE phone = $1`
 	if lock {
 		sql += ` FOR UPDATE`
 	}
@@ -194,7 +194,7 @@ func UserByPhone(ctx context.Context, q Querier, phone string, lock bool) (*User
 
 // UserByEmail is the user with email (normalized), or ErrNotFound.
 func UserByEmail(ctx context.Context, q Querier, email string, lock bool) (*User, error) {
-	sql := `SELECT ` + userCols + ` FROM pgd_auth.users WHERE email = $1`
+	sql := `SELECT ` + userCols + ` FROM xb_auth.users WHERE email = $1`
 	if lock {
 		sql += ` FOR UPDATE`
 	}
@@ -213,11 +213,11 @@ func ListUsers(ctx context.Context, q Querier, search string, limit, offset int)
 		}
 	}
 	var total int
-	if err := q.QueryRow(ctx, `SELECT count(*) FROM pgd_auth.users WHERE `+where, args...).Scan(&total); err != nil {
+	if err := q.QueryRow(ctx, `SELECT count(*) FROM xb_auth.users WHERE `+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 	args = append(args, limit, offset)
-	rows, err := q.Query(ctx, fmt.Sprintf(`SELECT %s FROM pgd_auth.users WHERE %s ORDER BY created_at DESC, id LIMIT $%d OFFSET $%d`,
+	rows, err := q.Query(ctx, fmt.Sprintf(`SELECT %s FROM xb_auth.users WHERE %s ORDER BY created_at DESC, id LIMIT $%d OFFSET $%d`,
 		userCols, where, len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, 0, err
@@ -280,7 +280,7 @@ func CreateUser(ctx context.Context, q Querier, n NewUser) (*User, error) {
 	if n.Invited {
 		invited = &now
 	}
-	u, err := scanUser(q.QueryRow(ctx, `INSERT INTO pgd_auth.users (email, phone, encrypted_password, email_confirmed_at,
+	u, err := scanUser(q.QueryRow(ctx, `INSERT INTO xb_auth.users (email, phone, encrypted_password, email_confirmed_at,
 		  phone_confirmed_at, invited_at, is_anonymous, app_metadata, user_metadata)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING `+userCols,
 		nilIfEmpty(NormalizeEmail(n.Email)), nilIfEmpty(n.Phone), nilIfEmpty(n.PasswordHash), confirmed, phoneConfirmed, invited,
@@ -358,7 +358,7 @@ func UpdateUser(ctx context.Context, q Querier, id uuid.UUID, up Update) (*User,
 		}
 		add("banned_until", b)
 	}
-	u, err := scanUser(q.QueryRow(ctx, `UPDATE pgd_auth.users SET `+strings.Join(sets, ", ")+` WHERE id = $1 RETURNING `+userCols, args...))
+	u, err := scanUser(q.QueryRow(ctx, `UPDATE xb_auth.users SET `+strings.Join(sets, ", ")+` WHERE id = $1 RETURNING `+userCols, args...))
 	return u, uniqueErr(err)
 }
 
@@ -378,7 +378,7 @@ func ParseBan(s string) (time.Time, error) {
 // DeleteUser removes a user, their sessions, identities and codes (and,
 // through the owner's foreign keys, whatever they set to cascade).
 func DeleteUser(ctx context.Context, q Querier, id uuid.UUID) error {
-	tag, err := q.Exec(ctx, `DELETE FROM pgd_auth.users WHERE id = $1`, id)
+	tag, err := q.Exec(ctx, `DELETE FROM xb_auth.users WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}
@@ -404,13 +404,13 @@ func RecordFailedSignIn(ctx context.Context, q Querier, u *User) (lockedUntil *t
 		t := time.Now().Add(d)
 		until = &t
 	}
-	_, err = q.Exec(ctx, `UPDATE pgd_auth.users SET failed_sign_ins = $2, locked_until = $3 WHERE id = $1`, u.ID, n, until)
+	_, err = q.Exec(ctx, `UPDATE xb_auth.users SET failed_sign_ins = $2, locked_until = $3 WHERE id = $1`, u.ID, n, until)
 	return until, err
 }
 
 // RecordSignIn notes a successful sign-in.
 func RecordSignIn(ctx context.Context, q Querier, id uuid.UUID) error {
-	_, err := q.Exec(ctx, `UPDATE pgd_auth.users SET last_sign_in_at = now(), failed_sign_ins = 0, locked_until = NULL WHERE id = $1`, id)
+	_, err := q.Exec(ctx, `UPDATE xb_auth.users SET last_sign_in_at = now(), failed_sign_ins = 0, locked_until = NULL WHERE id = $1`, id)
 	return err
 }
 
@@ -464,7 +464,7 @@ func NewSession(ctx context.Context, q Querier, userID uuid.UUID, method, userAg
 		t := time.Now().Add(maxAge)
 		notAfter = &t
 	}
-	s, err := scanSession(q.QueryRow(ctx, `INSERT INTO pgd_auth.sessions (user_id, amr, user_agent, ip, not_after)
+	s, err := scanSession(q.QueryRow(ctx, `INSERT INTO xb_auth.sessions (user_id, amr, user_agent, ip, not_after)
 		VALUES ($1, $2, $3, $4, $5) RETURNING `+sessionCols, userID, string(amr), nilIfEmpty(trunc(userAgent, 500)), nilIfEmpty(ip), notAfter))
 	if err != nil {
 		return nil, "", err
@@ -476,7 +476,7 @@ func NewSession(ctx context.Context, q Querier, userID uuid.UUID, method, userAg
 // NewSessionToken revokes the session's refresh tokens and makes a fresh
 // one (the session changed: a factor verified).
 func NewSessionToken(ctx context.Context, q Querier, sessionID uuid.UUID) (string, error) {
-	if _, err := q.Exec(ctx, `UPDATE pgd_auth.refresh_tokens SET revoked = true WHERE session_id = $1 AND NOT revoked`, sessionID); err != nil {
+	if _, err := q.Exec(ctx, `UPDATE xb_auth.refresh_tokens SET revoked = true WHERE session_id = $1 AND NOT revoked`, sessionID); err != nil {
 		return "", err
 	}
 	return newRefreshToken(ctx, q, sessionID, nil)
@@ -495,7 +495,7 @@ func newRefreshToken(ctx context.Context, q Querier, sessionID uuid.UUID, parent
 		return "", err
 	}
 	tok := base64.RawURLEncoding.EncodeToString(b)
-	_, err := q.Exec(ctx, `INSERT INTO pgd_auth.refresh_tokens (token_hash, session_id, parent) VALUES ($1, $2, $3)`,
+	_, err := q.Exec(ctx, `INSERT INTO xb_auth.refresh_tokens (token_hash, session_id, parent) VALUES ($1, $2, $3)`,
 		hashToken(tok), sessionID, parent)
 	return tok, err
 }
@@ -507,12 +507,12 @@ func hashToken(t string) string {
 
 // GetSession is the session id names.
 func GetSession(ctx context.Context, q Querier, id uuid.UUID) (*Session, error) {
-	return scanSession(q.QueryRow(ctx, `SELECT `+sessionCols+` FROM pgd_auth.sessions WHERE id = $1`, id))
+	return scanSession(q.QueryRow(ctx, `SELECT `+sessionCols+` FROM xb_auth.sessions WHERE id = $1`, id))
 }
 
 // Sessions are a user's sessions, newest first.
 func Sessions(ctx context.Context, q Querier, userID uuid.UUID) ([]*Session, error) {
-	rows, err := q.Query(ctx, `SELECT `+sessionCols+` FROM pgd_auth.sessions WHERE user_id = $1 ORDER BY created_at DESC`, userID)
+	rows, err := q.Query(ctx, `SELECT `+sessionCols+` FROM xb_auth.sessions WHERE user_id = $1 ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -530,13 +530,13 @@ func Sessions(ctx context.Context, q Querier, userID uuid.UUID) ([]*Session, err
 
 // EndSessions signs a user out: every session but keep (nil: all).
 func EndSessions(ctx context.Context, q Querier, userID uuid.UUID, keep *uuid.UUID) (int64, error) {
-	tag, err := q.Exec(ctx, `DELETE FROM pgd_auth.sessions WHERE user_id = $1 AND ($2::uuid IS NULL OR id <> $2)`, userID, keep)
+	tag, err := q.Exec(ctx, `DELETE FROM xb_auth.sessions WHERE user_id = $1 AND ($2::uuid IS NULL OR id <> $2)`, userID, keep)
 	return tag.RowsAffected(), err
 }
 
 // EndSession signs one session out.
 func EndSession(ctx context.Context, q Querier, id uuid.UUID) error {
-	_, err := q.Exec(ctx, `DELETE FROM pgd_auth.sessions WHERE id = $1`, id)
+	_, err := q.Exec(ctx, `DELETE FROM xb_auth.sessions WHERE id = $1`, id)
 	return err
 }
 
@@ -563,7 +563,7 @@ func Refresh(ctx context.Context, q Querier, token string, lim SessionLimits) (R
 	var id int64
 	var sid uuid.UUID
 	var revoked bool
-	err := q.QueryRow(ctx, `SELECT id, session_id, revoked FROM pgd_auth.refresh_tokens WHERE token_hash = $1 FOR UPDATE`,
+	err := q.QueryRow(ctx, `SELECT id, session_id, revoked FROM xb_auth.refresh_tokens WHERE token_hash = $1 FOR UPDATE`,
 		hashToken(token)).Scan(&id, &sid, &revoked)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Refreshed{}, ErrNotFound
@@ -571,7 +571,7 @@ func Refresh(ctx context.Context, q Querier, token string, lim SessionLimits) (R
 	if err != nil {
 		return Refreshed{}, err
 	}
-	s, err := scanSession(q.QueryRow(ctx, `SELECT `+sessionCols+` FROM pgd_auth.sessions WHERE id = $1 FOR UPDATE`, sid))
+	s, err := scanSession(q.QueryRow(ctx, `SELECT `+sessionCols+` FROM xb_auth.sessions WHERE id = $1 FOR UPDATE`, sid))
 	if err != nil {
 		return Refreshed{}, err
 	}
@@ -589,14 +589,14 @@ func Refresh(ctx context.Context, q Querier, token string, lim SessionLimits) (R
 	if u.Banned(now) {
 		return Refreshed{Session: s, User: u, Banned: true}, nil
 	}
-	if _, err := q.Exec(ctx, `UPDATE pgd_auth.refresh_tokens SET revoked = true WHERE id = $1`, id); err != nil {
+	if _, err := q.Exec(ctx, `UPDATE xb_auth.refresh_tokens SET revoked = true WHERE id = $1`, id); err != nil {
 		return Refreshed{}, err
 	}
 	tok, err := newRefreshToken(ctx, q, sid, &id)
 	if err != nil {
 		return Refreshed{}, err
 	}
-	if _, err := q.Exec(ctx, `UPDATE pgd_auth.sessions SET refreshed_at = now() WHERE id = $1`, sid); err != nil {
+	if _, err := q.Exec(ctx, `UPDATE xb_auth.sessions SET refreshed_at = now() WHERE id = $1`, sid); err != nil {
 		return Refreshed{}, err
 	}
 	return Refreshed{Session: s, User: u, Token: tok}, nil
@@ -639,11 +639,11 @@ func NewCode(ctx context.Context, q Querier, userID uuid.UUID, kind, target stri
 		return Code{}, err
 	}
 	tok := base64.RawURLEncoding.EncodeToString(b)
-	if _, err := q.Exec(ctx, `DELETE FROM pgd_auth.one_time_codes WHERE user_id = $1 AND kind = $2`, userID, kind); err != nil {
+	if _, err := q.Exec(ctx, `DELETE FROM xb_auth.one_time_codes WHERE user_id = $1 AND kind = $2`, userID, kind); err != nil {
 		return Code{}, err
 	}
 	id := uuid.New()
-	_, err = q.Exec(ctx, `INSERT INTO pgd_auth.one_time_codes (id, user_id, kind, target, code_hash, token_hash, expires_at)
+	_, err = q.Exec(ctx, `INSERT INTO xb_auth.one_time_codes (id, user_id, kind, target, code_hash, token_hash, expires_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)`, id, userID, kind, NormalizeEmail(target), codeHash(id, code), hashToken(tok), time.Now().Add(ttl))
 	return Code{Code: code, Token: tok}, err
 }
@@ -651,7 +651,7 @@ func NewCode(ctx context.Context, q Querier, userID uuid.UUID, kind, target stri
 // LastCodeAt is when a code of one of kinds was last made for target.
 func LastCodeAt(ctx context.Context, q Querier, target string, kinds []string) (*time.Time, error) {
 	var at *time.Time
-	err := q.QueryRow(ctx, `SELECT max(created_at) FROM pgd_auth.one_time_codes WHERE target = $1 AND kind = ANY($2)`,
+	err := q.QueryRow(ctx, `SELECT max(created_at) FROM xb_auth.one_time_codes WHERE target = $1 AND kind = ANY($2)`,
 		NormalizeEmail(target), kinds).Scan(&at)
 	return at, err
 }
@@ -672,7 +672,7 @@ func VerifyCode(ctx context.Context, q Querier, target string, kinds []string, c
 	var id, uid uuid.UUID
 	var kind, hash string
 	var attempts int
-	err := q.QueryRow(ctx, `SELECT id, user_id, kind, code_hash, attempts FROM pgd_auth.one_time_codes
+	err := q.QueryRow(ctx, `SELECT id, user_id, kind, code_hash, attempts FROM xb_auth.one_time_codes
 		WHERE target = $1 AND kind = ANY($2) AND expires_at > now() ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
 		NormalizeEmail(target), kinds).Scan(&id, &uid, &kind, &hash, &attempts)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -688,17 +688,17 @@ func VerifyCode(ctx context.Context, q Querier, target string, kinds []string, c
 		return Verified{}, nil
 	}
 	if subtle.ConstantTimeCompare([]byte(codeHash(id, strings.TrimSpace(code))), []byte(hash)) != 1 {
-		_, err = q.Exec(ctx, `UPDATE pgd_auth.one_time_codes SET attempts = attempts + 1 WHERE id = $1`, id)
+		_, err = q.Exec(ctx, `UPDATE xb_auth.one_time_codes SET attempts = attempts + 1 WHERE id = $1`, id)
 		return Verified{}, err
 	}
-	_, err = q.Exec(ctx, `DELETE FROM pgd_auth.one_time_codes WHERE id = $1`, id)
+	_, err = q.Exec(ctx, `DELETE FROM xb_auth.one_time_codes WHERE id = $1`, id)
 	return Verified{UserID: uid, Kind: kind, Target: NormalizeEmail(target), OK: true}, err
 }
 
 // VerifyToken uses a link's token, if it is one of kinds and not expired.
 func VerifyToken(ctx context.Context, q Querier, token string, kinds []string) (Verified, error) {
 	var v Verified
-	err := q.QueryRow(ctx, `DELETE FROM pgd_auth.one_time_codes WHERE token_hash = $1 AND kind = ANY($2) AND expires_at > now()
+	err := q.QueryRow(ctx, `DELETE FROM xb_auth.one_time_codes WHERE token_hash = $1 AND kind = ANY($2) AND expires_at > now()
 		RETURNING user_id, kind, target`, hashToken(token), kinds).Scan(&v.UserID, &v.Kind, &v.Target)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Verified{}, nil
@@ -734,7 +734,7 @@ func EnsurePhoneIdentity(ctx context.Context, q Querier, userID uuid.UUID, phone
 func EnsureIdentity(ctx context.Context, q Querier, userID uuid.UUID, provider, providerID string, data map[string]any) error {
 	b, _ := json.Marshal(data)
 	var owner uuid.UUID
-	err := q.QueryRow(ctx, `INSERT INTO pgd_auth.identities (user_id, provider, provider_id, identity_data, last_sign_in_at)
+	err := q.QueryRow(ctx, `INSERT INTO xb_auth.identities (user_id, provider, provider_id, identity_data, last_sign_in_at)
 		VALUES ($1, $2, $3, $4, now())
 		ON CONFLICT (provider, provider_id) DO UPDATE SET identity_data = EXCLUDED.identity_data, last_sign_in_at = now()
 		RETURNING user_id`, userID, provider, providerID, string(b)).Scan(&owner)
@@ -750,7 +750,7 @@ func EnsureIdentity(ctx context.Context, q Querier, userID uuid.UUID, provider, 
 // IdentityOwner is the user holding provider's providerID, or ErrNotFound.
 func IdentityOwner(ctx context.Context, q Querier, provider, providerID string) (uuid.UUID, error) {
 	var id uuid.UUID
-	err := q.QueryRow(ctx, `SELECT user_id FROM pgd_auth.identities WHERE provider = $1 AND provider_id = $2`,
+	err := q.QueryRow(ctx, `SELECT user_id FROM xb_auth.identities WHERE provider = $1 AND provider_id = $2`,
 		provider, providerID).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return uuid.Nil, ErrNotFound
@@ -780,14 +780,14 @@ func UnlinkIdentity(ctx context.Context, q Querier, userID, id uuid.UUID) (Ident
 	if len(ids) < 2 {
 		return Identity{}, ErrLastIdentity
 	}
-	_, err = q.Exec(ctx, `DELETE FROM pgd_auth.identities WHERE id = $1 AND user_id = $2`, id, userID)
+	_, err = q.Exec(ctx, `DELETE FROM xb_auth.identities WHERE id = $1 AND user_id = $2`, id, userID)
 	return *found, err
 }
 
 // Identities are a user's identities.
 func Identities(ctx context.Context, q Querier, userID uuid.UUID) ([]Identity, error) {
 	rows, err := q.Query(ctx, `SELECT id, provider, provider_id, identity_data, created_at, last_sign_in_at
-		FROM pgd_auth.identities WHERE user_id = $1 ORDER BY created_at`, userID)
+		FROM xb_auth.identities WHERE user_id = $1 ORDER BY created_at`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -844,14 +844,14 @@ func Audit(ctx context.Context, q Querier, userID *uuid.UUID, action, ip string,
 	if details != nil {
 		d, _ = json.Marshal(details)
 	}
-	_, err := q.Exec(ctx, `INSERT INTO pgd_auth.audit_log (user_id, action, ip, details) VALUES ($1, $2, $3, $4)`,
+	_, err := q.Exec(ctx, `INSERT INTO xb_auth.audit_log (user_id, action, ip, details) VALUES ($1, $2, $3, $4)`,
 		userID, action, nilIfEmpty(ip), string(d))
 	return err
 }
 
 // AuditLog is the latest events, for one user or (nil) all.
 func AuditLog(ctx context.Context, q Querier, userID *uuid.UUID, limit int) ([]AuditEntry, error) {
-	rows, err := q.Query(ctx, `SELECT id, at, user_id, action, ip, details FROM pgd_auth.audit_log
+	rows, err := q.Query(ctx, `SELECT id, at, user_id, action, ip, details FROM xb_auth.audit_log
 		WHERE $1::uuid IS NULL OR user_id = $1 ORDER BY at DESC, id DESC LIMIT $2`, userID, limit)
 	if err != nil {
 		return nil, err
@@ -875,6 +875,6 @@ type Stats struct {
 func UserStats(ctx context.Context, q Querier) (Stats, error) {
 	var s Stats
 	err := q.QueryRow(ctx, `SELECT count(*), count(email_confirmed_at), count(*) FILTER (WHERE banned_until > now()),
-		(SELECT count(*) FROM pgd_auth.sessions) FROM pgd_auth.users`).Scan(&s.Users, &s.Confirmed, &s.Banned, &s.Sessions)
+		(SELECT count(*) FROM xb_auth.sessions) FROM xb_auth.users`).Scan(&s.Users, &s.Confirmed, &s.Banned, &s.Sessions)
 	return s, err
 }

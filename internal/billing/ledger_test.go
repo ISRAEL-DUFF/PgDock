@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store/storetest"
 )
 
 func newOrg(t *testing.T, db *pgxpool.Pool, slug string) uuid.UUID {
@@ -118,8 +118,8 @@ func TestPostAndBalances(t *testing.T) {
 	pay := billing.Txn{
 		Key: "pay-1", SourceType: billing.SourcePayment, SourceID: "flw-123",
 		Entries: []billing.Entry{
-			billing.Dr("cash:flutterwave", &org, 10600),
-			billing.Dr("fees:flutterwave", &org, 150),
+			billing.Dr("cash:bank", &org, 10600),
+			billing.Dr("fees:bank", &org, 150),
 			billing.Cr(billing.AccReceivable, &org, 10750),
 		},
 	}

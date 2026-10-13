@@ -3,8 +3,8 @@
 The spec §13 load test: 150 shared projects, pgbench on 10 of them, measuring
 create latency, pooler overhead, and the effect on a quiet neighbour. Run it
 with `make test-load` (needs `pgbench`); it prints a report and writes
-`tmp/load-report.md`. `PGDOCK_LOAD_PROJECTS`, `PGDOCK_LOAD_BUSY`,
-`PGDOCK_LOAD_SECONDS`, and `PGDOCK_LOAD_PARALLEL` change its size.
+`tmp/load-report.md`. `XENIBASE_LOAD_PROJECTS`, `XENIBASE_LOAD_BUSY`,
+`XENIBASE_LOAD_SECONDS`, and `XENIBASE_LOAD_PARALLEL` change its size.
 
 The test fails if a create fails, the create p95 exceeds 30 s, the quiet
 project's p95 exceeds 250 ms during the load, idle backends linger after the
@@ -51,10 +51,10 @@ profile's second shared node, `shared-pg-2`, and a second agent) is V2
 100 jobs a minute for 3 minutes, 50 branches created at once, and a quiet
 project probed through the transaction pooler throughout. Plan limits are
 overridden, so it measures the platform rather than the quotas.
-`PGDOCK_LOAD_ORGS`, `PGDOCK_LOAD_V2_PROJECTS`,
-`PGDOCK_LOAD_WEBHOOK_PROJECTS`, `PGDOCK_LOAD_EVENTS_PER_SEC`,
-`PGDOCK_LOAD_EVENT_SECONDS`, `PGDOCK_LOAD_JOBS`, `PGDOCK_LOAD_JOB_MINUTES`
-and `PGDOCK_LOAD_BRANCHES` change its size; it writes
+`XENIBASE_LOAD_ORGS`, `XENIBASE_LOAD_V2_PROJECTS`,
+`XENIBASE_LOAD_WEBHOOK_PROJECTS`, `XENIBASE_LOAD_EVENTS_PER_SEC`,
+`XENIBASE_LOAD_EVENT_SECONDS`, `XENIBASE_LOAD_JOBS`, `XENIBASE_LOAD_JOB_MINUTES`
+and `XENIBASE_LOAD_BRANCHES` change its size; it writes
 `tmp/load-report-v2.md`.
 
 It fails if a create or branch fails, the create p95 exceeds 30 s, either
@@ -103,7 +103,7 @@ each, and a month of usage as the recorder writes it (hourly storage and
 transfer per project, daily backup storage, the dedicated project's
 compute, HA and synchronous replication hours). It rates every
 organisation, then runs the month end (draft every invoice, issue them)
-and the ledger audit over the result. `PGDOCK_LOAD_RATING_ORGS` changes
+and the ledger audit over the result. `XENIBASE_LOAD_RATING_ORGS` changes
 its size; it writes `tmp/load-report-rating.md`.
 
 It fails if an invoice is missing for a paying organisation or isn't
@@ -137,13 +137,13 @@ are; the month end grows linearly, about 25 ms an organisation.
 
 `TestBackendLoad` (in `make test-load`) is V4 §13's load test of backend
 services: projects with backend services on the shared tier behind one
-pgdock-edge, a data API mix at a target rate spread evenly over them
+xenibase-edge, a data API mix at a target rate spread evenly over them
 (four reads of ten rows to each insert, with the secret key), then a burst
 of new image transforms (1200×900 PNG to WebP, over ten projects) with a
 quarter of the data rate still running, and the same renders again from
-the cache. `PGDOCK_LOAD_BACKEND_PROJECTS` (1,000), `PGDOCK_LOAD_RPS`
-(2,000), `PGDOCK_LOAD_SECONDS` (60), `PGDOCK_LOAD_TRANSFORMS` (200) and
-`PGDOCK_LOAD_STEPS` (lower rates to run first, such as `500,1000`) change
+the cache. `XENIBASE_LOAD_BACKEND_PROJECTS` (1,000), `XENIBASE_LOAD_RPS`
+(2,000), `XENIBASE_LOAD_SECONDS` (60), `XENIBASE_LOAD_TRANSFORMS` (200) and
+`XENIBASE_LOAD_STEPS` (lower rates to run first, such as `500,1000`) change
 it; it writes `tmp/load-report-backend.md`. The 10,000-connection realtime
 test is `TestRealtimeLoad`, above.
 
@@ -154,10 +154,10 @@ burst), or a transform fails or the burst takes over a minute.
 ### On real servers
 
 V4.1 §13's gate runs the same test against a real install:
-`PGDOCK_LOAD_TARGET` (pgdock-server's URL) with a platform admin's email,
-password and TOTP secret, `PGDOCK_LOAD_API_DOMAIN`, and optionally
-`PGDOCK_LOAD_EDGE_ADDR` (the edge to dial for every project, so no DNS is
-needed) and `PGDOCK_LOAD_EDGE_CA`. The projects are made through the API,
+`XENIBASE_LOAD_TARGET` (xenibase-server's URL) with a platform admin's email,
+password and TOTP secret, `XENIBASE_LOAD_API_DOMAIN`, and optionally
+`XENIBASE_LOAD_EDGE_ADDR` (the edge to dial for every project, so no DNS is
+needed) and `XENIBASE_LOAD_EDGE_CA`. The projects are made through the API,
 their plan and gateway rate limits are lifted for the test's organisations,
 and the load goes to the edge. [`deploy/loadtest/`](../deploy/loadtest/README.md)
 sets up the six servers (one install, three more shared nodes, an edge and a
@@ -166,7 +166,7 @@ Record the result below with the date and server types.
 
 ### Results (2026-10-09)
 
-The 4-vCPU development container, with pgdock-server, one shared node
+The 4-vCPU development container, with xenibase-server, one shared node
 (`max_connections` 500), its poolers, the edge and the load generator all
 on it. 1,000 projects didn't fit: each project database takes about 9 MB
 (9 GB for 1,000, more disk than the container has), and the first run
@@ -203,7 +203,7 @@ second, 8 at a time (p95 2.5 s each).
   connections; [the runbook](backend-runbook.md#capacity) says what to
   watch and when to add a node.
 - **The edge is CPU-bound, and here it shared four CPUs with Postgres,
-  the poolers, pgdock-server and the generator.** At 500 requests a
+  the poolers, xenibase-server and the generator.** At 500 requests a
   second the load average was 7 and the p95 15 ms; past 1,000 the host
   was saturated (a load average of 121 at 2,000). 2,000 requests a second
   needs the edges on their own hosts, as production runs them; the

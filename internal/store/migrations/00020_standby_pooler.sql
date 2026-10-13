@@ -41,7 +41,7 @@ CREATE TABLE pooler_events (
 CREATE INDEX pooler_events_time ON pooler_events (occurred_at DESC);
 
 -- Incidents on the status page (V3 §2.6), written by the platform admin
--- or opened automatically, and pushed to pgdock-status.
+-- or opened automatically, and pushed to xenibase-status.
 CREATE TABLE incidents (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title       text NOT NULL CHECK (length(title) BETWEEN 1 AND 200),

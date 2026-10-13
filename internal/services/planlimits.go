@@ -10,10 +10,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/bloom"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/bloom"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
 // Per-plan limits for backend services (V4 §10, V4.1 §3). The quota plan
@@ -207,7 +207,7 @@ func (s *Service) planLimitNotices(ctx context.Context, q *store.Queries, org uu
 		if time.Now().Before(from) {
 			when = fmt.Sprintf("Plan limits apply from %s; from then, at the limit, %s.", from.Format("2 January 2006"), c.atLimitDoes)
 		}
-		subject := fmt.Sprintf("[PGDock] %s has used %d%% of its %s this month", o.Name, level, c.what)
+		subject := fmt.Sprintf("[Xenibase] %s has used %d%% of its %s this month", o.Name, level, c.what)
 		body := fmt.Sprintf("%s has used %.0f of the %d %s its plan includes this month.\n\n%s\n\n"+
 			"Upgrade the plan (Organisation → Billing) for more; paid plans are billed past their inclusions instead of stopping.\n",
 			o.Name, c.used, c.cap, c.what, when)

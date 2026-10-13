@@ -1,4 +1,4 @@
-import { PgdockError, type Result, fail, ok } from "./errors.js";
+import { XenibaseError, type Result, fail, ok } from "./errors.js";
 import { buildURL, json, send, type Transport } from "./http.js";
 
 /** A signed-in user, as the API returns it. */
@@ -72,7 +72,7 @@ function defaultStorage(): SessionStorage {
   try {
     const ls = (globalThis as { localStorage?: Storage }).localStorage;
     if (ls) {
-      const probe = "__pgdock_probe";
+      const probe = "__xenibase_probe";
       ls.setItem(probe, "1");
       ls.removeItem(probe);
       return ls;
@@ -85,7 +85,7 @@ function defaultStorage(): SessionStorage {
 
 export interface AuthOptions {
   storage?: SessionStorage;
-  /** The storage key (default pgdock.auth.<host>). */
+  /** The storage key (default xenibase.auth.<host>). */
   storageKey?: string;
   /** Keep and restore the session (default true). */
   persistSession?: boolean;
@@ -151,7 +151,7 @@ export class AuthClient {
     opts: AuthOptions = {},
   ) {
     this.storage = opts.storage ?? defaultStorage();
-    this.storageKey = opts.storageKey ?? "pgdock.auth." + new URL(t.url).host;
+    this.storageKey = opts.storageKey ?? "xenibase.auth." + new URL(t.url).host;
     this.opts = {
       persistSession: opts.persistSession ?? true,
       autoRefresh: opts.autoRefresh ?? true,
@@ -309,7 +309,7 @@ export class AuthClient {
     const s = this.session;
     if (!s)
       return Promise.resolve(
-        fail(new PgdockError(401, "no_session", "not signed in")),
+        fail(new XenibaseError(401, "no_session", "not signed in")),
       );
     this.refreshing = (async () => {
       try {
@@ -542,7 +542,7 @@ export class AuthClient {
     const verifier = await this.storage.getItem(this.storageKey + ".verifier");
     if (!verifier)
       return fail<{ session: Session | null; user: User | null }>(
-        new PgdockError(
+        new XenibaseError(
           400,
           "no_code_verifier",
           "no sign-in was started from this app",
@@ -579,7 +579,7 @@ export class AuthClient {
   async getUser(): Promise<Result<User>> {
     const token = await this.accessToken();
     if (!token)
-      return fail(new PgdockError(401, "no_session", "not signed in"));
+      return fail(new XenibaseError(401, "no_session", "not signed in"));
     return json<User>(this.bare(), "/auth/v1/user", { token });
   }
 
@@ -593,7 +593,7 @@ export class AuthClient {
   }): Promise<Result<User>> {
     const token = await this.accessToken();
     if (!token)
-      return fail(new PgdockError(401, "no_session", "not signed in"));
+      return fail(new XenibaseError(401, "no_session", "not signed in"));
     const r = await json<User>(this.bare(), "/auth/v1/user", {
       method: "PATCH",
       body: p,

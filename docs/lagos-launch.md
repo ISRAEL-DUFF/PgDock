@@ -13,7 +13,7 @@ in the second half needs a person; none of it is code.
 | Residency HA project in Lagos survives losing its primary's node | `TestLagosHAResidency` (M25 done-when) | [Regions](regions.md), [HA](ha.md) |
 | Billing ledger tied to invoices, credit notes and payments | `billing.Check` with the M27 invariants; audit tests | [Billing audit](billing-audit.md) |
 | Payment webhooks can't be forged or redirected; money-moving admin actions need step-up | M27 security review | [Security review](security-review.md) |
-| Flutterwave or iSpend outage: no false declines, retried charges, nothing posted twice | `TestProviderOutage`, `TestCardRetryDuringOutage` | [Payments](payments.md) |
+| Wallet provider outage: no false declines, retried charges, nothing posted twice | `TestProviderOutage`, `TestChargeRetryDuringOutage` | [Payments](payments.md) |
 | Pooler split brain in one region; the other region unaffected | `TestChaosPoolerSplitBrain` | [Edge poolers](edge-poolers.md) |
 | Waker failure: alert, dashboard resume, no pausing into a dead waker | `TestChaosWakerFailure` | [Free tier](free-tier.md) |
 | etcd member loss and quorum loss: writes continue | `TestChaosEtcdMemberLoss` | [HA](ha.md) |
@@ -27,8 +27,9 @@ Fixes M27 made on the way, all covered by the tests above:
 - A signed but forged provider event could redirect another org's
   transfer to the attacker's payment intent.
 - An automatic charge that hit a provider outage was never retried, and a
-  card retry during an outage was used up and emailed the customer that
-  their card had failed.
+  retry during an outage was used up and emailed the customer that
+  their payment had failed. (At the time the charge was to a card; it is a
+  wallet debit now.)
 - The split-brain alert counted keepalived MASTERs across regions, so a
   second region's healthy pair would have raised a permanent critical
   alert.
@@ -48,7 +49,7 @@ Fixes M27 made on the way, all covered by the tests above:
    answers are recorded there. Change the billing settings (VAT rate, WHT
    rate, invoice layout) to match.
 2. **The paid launch gate** in the [admin runbook](admin-runbook.md#before-charging-anyone-the-paid-launch)
-   is complete: live Flutterwave and iSpend keys, webhooks registered,
+   is complete: the wallet provider's live key and webhook registered,
    legal documents published, a week of internal billing reconciled with
    no differences and `Ledger check` balanced.
 3. A **price book** for Lagos customers, if prices differ, is published at
@@ -77,8 +78,8 @@ Fixes M27 made on the way, all covered by the tests above:
    with **Move to the region's etcd** on their HA card (V3.1 §3.3; a pause
    of a few seconds each). With only two failure domains in the facility,
    don't offer HA in Lagos yet ([HA](ha.md), [failure domains](failure-domains.md)).
-10. Open the **waker port** (`PGDOCK_WAKER_ADDR`) from the Lagos pooler
-    hosts to pgdock-server, and check `waker_down` isn't firing.
+10. Open the **waker port** (`XENIBASE_WAKER_ADDR`) from the Lagos pooler
+    hosts to xenibase-server, and check `waker_down` isn't firing.
 
 ### Rehearsals in Lagos (with a client writing throughout)
 

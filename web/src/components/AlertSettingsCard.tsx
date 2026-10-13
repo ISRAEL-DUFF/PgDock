@@ -87,9 +87,9 @@ export function AlertSettingsCard() {
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Webhook URL" hint="POSTed JSON; Slack-style and generic receivers work.">
-            {(id) => <Input id={id} value={f.webhook} onChange={set("webhook")} placeholder="https://hooks.example.com/pgdock" />}
+            {(id) => <Input id={id} value={f.webhook} onChange={set("webhook")} placeholder="https://hooks.example.com/xenibase" />}
           </Field>
-          <Field label="Signing secret" hint={s.has_webhook_secret ? "Set. Leave empty to keep it." : "Optional; signs X-PGDock-Signature."}>
+          <Field label="Signing secret" hint={s.has_webhook_secret ? "Set. Leave empty to keep it." : "Optional; signs X-Xenibase-Signature."}>
             {(id) => <Input id={id} type="password" value={f.secret} onChange={set("secret")} autoComplete="new-password" />}
           </Field>
         </div>
@@ -113,7 +113,7 @@ export function AlertSettingsCard() {
             <Field label="Password" hint={s.smtp?.has_password ? "Set. Leave empty to keep it." : undefined}>
               {(id) => <Input id={id} type="password" value={f.password} onChange={set("password")} autoComplete="new-password" />}
             </Field>
-            <Field label="From">{(id) => <Input id={id} value={f.from} onChange={set("from")} placeholder="PGDock <pgdock@example.com>" />}</Field>
+            <Field label="From">{(id) => <Input id={id} value={f.from} onChange={set("from")} placeholder="Xenibase <xenibase@example.com>" />}</Field>
             <div className="sm:col-span-3">
               <Field label="To" hint="Comma-separated addresses.">
                 {(id) => <Input id={id} value={f.to} onChange={set("to")} placeholder="ops@example.com" />}

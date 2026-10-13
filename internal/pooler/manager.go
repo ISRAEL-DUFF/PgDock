@@ -16,11 +16,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
-// syncLockKey serializes pooler syncs across pgdock-server processes.
-const syncLockKey int64 = 0x7067646f636b01 // "pgdock\x01"
+// syncLockKey serializes pooler syncs across xenibase-server processes.
+const syncLockKey int64 = 0x7067646f636b01 // "xenibase\x01"
 
 // Manager keeps the poolers' generated files in step with the metadata DB.
 type Manager struct {
@@ -162,7 +162,7 @@ func (m *Manager) waker() (string, int) {
 
 // NewManager returns a Manager writing files with mode into dir and
 // reloading admins. staticUsers are always present in the auth file (at
-// least the admin console user, or pgdock-server could not reach the
+// least the admin console user, or xenibase-server could not reach the
 // poolers).
 func NewManager(dir string, mode os.FileMode, db *pgxpool.Pool, admins []*Admin, staticUsers []User, log *slog.Logger) (*Manager, error) {
 	if dir == "" {

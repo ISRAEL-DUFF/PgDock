@@ -136,7 +136,7 @@ export function Grid({
       <CM.Trigger asChild>
         <div className="min-h-0 flex-1" data-testid="table-grid">
           <DataGrid<GridRow, unknown, string>
-            className="pgdock-grid"
+            className="xenibase-grid"
             columns={columns}
             rows={rows}
             rowKeyGetter={(r) => r.key}

@@ -76,10 +76,17 @@ export type BillingContact = S["BillingContact"];
 export type BillingForecast = S["BillingForecast"];
 export type BillingSettings = S["BillingSettings"];
 export type PlanChange = S["PlanChange"];
+export type PlanOption = S["PlanOption"];
 export type PlanChangeRequest = S["PlanChangeRequest"];
-export type PriceBook = S["PriceBook"];
-export type Prices = S["Prices"];
-export type Pricing = S["Pricing"];
+/** The generated schema still says NGN-only; a price book may be in USD
+ * (cents) and the public pricing may carry the indicative rate. */
+export type Prices = Omit<S["Prices"], "currency"> & { currency: string };
+export type PriceBook = Omit<S["PriceBook"], "prices"> & { prices: Prices };
+export type Pricing = Omit<S["Pricing"], "prices" | "next"> & {
+  prices: Prices;
+  next?: { version: number; effective_at: string; prices: Prices };
+  fx?: FXQuote | null;
+};
 export type Invoice = S["Invoice"];
 export type InvoiceDetail = S["InvoiceDetail"];
 export type InvoiceLine = S["InvoiceLine"];
@@ -96,22 +103,22 @@ export type EstimateRequest = {
   backup_retention?: S["BackupRetention"];
   region?: string;
 };
-export type PaymentMethod = S["PaymentMethod"];
+export type FXQuote = S["FXQuote"];
+export type Wallet = S["Wallet"];
+export type WalletSetup = S["WalletSetup"];
+export type WalletCharge = S["WalletCharge"];
+export type DebitConsent = S["DebitConsent"];
 export type Payment = S["Payment"];
 export type VirtualAccount = S["VirtualAccount"];
 export type PaymentEvent = S["PaymentEvent"];
 export type OutstandingWht = S["OutstandingWht"];
 export type Reconciliation = S["Reconciliation"];
-export type CheckoutRequest = {
-  channel: "card" | "wallet" | "stablecoin";
-  purpose: "invoice" | "topup" | "card_setup";
-  invoice_id?: string;
-  amount_minor?: number;
-  mandate_limit_minor?: number;
-};
 export type CostEstimate = {
   hourly_minor: number;
   monthly_minor: number;
+  /** The same in cents, for a dollar price book. */
+  monthly_usd_minor?: number | null;
+  fx?: FXQuote | null;
   lines: InvoiceLine[];
 };
 export type PricePreview = {
@@ -309,7 +316,7 @@ export function setCsrfToken(token: string) {
  */
 function cookieToken(): string {
   if (typeof document === "undefined") return "";
-  const m = /(?:^|;\s*)(?:__Host-)?pgdock_csrf=([^;]+)/.exec(document.cookie);
+  const m = /(?:^|;\s*)(?:__Host-)?xenibase_csrf=([^;]+)/.exec(document.cookie);
   return m ? decodeURIComponent(m[1]) : "";
 }
 
@@ -1381,35 +1388,26 @@ export const api = {
   estimate: (org: string, b: EstimateRequest) =>
     request<CostEstimate>("POST", `/api/v1/orgs/${org}/billing/estimate`, b),
 
-  checkout: (org: string, b: CheckoutRequest) =>
-    request<{ reference: string; checkout_url: string; amount_minor: number }>(
-      "POST",
-      `/api/v1/orgs/${org}/billing/checkout`,
-      b,
-    ),
   virtualAccount: (org: string) =>
     request<VirtualAccount>(
       "POST",
       `/api/v1/orgs/${org}/billing/virtual-account`,
     ),
-  paymentMethods: (org: string) =>
-    getJSON<{ items: PaymentMethod[] }>(
-      `/api/v1/orgs/${org}/billing/payment-methods`,
-    ),
-  removePaymentMethod: (org: string, id: string) =>
-    request<void>(
-      "DELETE",
-      `/api/v1/orgs/${org}/billing/payment-methods/${id}`,
-    ),
-  defaultPaymentMethod: (org: string, id: string) =>
-    request<void>(
+  wallet: (org: string) =>
+    getJSON<Wallet>(`/api/v1/orgs/${org}/billing/wallet`),
+  openWallet: (org: string, b: WalletSetup) =>
+    request<Wallet>("POST", `/api/v1/orgs/${org}/billing/wallet`, b),
+  allowDebits: (org: string, termsVersion: string) =>
+    request<DebitConsent>("POST", `/api/v1/orgs/${org}/billing/debit-consent`, {
+      terms_version: termsVersion,
+    }),
+  withdrawDebitConsent: (org: string) =>
+    request<void>("DELETE", `/api/v1/orgs/${org}/billing/debit-consent`),
+  payFromWallet: (org: string, invoice: string) =>
+    request<WalletCharge>(
       "POST",
-      `/api/v1/orgs/${org}/billing/payment-methods/${id}/default`,
+      `/api/v1/orgs/${org}/billing/invoices/${invoice}/pay-from-wallet`,
     ),
-  setAutoTopup: (org: string, b: S["AutoTopup"]) =>
-    request<void>("PUT", `/api/v1/orgs/${org}/billing/auto-topup`, b),
-  clearAutoTopup: (org: string) =>
-    request<void>("DELETE", `/api/v1/orgs/${org}/billing/auto-topup`),
   payments: (org: string) =>
     getJSON<S["PaymentList"]>(`/api/v1/orgs/${org}/billing/payments`),
   receiptUrl: (org: string, id: string) =>

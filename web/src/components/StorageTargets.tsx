@@ -38,7 +38,7 @@ function TargetForm({ org, target, onDone }: { org?: string; target?: StorageTar
     endpoint: target?.endpoint ?? "",
     region: target?.region ?? "",
     bucket: target?.bucket ?? "",
-    prefix: target?.prefix ?? "pgdock",
+    prefix: target?.prefix ?? "xenibase",
     access_key: "",
     secret_key: "",
     path_style: target?.path_style ?? false,
@@ -183,13 +183,13 @@ function DeleteTarget({ org, target, onClose }: { org?: string; target: StorageT
         {target.usage.projects > 0 ? (
           <Alert tone="warn">{target.usage.projects} project(s) back up here. Switch them to another target (Backups → Storage) before deleting it.</Alert>
         ) : (
-          <p className="text-muted">PGDock forgets the target and its credentials. The bucket itself is not touched.</p>
+          <p className="text-muted">Xenibase forgets the target and its credentials. The bucket itself is not touched.</p>
         )}
         {holdsBackups && (
           <label className="flex items-start gap-2">
             <input type="checkbox" checked={accept} onChange={(e) => setAccept(e.target.checked)} data-testid="accept-unrestorable" />
             <span>
-              It holds {target.usage.backups} unexpired backup(s) ({formatBytes(target.usage.bytes)}). I understand they become unrestorable from PGDock.
+              It holds {target.usage.backups} unexpired backup(s) ({formatBytes(target.usage.bytes)}). I understand they become unrestorable from Xenibase.
             </span>
           </label>
         )}
@@ -293,7 +293,7 @@ function DownloadKeyModal({ p, onClose }: { p: Project; onClose: () => void }) {
     try {
       await api.reauth({ password, code });
       const text = await api.downloadProjectBackupKey(p.id);
-      downloadText(text, `pgdock-backup-key-${p.id}.asc`);
+      downloadText(text, `xenibase-backup-key-${p.id}.asc`);
       onClose();
     } catch (e) {
       setErr(e instanceof ApiRequestError && e.code === "invalid_credentials" ? "Wrong password or code." : errorMessage(e));
@@ -305,7 +305,7 @@ function DownloadKeyModal({ p, onClose }: { p: Project; onClose: () => void }) {
     <Dialog title="Download the project's backup key" open onOpenChange={(o) => !o && onClose()}>
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <p className="text-sm text-muted">
-          The file holds the key and a README on decrypting and restoring with standard tools (gpg and pg_restore), without PGDock. Downloads are recorded in
+          The file holds the key and a README on decrypting and restoring with standard tools (gpg and pg_restore), without Xenibase. Downloads are recorded in
           the audit log. Confirm it's you first.
         </p>
         <Field label="Your password">

@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/freetier"
+	"github.com/israel-duff/xenibase/internal/freetier"
 )
 
 // Retry-After for a project waking up: a resume takes seconds, a restore

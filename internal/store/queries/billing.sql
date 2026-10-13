@@ -119,6 +119,16 @@ UPDATE billing_accounts SET legal_name = sqlc.narg(legal_name), address = sqlc.n
   spend_cap_minor = sqlc.narg(spend_cap_minor), updated_at = now()
 WHERE org_id = @org_id RETURNING *;
 
+-- name: SetDebitConsent :one
+-- tenant: system - an org owner agreed to wallet debits (the caller checked who).
+UPDATE billing_accounts SET debit_consent_at = @at, debit_consent_by = sqlc.narg(consent_by), debit_terms_version = @terms_version, updated_at = now()
+WHERE org_id = @org_id RETURNING *;
+
+-- name: ClearDebitConsent :one
+-- tenant: system - an org owner withdrew the agreement to wallet debits.
+UPDATE billing_accounts SET debit_consent_at = NULL, debit_consent_by = NULL, debit_terms_version = NULL, updated_at = now()
+WHERE org_id = @org_id RETURNING *;
+
 -- name: SetBillingPlan :one
 -- tenant: system - applies a plan change to an org the caller resolved.
 UPDATE billing_accounts SET plan = @plan, term = @term, term_ends_at = sqlc.narg(term_ends_at),
@@ -241,15 +251,16 @@ SELECT * FROM invoices WHERE org_id = @org_id AND period_start = @period_start;
 -- name: InsertDraftInvoice :one
 -- tenant: system - a draft for an org the caller resolved.
 INSERT INTO invoices (org_id, period_start, period_end, status, subtotal_minor, vat_minor, total_minor,
-                      wht_expected_minor, vat_rate, price_book_version)
+                      wht_expected_minor, vat_rate, price_book_version, usd_subtotal_minor, usd_vat_minor, usd_total_minor, fx)
 VALUES (@org_id, @period_start, @period_end, 'draft', @subtotal_minor, @vat_minor, @total_minor,
-        @wht_expected_minor, @vat_rate, @price_book_version)
+        @wht_expected_minor, @vat_rate, @price_book_version, @usd_subtotal_minor, @usd_vat_minor, @usd_total_minor, @fx)
 RETURNING *;
 
 -- name: UpdateDraftInvoice :one
 -- tenant: system - re-rating a draft.
 UPDATE invoices SET subtotal_minor = @subtotal_minor, vat_minor = @vat_minor, total_minor = @total_minor,
-  wht_expected_minor = @wht_expected_minor, vat_rate = @vat_rate, price_book_version = @price_book_version
+  wht_expected_minor = @wht_expected_minor, vat_rate = @vat_rate, price_book_version = @price_book_version,
+  usd_subtotal_minor = @usd_subtotal_minor, usd_vat_minor = @usd_vat_minor, usd_total_minor = @usd_total_minor, fx = @fx
 WHERE id = @id AND status = 'draft' RETURNING *;
 
 -- name: DeleteDraftInvoice :execrows
@@ -263,8 +274,23 @@ DELETE FROM invoice_lines WHERE invoice_id = @invoice_id
 
 -- name: InsertInvoiceLine :exec
 -- tenant: system - a draft's line.
-INSERT INTO invoice_lines (invoice_id, kind, description, project_id, metric, quantity, unit_price_minor, amount_minor, revenue_account)
-VALUES (@invoice_id, @kind, @description, sqlc.narg(project_id), sqlc.narg(metric), @quantity, @unit_price_minor, @amount_minor, @revenue_account);
+INSERT INTO invoice_lines (invoice_id, kind, description, project_id, metric, quantity, unit_price_minor, amount_minor, revenue_account,
+                           usd_unit_price, usd_amount_minor)
+VALUES (@invoice_id, @kind, @description, sqlc.narg(project_id), sqlc.narg(metric), @quantity, @unit_price_minor, @amount_minor, @revenue_account,
+        @usd_unit_price, @usd_amount_minor);
+
+-- name: SetDraftLineNaira :exec
+-- tenant: system - a draft's line converted to naira at issue.
+UPDATE invoice_lines l SET unit_price_minor = @unit_price_minor, amount_minor = @amount_minor,
+  usd_unit_price = @usd_unit_price, usd_amount_minor = @usd_amount_minor
+WHERE l.id = @id AND EXISTS (SELECT 1 FROM invoices i WHERE i.id = l.invoice_id AND i.status = 'draft');
+
+-- name: SetDraftInvoiceNaira :one
+-- tenant: system - a draft's totals converted to naira at issue, with the rate used.
+UPDATE invoices SET subtotal_minor = @subtotal_minor, vat_minor = @vat_minor, total_minor = @total_minor,
+  wht_expected_minor = @wht_expected_minor, fx = @fx,
+  usd_subtotal_minor = @usd_subtotal_minor, usd_vat_minor = @usd_vat_minor, usd_total_minor = @usd_total_minor
+WHERE id = @id AND status = 'draft' RETURNING *;
 
 -- name: InvoiceLines :many
 -- tenant: system - lines of an invoice the caller resolved.

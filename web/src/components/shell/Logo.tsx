@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { cx } from "../ui";
 
-/** PGDock's mark: a database cylinder in the accent's gradient, with two
+/** Xenibase's mark: a database cylinder in the accent's gradient, with two
  * cut rings. It stands alone in the top bar, as Supabase's bolt does. */
 export function LogoMark({ className }: { className?: string }) {
   const g = useId();
@@ -27,7 +27,7 @@ export function Logo({ className }: { className?: string }) {
   return (
     <span className={cx("flex items-center gap-2 text-[15px] font-semibold tracking-tight", className)}>
       <LogoMark />
-      PGDock
+      Xenibase
     </span>
   );
 }

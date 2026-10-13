@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/crypto"
 )
 
 var (
@@ -18,8 +18,8 @@ var (
 
 func env(m map[string]string) func(string) string {
 	base := map[string]string{
-		"PGDOCK_DATABASE_URL": "postgres://localhost/pgdock",
-		"PGDOCK_MASTER_KEY":   crypto.EncodeKey(key1),
+		"XENIBASE_DATABASE_URL": "postgres://localhost/xenibase",
+		"XENIBASE_MASTER_KEY":   crypto.EncodeKey(key1),
 	}
 	for k, v := range m {
 		base[k] = v
@@ -45,13 +45,13 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestLoadOverrides(t *testing.T) {
 	cfg, err := load(env(map[string]string{
-		"PGDOCK_LISTEN_ADDR":         ":9000",
-		"PGDOCK_LOG_LEVEL":           "debug",
-		"PGDOCK_LOG_FORMAT":          "TEXT",
-		"PGDOCK_SHUTDOWN_TIMEOUT":    "3s",
-		"PGDOCK_WORKERS":             "8",
-		"PGDOCK_DEV_ENDPOINTS":       "true",
-		"PGDOCK_MASTER_KEY_PREVIOUS": crypto.EncodeKey(key2),
+		"XENIBASE_LISTEN_ADDR":         ":9000",
+		"XENIBASE_LOG_LEVEL":           "debug",
+		"XENIBASE_LOG_FORMAT":          "TEXT",
+		"XENIBASE_SHUTDOWN_TIMEOUT":    "3s",
+		"XENIBASE_WORKERS":             "8",
+		"XENIBASE_DEV_ENDPOINTS":       "true",
+		"XENIBASE_MASTER_KEY_PREVIOUS": crypto.EncodeKey(key2),
 	}), noFiles)
 	if err != nil {
 		t.Fatal(err)
@@ -72,29 +72,29 @@ func TestMasterKeyFile(t *testing.T) {
 		}
 		return nil, errors.New("no such file")
 	}
-	cfg, err := load(env(map[string]string{"PGDOCK_MASTER_KEY": "", "PGDOCK_MASTER_KEY_FILE": "/run/secrets/key"}), files)
+	cfg, err := load(env(map[string]string{"XENIBASE_MASTER_KEY": "", "XENIBASE_MASTER_KEY_FILE": "/run/secrets/key"}), files)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(cfg.MasterKey, key2) {
 		t.Fatal("master key file not loaded")
 	}
-	if _, err := load(env(map[string]string{"PGDOCK_MASTER_KEY_FILE": "/run/secrets/key"}), files); err == nil {
+	if _, err := load(env(map[string]string{"XENIBASE_MASTER_KEY_FILE": "/run/secrets/key"}), files); err == nil {
 		t.Fatal("both key sources accepted")
 	}
 }
 
 func TestLoadInvalid(t *testing.T) {
 	for _, m := range []map[string]string{
-		{"PGDOCK_LOG_LEVEL": "loud"},
-		{"PGDOCK_LOG_FORMAT": "xml"},
-		{"PGDOCK_SHUTDOWN_TIMEOUT": "soon"},
-		{"PGDOCK_WORKERS": "0"},
-		{"PGDOCK_DEV_ENDPOINTS": "maybe"},
-		{"PGDOCK_DATABASE_URL": ""},
-		{"PGDOCK_MASTER_KEY": ""},
-		{"PGDOCK_MASTER_KEY": "c2hvcnQ="},
-		{"PGDOCK_MASTER_KEY_PREVIOUS": "nope"},
+		{"XENIBASE_LOG_LEVEL": "loud"},
+		{"XENIBASE_LOG_FORMAT": "xml"},
+		{"XENIBASE_SHUTDOWN_TIMEOUT": "soon"},
+		{"XENIBASE_WORKERS": "0"},
+		{"XENIBASE_DEV_ENDPOINTS": "maybe"},
+		{"XENIBASE_DATABASE_URL": ""},
+		{"XENIBASE_MASTER_KEY": ""},
+		{"XENIBASE_MASTER_KEY": "c2hvcnQ="},
+		{"XENIBASE_MASTER_KEY_PREVIOUS": "nope"},
 	} {
 		if _, err := load(env(m), noFiles); err == nil {
 			t.Errorf("expected error for %v", m)
@@ -104,7 +104,7 @@ func TestLoadInvalid(t *testing.T) {
 
 func TestErrorsAreCombined(t *testing.T) {
 	_, err := load(func(string) string { return "" }, noFiles)
-	if err == nil || !strings.Contains(err.Error(), "PGDOCK_DATABASE_URL") || !strings.Contains(err.Error(), "PGDOCK_MASTER_KEY") {
+	if err == nil || !strings.Contains(err.Error(), "XENIBASE_DATABASE_URL") || !strings.Contains(err.Error(), "XENIBASE_MASTER_KEY") {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -124,21 +124,21 @@ func TestProvisioningDefaults(t *testing.T) {
 
 func TestProvisioningConfig(t *testing.T) {
 	cfg, err := load(env(map[string]string{
-		"PGDOCK_DB_HOST":               "db.example.com",
-		"PGDOCK_DB_SESSION_PORT":       "6432",
-		"PGDOCK_DB_SSLMODE":            "disable",
-		"PGDOCK_POOLER_CONFIG_DIR":     "/var/lib/pgdock/pooler",
-		"PGDOCK_POOLER_FILE_MODE":      "644",
-		"PGDOCK_POOLER_ADMIN_PASSWORD": "pw",
-		"PGDOCK_POOLER_POOLED_ADDR":    "10.0.0.2:6543",
-		"PGDOCK_SHARED_ADMIN_URL":      "postgres://pgdock_admin:x@10.0.0.3/postgres",
-		"PGDOCK_SHARED_POOLER_PORT":    "5433",
+		"XENIBASE_DB_HOST":               "db.example.com",
+		"XENIBASE_DB_SESSION_PORT":       "6432",
+		"XENIBASE_DB_SSLMODE":            "disable",
+		"XENIBASE_POOLER_CONFIG_DIR":     "/var/lib/xenibase/pooler",
+		"XENIBASE_POOLER_FILE_MODE":      "644",
+		"XENIBASE_POOLER_ADMIN_PASSWORD": "pw",
+		"XENIBASE_POOLER_POOLED_ADDR":    "10.0.0.2:6543",
+		"XENIBASE_SHARED_ADMIN_URL":      "postgres://xenibase_admin:x@10.0.0.3/postgres",
+		"XENIBASE_SHARED_POOLER_PORT":    "5433",
 	}), noFiles)
 	if err != nil {
 		t.Fatal(err)
 	}
 	p := cfg.Pooler
-	if p.FileMode != 0o644 || p.AdminUser != "pgdock" || p.AdminPassword != "pw" ||
+	if p.FileMode != 0o644 || p.AdminUser != "xenibase" || p.AdminPassword != "pw" ||
 		p.SessionAddr != "db.example.com:6432" || p.PooledAddr != "10.0.0.2:6543" || p.SSLMode != "prefer" {
 		t.Fatalf("pooler: %+v", p)
 	}
@@ -149,11 +149,11 @@ func TestProvisioningConfig(t *testing.T) {
 
 func TestProvisioningInvalid(t *testing.T) {
 	for _, m := range []map[string]string{
-		{"PGDOCK_POOLER_CONFIG_DIR": "/x"}, // no admin password
-		{"PGDOCK_POOLER_CONFIG_DIR": "/x", "PGDOCK_POOLER_ADMIN_PASSWORD": "p", "PGDOCK_POOLER_FILE_MODE": "9"},
-		{"PGDOCK_POOLER_CONFIG_DIR": "/x", "PGDOCK_POOLER_ADMIN_PASSWORD": "p", "PGDOCK_POOLER_SESSION_ADDR": "nohost"},
-		{"PGDOCK_DB_SSLMODE": "sometimes"},
-		{"PGDOCK_DB_POOLED_PORT": "99999"},
+		{"XENIBASE_POOLER_CONFIG_DIR": "/x"}, // no admin password
+		{"XENIBASE_POOLER_CONFIG_DIR": "/x", "XENIBASE_POOLER_ADMIN_PASSWORD": "p", "XENIBASE_POOLER_FILE_MODE": "9"},
+		{"XENIBASE_POOLER_CONFIG_DIR": "/x", "XENIBASE_POOLER_ADMIN_PASSWORD": "p", "XENIBASE_POOLER_SESSION_ADDR": "nohost"},
+		{"XENIBASE_DB_SSLMODE": "sometimes"},
+		{"XENIBASE_DB_POOLED_PORT": "99999"},
 	} {
 		if _, err := load(env(m), noFiles); err == nil {
 			t.Errorf("expected error for %v", m)
@@ -167,9 +167,9 @@ func TestWebConfig(t *testing.T) {
 		t.Fatalf("defaults: %+v %v", cfg.Web, err)
 	}
 	cfg, err = load(env(map[string]string{
-		"PGDOCK_COOKIE_SECURE":   "false",
-		"PGDOCK_TRUSTED_PROXIES": "172.16.0.0/12, 127.0.0.1",
-		"PGDOCK_PUBLIC_IPS":      "203.0.113.7",
+		"XENIBASE_COOKIE_SECURE":   "false",
+		"XENIBASE_TRUSTED_PROXIES": "172.16.0.0/12, 127.0.0.1",
+		"XENIBASE_PUBLIC_IPS":      "203.0.113.7",
 	}), noFiles)
 	if err != nil {
 		t.Fatal(err)
@@ -178,7 +178,7 @@ func TestWebConfig(t *testing.T) {
 		len(cfg.Web.PublicIPs) != 1 {
 		t.Fatalf("web: %+v", cfg.Web)
 	}
-	for _, m := range []map[string]string{{"PGDOCK_TRUSTED_PROXIES": "nope"}, {"PGDOCK_PUBLIC_IPS": "x"}, {"PGDOCK_COOKIE_SECURE": "kinda"}} {
+	for _, m := range []map[string]string{{"XENIBASE_TRUSTED_PROXIES": "nope"}, {"XENIBASE_PUBLIC_IPS": "x"}, {"XENIBASE_COOKIE_SECURE": "kinda"}} {
 		if _, err := load(env(m), noFiles); err == nil {
 			t.Errorf("accepted %v", m)
 		}
@@ -194,15 +194,15 @@ func TestInsightConfig(t *testing.T) {
 		t.Fatalf("insight defaults: %+v", cfg.Insight)
 	}
 	cfg, err = load(env(map[string]string{
-		"PGDOCK_CONSOLE_DISABLED": "true", "PGDOCK_METRICS_INTERVAL": "15s", "PGDOCK_METRICS_TOKEN": strings.Repeat("t", 24),
+		"XENIBASE_CONSOLE_DISABLED": "true", "XENIBASE_METRICS_INTERVAL": "15s", "XENIBASE_METRICS_TOKEN": strings.Repeat("t", 24),
 	}), noFiles)
 	if err != nil || !cfg.Insight.ConsoleDisabled || cfg.Insight.MetricsInterval != 15*time.Second || len(cfg.Insight.MetricsToken) != 24 {
 		t.Fatalf("insight overrides: %+v %v", cfg.Insight, err)
 	}
 	for k, v := range map[string]string{
-		"PGDOCK_CONSOLE_DISABLED": "maybe",
-		"PGDOCK_METRICS_INTERVAL": "100ms",
-		"PGDOCK_METRICS_TOKEN":    "short",
+		"XENIBASE_CONSOLE_DISABLED": "maybe",
+		"XENIBASE_METRICS_INTERVAL": "100ms",
+		"XENIBASE_METRICS_TOKEN":    "short",
 	} {
 		if _, err := load(env(map[string]string{k: v}), noFiles); err == nil || !strings.Contains(err.Error(), k) {
 			t.Errorf("%s=%s: %v", k, v, err)
@@ -217,20 +217,20 @@ func TestStatusConfig(t *testing.T) {
 	}
 	secret := strings.Repeat("s", 32)
 	cfg, err = load(env(map[string]string{
-		"PGDOCK_STATUS_URL": "https://status.example.com/", "PGDOCK_STATUS_PUSH_SECRET": secret,
-		"PGDOCK_STATUS_COMPONENTS": "dashboard, edge-pooler,,backups", "PGDOCK_STATUS_REGION": "eu-central",
+		"XENIBASE_STATUS_URL": "https://status.example.com/", "XENIBASE_STATUS_PUSH_SECRET": secret,
+		"XENIBASE_STATUS_COMPONENTS": "dashboard, edge-pooler,,backups", "XENIBASE_STATUS_REGION": "eu-central",
 	}), noFiles)
 	if err != nil || cfg.Status.URL != "https://status.example.com" || cfg.Status.PushSecret != secret ||
 		strings.Join(cfg.Status.Components, "|") != "dashboard|edge-pooler|backups" || cfg.Status.Region != "eu-central" {
 		t.Fatalf("status: %+v %v", cfg.Status, err)
 	}
 	for name, m := range map[string]map[string]string{
-		"no secret":    {"PGDOCK_STATUS_URL": "https://status.example.com"},
-		"short secret": {"PGDOCK_STATUS_URL": "https://status.example.com", "PGDOCK_STATUS_PUSH_SECRET": "short"},
-		"bad url":      {"PGDOCK_STATUS_URL": "status.example.com", "PGDOCK_STATUS_PUSH_SECRET": secret},
-		"both":         {"PGDOCK_STATUS_PUSH_SECRET": secret, "PGDOCK_STATUS_PUSH_SECRET_FILE": "/x"},
+		"no secret":    {"XENIBASE_STATUS_URL": "https://status.example.com"},
+		"short secret": {"XENIBASE_STATUS_URL": "https://status.example.com", "XENIBASE_STATUS_PUSH_SECRET": "short"},
+		"bad url":      {"XENIBASE_STATUS_URL": "status.example.com", "XENIBASE_STATUS_PUSH_SECRET": secret},
+		"both":         {"XENIBASE_STATUS_PUSH_SECRET": secret, "XENIBASE_STATUS_PUSH_SECRET_FILE": "/x"},
 	} {
-		if _, err := load(env(m), noFiles); err == nil || !strings.Contains(err.Error(), "PGDOCK_STATUS") {
+		if _, err := load(env(m), noFiles); err == nil || !strings.Contains(err.Error(), "XENIBASE_STATUS") {
 			t.Errorf("%s: %v", name, err)
 		}
 	}

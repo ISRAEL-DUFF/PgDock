@@ -1,13 +1,13 @@
-// Command pgdock-agent runs on each node and executes pgdock-server's
+// Command xenibase-agent runs on each node and executes xenibase-server's
 // commands over mutual TLS: health, host metrics, and pg_dump/pg_restore
 // based dumps, restores, and copies (spec §3.2). Dedicated instances arrive
 // in M4.
 //
-//	pgdock-agent register --server https://pgdock.example.com --token <one-time>
-//	pgdock-agent run
-//	pgdock-agent decrypt --key-file pgdock-backup-key.txt < x.dump.enc > x.dump
+//	xenibase-agent register --server https://xenibase.example.com --token <one-time>
+//	xenibase-agent run
+//	xenibase-agent decrypt --key-file xenibase-backup-key.txt < x.dump.enc > x.dump
 //
-// Environment variables mirror the flags (PGDOCK_AGENT_*).
+// Environment variables mirror the flags (XENIBASE_AGENT_*).
 package main
 
 import (
@@ -28,22 +28,22 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/agentsvc"
-	"github.com/israel-duff/pgdock/internal/backupfmt"
-	"github.com/israel-duff/pgdock/internal/floatip"
-	"github.com/israel-duff/pgdock/internal/logging"
-	"github.com/israel-duff/pgdock/internal/version"
+	"github.com/israel-duff/xenibase/internal/agentsvc"
+	"github.com/israel-duff/xenibase/internal/backupfmt"
+	"github.com/israel-duff/xenibase/internal/floatip"
+	"github.com/israel-duff/xenibase/internal/logging"
+	"github.com/israel-duff/xenibase/internal/version"
 )
 
 // DefaultPGImage is the instance image this release was built and tested
 // with (deploy/images/postgres).
 // DefaultPGImage is the instance image, {major} replaced by each
 // instance's Postgres major (V3 §2.4).
-const DefaultPGImage = "pgdock-postgres:{major}-walg3.0.9"
+const DefaultPGImage = "xenibase-postgres:{major}-walg3.0.9"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "pgdock-agent:", err)
+		fmt.Fprintln(os.Stderr, "xenibase-agent:", err)
 		os.Exit(1)
 	}
 }
@@ -69,46 +69,46 @@ type opts struct {
 func flags(name string, args []string) (*opts, error) {
 	o := &opts{}
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	fs.StringVar(&o.state, "state", env("PGDOCK_AGENT_STATE_DIR", "/var/lib/pgdock-agent"), "state directory (key, certificate, pinned CA)")
-	fs.StringVar(&o.listen, "listen", env("PGDOCK_AGENT_LISTEN", ":7070"), "mTLS listen address")
-	fs.StringVar(&o.server, "server", env("PGDOCK_AGENT_SERVER", ""), "pgdock-server URL, for registration")
-	fs.StringVar(&o.token, "token", env("PGDOCK_AGENT_TOKEN", ""), "one-time registration token")
-	fs.StringVar(&o.bootstrap, "bootstrap-token", env("PGDOCK_AGENT_BOOTSTRAP_TOKEN", ""), "install-time bootstrap token (with --node)")
-	fs.StringVar(&o.node, "node", env("PGDOCK_AGENT_NODE", ""), "node name, with --bootstrap-token")
-	fs.StringVar(&o.advertise, "advertise", env("PGDOCK_AGENT_ADVERTISE", ""), "host[:port] pgdock-server dials to reach this agent")
-	fs.StringVar(&o.caFile, "server-ca", env("PGDOCK_AGENT_SERVER_CA", ""), "PEM file to verify pgdock-server's HTTPS certificate")
-	fs.BoolVar(&o.insecure, "insecure-skip-verify", env("PGDOCK_AGENT_INSECURE_SKIP_VERIFY", "") == "true", "do not verify pgdock-server's HTTPS certificate (development only)")
-	fs.StringVar(&o.pgBin, "pg-bin", env("PGDOCK_AGENT_PG_BIN", ""), "directory with pg_dump and pg_restore (default: $PATH)")
-	fs.StringVar(&o.diskPath, "disk-path", env("PGDOCK_AGENT_DISK_PATH", "/"), "path whose disk usage is reported")
-	fs.StringVar(&o.dockerHost, "docker", env("PGDOCK_AGENT_DOCKER", env("DOCKER_HOST", "")), "Docker daemon for instances (default: the local socket)")
-	fs.StringVar(&o.image, "pg-image", env("PGDOCK_AGENT_PG_IMAGE", DefaultPGImage), "Postgres + WAL-G image for instances")
-	fs.StringVar(&o.network, "network", env("PGDOCK_AGENT_NETWORK", ""), "Docker network instances join (reached by container name)")
-	fs.StringVar(&o.publish, "publish", env("PGDOCK_AGENT_PUBLISH", ""), "node address to publish instance ports on (e.g. its private IP)")
-	fs.StringVar(&o.dbAllow, "db-allow", env("PGDOCK_AGENT_DB_ALLOW", defaultDBAllow),
+	fs.StringVar(&o.state, "state", env("XENIBASE_AGENT_STATE_DIR", "/var/lib/xenibase-agent"), "state directory (key, certificate, pinned CA)")
+	fs.StringVar(&o.listen, "listen", env("XENIBASE_AGENT_LISTEN", ":7070"), "mTLS listen address")
+	fs.StringVar(&o.server, "server", env("XENIBASE_AGENT_SERVER", ""), "xenibase-server URL, for registration")
+	fs.StringVar(&o.token, "token", env("XENIBASE_AGENT_TOKEN", ""), "one-time registration token")
+	fs.StringVar(&o.bootstrap, "bootstrap-token", env("XENIBASE_AGENT_BOOTSTRAP_TOKEN", ""), "install-time bootstrap token (with --node)")
+	fs.StringVar(&o.node, "node", env("XENIBASE_AGENT_NODE", ""), "node name, with --bootstrap-token")
+	fs.StringVar(&o.advertise, "advertise", env("XENIBASE_AGENT_ADVERTISE", ""), "host[:port] xenibase-server dials to reach this agent")
+	fs.StringVar(&o.caFile, "server-ca", env("XENIBASE_AGENT_SERVER_CA", ""), "PEM file to verify xenibase-server's HTTPS certificate")
+	fs.BoolVar(&o.insecure, "insecure-skip-verify", env("XENIBASE_AGENT_INSECURE_SKIP_VERIFY", "") == "true", "do not verify xenibase-server's HTTPS certificate (development only)")
+	fs.StringVar(&o.pgBin, "pg-bin", env("XENIBASE_AGENT_PG_BIN", ""), "directory with pg_dump and pg_restore (default: $PATH)")
+	fs.StringVar(&o.diskPath, "disk-path", env("XENIBASE_AGENT_DISK_PATH", "/"), "path whose disk usage is reported")
+	fs.StringVar(&o.dockerHost, "docker", env("XENIBASE_AGENT_DOCKER", env("DOCKER_HOST", "")), "Docker daemon for instances (default: the local socket)")
+	fs.StringVar(&o.image, "pg-image", env("XENIBASE_AGENT_PG_IMAGE", DefaultPGImage), "Postgres + WAL-G image for instances")
+	fs.StringVar(&o.network, "network", env("XENIBASE_AGENT_NETWORK", ""), "Docker network instances join (reached by container name)")
+	fs.StringVar(&o.publish, "publish", env("XENIBASE_AGENT_PUBLISH", ""), "node address to publish instance ports on (e.g. its private IP)")
+	fs.StringVar(&o.dbAllow, "db-allow", env("XENIBASE_AGENT_DB_ALLOW", defaultDBAllow),
 		"comma-separated CIDRs new instances accept logins from: the control plane and poolers (spec §7.1)")
-	fs.StringVar(&o.etcdImage, "etcd-image", env("PGDOCK_AGENT_ETCD_IMAGE", agentsvc.DefaultEtcdImage), "image of the node's etcd member (HA instances)")
-	fs.StringVar(&o.moveAllow, "move-allow", env("PGDOCK_AGENT_MOVE_ALLOW", defaultMoveAllow),
+	fs.StringVar(&o.etcdImage, "etcd-image", env("XENIBASE_AGENT_ETCD_IMAGE", agentsvc.DefaultEtcdImage), "image of the node's etcd member (HA instances)")
+	fs.StringVar(&o.moveAllow, "move-allow", env("XENIBASE_AGENT_MOVE_ALLOW", defaultMoveAllow),
 		"comma-separated CIDRs other instances replicate from during a move; only the moves' own logins may use them (V3 §2.3)")
-	fs.StringVar(&o.poolerDir, "pooler-dir", env("PGDOCK_AGENT_POOLER_DIR", ""), "pooler host: directory the PgBouncers read their pgdock files from (enables pooler mode)")
-	fs.StringVar(&o.poolerSession, "pooler-session-addr", env("PGDOCK_AGENT_POOLER_SESSION_ADDR", "127.0.0.1:5432"), "pooler host: the session PgBouncer, checked for readiness")
-	fs.StringVar(&o.poolerPooled, "pooler-pooled-addr", env("PGDOCK_AGENT_POOLER_POOLED_ADDR", "127.0.0.1:6543"), "pooler host: the transaction PgBouncer, checked for readiness")
-	fs.StringVar(&o.poolerLocal, "pooler-local", env("PGDOCK_AGENT_POOLER_LOCAL", "127.0.0.1:7071"), "pooler host: loopback address for keepalived's check and notify calls")
-	fs.StringVar(&o.serverID, "server-id", env("PGDOCK_AGENT_SERVER_ID", ""), "pooler host: the provider's ID for this machine, or \"hetzner-metadata\" to ask Hetzner's metadata service")
-	fs.StringVar(&o.hetznerToken, "hetzner-token", env("PGDOCK_AGENT_HETZNER_TOKEN", ""), "pooler host: Hetzner Cloud API token for assigning the floating IP")
-	fs.StringVar(&o.hetznerAPI, "hetzner-api", env("PGDOCK_AGENT_HETZNER_API", floatip.DefaultHetznerAPI), "pooler host: Hetzner Cloud API base URL")
-	fs.StringVar(&o.poolerPidFiles, "pooler-pidfiles", env("PGDOCK_AGENT_POOLER_PIDFILES", ""), "pooler host: comma-separated PgBouncer PID files, signalled to reload after each new configuration")
-	fs.StringVar(&o.floatingIP, "floating-ip-id", env("PGDOCK_AGENT_FLOATING_IP_ID", ""), "pooler host: the floating IP's ID; empty when keepalived alone moves the address")
+	fs.StringVar(&o.poolerDir, "pooler-dir", env("XENIBASE_AGENT_POOLER_DIR", ""), "pooler host: directory the PgBouncers read their xenibase files from (enables pooler mode)")
+	fs.StringVar(&o.poolerSession, "pooler-session-addr", env("XENIBASE_AGENT_POOLER_SESSION_ADDR", "127.0.0.1:5432"), "pooler host: the session PgBouncer, checked for readiness")
+	fs.StringVar(&o.poolerPooled, "pooler-pooled-addr", env("XENIBASE_AGENT_POOLER_POOLED_ADDR", "127.0.0.1:6543"), "pooler host: the transaction PgBouncer, checked for readiness")
+	fs.StringVar(&o.poolerLocal, "pooler-local", env("XENIBASE_AGENT_POOLER_LOCAL", "127.0.0.1:7071"), "pooler host: loopback address for keepalived's check and notify calls")
+	fs.StringVar(&o.serverID, "server-id", env("XENIBASE_AGENT_SERVER_ID", ""), "pooler host: the provider's ID for this machine, or \"hetzner-metadata\" to ask Hetzner's metadata service")
+	fs.StringVar(&o.hetznerToken, "hetzner-token", env("XENIBASE_AGENT_HETZNER_TOKEN", ""), "pooler host: Hetzner Cloud API token for assigning the floating IP")
+	fs.StringVar(&o.hetznerAPI, "hetzner-api", env("XENIBASE_AGENT_HETZNER_API", floatip.DefaultHetznerAPI), "pooler host: Hetzner Cloud API base URL")
+	fs.StringVar(&o.poolerPidFiles, "pooler-pidfiles", env("XENIBASE_AGENT_POOLER_PIDFILES", ""), "pooler host: comma-separated PgBouncer PID files, signalled to reload after each new configuration")
+	fs.StringVar(&o.floatingIP, "floating-ip-id", env("XENIBASE_AGENT_FLOATING_IP_ID", ""), "pooler host: the floating IP's ID; empty when keepalived alone moves the address")
 	return o, fs.Parse(args)
 }
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: pgdock-agent register|run|decrypt|pooler-seed|keepalived-config|version [flags]")
+		return errors.New("usage: xenibase-agent register|run|decrypt|pooler-seed|keepalived-config|version [flags]")
 	}
 	switch args[0] {
 	case "version", "-version", "--version":
 		v := version.Get()
-		fmt.Printf("pgdock-agent %s (commit %s, built %s, %s)\n", v.Version, v.Commit, v.BuildDate, v.GoVersion)
+		fmt.Printf("xenibase-agent %s (commit %s, built %s, %s)\n", v.Version, v.Commit, v.BuildDate, v.GoVersion)
 		return nil
 	case "decrypt":
 		return decrypt(args[1:])
@@ -187,7 +187,7 @@ func advertise(o *opts) (string, int, error) {
 }
 
 func serve(o *opts) error {
-	log := logging.New(os.Stderr, env("PGDOCK_AGENT_LOG_FORMAT", "json"), slog.LevelInfo)
+	log := logging.New(os.Stderr, env("XENIBASE_AGENT_LOG_FORMAT", "json"), slog.LevelInfo)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -234,7 +234,7 @@ func serve(o *opts) error {
 		}
 	}
 	go svc.EnsureMoveRules(ctx)
-	log.Info("pgdock-agent listening", "addr", ln.Addr().String(), "node_id", st.NodeID, "version", version.Get().Version)
+	log.Info("xenibase-agent listening", "addr", ln.Addr().String(), "node_id", st.NodeID, "version", version.Get().Version)
 	return svc.Serve(ctx, ln, agentsvc.TLSConfig(st.Cert, st.CA))
 }
 
@@ -279,10 +279,10 @@ func enablePooler(ctx context.Context, svc *agentsvc.Service, o *opts, log *slog
 }
 
 // poolerSeed writes placeholder PgBouncer files on a pooler host so the
-// PgBouncers start before pgdock-server's first push.
+// PgBouncers start before xenibase-server's first push.
 func poolerSeed(args []string) error {
 	fs := flag.NewFlagSet("pooler-seed", flag.ContinueOnError)
-	dir := fs.String("dir", env("PGDOCK_AGENT_POOLER_DIR", ""), "the PgBouncers' pgdock directory")
+	dir := fs.String("dir", env("XENIBASE_AGENT_POOLER_DIR", ""), "the PgBouncers' xenibase directory")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -296,15 +296,15 @@ func poolerSeed(args []string) error {
 func keepalivedConfig(args []string) error {
 	fs := flag.NewFlagSet("keepalived-config", flag.ContinueOnError)
 	c := agentsvc.KeepalivedConfig{}
-	fs.StringVar(&c.Interface, "interface", env("PGDOCK_EDGE_INTERFACE", "eth0"), "interface for VRRP adverts (and the VIP)")
-	fs.StringVar(&c.SelfIP, "self", env("PGDOCK_EDGE_SELF_IP", ""), "this host's private IP")
-	fs.StringVar(&c.PeerIP, "peer", env("PGDOCK_EDGE_PEER_IP", ""), "the other pooler host's private IP")
-	fs.StringVar(&c.VIP, "vip", env("PGDOCK_EDGE_VIP", ""), "address keepalived adds on becoming MASTER (the floating IP)")
-	routerID, priority := env("PGDOCK_EDGE_ROUTER_ID", "51"), env("PGDOCK_EDGE_PRIORITY", "100")
+	fs.StringVar(&c.Interface, "interface", env("XENIBASE_EDGE_INTERFACE", "eth0"), "interface for VRRP adverts (and the VIP)")
+	fs.StringVar(&c.SelfIP, "self", env("XENIBASE_EDGE_SELF_IP", ""), "this host's private IP")
+	fs.StringVar(&c.PeerIP, "peer", env("XENIBASE_EDGE_PEER_IP", ""), "the other pooler host's private IP")
+	fs.StringVar(&c.VIP, "vip", env("XENIBASE_EDGE_VIP", ""), "address keepalived adds on becoming MASTER (the floating IP)")
+	routerID, priority := env("XENIBASE_EDGE_ROUTER_ID", "51"), env("XENIBASE_EDGE_PRIORITY", "100")
 	fs.StringVar(&routerID, "router-id", routerID, "VRRP router ID (1-255, the same on both hosts)")
 	fs.StringVar(&priority, "priority", priority, "VRRP priority (1-254)")
-	fs.StringVar(&c.Password, "password", env("PGDOCK_EDGE_VRRP_PASSWORD", ""), "VRRP password, at most 8 characters (the same on both hosts)")
-	local := env("PGDOCK_AGENT_POOLER_LOCAL", "127.0.0.1:7071")
+	fs.StringVar(&c.Password, "password", env("XENIBASE_EDGE_VRRP_PASSWORD", ""), "VRRP password, at most 8 characters (the same on both hosts)")
+	local := env("XENIBASE_AGENT_POOLER_LOCAL", "127.0.0.1:7071")
 	fs.StringVar(&local, "local", local, "the agent's loopback pooler API")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -326,11 +326,11 @@ func keepalivedConfig(args []string) error {
 }
 
 // decrypt turns a backup object back into a pg_dump archive with the
-// downloaded backup key, without pgdock-server: the disaster-recovery path
+// downloaded backup key, without xenibase-server: the disaster-recovery path
 // for metadata self-backups (docs/disaster-recovery.md).
 func decrypt(args []string) error {
 	fs := flag.NewFlagSet("decrypt", flag.ContinueOnError)
-	keyFile := fs.String("key-file", "", "the backup key file downloaded from PGDock")
+	keyFile := fs.String("key-file", "", "the backup key file downloaded from Xenibase")
 	in := fs.String("in", "-", "encrypted object (- for stdin)")
 	out := fs.String("out", "-", "pg_dump archive to write (- for stdout)")
 	if err := fs.Parse(args); err != nil {

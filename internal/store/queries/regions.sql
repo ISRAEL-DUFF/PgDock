@@ -45,4 +45,4 @@ WHERE id = @id;
 
 -- name: SetStorageTargetRegion :exec
 -- tenant: system - the platform admin marks a platform target as in a region.
-UPDATE storage_targets SET pgdock_region = sqlc.narg(pgdock_region) WHERE id = @id;
+UPDATE storage_targets SET xenibase_region = sqlc.narg(xenibase_region) WHERE id = @id;

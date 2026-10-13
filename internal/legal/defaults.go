@@ -41,7 +41,7 @@ Friday): Free, best effort; Pro, one business day; Team, four business hours;
 urgent issues on a paid plan, such as an HA project down, one hour at any time.
 `
 
-// SubProcessors names, for each message provider PGDock itself holds an
+// SubProcessors names, for each message provider Xenibase itself holds an
 // account with (messaging.PlatformProviders), how the DPA lists it.
 var SubProcessors = map[string]string{
 	"termii":         "Termii",
@@ -53,11 +53,11 @@ var SubProcessors = map[string]string{
 const DefaultDPA = `# Data processing agreement
 
 This agreement is part of the terms of use between the organisation (the
-**controller**) and the company that runs PGDock (the **processor**).
+**controller**) and the company that runs Xenibase (the **processor**).
 
 ## Processing
 
-PGDock processes the personal data the organisation puts in its databases,
+Xenibase processes the personal data the organisation puts in its databases,
 backups and support tickets only to provide the service, on the
 organisation's documented instructions (the terms, the dashboard and the
 API), unless the law requires otherwise; it tells the organisation of such a
@@ -65,22 +65,21 @@ requirement first where the law allows.
 
 ## Confidentiality and security
 
-People with access to the data are bound to confidentiality. PGDock keeps
+People with access to the data are bound to confidentiality. Xenibase keeps
 encryption in transit, encrypted backups, access controls with two-factor
 authentication, audit logs, and break-glass access with notice to the
-organisation's owners for any access to its data by PGDock staff.
+organisation's owners for any access to its data by Xenibase staff.
 
 ## Sub-processors
 
-PGDock uses these sub-processors, and tells organisations 30 days before
+Xenibase uses these sub-processors, and tells organisations 30 days before
 adding or replacing one:
 
 | Sub-processor | Purpose |
 | --- | --- |
 | Hetzner | Servers and storage (EU region) |
 | Cloudflare | DNS, edge protection, the CDN for public files, and the signup challenge |
-| Flutterwave | Card payments and bank transfers |
-| iSpend | Bank transfers, wallet payments and mandates |
+| Our wallet provider | Organisations' wallets, the bank accounts they are topped up through, and payments from them |
 | The email provider | Account, billing, support and app sign-in email |
 | Termii | SMS sign-in codes for apps' users (Nigeria) |
 | Africa's Talking | SMS sign-in codes for apps' users, when Termii is unavailable |
@@ -88,11 +87,11 @@ adding or replacing one:
 | The Lagos region's provider | Servers and storage (Lagos region) |
 
 A project that configures its own SMS, WhatsApp or email provider
-contracts with that provider directly; it isn't PGDock's sub-processor.
+contracts with that provider directly; it isn't Xenibase's sub-processor.
 
 ## Requests, incidents and audits
 
-PGDock helps the organisation answer data subjects' requests, tells it of a
+Xenibase helps the organisation answer data subjects' requests, tells it of a
 personal data breach without undue delay (within 72 hours of finding it),
 and makes available the information needed to show compliance.
 

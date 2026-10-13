@@ -165,7 +165,7 @@ type EdgeAPIKeysRow struct {
 	KeyHash   string
 }
 
-// tenant: system - pgdock-edge's configuration feed: the live keys' hashes.
+// tenant: system - xenibase-edge's configuration feed: the live keys' hashes.
 func (q *Queries) EdgeAPIKeys(ctx context.Context, projectIds []uuid.UUID) ([]EdgeAPIKeysRow, error) {
 	rows, err := q.db.Query(ctx, edgeAPIKeys, projectIds)
 	if err != nil {
@@ -248,7 +248,7 @@ type EdgeConfigChangesRow struct {
 	SpendCapped             bool
 }
 
-// tenant: system - pgdock-edge's configuration feed: every project with backend services changed since a point.
+// tenant: system - xenibase-edge's configuration feed: every project with backend services changed since a point.
 func (q *Queries) EdgeConfigChanges(ctx context.Context, arg EdgeConfigChangesParams) ([]EdgeConfigChangesRow, error) {
 	rows, err := q.db.Query(ctx, edgeConfigChanges, arg.Since, arg.Lim)
 	if err != nil {
@@ -307,7 +307,7 @@ const edgeConfigSeq = `-- name: EdgeConfigSeq :one
 SELECT coalesce(max(changed_seq), 0)::bigint FROM project_services
 `
 
-// tenant: system - pgdock-edge's configuration feed position.
+// tenant: system - xenibase-edge's configuration feed position.
 func (q *Queries) EdgeConfigSeq(ctx context.Context) (int64, error) {
 	row := q.db.QueryRow(ctx, edgeConfigSeq)
 	var column_1 int64
@@ -326,7 +326,7 @@ type EdgeJWTKeysRow struct {
 	PublicJwk json.RawMessage
 }
 
-// tenant: system - pgdock-edge's configuration feed: public signing keys.
+// tenant: system - xenibase-edge's configuration feed: public signing keys.
 func (q *Queries) EdgeJWTKeys(ctx context.Context, projectIds []uuid.UUID) ([]EdgeJWTKeysRow, error) {
 	rows, err := q.db.Query(ctx, edgeJWTKeys, projectIds)
 	if err != nil {
@@ -378,7 +378,7 @@ SELECT project_id, ref, enabled, exposed_schemas, public_tables, cors_origins, s
 `
 
 // Backend services (V4 §2): project refs, API keys, signing keys, and what
-// pgdock-edge reads.
+// xenibase-edge reads.
 // tenant: system - a project the request already authorized.
 func (q *Queries) GetProjectServices(ctx context.Context, projectID uuid.UUID) (ProjectService, error) {
 	row := q.db.QueryRow(ctx, getProjectServices, projectID)
@@ -489,7 +489,7 @@ type InsertEdgeReportParams struct {
 	Edge    string
 }
 
-// tenant: system - pgdock-edge's usage and log reports, once per batch.
+// tenant: system - xenibase-edge's usage and log reports, once per batch.
 func (q *Queries) InsertEdgeReport(ctx context.Context, arg InsertEdgeReportParams) (int64, error) {
 	result, err := q.db.Exec(ctx, insertEdgeReport, arg.BatchID, arg.Edge)
 	if err != nil {
@@ -907,7 +907,7 @@ type ProjectRequestLogsAfterParams struct {
 	Lim        int32
 }
 
-// tenant: system - a project the request already authorized: logs newer than a cursor, oldest first (`pgdock logs api --follow`).
+// tenant: system - a project the request already authorized: logs newer than a cursor, oldest first (`xenibase logs api --follow`).
 func (q *Queries) ProjectRequestLogsAfter(ctx context.Context, arg ProjectRequestLogsAfterParams) ([]ApiRequestLog, error) {
 	rows, err := q.db.Query(ctx, projectRequestLogsAfter,
 		arg.ProjectID,
@@ -984,7 +984,7 @@ type ProjectServicesByRefRow struct {
 	DbName                  string
 }
 
-// tenant: system - pgdock-edge names a project by its reference.
+// tenant: system - xenibase-edge names a project by its reference.
 func (q *Queries) ProjectServicesByRef(ctx context.Context, ref string) (ProjectServicesByRefRow, error) {
 	row := q.db.QueryRow(ctx, projectServicesByRef, ref)
 	var i ProjectServicesByRefRow
@@ -1032,7 +1032,7 @@ type ProjectUsageOwnerRow struct {
 	PlanID uuid.UUID
 }
 
-// tenant: system - pgdock-edge's usage: each project's organisation and plan.
+// tenant: system - xenibase-edge's usage: each project's organisation and plan.
 func (q *Queries) ProjectUsageOwner(ctx context.Context, projectIds []uuid.UUID) ([]ProjectUsageOwnerRow, error) {
 	rows, err := q.db.Query(ctx, projectUsageOwner, projectIds)
 	if err != nil {
@@ -1240,7 +1240,7 @@ ORDER BY p.id
 LIMIT 50
 `
 
-// tenant: system - the services reconciler: enabled projects whose roles or pgd_* schemas are behind or on another instance.
+// tenant: system - the services reconciler: enabled projects whose roles or xb_* schemas are behind or on another instance.
 func (q *Queries) ServicesToReconcile(ctx context.Context, schemaVersion int32) ([]Project, error) {
 	rows, err := q.db.Query(ctx, servicesToReconcile, schemaVersion)
 	if err != nil {

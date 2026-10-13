@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/agentca"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/agentca"
 )
 
 // State is what registration leaves in the agent's state directory.
@@ -63,19 +63,19 @@ func LoadState(dir string) (*State, error) {
 
 // RegisterOptions configures Register.
 type RegisterOptions struct {
-	Server        string // pgdock-server base URL
+	Server        string // xenibase-server base URL
 	Token         string
 	Node          string // with a bootstrap token
 	AdvertiseHost string
 	AdvertisePort int
 	Version       string
-	// RootCAs verifies pgdock-server's HTTPS certificate; nil means the
+	// RootCAs verifies xenibase-server's HTTPS certificate; nil means the
 	// system roots. InsecureSkipVerify is for development only.
 	RootCAs            *x509.CertPool
 	InsecureSkipVerify bool
 }
 
-// Register creates a key, has pgdock-server sign it, and saves the result
+// Register creates a key, has xenibase-server sign it, and saves the result
 // (key, certificate, pinned CA) in dir.
 func Register(ctx context.Context, dir string, o RegisterOptions) (*State, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {

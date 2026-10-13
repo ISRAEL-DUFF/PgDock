@@ -42,7 +42,7 @@ CREATE INDEX projects_region ON projects (region) WHERE deleted_at IS NULL;
 
 -- Where a storage target's bucket is: residency projects back up only to
 -- targets in their region.
-ALTER TABLE storage_targets ADD COLUMN pgdock_region text REFERENCES regions(id);
+ALTER TABLE storage_targets ADD COLUMN xenibase_region text REFERENCES regions(id);
 
 -- Each region's pooler hosts serve their own configuration generation.
 CREATE TABLE pooler_generations (
@@ -67,7 +67,7 @@ CREATE INDEX backups_copy_pending ON backups (started_at) WHERE copy_status = 'p
 DROP INDEX backups_copy_pending;
 ALTER TABLE backups DROP COLUMN copy_error, DROP COLUMN copied_at, DROP COLUMN copy_status, DROP COLUMN copy_target_id;
 DROP TABLE pooler_generations;
-ALTER TABLE storage_targets DROP COLUMN pgdock_region;
+ALTER TABLE storage_targets DROP COLUMN xenibase_region;
 DROP INDEX projects_region;
 ALTER TABLE projects DROP COLUMN forward_until, DROP COLUMN forward_region, DROP COLUMN data_residency, DROP COLUMN region;
 ALTER TABLE capacity_proposals DROP CONSTRAINT capacity_proposals_region_fk;

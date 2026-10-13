@@ -1,6 +1,6 @@
 # Moves and Postgres versions
 
-PGDock moves a project's database between Postgres instances in four
+Xenibase moves a project's database between Postgres instances in four
 situations: a **promotion** (shared → dedicated), a **demotion**
 (dedicated → shared), a **node move** (the platform admin puts a project on
 another node), and a **major upgrade** (to an instance of a newer Postgres
@@ -11,7 +11,7 @@ separately, in a weekly **maintenance window**.
 
 ## How a move works
 
-1. **Preflight.** PGDock checks that logical replication can be used: the
+1. **Preflight.** Xenibase checks that logical replication can be used: the
    source has `wal_level=logical`, there are free replication slots and WAL
    senders, the target runs the same or a newer major, no large objects or
    unlogged tables, and every extension exists on the target. Tables with no
@@ -23,7 +23,7 @@ separately, in a weekly **maintenance window**.
 3. **Copy and stream.** A publication on the source and a subscription on
    the target copy every table, then stream changes. Progress (tables
    copied, bytes behind) shows under Project Settings → Compute → Moves, in
-   `pgdock moves <p>`, and in the operation log.
+   `xenibase moves <p>`, and in the operation log.
 4. **Switch.** Once every table is copied and the target is less than 1 MB
    behind for a few seconds, writes freeze: the project's roles can't log in,
    the poolers hold clients, and remaining sessions end. A marker row
@@ -74,20 +74,20 @@ lost. The target copy is dropped and the project returns to `active`.
 ## Network access
 
 During a move, the target connects to the source as the move's own login
-(`pgdock_move_<id>`, with a random password, removed when the move ends).
+(`xenibase_move_<id>`, with a random password, removed when the move ends).
 Every other database login stays limited to the control plane and the
-poolers. The agents let move logins in from `PGDOCK_AGENT_MOVE_ALLOW`:
+poolers. The agents let move logins in from `XENIBASE_AGENT_MOVE_ALLOW`:
 by default the private ranges (10/8, 172.16/12, 192.168/16), and in the
 bundle its Docker network. Each agent adds the rule to an instance's
 `pg_hba.conf` when it starts the instance, and to every running instance
 when the agent itself starts. If your nodes reach each other
-on other addresses, set `PGDOCK_AGENT_MOVE_ALLOW` on every agent to the
+on other addresses, set `XENIBASE_AGENT_MOVE_ALLOW` on every agent to the
 nodes' private network.
 
 ## Node moves
 
 Platform admins can move a project to another node from Project Settings →
-Compute → Moves, `pgdock move <p> --node <id>`, or
+Compute → Moves, `xenibase move <p> --node <id>`, or
 `POST /api/v1/admin/projects/{id}/move`. A shared project moves into the
 target node's shared cluster, which must run the same Postgres version. A
 dedicated project gets a new instance of the same size there.
@@ -95,8 +95,8 @@ dedicated project gets a new instance of the same size there.
 ## Resizing and growing the disk
 
 A dedicated project's owner or admin resizes its instance from Project
-Settings → **Size and disk**, `pgdock instance resize <p> --profile large`
-(or `--cpus 4 --memory 8192`), `pgdock instance disk <p> --gb 160`, or
+Settings → **Size and disk**, `xenibase instance resize <p> --profile large`
+(or `--cpus 4 --memory 8192`), `xenibase instance disk <p> --gb 160`, or
 `PATCH /api/v1/projects/{id}/instance`. **Check** (`--dry-run`) says what
 will happen and what it costs before anything is queued.
 
@@ -120,9 +120,9 @@ will happen and what it costs before anything is queued.
 
 ## Postgres versions
 
-`PGDOCK_PG_VERSIONS` (default `17,18`) lists the majors PGDock offers; the
+`XENIBASE_PG_VERSIONS` (default `17,18`) lists the majors Xenibase offers; the
 newest is the default for new projects. Each needs its image on every node
-(`pgdock-postgres:{major}-walg3.0.9`; `install.sh` and `make pg-image` build
+(`xenibase-postgres:{major}-walg3.0.9`; `install.sh` and `make pg-image` build
 17 and 18). Shared projects go to a shared cluster of their version, so add
 one per version you offer (Nodes → a node → **Run a shared cluster here**,
 choosing the version).
@@ -130,7 +130,7 @@ choosing the version).
 ### Version lifecycle
 
 Each major has a status, kept in the `pg_versions` table (seeded from
-`PGDOCK_PG_VERSIONS`) and set under Admin → Platform → **Postgres
+`XENIBASE_PG_VERSIONS`) and set under Admin → Platform → **Postgres
 versions** (`GET /api/v1/admin/pg-versions`, `PATCH …/{major}`):
 
 | Status | New projects | Upgrade target | Default |
@@ -154,7 +154,7 @@ versions** (`GET /api/v1/admin/pg-versions`, `PATCH …/{major}`):
 ### Major upgrades
 
 Project Settings → Compute → **Postgres version → Upgrade…** (or
-`pgdock upgrade <p> --to 18`). The preflight:
+`xenibase upgrade <p> --to 18`). The preflight:
 
 - checks the version is newer and supported, and where the project would
   go: the least-loaded shared cluster of the new version, or a new
@@ -182,7 +182,7 @@ or `make pg-image`). Each agent then reports which release every instance runs
 and which its image tag holds, and Nodes → a node shows "18.2 available".
 
 In the **maintenance window** (Admin → Nodes → Maintenance window; default
-Sunday 02:00–06:00 UTC), PGDock restarts the instances that are behind,
+Sunday 02:00–06:00 UTC), Xenibase restarts the instances that are behind,
 **one at a time**: dedicated instances first, then shared clusters. For
 each restart the poolers hold the projects' clients, so the restart (about
 a second or two) looks like a short pause rather than an outage. An
@@ -203,7 +203,7 @@ under 5 seconds of paused writes and zero lost commits. CI runs that test
 
 ```sh
 make test-move                         # 20 GB
-make test-move PGDOCK_TEST_MOVE_GB=5   # another size
+make test-move XENIBASE_TEST_MOVE_GB=5   # another size
 ```
 
 It needs about three times the size in free disk (the source, the target,

@@ -1,4 +1,4 @@
-# PGDock — V2 Specification & Build Plan
+# Xenibase — V2 Specification & Build Plan
 
 *Builds on the V1 spec. Section references like "V1 §6.6" point to that document.*
 
@@ -15,12 +15,12 @@
 
 ### 1.1 What V2 is for
 
-V1 made PGDock a place to create, back up, and promote databases for one person. V2 turns it into a **multi-tenant platform** that friends and colleagues can use for their own projects, and makes it a place to **work** with databases day to day:
+V1 made Xenibase a place to create, back up, and promote databases for one person. V2 turns it into a **multi-tenant platform** that friends and colleagues can use for their own projects, and makes it a place to **work** with databases day to day:
 
 - Host other people's projects safely, each inside their own **organisation**.
 - Bring collaborators onto an organisation or onto specific projects.
 - Edit data and schema without leaving the browser.
-- Script and automate PGDock from a terminal and from CI.
+- Script and automate Xenibase from a terminal and from CI.
 - Spin up throwaway copies of a database for development and testing.
 - React to data changes and run recurring tasks without a separate server.
 - Move projects back down to the shared tier when they no longer need dedicated resources.
@@ -52,7 +52,7 @@ Carried from V1:
 - **Every long action is an operation** (V1 §6): queued, logged, streamed, resumable, audited.
 - **Stable connection strings.** No V2 feature changes a project's URL, including the V1→V2 naming migration (§10.2).
 - **The API is the product.** The UI and the new CLI both use the same OpenAPI-generated `/api/v1`.
-- **Least privilege by default.** Editing, webhooks, and jobs run with the project's own permissions, never `pgdock_admin`'s.
+- **Least privilege by default.** Editing, webhooks, and jobs run with the project's own permissions, never `xenibase_admin`'s.
 
 New in V2:
 
@@ -67,7 +67,7 @@ New in V2:
 ### 2.1 Tenancy model
 
 ```
-Platform (one PGDock installation, run by the platform admin)
+Platform (one Xenibase installation, run by the platform admin)
  └── Organisations
       ├── Members (users with an org role)
       ├── Projects ── branches, webhooks, jobs, members with project roles
@@ -133,7 +133,7 @@ The platform admin runs the installation. Their powers are **platform-level only
 **Break-glass access.** For support or incident response, the platform admin can request access to one organisation:
 
 1. Enter a reason and duration (maximum **4 hours**). Requires step-up reauth.
-2. PGDock grants a temporary org-admin role on that org, recorded in a `break_glass_sessions` row.
+2. Xenibase grants a temporary org-admin role on that org, recorded in a `break_glass_sessions` row.
 3. **Every org owner is emailed immediately**, a banner is shown to everyone in the org while the session is active, and every action taken is written to the **org's** audit log flagged as break-glass, as well as to the platform audit log.
 4. Any org owner can **end the session early**. It also ends automatically at expiry.
 
@@ -209,9 +209,9 @@ Removing a user from a project, from an org, or disabling a user takes effect im
 
 Each member gets **their own database login** per project, so removing a member never requires changing the app's password.
 
-- On first request ("Get my credentials"), PGDock creates a login role named `<db>_u_<6 random chars>` (opaque, see §10.2), sets a random password, writes its SCRAM verifier to the pooler auth file, and shows the password once. The member can rotate it at any time.
+- On first request ("Get my credentials"), Xenibase creates a login role named `<db>_u_<6 random chars>` (opaque, see §10.2), sets a random password, writes its SCRAM verifier to the pooler auth file, and shows the password once. The member can rotate it at any time.
 - **Project admins and developers** (and org owners/admins) get membership in the project owner role (`GRANT <db>_owner TO <db>_u_…`).
-- **Read-only** members get membership in a per-project group role `<db>_ro`, which PGDock maintains:
+- **Read-only** members get membership in a per-project group role `<db>_ro`, which Xenibase maintains:
 
   ```sql
   CREATE ROLE p_7f3k9x2m4q_ro NOLOGIN;
@@ -292,11 +292,11 @@ Supported actions:
    - Dropping a column or table → requires typing the object name.
 3. Three choices: **Run**, **Copy SQL**, or **Save as migration**.
 
-**Save as migration** downloads (or copies) a migration file in the chosen format: plain SQL, `goose` (`-- +goose Up` / `Down`), or `dbmate`. PGDock generates a best-effort `Down` section where the reverse is unambiguous (e.g. drop the added column) and leaves a `TODO` comment where it isn't (e.g. a dropped column's data). The project remembers each user's preferred format.
+**Save as migration** downloads (or copies) a migration file in the chosen format: plain SQL, `goose` (`-- +goose Up` / `Down`), or `dbmate`. Xenibase generates a best-effort `Down` section where the reverse is unambiguous (e.g. drop the added column) and leaves a `TODO` comment where it isn't (e.g. a dropped column's data). The project remembers each user's preferred format.
 
 **Execution.** DDL runs with `lock_timeout` 5s so it fails fast rather than queuing behind long transactions and blocking everyone. Non-concurrent statements run in a transaction; concurrent index builds run alone. Every executed schema change is written to the audit log **with its SQL**, unlike console queries, because schema history is valuable and rarely contains secrets.
 
-**After a schema change**, PGDock re-applies the read-only group role grants (§3.4) for any new tables or schemas.
+**After a schema change**, Xenibase re-applies the read-only group role grants (§3.4) for any new tables or schemas.
 
 ### 4.4 Out of scope for V2
 
@@ -374,7 +374,7 @@ For dedicated projects, switching reconfigures WAL-G and takes a fresh base back
 
 ### 6.3 Per-project backup encryption keys
 
-So an organisation can decrypt backups in its own bucket without PGDock's master key:
+So an organisation can decrypt backups in its own bucket without Xenibase's master key:
 
 - An optional **per-project backup key**, generated when a project admin enables it. New backups for that project are encrypted with it.
 - The project admin can **download the key** (with step-up reauth), together with a short README on decrypting and restoring with standard tools.
@@ -383,56 +383,56 @@ So an organisation can decrypt backups in its own bucket without PGDock's master
 
 ### 6.4 Deleting targets
 
-A target can't be deleted while any project uses it for new backups, or while it holds unexpired backups, unless the deleter explicitly accepts that those backups become unrestorable from PGDock. Deleting an org (§10.10) never touches org targets: their contents remain the org's property.
+A target can't be deleted while any project uses it for new backups, or while it holds unexpired backups, unless the deleter explicitly accepts that those backups become unrestorable from Xenibase. Deleting an org (§10.10) never touches org targets: their contents remain the org's property.
 
 ---
 
 ## 7. CLI and API Tokens
 
-### 7.1 The `pgdock` CLI
+### 7.1 The `xenibase` CLI
 
 A Go binary built from the same monorepo (`cmd/cli`) using the OpenAPI-generated client, released alongside the server for `linux`, `darwin`, and `windows` on `amd64` and `arm64`.
 
-**Configuration** lives in `~/.config/pgdock/config.toml` with named **contexts**, so one CLI can talk to more than one PGDock instance:
+**Configuration** lives in `~/.config/xenibase/config.toml` with named **contexts**, so one CLI can talk to more than one Xenibase instance:
 
 ```toml
 current = "home"
 [contexts.home]
-server = "https://pgdock.yourdomain.com"
+server = "https://xenibase.yourdomain.com"
 org    = "acme"            # org the token is scoped to
-token  = "pgd_…"           # or token_cmd = "pass show pgdock/home"
+token  = "xb_…"           # or token_cmd = "pass show xenibase/home"
 ```
 
-The token can also come from the `PGDOCK_TOKEN` environment variable, which takes priority (for CI).
+The token can also come from the `XENIBASE_TOKEN` environment variable, which takes priority (for CI).
 
-**Login.** `pgdock login --server https://…` uses a **device-authorisation flow**: the CLI prints a short code and opens the browser; the user approves it in the web UI (session + TOTP already established), **choosing the organisation and scopes**; PGDock issues a token scoped to that org and returns it to the CLI. Logging into another org creates another context. Pasting a token manually is also supported.
+**Login.** `xenibase login --server https://…` uses a **device-authorisation flow**: the CLI prints a short code and opens the browser; the user approves it in the web UI (session + TOTP already established), **choosing the organisation and scopes**; Xenibase issues a token scoped to that org and returns it to the CLI. Logging into another org creates another context. Pasting a token manually is also supported.
 
 **Commands (V2)**
 
 ```
-pgdock login | logout | context list | context use <name> | whoami
-pgdock orgs list | create <name>                       # orgs you belong to
-pgdock org members | invite <email> --role <r> | remove <email> | usage | quotas
+xenibase login | logout | context list | context use <name> | whoami
+xenibase orgs list | create <name>                       # orgs you belong to
+xenibase org members | invite <email> --role <r> | remove <email> | usage | quotas
 
-pgdock projects list | info <p> | create <name> [--tier] | delete <p> --confirm <p>
-pgdock connect <p> [--pooled|--session] [--psql]      # print URL with personal creds, or launch psql
-pgdock creds <p> [--rotate]                            # personal DB credentials (§3.4)
+xenibase projects list | info <p> | create <name> [--tier] | delete <p> --confirm <p>
+xenibase connect <p> [--pooled|--session] [--psql]      # print URL with personal creds, or launch psql
+xenibase creds <p> [--rotate]                            # personal DB credentials (§3.4)
 
-pgdock sql <p> -c "select …" | -f file.sql [--json|--csv]
+xenibase sql <p> -c "select …" | -f file.sql [--json|--csv]
 
-pgdock branch list <p> | create <p> <name> [--from backup|live] [--schema-only] [--ttl 72h] [--env]
-pgdock branch reset <branch> | delete <branch>
+xenibase branch list <p> | create <p> <name> [--from backup|live] [--schema-only] [--ttl 72h] [--env]
+xenibase branch reset <branch> | delete <branch>
 
-pgdock backup list <p> | create <p> | restore <p> --backup <id> [--into <new-name>]
-pgdock promote <p> --node <n> | demote <p> [--node <n>]
+xenibase backup list <p> | create <p> | restore <p> --backup <id> [--into <new-name>]
+xenibase promote <p> --node <n> | demote <p> [--node <n>]
 
-pgdock webhooks list|create|delete|deliveries|replay …
-pgdock jobs list|create|pause|resume|run|history …
+xenibase webhooks list|create|delete|deliveries|replay …
+xenibase jobs list|create|pause|resume|run|history …
 
-pgdock members list <p> | invite <p> <email> --role <r> | remove <p> <email>   # project members
-pgdock tokens list | create --name … --scopes … [--project <p>] [--expires 90d] | revoke <id>
+xenibase members list <p> | invite <p> <email> --role <r> | remove <p> <email>   # project members
+xenibase tokens list | create --name … --scopes … [--project <p>] [--expires 90d] | revoke <id>
 
-pgdock operations get <id> [--follow]
+xenibase operations get <id> [--follow]
 ```
 
 **Behaviour conventions**
@@ -441,11 +441,11 @@ pgdock operations get <id> [--follow]
 - Long operations stream progress by default (`--no-wait` returns the operation ID immediately).
 - Destructive commands require `--confirm <name>` matching the target, the CLI equivalent of the UI's typed confirmation.
 - Exit codes: `0` success, `1` error, `2` usage error, `3` operation failed, `4` permission denied.
-- `--env` on `branch create` prints `DATABASE_URL=…` lines for direct use in CI (`pgdock branch create … --env >> $GITHUB_ENV`).
+- `--env` on `branch create` prints `DATABASE_URL=…` lines for direct use in CI (`xenibase branch create … --env >> $GITHUB_ENV`).
 
 ### 7.2 API tokens
 
-**Format.** `pgd_` + 32 random bytes, base62-encoded. The prefix makes tokens easy to detect in secret scanners. PGDock shows the token **once** and stores only its SHA-256 hash (tokens are high-entropy, so a slow hash isn't needed).
+**Format.** `xb_` + 32 random bytes, base62-encoded. The prefix makes tokens easy to detect in secret scanners. Xenibase shows the token **once** and stores only its SHA-256 hash (tokens are high-entropy, so a slow hash isn't needed).
 
 **Properties**
 
@@ -521,7 +521,7 @@ Branches copy real data. V2 doesn't include data masking (see §17 open question
 
 ### 9.1 Database webhooks
 
-**What it does.** When rows in chosen tables are inserted, updated, or deleted, PGDock sends an HTTP POST to a URL with the change.
+**What it does.** When rows in chosen tables are inserted, updated, or deleted, Xenibase sends an HTTP POST to a URL with the change.
 
 **Configuration** (UI, CLI, or API):
 
@@ -533,18 +533,18 @@ Branches copy real data. V2 doesn't include data masking (see §17 open question
 | Columns (optional) | For `UPDATE`, fire only when one of these columns changed. |
 | URL | `https://` required (plain `http://` allowed only to an explicitly allow-listed host, for local testing). |
 | Headers | Optional static headers (e.g. an auth header for the receiver); stored encrypted. |
-| Signing secret | Generated by PGDock, shown once, rotatable. |
+| Signing secret | Generated by Xenibase, shown once, rotatable. |
 | Enabled | Pause and resume without deleting. |
 
 **Mechanics: transactional outbox**
 
-1. Enabling the first webhook on a project installs a `pgdock` schema in the project database, **owned by `pgdock_admin`**, containing:
-   - `pgdock.webhook_outbox (id bigserial, webhook_id uuid, table_name text, op text, old_row jsonb, new_row jsonb, created_at timestamptz)`.
-   - A `SECURITY DEFINER` trigger function, owned by `pgdock_admin`, that inserts into the outbox and calls `pg_notify('pgdock_webhooks', '')`. Its `search_path` is pinned to prevent hijacking.
-2. For each configured table, PGDock creates an `AFTER INSERT/UPDATE/DELETE … FOR EACH ROW` trigger calling that function, with a `WHEN` clause for the column filter.
+1. Enabling the first webhook on a project installs a `xenibase` schema in the project database, **owned by `xenibase_admin`**, containing:
+   - `xenibase.webhook_outbox (id bigserial, webhook_id uuid, table_name text, op text, old_row jsonb, new_row jsonb, created_at timestamptz)`.
+   - A `SECURITY DEFINER` trigger function, owned by `xenibase_admin`, that inserts into the outbox and calls `pg_notify('xenibase_webhooks', '')`. Its `search_path` is pinned to prevent hijacking.
+2. For each configured table, Xenibase creates an `AFTER INSERT/UPDATE/DELETE … FOR EACH ROW` trigger calling that function, with a `WHEN` clause for the column filter.
 3. Because the outbox insert happens **inside the same transaction** as the change, rolled-back changes never produce webhooks, and committed changes always do.
-4. **Delivery worker** (in `pgdock-server`): for each project with active webhooks, holds one `LISTEN pgdock_webhooks` connection to wake up immediately, plus a **5-second poll** as a fallback. It reads outbox rows in order with `FOR UPDATE SKIP LOCKED`, delivers them, records the result, and deletes delivered rows.
-5. The project role has no write access to the `pgdock` schema. It can, as the database and table owner, drop the triggers on its own tables; PGDock detects missing triggers during a periodic check and flags the webhook as **broken** in the UI rather than silently re-creating them.
+4. **Delivery worker** (in `xenibase-server`): for each project with active webhooks, holds one `LISTEN xenibase_webhooks` connection to wake up immediately, plus a **5-second poll** as a fallback. It reads outbox rows in order with `FOR UPDATE SKIP LOCKED`, delivers them, records the result, and deletes delivered rows.
+5. The project role has no write access to the `xenibase` schema. It can, as the database and table owner, drop the triggers on its own tables; Xenibase detects missing triggers during a periodic check and flags the webhook as **broken** in the UI rather than silently re-creating them.
 
 **Payload**
 
@@ -563,11 +563,11 @@ Branches copy real data. V2 doesn't include data masking (see §17 open question
 
 Rows larger than **256 KB** serialised are sent with `record` omitted and `"truncated": true` plus the primary key, so the receiver can fetch the row itself.
 
-**Signing.** Each request carries `PGDock-Signature: t=<unix>,v1=<hex HMAC-SHA256 of "t.body">` and `PGDock-Event-Id`. The docs include a verification snippet for Go and Node, with a 5-minute timestamp tolerance against replays.
+**Signing.** Each request carries `Xenibase-Signature: t=<unix>,v1=<hex HMAC-SHA256 of "t.body">` and `Xenibase-Event-Id`. The docs include a verification snippet for Go and Node, with a 5-minute timestamp tolerance against replays.
 
 **Delivery guarantees**
 
-- **At-least-once.** Receivers should de-duplicate on `PGDock-Event-Id`.
+- **At-least-once.** Receivers should de-duplicate on `Xenibase-Event-Id`.
 - **Ordered per webhook** in commit order; a failing event blocks later events for that webhook only (not other webhooks) until it succeeds or is dead-lettered.
 - **Retries** on network errors, timeouts (10s), and `5xx`/`429`, with exponential backoff and jitter over about **24 hours**. `4xx` other than `429` fails immediately to the dead-letter list.
 - **Dead letters:** visible in the UI with the response, and **replayable** individually or in bulk.
@@ -575,17 +575,17 @@ Rows larger than **256 KB** serialised are sent with `record` omitted and `"trun
 
 **Delivery log.** Each attempt is recorded (status code, latency, response body truncated to 4 KB) and kept 7 days. The UI shows a per-webhook log with filters and a **Send test event** button.
 
-**Outbox safety.** If the outbox for a project grows beyond 100,000 rows (e.g. the receiver is down for a long time), PGDock alerts. Paused webhooks stop enqueuing (their triggers are disabled), so a paused webhook can't fill the outbox.
+**Outbox safety.** If the outbox for a project grows beyond 100,000 rows (e.g. the receiver is down for a long time), Xenibase alerts. Paused webhooks stop enqueuing (their triggers are disabled), so a paused webhook can't fill the outbox.
 
 **Rate limits.** Deliveries are limited per org (from the org's plan, §10.3 and §10.7). When an org hits its limit, deliveries queue rather than drop, and the org is notified if the backlog persists.
 
-**SSRF protection.** PGDock must not become a way to reach internal services. Before each delivery, the worker resolves the hostname and **refuses** private, loopback, link-local, and cloud-metadata addresses (RFC 1918, `127.0.0.0/8`, `169.254.0.0/16`, `::1`, `fc00::/7`, and the node network ranges), connects to the **resolved IP it checked** (preventing DNS rebinding), and does not follow redirects. Only the **platform admin** can allow-list specific internal hosts, and only per org. Tenants can't.
+**SSRF protection.** Xenibase must not become a way to reach internal services. Before each delivery, the worker resolves the hostname and **refuses** private, loopback, link-local, and cloud-metadata addresses (RFC 1918, `127.0.0.0/8`, `169.254.0.0/16`, `::1`, `fc00::/7`, and the node network ranges), connects to the **resolved IP it checked** (preventing DNS rebinding), and does not follow redirects. Only the **platform admin** can allow-list specific internal hosts, and only per org. Tenants can't.
 
 ### 9.2 Scheduled jobs
 
 **What it does.** Runs a SQL statement, or calls an HTTP endpoint, on a schedule.
 
-**Why not `pg_cron`.** `pg_cron` must be loaded cluster-wide and runs jobs from a single database, which doesn't fit the shared tier's per-project isolation. PGDock's own scheduler works identically on both tiers, runs with each project's own permissions, and needs no extension.
+**Why not `pg_cron`.** `pg_cron` must be loaded cluster-wide and runs jobs from a single database, which doesn't fit the shared tier's per-project isolation. Xenibase's own scheduler works identically on both tiers, runs with each project's own permissions, and needs no extension.
 
 **Configuration**
 
@@ -600,11 +600,11 @@ Rows larger than **256 KB** serialised are sent with `record` omitted and `"trun
 
 **Execution**
 
-- The scheduler runs inside `pgdock-server`, holding a Postgres **advisory lock** on the metadata DB so only one instance ever schedules (future-proofing for more than one server).
+- The scheduler runs inside `xenibase-server`, holding a Postgres **advisory lock** on the metadata DB so only one instance ever schedules (future-proofing for more than one server).
 - **SQL jobs** connect through the admin connection and run `SET ROLE <project_owner>`, then execute the SQL in a transaction with the job's timeout as `statement_timeout`. On the shared tier, the shared-tier guardrails still apply.
-- **HTTP jobs** use the same SSRF protection, signing, and per-org rate limits as webhooks (with a `PGDock-Job` header instead of `PGDock-Event-Id`).
+- **HTTP jobs** use the same SSRF protection, signing, and per-org rate limits as webhooks (with a `Xenibase-Job` header instead of `Xenibase-Event-Id`).
 - The number of jobs per org and the minimum interval come from the org's plan (§10.3).
-- **Missed runs** (e.g. PGDock was down) are **not** caught up; the next scheduled time runs normally. The history shows the gap.
+- **Missed runs** (e.g. Xenibase was down) are **not** caught up; the next scheduled time runs normally. The history shows the gap.
 - Jobs on a project that is promoting, demoting, restoring, or resetting are **skipped** and recorded as such.
 
 **History.** Each run records start, duration, status, rows affected (SQL) or status code (HTTP), and the error message if any. Kept for 30 days or the last 1,000 runs per job. **Run now** triggers a manual run. Three consecutive failures send an alert.
@@ -617,7 +617,7 @@ Rows larger than **256 KB** serialised are sent with `record` omitted and `"trun
 | --- | --- | --- |
 | Promotion / demotion | Outbox and triggers move with the dump; delivery pauses during the freeze and resumes after. | Skipped during the operation. |
 | Restore into new project / branch | **Not** carried over; triggers are removed from the copy. | Not carried over. |
-| Restore in place | Triggers re-installed from PGDock's config; outbox cleared (events from the restored past aren't replayed). | Continue. |
+| Restore in place | Triggers re-installed from Xenibase's config; outbox cleared (events from the restored past aren't replayed). | Continue. |
 | Project deletion | Deleted with the project. | Deleted with the project. |
 
 ---
@@ -626,14 +626,14 @@ Rows larger than **256 KB** serialised are sent with `record` omitted and `"trun
 
 ### 10.1 Threat model
 
-V1 assumed every database on the shared tier belonged to you. In V2, other people's projects share clusters, nodes, the pooler, and outbound network access. PGDock assumes any tenant may be **careless** (runaway queries, a full disk) or **hostile** (probing other tenants, abusing outbound requests).
+V1 assumed every database on the shared tier belonged to you. In V2, other people's projects share clusters, nodes, the pooler, and outbound network access. Xenibase assumes any tenant may be **careless** (runaway queries, a full disk) or **hostile** (probing other tenants, abusing outbound requests).
 
 **Goals**
 
 - No tenant can read, modify, or infer the contents of another tenant's data.
 - No tenant can learn meaningful information about other tenants (project names, org names, member identities) from inside Postgres.
 - No tenant can exhaust shared resources (disk, connections, CPU time) badly enough to take others down, and degradation is detected and contained quickly.
-- PGDock's outbound network can't be used to attack internal services or flood external ones.
+- Xenibase's outbound network can't be used to attack internal services or flood external ones.
 - The platform admin's access to tenant data is exceptional, visible, and audited (§2.4).
 
 **Out of scope for V2:** a malicious platform admin with root on the servers; timing and cache side channels between tenants on the same cluster; network-level DDoS (handled at the Hetzner/Cloudflare layer). Tenants that need protection beyond the shared tier use a per-org shared cluster (§10.5) or a dedicated instance.
@@ -645,7 +645,7 @@ Any Postgres role can list every database name in `pg_database` and every role n
 **V2 naming**
 
 - New databases are named `p_<10 random base32 chars>` (e.g. `p_7f3k9x2m4q`). Roles follow: `<db>_owner`, `<db>_ro`, `<db>_u_<6 chars>`.
-- Friendly names, slugs, and descriptions live **only** in PGDock's metadata. Nothing descriptive is written into Postgres: no `COMMENT ON DATABASE`, no meaningful `application_name` from PGDock's own connections.
+- Friendly names, slugs, and descriptions live **only** in Xenibase's metadata. Nothing descriptive is written into Postgres: no `COMMENT ON DATABASE`, no meaningful `application_name` from Xenibase's own connections.
 - Connection strings use the opaque name. The UI and CLI always show the friendly name alongside it.
 
 **Migrating V1 projects without changing their URLs.** PgBouncer's `[databases]` entries can map a client-facing database name to a different backend database. The V2 migration renames each V1 backend **database** to an opaque name and adds a pooler alias, so the old name in existing connection strings still routes correctly:
@@ -659,7 +659,7 @@ Each rename runs as an operation with a brief pause of that project's route, a s
 
 **Role names are a different matter.** The role name is the username in the connection string, so renaming a V1 project's roles would change its URL. V1 projects therefore **keep their role names by default**, which means other tenants can see those names in `pg_roles`. These are your own projects, so the exposure is limited to you. Each V1 project offers a **Switch to opaque credentials** action that creates opaque roles (same permissions, new password), shows the new connection strings, keeps the old roles working for a grace period you choose (default 7 days), then drops them. New projects are fully opaque from the start, and never get a friendly pooler alias: PgBouncer returns different errors for an unknown database and a failed login, so friendly aliases would let tenants guess other projects' names.
 
-**Activity visibility.** By default, any role can see other sessions' database name, role name, and some metadata in `pg_stat_activity` (but not their query text). With opaque names this reveals little. PGDock additionally **revokes `SELECT` on `pg_stat_activity` from `PUBLIC`** on shared clusters **if** the client-compatibility suite passes (psql, pgAdmin, DBeaver, TablePlus, Prisma, Drizzle, GORM, pgx, SQLAlchemy, node-postgres); tenants see their own sessions in the PGDock UI instead. If the suite fails, opaque names alone are the mitigation and the result is documented.
+**Activity visibility.** By default, any role can see other sessions' database name, role name, and some metadata in `pg_stat_activity` (but not their query text). With opaque names this reveals little. Xenibase additionally **revokes `SELECT` on `pg_stat_activity` from `PUBLIC`** on shared clusters **if** the client-compatibility suite passes (psql, pgAdmin, DBeaver, TablePlus, Prisma, Drizzle, GORM, pgx, SQLAlchemy, node-postgres); tenants see their own sessions in the Xenibase UI instead. If the suite fails, opaque names alone are the mitigation and the result is documented.
 
 ### 10.3 Quotas and plans
 
@@ -687,7 +687,7 @@ New personal orgs get **Personal**. The platform admin's own org gets **Unlimite
 **Enforcement**
 
 - **Creation-time limits** (projects, branches, jobs, webhooks, targets): the API refuses with `409 quota_exceeded`, naming the limit, the current usage, and the maximum. The UI shows usage bars before the user hits a limit.
-- **Rate limits** (webhooks, HTTP jobs, console queries, operations): token-bucket per org, enforced in `pgdock-server`. Excess work queues where that's safe (deliveries) and is refused where it isn't (console queries).
+- **Rate limits** (webhooks, HTTP jobs, console queries, operations): token-bucket per org, enforced in `xenibase-server`. Excess work queues where that's safe (deliveries) and is refused where it isn't (console queries).
 - **Storage limits** are enforced continuously (§10.4).
 
 ### 10.4 Enforced storage and resource limits on the shared tier
@@ -698,24 +698,24 @@ Postgres has no per-database disk quota and lets any role change most of its own
 
 1. The metrics collector measures every project's size every 5 minutes.
 2. At **90%** of the per-project limit (or org total), org owners and project admins are emailed and the UI shows a warning.
-3. At **100%: soft lock.** PGDock sets `ALTER DATABASE … SET default_transaction_read_only = on` and terminates idle sessions so reconnecting clients pick it up. Writes fail with a read-only error, but a tenant can still explicitly open a read-write transaction to delete data.
-4. At **120%** (or if the node's disk drops below its safety threshold): **hard lock.** PGDock revokes `CONNECT` from all of the project's login roles and terminates their sessions. The app is offline, but the **PGDock SQL console and table editor still work** (they connect as `pgdock_admin` and `SET ROLE`), so the team can delete data.
+3. At **100%: soft lock.** Xenibase sets `ALTER DATABASE … SET default_transaction_read_only = on` and terminates idle sessions so reconnecting clients pick it up. Writes fail with a read-only error, but a tenant can still explicitly open a read-write transaction to delete data.
+4. At **120%** (or if the node's disk drops below its safety threshold): **hard lock.** Xenibase revokes `CONNECT` from all of the project's login roles and terminates their sessions. The app is offline, but the **Xenibase SQL console and table editor still work** (they connect as `xenibase_admin` and `SET ROLE`), so the team can delete data.
 5. Deleting rows doesn't shrink the files until they're vacuumed, so over-quota projects get a **Reclaim space** action that shows the largest tables and runs `VACUUM FULL` on a chosen table (with a warning that it locks the table) or `pg_repack` where installed.
 6. Once the size is back under 100%, locks lift automatically.
 
-**Temporary files.** `temp_file_limit` is set per project role by PGDock (default 2 GB on shared). It's a superuser-only setting, so a tenant can't raise it, and it stops a single query from filling the disk with sort or hash files.
+**Temporary files.** `temp_file_limit` is set per project role by Xenibase (default 2 GB on shared). It's a superuser-only setting, so a tenant can't raise it, and it stops a single query from filling the disk with sort or hash files.
 
-**Long-running statements.** Because `statement_timeout` is user-settable, PGDock runs a **reaper** every 15 seconds on each shared cluster that cancels (`pg_cancel_backend`) any tenant statement running longer than the hard limit (default **10 minutes**) and terminates sessions idle in a transaction longer than **5 minutes**. Reaped statements are logged for the project and shown in its activity view. Dedicated instances are exempt.
+**Long-running statements.** Because `statement_timeout` is user-settable, Xenibase runs a **reaper** every 15 seconds on each shared cluster that cancels (`pg_cancel_backend`) any tenant statement running longer than the hard limit (default **10 minutes**) and terminates sessions idle in a transaction longer than **5 minutes**. Reaped statements are logged for the project and shown in its activity view. Dedicated instances are exempt.
 
 **Connections.** Per-role `CONNECTION LIMIT` (superuser-set) plus PgBouncer `max_db_connections` per project, so a tenant can't open more backend connections by creating extra roles.
 
-**Known limit.** Settings like `work_mem` are user-settable, so a determined tenant can still use a lot of memory or CPU and slow others down. PGDock limits the blast radius (a memory cgroup on each shared cluster so the node survives; the reaper; per-org metrics that make the offender obvious) and responds with suspension or by moving the org to its own cluster. Full performance isolation is what dedicated instances are for.
+**Known limit.** Settings like `work_mem` are user-settable, so a determined tenant can still use a lot of memory or CPU and slow others down. Xenibase limits the blast radius (a memory cgroup on each shared cluster so the node survives; the reaper; per-org metrics that make the offender obvious) and responds with suspension or by moving the org to its own cluster. Full performance isolation is what dedicated instances are for.
 
-**Forbidden capabilities** (from V1 §7.1, now enforced by a nightly audit across all shared clusters): no untrusted languages, no `dblink`/`postgres_fdw`/`file_fdw`, no predefined roles that grant cross-database or filesystem access, no `SECURITY DEFINER` functions owned by anything other than tenant roles or the fixed PGDock webhook function. Drift is alerted to the platform admin.
+**Forbidden capabilities** (from V1 §7.1, now enforced by a nightly audit across all shared clusters): no untrusted languages, no `dblink`/`postgres_fdw`/`file_fdw`, no predefined roles that grant cross-database or filesystem access, no `SECURITY DEFINER` functions owned by anything other than tenant roles or the fixed Xenibase webhook function. Drift is alerted to the platform admin.
 
 ### 10.5 Per-org shared clusters
 
-The platform admin can give an organisation **its own shared cluster**: a regular PGDock shared-tier Postgres instance (V1 shared tier, same hardening) on any node, tagged with that org's ID. The org's new projects and branches are placed there, and no other org's projects ever are. Existing projects move with a per-project demote-style operation.
+The platform admin can give an organisation **its own shared cluster**: a regular Xenibase shared-tier Postgres instance (V1 shared tier, same hardening) on any node, tagged with that org's ID. The org's new projects and branches are placed there, and no other org's projects ever are. Existing projects move with a per-project demote-style operation.
 
 Use it for a colleague's company that wants stronger isolation from other tenants, or to contain a noisy org, without the cost of a dedicated instance per project.
 
@@ -730,7 +730,7 @@ Dedicated instances consume your node capacity, so they're controlled:
 
 ### 10.7 Outbound network controls
 
-Webhooks and HTTP jobs are the only ways tenants can make PGDock send traffic:
+Webhooks and HTTP jobs are the only ways tenants can make Xenibase send traffic:
 
 - SSRF protection (§9.1) applies to both.
 - Per-org rate limits and concurrency caps (§10.3).
@@ -768,7 +768,7 @@ No billing in V2, but usage is recorded from day one so billing in V3 is a prici
 
 **Terms and privacy.** The platform admin writes a terms-of-use page and a privacy notice in platform settings (versioned). Users accept the current version at signup, and again when a new version is published. The default template includes: what the platform admin can and can't access (§2.4), backup and retention behaviour, the absence of uptime guarantees, acceptable use, and how incidents are communicated.
 
-**Data protection.** Tenants may store personal data in their projects. If any of that data is about people in Nigeria, the Nigeria Data Protection Act may impose obligations on whoever operates the platform. Get advice before opening the platform beyond friends and colleagues; PGDock's part is providing the controls below.
+**Data protection.** Tenants may store personal data in their projects. If any of that data is about people in Nigeria, the Nigeria Data Protection Act may impose obligations on whoever operates the platform. Get advice before opening the platform beyond friends and colleagues; Xenibase's part is providing the controls below.
 
 **Data export.** Org owners can export any project as a `pg_dump` file through the UI or CLI at any time (rate-limited to protect nodes).
 
@@ -1279,9 +1279,9 @@ Carried forward, unprioritised: **billing and payments** (pricing on top of §10
 | **Branches filling shared disk** | Shared-cluster outage | Org branch and storage quotas, TTL by default, branches counted in node capacity, storage locks, disk alerts. |
 | **Webhook outbox growth** when a receiver is down | Disk growth in the project DB | Outbox size alert, auto-pause after repeated failures, paused webhooks stop enqueuing. |
 | **Heavy scheduled SQL on the shared tier** | Noisy neighbour | Shared-tier guardrails still apply, job timeouts, minimum 1-minute interval, per-project job history to spot offenders. |
-| **Leaked API tokens** | Unauthorised access | Mandatory expiry, scopes, project restriction, `pgd_` prefix for secret scanners, creation emails, last-used tracking, instant revocation. |
+| **Leaked API tokens** | Unauthorised access | Mandatory expiry, scopes, project restriction, `xb_` prefix for secret scanners, creation emails, last-used tracking, instant revocation. |
 | **Personal roles lost during tier moves** | Members' credentials break | Every tier-move and reset operation recreates personal roles from `project_db_users`; tested in the promotion and demotion CI suites. |
-| **`SECURITY DEFINER` trigger function abuse** | Privilege escalation inside a project DB | Owned by `pgdock_admin`, pinned `search_path`, does only one fixed insert + notify, no dynamic SQL. |
+| **`SECURITY DEFINER` trigger function abuse** | Privilege escalation inside a project DB | Owned by `xenibase_admin`, pinned `search_path`, does only one fixed insert + notify, no dynamic SQL. |
 
 ---
 

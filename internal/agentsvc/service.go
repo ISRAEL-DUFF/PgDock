@@ -1,6 +1,6 @@
-// Package agentsvc is pgdock-agent's HTTPS service: a fixed set of commands
+// Package agentsvc is xenibase-agent's HTTPS service: a fixed set of commands
 // (health, host metrics, dump, restore, copy) behind mutual TLS that only
-// pgdock-server's client certificate can pass (spec §3.3).
+// xenibase-server's client certificate can pass (spec §3.3).
 package agentsvc
 
 import (
@@ -19,11 +19,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/agentca"
-	"github.com/israel-duff/pgdock/internal/backupfmt"
-	"github.com/israel-duff/pgdock/internal/pgpstream"
-	"github.com/israel-duff/pgdock/internal/storage"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/agentca"
+	"github.com/israel-duff/xenibase/internal/backupfmt"
+	"github.com/israel-duff/xenibase/internal/pgpstream"
+	"github.com/israel-duff/xenibase/internal/storage"
 )
 
 // Config configures the service.
@@ -100,7 +100,7 @@ func (s *Service) Handler() http.Handler {
 	return mux
 }
 
-// TLSConfig requires a client certificate from ca with pgdock-server's
+// TLSConfig requires a client certificate from ca with xenibase-server's
 // subject.
 func TLSConfig(cert tls.Certificate, ca *x509.CertPool) *tls.Config {
 	return &tls.Config{
@@ -110,7 +110,7 @@ func TLSConfig(cert tls.Certificate, ca *x509.CertPool) *tls.Config {
 		MinVersion:   tls.VersionTLS13,
 		VerifyPeerCertificate: func(_ [][]byte, chains [][]*x509.Certificate) error {
 			if len(chains) == 0 || chains[0][0].Subject.CommonName != agentca.ServerCN {
-				return errors.New("client certificate is not pgdock-server's")
+				return errors.New("client certificate is not xenibase-server's")
 			}
 			return nil
 		},

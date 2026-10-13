@@ -1,6 +1,6 @@
 # Capacity and costs
 
-PGDock can add database nodes by itself when a region fills up. It can
+Xenibase can add database nodes by itself when a region fills up. It can
 also move projects off nodes, delete servers that stay empty, and work out
 what each organisation costs to run (V3 §5).
 
@@ -11,7 +11,7 @@ margins**.
 
 The provider is where new servers come from. There are two.
 
-- **manual** (the default) is for machines PGDock can't create: the
+- **manual** (the default) is for machines Xenibase can't create: the
   install's own node, and colocated servers. You register them under
   Nodes → Add node, as before. Proposals still say when to add a machine
   and what size it should be. Once you have registered it, choose
@@ -29,26 +29,26 @@ The provider is where new servers come from. There are two.
 
 | Variable | What |
 | --- | --- |
-| `PGDOCK_CLOUD_PROVIDER` | `manual` or `hetzner` |
-| `PGDOCK_REGION` | This installation's region name (default `eu-central`). New nodes are given it, and so are existing ones on upgrade. |
-| `PGDOCK_HETZNER_TOKEN` (or `_FILE`) | A Hetzner Cloud API token with read and write access |
-| `PGDOCK_HETZNER_LOCATION` | Where servers go (default `fsn1`) |
-| `PGDOCK_HETZNER_NETWORK_ID` | The private network new servers join; use the network your other nodes and pgdock-server are on |
-| `PGDOCK_HETZNER_PLACEMENT_GROUP_ID` | Optional: an existing spread placement group for the home region. Otherwise PGDock creates `pgdock-<region>` (then `-2`, … as each fills at 10 servers) and puts every new server in its region's group, so it counts as its own [failure domain](failure-domains.md). |
-| `PGDOCK_HETZNER_SSH_KEYS` | Comma-separated names of SSH keys in the Hetzner project, for root |
-| `PGDOCK_CLOUD_AGENT_IMAGE`, `PGDOCK_CLOUD_PG_IMAGE` | Images new servers can pull: the agent, and `pgdock-postgres` (with `{major}` for the Postgres version). Push your build to a registry; the bundle builds them locally only. |
-| `PGDOCK_CLOUD_SERVER_URL` | How agents reach pgdock-server (default `PGDOCK_PUBLIC_URL`) |
-| `PGDOCK_CLOUD_SERVER_CA_FILE` | The PEM of a private CA, if pgdock-server's certificate isn't publicly trusted |
-| `PGDOCK_CLOUD_PRIVATE_CIDR` | The private network, default `10.0.0.0/16`. Instances accept logins from it, and the agent advertises its address on it. |
-| `PGDOCK_CLOUD_EDGE_IMAGE` | Optional: pgdock-edge's image, for the edge nodes PGDock adds. Their cloud-init also gets `PGDOCK_EDGE_SECRET` and `PGDOCK_API_DOMAIN`. Without it, edge proposals are added by hand. |
+| `XENIBASE_CLOUD_PROVIDER` | `manual` or `hetzner` |
+| `XENIBASE_REGION` | This installation's region name (default `eu-central`). New nodes are given it, and so are existing ones on upgrade. |
+| `XENIBASE_HETZNER_TOKEN` (or `_FILE`) | A Hetzner Cloud API token with read and write access |
+| `XENIBASE_HETZNER_LOCATION` | Where servers go (default `fsn1`) |
+| `XENIBASE_HETZNER_NETWORK_ID` | The private network new servers join; use the network your other nodes and xenibase-server are on |
+| `XENIBASE_HETZNER_PLACEMENT_GROUP_ID` | Optional: an existing spread placement group for the home region. Otherwise Xenibase creates `xenibase-<region>` (then `-2`, … as each fills at 10 servers) and puts every new server in its region's group, so it counts as its own [failure domain](failure-domains.md). |
+| `XENIBASE_HETZNER_SSH_KEYS` | Comma-separated names of SSH keys in the Hetzner project, for root |
+| `XENIBASE_CLOUD_AGENT_IMAGE`, `XENIBASE_CLOUD_PG_IMAGE` | Images new servers can pull: the agent, and `xenibase-postgres` (with `{major}` for the Postgres version). Push your build to a registry; the bundle builds them locally only. |
+| `XENIBASE_CLOUD_SERVER_URL` | How agents reach xenibase-server (default `XENIBASE_PUBLIC_URL`) |
+| `XENIBASE_CLOUD_SERVER_CA_FILE` | The PEM of a private CA, if xenibase-server's certificate isn't publicly trusted |
+| `XENIBASE_CLOUD_PRIVATE_CIDR` | The private network, default `10.0.0.0/16`. Instances accept logins from it, and the agent advertises its address on it. |
+| `XENIBASE_CLOUD_EDGE_IMAGE` | Optional: xenibase-edge's image, for the edge nodes Xenibase adds. Their cloud-init also gets `XENIBASE_EDGE_SECRET` and `XENIBASE_API_DOMAIN`. Without it, edge proposals are added by hand. |
 
-Servers PGDock creates carry the labels `pgdock=node`, `pgdock-node=<name>`
-and `pgdock-region=<region>`. Don't delete them by hand while PGDock still
+Servers Xenibase creates carry the labels `xenibase=node`, `xenibase-node=<name>`
+and `xenibase-region=<region>`. Don't delete them by hand while Xenibase still
 lists them: drain the node instead (below).
 
 ## Proposals
 
-Every hour, and when you choose **Check now**, PGDock checks three
+Every hour, and when you choose **Check now**, Xenibase checks three
 thresholds in each region.
 
 - **Shared tier:** the region's shared disk is projected to pass 70%
@@ -57,21 +57,21 @@ thresholds in each region.
 - **Dedicated tier:** no dedicated host has room for the largest instance
   size (vCPU, memory and disk). This check only runs in regions that
   already have a dedicated host.
-- **Edge tier** (V4.1 §11): the region's pgdock-edge processes used more
+- **Edge tier** (V4.1 §11): the region's xenibase-edge processes used more
   than 70% of their hosts' CPUs throughout the last hour. Each edge
   reports its process's share of its host's CPUs; the check averages a
   region's edges in 5-minute buckets and needs at least 11 of the hour's
   12 above the threshold. Edges that serve every region count towards the
   home region.
 
-An **edge node** runs pgdock-edge beside its agent and never gets a
+An **edge node** runs xenibase-edge beside its agent and never gets a
 database: no shared cluster, no dedicated instance, and the empty-node
 cleanup leaves it alone. Its cloud-init writes the edge's settings
 (including the edge secret) to a root-only file and opens port 8443 for
 the load balancer or TLS terminator in front of the edges. You can also
 register one by hand with the role `edge` so its cost is attributed.
 
-When a threshold trips, PGDock records a **proposal**: the server type, the
+When a threshold trips, Xenibase records a **proposal**: the server type, the
 location, the monthly price from the provider's catalog, and the reason. A
 region and tier never have more than one open proposal at a time. A
 proposal is provisioned by itself only when all of these hold:
@@ -82,7 +82,7 @@ proposal is provisioned by itself only when all of these hold:
   **monthly infrastructure budget**.
 
 The budget is zero until you set one, so nothing is bought until then.
-When the budget is in another currency than the servers, PGDock converts
+When the budget is in another currency than the servers, Xenibase converts
 at the current exchange rate (below).
 
 Otherwise the proposal waits, and an alert fires. **Provision** starts the
@@ -116,14 +116,14 @@ and the alert above fires; the user can try again once it is in service.
 With hosts added by hand, the creation is refused with `503 no_capacity`,
 naming the region.
 
-If any step fails, PGDock deletes the server and removes the node, the
+If any step fails, Xenibase deletes the server and removes the node, the
 proposal is marked failed, and a critical alert fires. The server's
 `/var/log/cloud-init-output.log` usually says why.
 
 The settings (Platform → Capacity → Settings) are:
 
 - per tier: whether to propose at all, the threshold, the horizon, and the
-  server type to add (or the minimum vCPU, memory and disk, leaving PGDock
+  server type to add (or the minimum vCPU, memory and disk, leaving Xenibase
   to pick the cheapest type that fits);
 - the shared cluster's memory on a new shared node;
 - the budget and its currency.
@@ -163,12 +163,12 @@ The settings (Platform → Capacity → Settings) are:
 
 ## Cost attribution
 
-Every day, PGDock divides the infrastructure's cost among the
+Every day, Xenibase divides the infrastructure's cost among the
 organisations that used it (V3 §5.4):
 
 | Cost | From | Divided by |
 | --- | --- | --- |
-| A node | Its monthly price ÷ the days in the month: the provider's catalog price for servers PGDock created; for manual nodes, what you enter (Capacity → Cost) | Each dedicated instance takes its share of the node's vCPUs; an HA standby's share is booked as **ha**. The rest goes to the shared cluster's projects: half by their share of storage (GB-hours), half by their share of client connection-hours. What nothing uses is **idle**. |
+| A node | Its monthly price ÷ the days in the month: the provider's catalog price for servers Xenibase created; for manual nodes, what you enter (Capacity → Cost) | Each dedicated instance takes its share of the node's vCPUs; an HA standby's share is booked as **ha**. The rest goes to the shared cluster's projects: half by their share of storage (GB-hours), half by their share of client connection-hours. What nothing uses is **idle**. |
 | Backup storage | The object storage price per GB-month | Each organisation's backup GB-hours |
 | Data transfer | The price per GB | Each organisation's pooler transfer |
 | Floating IPs, fixed overheads | Their monthly prices (Costs & margins → Cost settings), ÷ days | Nobody: **unallocated** |

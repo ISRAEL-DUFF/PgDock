@@ -16,12 +16,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/dedicated"
-	"github.com/israel-duff/pgdock/internal/statusapi"
-	"github.com/israel-duff/pgdock/internal/statuspage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/statuspage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // haProject is a dedicated project on node "test", with the etcd cluster
@@ -49,8 +49,8 @@ func haProject(t *testing.T, e *testenv.Env) (gen.ProjectCredentials, []gen.Node
 // container (local trust), so a standby can be read directly.
 func memberSQL(t *testing.T, member uuid.UUID, db, query string) string {
 	t.Helper()
-	out, err := exec.Command("docker", "exec", "pgdock-"+member.String(), "psql", "-XAtq", "-h", "/var/run/postgresql",
-		"-U", "pgdock_admin", "-d", db, "-c", query).CombinedOutput()
+	out, err := exec.Command("docker", "exec", "xenibase-"+member.String(), "psql", "-XAtq", "-h", "/var/run/postgresql",
+		"-U", "xenibase_admin", "-d", db, "-c", query).CombinedOutput()
 	if err != nil {
 		t.Fatalf("psql on %s: %v: %s", member, err, out)
 	}
@@ -143,7 +143,7 @@ func TestEnableAndDisableHA(t *testing.T) {
 	if ms := members(t, e, inst.ID); len(ms) != 1 || ms[0].ID != inst.ID {
 		t.Fatalf("members after disabling: %+v", ms)
 	}
-	if out, err := exec.Command("docker", "inspect", "pgdock-"+standby.String()).CombinedOutput(); err == nil {
+	if out, err := exec.Command("docker", "inspect", "xenibase-"+standby.String()).CombinedOutput(); err == nil {
 		t.Fatalf("the standby's container is still there: %s", out[:min(len(out), 200)])
 	}
 	conn := e.MustConnect(c.Connection.PooledUrl)
@@ -247,7 +247,7 @@ func TestHASwitchoverAndFailover(t *testing.T) {
 	w.paused.Store(0)
 	e.KillAgent("node-b")
 	killed := time.Now()
-	for _, name := range []string{"pgdock-" + l.Id.String(), "pgdock-etcd-" + ns[1].Id.String()} {
+	for _, name := range []string{"xenibase-" + l.Id.String(), "xenibase-etcd-" + ns[1].Id.String()} {
 		if out, err := exec.Command("docker", "kill", name).CombinedOutput(); err != nil {
 			t.Fatalf("kill %s: %v %s", name, err, out)
 		}
@@ -257,10 +257,10 @@ func TestHASwitchoverAndFailover(t *testing.T) {
 	deadline = time.Now().Add(90 * time.Second)
 	for w.acked.Load() < before+20 {
 		if time.Now().After(deadline) {
-			out, _ := exec.Command("docker", "logs", "--tail", "30", "pgdock-"+c.Project.Id.String()).CombinedOutput()
+			out, _ := exec.Command("docker", "logs", "--tail", "30", "xenibase-"+c.Project.Id.String()).CombinedOutput()
 			for _, m := range haStatus(t, e, c.Project.Id).Members {
 				if m.NodeId == ns[0].Id {
-					out, _ = exec.Command("docker", "logs", "--tail", "40", "pgdock-"+m.Id.String()).CombinedOutput()
+					out, _ = exec.Command("docker", "logs", "--tail", "40", "xenibase-"+m.Id.String()).CombinedOutput()
 				}
 			}
 			t.Fatalf("no writes after the node died: %d acked before, %d now, %d errors\nsurviving member:\n%s", before, w.acked.Load(), w.errs.Load(), out)
@@ -304,12 +304,12 @@ func TestHASwitchoverAndFailover(t *testing.T) {
 	}
 }
 
-// startSLAStatus runs pgdock-status in-process as the SLA's outside
+// startSLAStatus runs xenibase-status in-process as the SLA's outside
 // vantage point, probing for real, every interval.
 func startSLAStatus(ctx context.Context, t *testing.T, every time.Duration) *statusapi.Client {
 	t.Helper()
 	dir := t.TempDir()
-	cfg := `public_url = "https://status.pgdock.test"
+	cfg := `public_url = "https://status.xenibase.test"
 push_secret = "` + statusSecret + `"
 data = "` + filepath.Join(dir, "status.db") + `"
 [[component]]
@@ -379,7 +379,7 @@ func TestHAPrimaryNodeLoss(t *testing.T) {
 
 	e.KillAgent("test")
 	killed := time.Now()
-	for _, name := range []string{"pgdock-" + primary.Id.String(), "pgdock-etcd-" + ns[0].Id.String()} {
+	for _, name := range []string{"xenibase-" + primary.Id.String(), "xenibase-etcd-" + ns[0].Id.String()} {
 		if out, err := exec.Command("docker", "kill", name).CombinedOutput(); err != nil {
 			t.Fatalf("kill %s: %v %s", name, err, out)
 		}

@@ -24,3 +24,6 @@ sdk/js/node_modules
 sdk/js/dist
 sdk/dart/.dart_tool
 sdk/dart/pubspec.lock
+
+# upgrade.sh keeps a metadata backup and a log of each upgrade here
+deploy/compose/upgrade-backups/

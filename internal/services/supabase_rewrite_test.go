@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func TestRewriteExpr(t *testing.T) {
@@ -13,11 +13,11 @@ func TestRewriteExpr(t *testing.T) {
 		kind     rewriteKind
 		problem  bool
 	}{
-		{in: "(auth.uid() = user_id)", want: "(pgd_auth.uid() = user_id)"},
-		{in: "(( SELECT auth.uid() AS uid) = user_id)", want: "(( SELECT pgd_auth.uid() AS uid) = user_id)"},
-		{in: "(auth.role() = 'authenticated'::text)", want: "(pgd_auth.role() = 'user'::text)"},
-		{in: "((auth.jwt() ->> 'role'::text) = 'service_role'::text)", want: "((pgd_auth.claims() ->> 'role'::text) = 'service'::text)"},
-		{in: "(email = auth.email())", want: "(email = (pgd_auth.claims() ->> 'email'))"},
+		{in: "(auth.uid() = user_id)", want: "(xb_auth.uid() = user_id)"},
+		{in: "(( SELECT auth.uid() AS uid) = user_id)", want: "(( SELECT xb_auth.uid() AS uid) = user_id)"},
+		{in: "(auth.role() = 'authenticated'::text)", want: "(xb_auth.role() = 'user'::text)"},
+		{in: "((auth.jwt() ->> 'role'::text) = 'service_role'::text)", want: "((xb_auth.claims() ->> 'role'::text) = 'service'::text)"},
+		{in: "(email = auth.email())", want: "(email = (xb_auth.claims() ->> 'email'))"},
 		// A literal that only looks like a role stays when nothing compares roles.
 		{in: "(kind = 'authenticated'::text)", want: "(kind = 'authenticated'::text)"},
 		// Literals and quoted identifiers are left alone.
@@ -27,10 +27,10 @@ func TestRewriteExpr(t *testing.T) {
 		{
 			in:   "((bucket_id = 'avatars'::text) AND ((storage.foldername(name))[1] = (auth.uid())::text))",
 			kind: rewriteStorage,
-			want: "((bucket = 'avatars'::text) AND ((pgd_storage.foldername(path))[1] = (pgd_auth.uid())::text))",
+			want: "((bucket = 'avatars'::text) AND ((xb_storage.foldername(path))[1] = (xb_auth.uid())::text))",
 		},
-		{in: "(owner_id = (auth.uid())::text)", kind: rewriteStorage, want: "((owner)::text = (pgd_auth.uid())::text)"},
-		{in: "(storage.extension(name) = 'jpg'::text)", kind: rewriteStorage, want: "(pgd_storage.extension(path) = 'jpg'::text)"},
+		{in: "(owner_id = (auth.uid())::text)", kind: rewriteStorage, want: "((owner)::text = (xb_auth.uid())::text)"},
+		{in: "(storage.extension(name) = 'jpg'::text)", kind: rewriteStorage, want: "(xb_storage.extension(path) = 'jpg'::text)"},
 		{in: "((metadata ->> 'size'::text))::int < 100", kind: rewriteStorage, problem: true},
 		// The literal 'name' is not the column.
 		{in: "(user_metadata ->> 'name'::text) = 'x'", kind: rewriteStorage, want: "(user_metadata ->> 'name'::text) = 'x'"},

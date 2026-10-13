@@ -21,8 +21,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 const (
@@ -49,7 +49,7 @@ type storedCA struct {
 func LoadCA(ctx context.Context, db *pgxpool.Pool, keyring *crypto.Keyring) (*CA, error) {
 	var ca *CA
 	err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('pgdock_etcd_ca'))`); err != nil {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('xenibase_etcd_ca'))`); err != nil {
 			return err
 		}
 		q := store.New(tx)
@@ -93,7 +93,7 @@ func newCA() (*CA, error) {
 	}
 	tmpl := &x509.Certificate{
 		SerialNumber:          serial(),
-		Subject:               pkix.Name{CommonName: "PGDock etcd CA", Organization: []string{"PGDock"}},
+		Subject:               pkix.Name{CommonName: "Xenibase etcd CA", Organization: []string{"Xenibase"}},
 		NotBefore:             time.Now().Add(-time.Hour),
 		NotAfter:              time.Now().AddDate(20, 0, 0),
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
@@ -159,7 +159,7 @@ func (ca *CA) Member(name string, hosts []string) (Pair, error) {
 	return ca.issue("etcd:"+name, hosts, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}, 5)
 }
 
-// Client issues a client certificate (a Patroni member, or pgdock-server).
+// Client issues a client certificate (a Patroni member, or xenibase-server).
 func (ca *CA) Client(cn string) (Pair, error) {
 	return ca.issue(cn, nil, []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}, 5)
 }
@@ -171,7 +171,7 @@ func (ca *CA) issue(cn string, hosts []string, usage []x509.ExtKeyUsage, years i
 	}
 	tmpl := &x509.Certificate{
 		SerialNumber: serial(),
-		Subject:      pkix.Name{CommonName: cn, Organization: []string{"PGDock"}},
+		Subject:      pkix.Name{CommonName: cn, Organization: []string{"Xenibase"}},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().AddDate(years, 0, 0),
 		KeyUsage:     x509.KeyUsageDigitalSignature,

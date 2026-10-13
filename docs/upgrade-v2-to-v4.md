@@ -26,12 +26,12 @@ Write these down; you will set them before the upgrade.
 | Question | Why it matters | Where |
 | --- | --- | --- |
 | Which organisations pay, and on which plan? | The billing migration gives every organisation a billing account on the **Free** plan. Free projects with no client connections for 7 days are **paused**, and archived after 90 days paused. Paid plans are never paused, and neither are projects of an organisation on the **Unlimited** quota plan (your own platform admin's organisation, where your own projects live). | Each organisation's owner chooses its plan (Org → Billing → **Change plan…**) after the upgrade; until they have, keep the Free tier's clocks long (below). |
-| How long before idle Free projects pause? | The activity clock of every project starts at the upgrade, so the first pauses come 7 days later unless you change it. | `PGDOCK_FREE_PAUSE_AFTER` (e.g. `8760h` while you move customers to their plans), `PGDOCK_FREE_ARCHIVE_AFTER`. See [the Free tier](free-tier.md). |
+| How long before idle Free projects pause? | The activity clock of every project starts at the upgrade, so the first pauses come 7 days later unless you change it. | `XENIBASE_FREE_PAUSE_AFTER` (e.g. `8760h` while you move customers to their plans), `XENIBASE_FREE_ARCHIVE_AFTER`. See [the Free tier](free-tier.md). |
 | What are the real prices? | The first price book has placeholder prices. Nothing is invoiced until you turn on automatic issue. | Admin → Billing → Price books, then Settings. See [billing](billing.md). |
-| Which region is this? | Every existing node is put in `PGDOCK_REGION` (default `eu-central`). | `.env` before the upgrade. See [regions](regions.md). |
-| Should HA minor upgrades wait for an announced window? | From V3.1 they do, by default, and announcements email organisation owners. | `PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT=false` keeps V2's behaviour. See [HA](ha.md). |
+| Which region is this? | Every existing node is put in `XENIBASE_REGION` (default `eu-central`). | `.env` before the upgrade. See [regions](regions.md). |
+| Should HA minor upgrades wait for an announced window? | From V3.1 they do, by default, and announcements email organisation owners. | `XENIBASE_MAINTENANCE_REQUIRE_ANNOUNCEMENT=false` keeps V2's behaviour. See [HA](ha.md). |
 | Are the legal documents ready? | On first start the server publishes template SLA and DPA documents and adds an acceptable use policy to the terms. | Review them before customers sign in: [legal documents](legal.md). |
-| Who gets query insights? | Shared projects get them only on the plans in `PGDOCK_INSIGHTS_PLANS` (default `pro,team`). | `.env`; `all` without billing. |
+| Who gets query insights? | Shared projects get them only on the plans in `XENIBASE_INSIGHTS_PLANS` (default `pro,team`). | `.env`; `all` without billing. |
 
 Payments, support email and WhatsApp, the status page, cloud capacity and
 backend services all stay off until their settings are set. They can wait
@@ -52,11 +52,11 @@ payment providers. Allow only your own access to its dashboard.
    own domain.
 2. Restore last night's metadata self-backup into it, as in
    [disaster recovery](disaster-recovery.md#2-restore-the-metadata).
-   Project data isn't needed: the migrations only touch PGDock's own
+   Project data isn't needed: the migrations only touch Xenibase's own
    database. Operations that need the projects' servers (applying
    settings, backups) fail on staging; that is expected.
 3. Set the `.env` values you chose above, then upgrade as in section 3.
-4. Check: the server starts and `pgdock-server -version` shows the new
+4. Check: the server starts and `xenibase-server -version` shows the new
    version; the server log shows no failed migration; Admin →
    Organisations lists every organisation with its billing account;
    Admin → Billing → Price books has the first book.
@@ -76,22 +76,32 @@ databases through the poolers reconnect in a second or two.
 - [ ] Keep `deploy/compose/.env` and the backup key off the server.
 - [ ] Add the settings you decided to `deploy/compose/.env`, for example:
 
-      PGDOCK_REGION=eu-central
-      PGDOCK_FREE_PAUSE_AFTER=8760h
-      PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT=false
+      XENIBASE_REGION=eu-central
+      XENIBASE_FREE_PAUSE_AFTER=8760h
+      XENIBASE_MAINTENANCE_REQUIRE_ANNOUNCEMENT=false
 
 - [ ] **Remote nodes first.** Agents must run the same major version as
-      pgdock-server and a minor at least as new. On each node, replace
+      xenibase-server and a minor at least as new. On each node, replace
       the agent image or binary with the new release's and restart it;
       it keeps its identity ([remote nodes](upgrade.md#remote-nodes)).
-      Then rebuild or pull the `pgdock-postgres` images there
+      Then rebuild or pull the `xenibase-postgres` images there
       (`make pg-image`): V3's HA needs Patroni in them, and query insights
       need hypopg.
 
 ## 3. Upgrade the control node
 
+The safest way is `upgrade.sh`, which backs up the metadata database, checks
+the result and rolls back if it fails ([deploying](deploying.md); the first time,
+take the script from the new tag as described there):
+
 ```sh
-cd pgdock
+XENIBASE_DIR=$PWD sh /tmp/upgrade.sh v4.1.0     # after: git show v4.1.0:deploy/compose/upgrade.sh > /tmp/upgrade.sh
+```
+
+By hand, it is:
+
+```sh
+cd xenibase
 git fetch --tags
 git checkout v4.1.0
 cd deploy/compose
@@ -104,7 +114,7 @@ leaves the old schema and the server refuses to start (see
 
 ## 4. Right after
 
-- [ ] `docker compose exec pgdock-server pgdock-server -version` shows
+- [ ] `docker compose exec xenibase-server xenibase-server -version` shows
       the new version.
 - [ ] Nodes shows every agent healthy, at the new version.
 - [ ] Operations shows nothing failed. Migrations queue some background
@@ -118,7 +128,7 @@ leaves the old schema and the server refuses to start (see
 - [ ] Admin → Billing: set real prices (publish a new price book) and your
       company's details before turning on automatic issue.
 - [ ] Ask paying customers' owners to choose their plan (Org → Billing →
-      **Change plan…**). Once they have, set `PGDOCK_FREE_PAUSE_AFTER`
+      **Change plan…**). Once they have, set `XENIBASE_FREE_PAUSE_AFTER`
       back to what you want (or remove it for the default 7 days) and run
       `./install.sh` again. Free organisations' owners are warned a day
       before a project is paused.
@@ -130,15 +140,15 @@ working.
 
 | Feature | What to set | Guide |
 | --- | --- | --- |
-| Backend services (data API, auth, storage, realtime) | `PGDOCK_API_DOMAIN`, `PGDOCK_EDGE_SECRET` in `.env`; pgdock-edge in each region with a wildcard DNS record and certificate for `*.<domain>`; a backup storage target in each region (files live there) | [Running pgdock-edge](backend-services.md#running-pgdock-edge) |
+| Backend services (data API, auth, storage, realtime) | `XENIBASE_API_DOMAIN`, `XENIBASE_EDGE_SECRET` in `.env`; xenibase-edge in each region with a wildcard DNS record and certificate for `*.<domain>`; a backup storage target in each region (files live there) | [Running xenibase-edge](backend-services.md#running-xenibase-edge) |
 | Platform email and SMS for apps' sign-in | The platform SMTP; Termii and WhatsApp template variables | [Platform SMS and WhatsApp](backend-services.md#platform-sms-and-whatsapp-operators) |
-| Card and bank payments | `PGDOCK_FLW_*` or `PGDOCK_ISPEND_*`, and the providers' webhook URLs | [Payments](payments.md) |
-| Open signup | `PGDOCK_TURNSTILE_SITE_KEY`, `PGDOCK_TURNSTILE_SECRET` | [The Free tier](free-tier.md) |
-| Support inbox and WhatsApp | `PGDOCK_SUPPORT_*`, `PGDOCK_WHATSAPP_*` | [Support](support.md) |
-| Status page | `pgdock-status` on other infrastructure; `PGDOCK_STATUS_URL`, `PGDOCK_STATUS_PUSH_SECRET` | [Status page](status-page.md) |
+| Payments (organisations' wallets, funded by bank transfer) | `XENIBASE_ISWALLET_*`, and the provider's webhook URL | [Payments](payments.md) |
+| Open signup | `XENIBASE_TURNSTILE_SITE_KEY`, `XENIBASE_TURNSTILE_SECRET` | [The Free tier](free-tier.md) |
+| Support inbox and WhatsApp | `XENIBASE_SUPPORT_*`, `XENIBASE_WHATSAPP_*` | [Support](support.md) |
+| Status page | `xenibase-status` on other infrastructure; `XENIBASE_STATUS_URL`, `XENIBASE_STATUS_PUSH_SECRET` | [Status page](status-page.md) |
 | HA | An etcd cluster per region (Platform → Nodes) | [HA](ha.md) |
 | Standby pooler | A second pooler host and a floating IP | [Edge poolers](edge-poolers.md) |
-| Buying servers | `PGDOCK_CLOUD_PROVIDER=hetzner` and its variables, a monthly budget | [Capacity](capacity.md) |
+| Buying servers | `XENIBASE_CLOUD_PROVIDER=hetzner` and its variables, a monthly budget | [Capacity](capacity.md) |
 
 After changing `.env`, run `./install.sh` again; it restarts what changed.
 
@@ -160,7 +170,7 @@ tables it doesn't know, which can write wrong data without any error
 (rehearsal on a copy of a v2.1.0 database showed it starting and processing
 queued operations against the V4 schema). Instead:
 
-1. Stop pgdock-server (`docker compose stop pgdock-server`).
+1. Stop xenibase-server (`docker compose stop xenibase-server`).
 2. Restore the metadata database from the self-backup, as in
    [disaster recovery](disaster-recovery.md#2-restore-the-metadata).
 3. Check out `v2.1.0` and run `./install.sh`.
@@ -169,7 +179,7 @@ Anything done in the dashboard since the upgrade is lost; project data is
 not affected (it lives in the projects' databases).
 
 From V4.1 on, a server refuses to start on a database that a newer release
-migrated (`the metadata database was migrated by a newer PGDock than this
+migrated (`the metadata database was migrated by a newer Xenibase than this
 one`), so rolling forward-then-back between V4.1 and later releases fails
 loudly instead. `v2.1.0` and earlier don't have that check, which is why the
 restore is needed here.

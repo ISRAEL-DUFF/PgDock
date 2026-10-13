@@ -20,15 +20,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/jwtes"
-	"github.com/israel-duff/pgdock/internal/messaging"
-	"github.com/israel-duff/pgdock/internal/projauth"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/jwtes"
+	"github.com/israel-duff/xenibase/internal/messaging"
+	"github.com/israel-duff/xenibase/internal/projauth"
 )
 
 // Auth (V4 §4): sign-up, sign-in, sessions and tokens at /auth/v1/. It runs
 // in the project's database as the edge login, which alone can read the
-// pgd_auth tables; tokens are signed with the project's active key.
+// xb_auth tables; tokens are signed with the project's active key.
 
 const (
 	maxAuthBody = 64 << 10
@@ -58,7 +58,7 @@ func authBody(c *call, v any) bool {
 }
 
 // withAuth runs fn in one transaction as the edge login itself (no request
-// role): only it may read and write pgd_auth.
+// role): only it may read and write xb_auth.
 func (e *Edge) withAuth(ctx context.Context, p *project, fn func(pgx.Tx) error) error {
 	pool, err := e.dbPool(ctx, p)
 	if err != nil {
@@ -506,7 +506,7 @@ func linkPage(c *call, status int, msg string) {
 		`<title>Sign-in</title><p style="font:16px system-ui;max-width:32rem;margin:4rem auto;padding:0 1rem">%s</p>`, html.EscapeString(msg))
 }
 
-// sendEmail asks pgdock-server to send an auth email with code and link.
+// sendEmail asks xenibase-server to send an auth email with code and link.
 func (e *Edge) sendEmail(ctx context.Context, p *project, kind, linkType, to string, code projauth.Code, redirect string) error {
 	q := url.Values{"token": {code.Token}, "type": {linkType}}
 	if redirect != "" {

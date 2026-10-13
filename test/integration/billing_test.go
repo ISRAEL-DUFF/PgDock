@@ -13,10 +13,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/tenancy"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/tenancy"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestBillingAccountsAndRoles covers who sees billing (V3 §3.2), plan
@@ -206,7 +206,7 @@ func TestBillingAccountsAndRoles(t *testing.T) {
 		t.Fatalf("early publish: %d %+v", code, apiErr)
 	}
 	bad := prices
-	bad.Currency = "USD"
+	bad.Currency = "EUR"
 	if code := e.Do("PUT", path, gen.PriceBookInput{EffectiveAt: time.Now().Add(40 * 24 * time.Hour), Prices: bad}, nil); code != http.StatusBadRequest {
 		t.Errorf("invalid prices: %d", code)
 	}
@@ -260,23 +260,23 @@ func TestBillingAccountsAndRoles(t *testing.T) {
 	}
 	if code := e.Do("PUT", "/api/v1/admin/billing/settings", map[string]any{
 		"vat_rate": "0.075", "wht_rate": "0.05", "auto_issue": true,
-		"seller": map[string]string{"legal_name": "PGDock Ltd", "address": "Lagos", "tin": "999", "vat_number": "VAT-1", "email": "billing@pgdock.test"},
+		"seller": map[string]string{"legal_name": "Xenibase Ltd", "address": "Lagos", "tin": "999", "vat_number": "VAT-1", "email": "billing@xenibase.test"},
 	}, nil); code != http.StatusOK {
 		t.Fatalf("billing settings: %d", code)
 	}
 	if code := e.Do("PUT", "/api/v1/admin/billing/settings", map[string]any{
-		"vat_rate": "7.5", "wht_rate": "0.05", "auto_issue": true, "seller": map[string]string{"legal_name": "PGDock Ltd"},
+		"vat_rate": "7.5", "wht_rate": "0.05", "auto_issue": true, "seller": map[string]string{"legal_name": "Xenibase Ltd"},
 	}, nil); code != http.StatusBadRequest {
 		t.Errorf("a VAT rate of 7.5 (750%%): %d", code)
 	}
 }
 
-// TestCLIBilling drives billing from the pgdock binary with an admin token.
+// TestCLIBilling drives billing from the xenibase binary with an admin token.
 func TestCLIBilling(t *testing.T) {
 	e := testenv.Start(t, testenv.Options{})
 	bin := buildCLI(t)
 	token := e.CreateToken(map[string]any{"name": "finance", "org_id": e.OrgID, "scopes": []string{"read", "write", "admin"}})
-	env := []string{"PGDOCK_SERVER=" + e.URL, "PGDOCK_TOKEN=" + token, "PGDOCK_CONFIG_DIR=" + t.TempDir()}
+	env := []string{"XENIBASE_SERVER=" + e.URL, "XENIBASE_TOKEN=" + token, "XENIBASE_CONFIG_DIR=" + t.TempDir()}
 
 	if r := runCLI(t, bin, env, "billing", "show"); r.code != 0 || !strings.Contains(r.stdout, "Plan: Free (monthly)") {
 		t.Fatalf("billing show: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
@@ -312,20 +312,27 @@ func TestCLIBilling(t *testing.T) {
 		t.Fatalf("invoice: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
 	}
 
-	// Paying: a checkout link, then a transfer to the org's own account.
-	if r := runCLI(t, bin, env, "billing", "pay", *issued.Number); r.code != 0 || !strings.Contains(r.stdout, "http") || !strings.Contains(r.stdout, ngn(issued.TotalMinor)) {
-		t.Fatalf("pay: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
-	}
+	// Paying: open the wallet, transfer to its account, then pay from it.
+	w := openWallet(t, e, e.OrgID, "Finance")
 	r := runCLI(t, bin, env, "billing", "transfer")
-	fields := strings.Fields(strings.TrimPrefix(r.stdout, "Transfer to "))
-	if r.code != 0 || len(fields) == 0 {
+	if r.code != 0 || !strings.Contains(r.stdout, "Transfer to "+w.Account.AccountNumber) {
 		t.Fatalf("transfer: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
 	}
-	if _, err := e.ISpend.Transfer(strings.TrimSuffix(fields[0], ","), issued.TotalMinor); err != nil {
+	_, _, credited, err := e.ISWallet.Deposit(w.Account.AccountNumber, 2_000_000)
+	if err != nil {
 		t.Fatal(err)
 	}
-	awaitPay(t, "the transfer", func() bool { return invoiceStatus(e, issued.Id) == "paid" })
-	if r := runCLI(t, bin, env, "billing", "payments"); r.code != 0 || !strings.Contains(r.stdout, ngn(issued.TotalMinor)) || !strings.Contains(r.stdout, "transfer") {
+	awaitPay(t, "the deposit", func() bool { return walletOf(e, e.OrgID).LedgerMinor == credited })
+	if r := runCLI(t, bin, env, "billing", "wallet"); r.code != 0 || !strings.Contains(r.stdout, "Balance: "+ngn(credited)) || !strings.Contains(r.stdout, "Owed on open invoices: "+ngn(issued.TotalMinor)) {
+		t.Fatalf("wallet: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if r := runCLI(t, bin, env, "billing", "pay", *issued.Number); r.code != 0 || !strings.Contains(r.stdout, "Paid from the wallet ("+ngn(issued.TotalMinor)+")") {
+		t.Fatalf("pay: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
+	}
+	if s := invoiceStatus(e, issued.Id); s != "paid" {
+		t.Fatalf("after paying: %s", s)
+	}
+	if r := runCLI(t, bin, env, "billing", "payments"); r.code != 0 || !strings.Contains(r.stdout, ngn(credited)) || !strings.Contains(r.stdout, "transfer") {
 		t.Fatalf("payments: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
 	}
 }

@@ -14,8 +14,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/storage"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/storage"
 )
 
 // Large uploads (V4 §5.3): the edge checks the policies and quota, starts a
@@ -152,7 +152,7 @@ func (e *Edge) startUpload(c *call, req Request, bucket, path string) {
 		return
 	}
 	claims, _ := json.Marshal(s.Claims)
-	if _, err := pool.Exec(ctx, `INSERT INTO pgd_storage.uploads (id, bucket, path, version, upload_id, size, part_size, mime_type,
+	if _, err := pool.Exec(ctx, `INSERT INTO xb_storage.uploads (id, bucket, path, version, upload_id, size, part_size, mime_type,
 		upsert, owner, role, claims, user_metadata, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
 		s.ID, s.Bucket, s.Path, s.Version, s.UploadID, s.Size, s.PartSize, s.MIMEType, s.Upsert, s.Owner, s.Role, string(claims), s.Metadata, s.ExpiresAt); err != nil {
 		_ = cl.AbortMultipart(context.WithoutCancel(ctx), objectKey(sc, s.Version), s.UploadID)
@@ -205,7 +205,7 @@ func (e *Edge) loadSession(ctx context.Context, p *project, id uuid.UUID) (*sess
 	s := &session{ID: id}
 	var claims []byte
 	err = pool.QueryRow(ctx, `SELECT bucket, path, version, upload_id, size, part_size, mime_type, upsert, owner, role, claims,
-		user_metadata, expires_at FROM pgd_storage.uploads WHERE id = $1`, id).Scan(&s.Bucket, &s.Path, &s.Version, &s.UploadID, &s.Size,
+		user_metadata, expires_at FROM xb_storage.uploads WHERE id = $1`, id).Scan(&s.Bucket, &s.Path, &s.Version, &s.UploadID, &s.Size,
 		&s.PartSize, &s.MIMEType, &s.Upsert, &s.Owner, &s.Role, &claims, &s.Metadata, &s.ExpiresAt)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && time.Now().After(s.ExpiresAt)) {
 		return nil, errNoUpload
@@ -224,7 +224,7 @@ func (e *Edge) dropSession(ctx context.Context, p *project, id uuid.UUID) error 
 	if err != nil {
 		return err
 	}
-	_, err = pool.Exec(ctx, `DELETE FROM pgd_storage.uploads WHERE id = $1`, id)
+	_, err = pool.Exec(ctx, `DELETE FROM xb_storage.uploads WHERE id = $1`, id)
 	return err
 }
 

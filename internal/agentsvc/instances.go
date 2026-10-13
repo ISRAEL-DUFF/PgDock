@@ -16,9 +16,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/docker"
-	"github.com/israel-duff/pgdock/internal/walg"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/docker"
+	"github.com/israel-duff/xenibase/internal/walg"
 )
 
 // InstanceConfig configures instance management (dedicated tier, spec §4.2).
@@ -38,7 +38,7 @@ type InstanceConfig struct {
 	HBAAllow []string
 	// MoveAllow are the CIDRs other instances connect from to replicate a
 	// project during a move (V3 §2.3). Only the moves' own logins
-	// (pgdock_move_<id>) may use them; added to pg_hba.conf on every start,
+	// (xenibase_move_<id>) may use them; added to pg_hba.conf on every start,
 	// so instances created before V3 get them too.
 	MoveAllow []string
 	// EtcdImage is the image of the node's etcd member (V3 §2.2).
@@ -57,7 +57,7 @@ type instances struct {
 func newInstances(cfg InstanceConfig) *instances {
 	in := &instances{cfg: cfg, locks: map[string]*sync.Mutex{}}
 	if cfg.Image == "" {
-		in.err = errors.New("no instance image configured (PGDOCK_AGENT_PG_IMAGE)")
+		in.err = errors.New("no instance image configured (XENIBASE_AGENT_PG_IMAGE)")
 		return in
 	}
 	in.dc, in.err = docker.New(cfg.Docker)
@@ -93,7 +93,7 @@ func (in *instances) lock(id string) func() {
 var instanceID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 func names(id string) (container, volume, restore string) {
-	return "pgdock-" + id, "pgdock-" + id, "pgdock-" + id + "-restore"
+	return "xenibase-" + id, "xenibase-" + id, "xenibase-" + id + "-restore"
 }
 
 const (
@@ -101,7 +101,7 @@ const (
 	dataRoot = "/var/lib/postgresql"
 	// recoveryEnv holds a point-in-time recovery's source archive settings
 	// until recovery ends.
-	recoveryEnv = dataRoot + "/pgdock-recovery.env"
+	recoveryEnv = dataRoot + "/xenibase-recovery.env"
 )
 
 // validSetting keeps settings to plain parameter names and values that
@@ -150,7 +150,7 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 			return agentapi.Instance{}, err
 		}
 	}
-	labels := map[string]string{"pgdock.instance": spec.ID, "pgdock.kind": spec.Kind}
+	labels := map[string]string{"xenibase.instance": spec.ID, "xenibase.kind": spec.Kind}
 	if spec.Restore != nil {
 		// A half-finished earlier attempt may have left data behind.
 		_ = in.dc.RemoveContainer(ctx, restoreName)
@@ -198,7 +198,7 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 		"PGDATA=" + pgdataFor(spec.PGVersion),
 	}
 	if len(in.cfg.HBAAllow) > 0 {
-		env = append(env, "PGDOCK_HBA_ALLOW="+strings.Join(in.cfg.HBAAllow, ","))
+		env = append(env, "XENIBASE_HBA_ALLOW="+strings.Join(in.cfg.HBAAllow, ","))
 	}
 	if spec.WALG != nil {
 		env = append(env, walg.Env(*spec.WALG)...)
@@ -263,7 +263,7 @@ func (in *instances) checkMajor(ctx context.Context, name, image string, want in
 		return fmt.Errorf("instance %s: unexpected postgres -V output %q", name, strings.TrimSpace(r.Stdout))
 	}
 	if got, _ := strconv.Atoi(m[1]); got != want {
-		return fmt.Errorf("image %s runs Postgres %d, not %d: set the agent's image to a template with {major} (PGDOCK_AGENT_PG_IMAGE)", image, got, want)
+		return fmt.Errorf("image %s runs Postgres %d, not %d: set the agent's image to a template with {major} (XENIBASE_AGENT_PG_IMAGE)", image, got, want)
 	}
 	return nil
 }
@@ -291,7 +291,7 @@ func (in *instances) ready(ctx context.Context, name string) error {
 	if c, err := in.dc.InspectContainer(ctx, name); err == nil && c.Config.Labels[patroniLabel] != "" {
 		// Patroni owns pg_hba.conf (the move rules are in its
 		// configuration), and a new standby may restore for a long time:
-		// ready is Patroni answering. pgdock-server follows the member's
+		// ready is Patroni answering. xenibase-server follows the member's
 		// role and state through the REST API.
 		return in.waitPatroni(ctx, name)
 	}
@@ -307,13 +307,13 @@ func (in *instances) ensureMoveRules(ctx context.Context, log *slog.Logger) {
 	if in.err != nil || len(in.cfg.MoveAllow) == 0 {
 		return
 	}
-	cs, err := in.dc.ListContainers(ctx, "pgdock.instance")
+	cs, err := in.dc.ListContainers(ctx, "xenibase.instance")
 	if err != nil {
 		log.Warn("listing instances for the move rules", "err", err)
 		return
 	}
 	for _, c := range cs {
-		id := c.Labels["pgdock.instance"]
+		id := c.Labels["xenibase.instance"]
 		name, _, _ := names(id)
 		if c.State != "running" || !instanceID.MatchString(id) || !slices.Contains(c.Names, "/"+name) {
 			continue // stopped, or a restore's one-off container
@@ -327,7 +327,7 @@ func (in *instances) ensureMoveRules(ctx context.Context, log *slog.Logger) {
 }
 
 // moveHBAMark heads the rules ensureMoveHBA adds.
-const moveHBAMark = "# pgdock: logical-replication moves (V3 §2.3)"
+const moveHBAMark = "# xenibase: logical-replication moves (V3 §2.3)"
 
 // ensureMoveHBA appends, once, rules letting only the moves' logins in
 // from MoveAllow, and reloads the configuration.
@@ -341,13 +341,13 @@ func (in *instances) ensureMoveHBA(ctx context.Context, name string) error {
 		if _, _, err := net.ParseCIDR(c); err != nil {
 			return fmt.Errorf("move CIDR %q: %w", c, err)
 		}
-		fmt.Fprintf(&rules, "host all /^pgdock_move_[0-9a-f]+$ %s scram-sha-256\n", c)
+		fmt.Fprintf(&rules, "host all /^xenibase_move_[0-9a-f]+$ %s scram-sha-256\n", c)
 	}
-	r, err := in.dc.Exec(ctx, name, "postgres", []string{"PGDOCK_MOVE_RULES=" + rules.String(), "PGDOCK_MOVE_MARK=" + moveHBAMark}, []string{"sh", "-c",
-		`f="$(psql -XAtq -U "${POSTGRES_USER:-${PGDOCK_ADMIN_USER:-pgdock_admin}}" -h /var/run/postgresql -d postgres -c 'SHOW hba_file')" || exit 1
-grep -qxF "$PGDOCK_MOVE_MARK" "$f" && exit 0
-printf '%s' "$PGDOCK_MOVE_RULES" >> "$f" || exit 1
-psql -XAtq -U "${POSTGRES_USER:-${PGDOCK_ADMIN_USER:-pgdock_admin}}" -h /var/run/postgresql -d postgres -c 'SELECT pg_reload_conf()' >/dev/null`})
+	r, err := in.dc.Exec(ctx, name, "postgres", []string{"XENIBASE_MOVE_RULES=" + rules.String(), "XENIBASE_MOVE_MARK=" + moveHBAMark}, []string{"sh", "-c",
+		`f="$(psql -XAtq -U "${POSTGRES_USER:-${XENIBASE_ADMIN_USER:-xenibase_admin}}" -h /var/run/postgresql -d postgres -c 'SHOW hba_file')" || exit 1
+grep -qxF "$XENIBASE_MOVE_MARK" "$f" && exit 0
+printf '%s' "$XENIBASE_MOVE_RULES" >> "$f" || exit 1
+psql -XAtq -U "${POSTGRES_USER:-${XENIBASE_ADMIN_USER:-xenibase_admin}}" -h /var/run/postgresql -d postgres -c 'SELECT pg_reload_conf()' >/dev/null`})
 	if err != nil {
 		return err
 	}
@@ -389,14 +389,14 @@ func (in *instances) restore(ctx context.Context, spec agentapi.InstanceSpec, vo
 mkdir -p "$PGDATA" && chmod 700 "$PGDATA"
 wal-g backup-fetch "$PGDATA" "$BACKUP_NAME"
 touch "$PGDATA/recovery.signal"
-printf '\n# PGDock point-in-time recovery\n%s\n' "$RECOVERY_CONF" >> "$PGDATA/postgresql.auto.conf"
+printf '\n# Xenibase point-in-time recovery\n%s\n' "$RECOVERY_CONF" >> "$PGDATA/postgresql.auto.conf"
 (umask 077; printf '%s\n' "$RECOVERY_ENV" > "$RECOVERY_ENV_FILE")
 echo restored`
 	env := append(walg.Env(r.Source), "BACKUP_NAME="+r.BackupName, "RECOVERY_CONF="+strings.Join(conf, "\n"), "PGDATA="+pgdataFor(spec.PGVersion),
 		"RECOVERY_ENV="+shellExports(walg.Env(r.Source)), "RECOVERY_ENV_FILE="+recoveryEnv)
 	id, err := in.dc.CreateContainer(ctx, name, docker.ContainerConfig{
 		Image: agentapi.ImageFor(in.cfg.Image, spec.PGVersion), Entrypoint: []string{"sh", "-c"}, Cmd: []string{script}, Env: env, User: "postgres",
-		Labels: map[string]string{"pgdock.instance": spec.ID, "pgdock.role": "restore"},
+		Labels: map[string]string{"xenibase.instance": spec.ID, "xenibase.role": "restore"},
 		HostConfig: docker.HostConfig{
 			Mounts:      []docker.Mount{{Type: "volume", Source: vol, Target: dataRoot}},
 			NetworkMode: in.cfg.Network,
@@ -511,7 +511,7 @@ func (in *instances) Destroy(ctx context.Context, id string) error {
 func (in *instances) walgShell(ctx context.Context, id, script string) (docker.ExecResult, error) {
 	name, _, _ := names(id)
 	r, err := in.dc.Exec(ctx, name, "postgres", nil, []string{"sh", "-c",
-		`export PGUSER="${POSTGRES_USER:-${PGDOCK_ADMIN_USER:-pgdock_admin}}" PGHOST=/var/run/postgresql PGDATABASE=postgres; ` + script})
+		`export PGUSER="${POSTGRES_USER:-${XENIBASE_ADMIN_USER:-xenibase_admin}}" PGHOST=/var/run/postgresql PGDATABASE=postgres; ` + script})
 	if err != nil {
 		return r, err
 	}

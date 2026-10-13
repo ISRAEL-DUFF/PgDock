@@ -12,10 +12,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/pgverify"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/pgverify"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Restore modes (spec §6.5). ModePITR is a dedicated project's
@@ -224,7 +224,7 @@ func (s *Service) replaceContents(ctx context.Context, p store.Project, b store.
 	if err := s.restoreFrom(ctx, b, p, p.DbName, log); err != nil {
 		return err
 	}
-	// Webhook triggers come back from PGDock's configuration, with an
+	// Webhook triggers come back from Xenibase's configuration, with an
 	// empty outbox (V2 §9.3).
 	if err := s.projects.ResetWebhooks(ctx, p, log); err != nil {
 		return err
@@ -348,7 +348,7 @@ func (s *Service) runRestoreTest(ctx context.Context, op store.Operation, log *j
 func (s *Service) verifyRestore(ctx context.Context, p store.Project, b store.Backup, log *jobs.StepLogger) error {
 	suffix := make([]byte, 4)
 	_, _ = rand.Read(suffix)
-	scratch := "pgdock_restore_test_" + hex.EncodeToString(suffix)
+	scratch := "xenibase_restore_test_" + hex.EncodeToString(suffix)
 	admin, err := s.projects.AdminConn(ctx, p.InstanceID, "postgres")
 	if err != nil {
 		return err

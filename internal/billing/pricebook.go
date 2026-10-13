@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
 // Plans (V3 §3.1).
@@ -47,8 +47,9 @@ var PlanMetrics = []string{
 	tenancy.MetricRealtimeMessages,
 }
 
-// Prices is a price book's contents (V3 §3.9). Money is in kobo; unit
-// prices may have fractions of a kobo (amounts are rounded per line).
+// Prices is a price book's contents (V3 §3.9). Money is in the minor units
+// of Currency (cents for USD, the default; kobo for NGN); unit prices may
+// have fractions of a minor unit (amounts are rounded per line).
 type Prices struct {
 	Currency  string          `json:"currency"`
 	Plans     map[string]Plan `json:"plans"`
@@ -130,8 +131,8 @@ func invalidf(format string, a ...any) error {
 
 // Validate checks a price book's contents.
 func (p Prices) Validate() error {
-	if p.Currency != "NGN" {
-		return invalidf("currency must be NGN")
+	if p.Currency != CurrencyUSD && p.Currency != CurrencyNGN {
+		return invalidf("currency must be USD (converted to naira when an invoice is issued) or NGN")
 	}
 	for _, name := range []string{PlanFree, PlanPro, PlanTeam} {
 		if _, ok := p.Plans[name]; !ok {
@@ -214,8 +215,71 @@ func (p Prices) Rank(plan, term string) Dec { return p.Plans[plan].Monthly(term)
 
 // DefaultPrices is the first price book, used until an admin publishes
 // one. Its numbers are placeholders to replace with ones derived from
-// measured costs (V3 §3.1).
+// measured costs (V3 §3.1). Prices are in cents of a dollar (fractions
+// allowed); the comments give the same prices in naira at ₦1,500 to the
+// dollar, which is what the placeholders were first worked out in.
 func DefaultPrices() Prices {
+	m := func(kv ...string) map[string]Dec {
+		out := map[string]Dec{}
+		for i := 0; i < len(kv); i += 2 {
+			out[kv[i]] = D(kv[i+1])
+		}
+		return out
+	}
+	const (
+		storage = tenancy.MetricSharedStorage
+		backup  = tenancy.MetricBackupStorage
+		branch  = tenancy.MetricBranchHours
+		traffic = tenancy.MetricPoolerTraffic
+		hooks   = tenancy.MetricWebhookSent
+		sqlRuns = tenancy.MetricJobRunsSQL
+		http    = tenancy.MetricJobRunsHTTP
+		reqs    = tenancy.MetricAPIRequests
+		apiOut  = tenancy.MetricAPIEgress
+		mau     = tenancy.MetricAuthMAU
+		files   = tenancy.MetricStorageGBHours
+		fileOut = tenancy.MetricStorageEgress
+		renders = tenancy.MetricImageTransforms
+		rtConn  = tenancy.MetricRealtimeConnMinutes
+		rtMsgs  = tenancy.MetricRealtimeMessages
+	)
+	return Prices{
+		Currency: CurrencyUSD,
+		Plans: map[string]Plan{
+			PlanFree: {Name: "Free", QuotaPlan: "Personal", Included: map[string]Dec{}, Unit: map[string]Dec{}},
+			PlanPro: {
+				Name: "Pro", MonthlyMinor: 1_000, AnnualMinor: 10_000, QuotaPlan: "Pro", PaymentTermsDays: 7,
+				// 10 GB of storage, 30 GB of backups, 10 branches all month.
+				// Backend services (V4 §10.1): 5M requests, 250 GB out, 50k MAU, 50 GB of files and 250 GB
+				// downloaded, 10k transforms, 1,000 connections all month, 10M realtime messages.
+				Included: m(storage, "7300", backup, "21900", branch, "7300", traffic, "100", hooks, "100000", sqlRuns, "100000", http, "50000",
+					reqs, "5000000", apiOut, "250", mau, "50000", files, "36500", fileOut, "250", renders, "10000", rtConn, "43800000", rtMsgs, "10000000"),
+				// ₦250 per GB-month, ₦50 per backup GB-month, ₦100 per branch-month, ₦100 per GB moved, ₦20 per 1,000.
+				// Services: ₦3 per 1,000 requests, ₦150 per GB out, ₦5 per MAU, ₦30 per file GB-month, ₦150 per
+				// GB downloaded, ₦10 per 1,000 transforms, ₦16 per connection-month, ₦4 per 1,000 messages.
+				Unit: m(storage, "0.022833", backup, "0.004567", branch, "0.009133", traffic, "6.666667", hooks, "0.001333", sqlRuns, "0.001333", http, "0.001333",
+					reqs, "0.0002", apiOut, "10", mau, "0.333333", files, "0.00274", fileOut, "10", renders, "0.000667", rtConn, "0.000024", rtMsgs, "0.000267"),
+			},
+			PlanTeam: {
+				Name: "Team", MonthlyMinor: 4_000, AnnualMinor: 40_000, QuotaPlan: "Team", PaymentTermsDays: 14,
+				Included: m(storage, "36500", backup, "109500", branch, "36500", traffic, "500", hooks, "500000", sqlRuns, "500000", http, "250000",
+					reqs, "25000000", apiOut, "1000", mau, "200000", files, "146000", fileOut, "1000", renders, "50000", rtConn, "219000000", rtMsgs, "50000000"),
+				Unit: m(storage, "0.018267", backup, "0.003653", branch, "0.007307", traffic, "5.333333", hooks, "0.001067", sqlRuns, "0.001067", http, "0.001067",
+					reqs, "0.00016", apiOut, "8", mau, "0.266667", files, "0.002193", fileOut, "8", renders, "0.000533", rtConn, "0.000019", rtMsgs, "0.000213"),
+			},
+		},
+		// ₦20,000 per vCPU-month, ₦5,000 per GB of RAM, ₦250 per GB of disk.
+		Dedicated: Dedicated{VCPUHour: D("1.826667"), RAMGBHour: D("0.456667"), DiskGBHour: D("0.022833")},
+		// ₦5,000 a month for 14-day PITR, ₦12,000 for 30 days; ₦1,500 for extended
+		// backup retention, ₦3,000 for long. No region premium until an admin sets one.
+		AddOns: AddOns{HAPremiumPercent: D("20"), SyncReplicationHour: D("0.913333"), MessageMarginPercent: D("20"),
+			PITR14Hour: D("0.456667"), PITR30Hour: D("1.096"), RetentionExtendedHour: D("0.137"), RetentionLongHour: D("0.274")},
+	}
+}
+
+// DefaultPricesNGN is the first price book of platforms that price in naira:
+// the numbers Xenibase launched with. Prices are in kobo.
+func DefaultPricesNGN() Prices {
 	m := func(kv ...string) map[string]Dec {
 		out := map[string]Dec{}
 		for i := 0; i < len(kv); i += 2 {

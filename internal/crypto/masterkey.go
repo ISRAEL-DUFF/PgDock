@@ -1,4 +1,4 @@
-// Package crypto holds PGDock's cryptographic helpers. This file covers
+// Package crypto holds Xenibase's cryptographic helpers. This file covers
 // master-key envelope encryption of secrets stored in the metadata DB
 // (spec §7.3); SCRAM verifiers and the agent CA arrive in later milestones.
 package crypto
@@ -58,7 +58,7 @@ func newKey(raw []byte) (key, error) {
 	if err != nil {
 		return key{}, err
 	}
-	sum := sha256.Sum256(append([]byte("pgdock master key id\x00"), raw...))
+	sum := sha256.Sum256(append([]byte("xenibase master key id\x00"), raw...))
 	var id KeyID
 	copy(id[:], sum[:keyIDSize])
 	return key{id: id, aead: aead, raw: append([]byte(nil), raw...)}, nil
@@ -170,7 +170,7 @@ func additionalData(header, aad []byte) []byte {
 // a SCRAM salt. They change when the primary key is rotated.
 func (k *Keyring) Derive(label string, n int) []byte {
 	h := hmac.New(sha256.New, k.primary.raw)
-	h.Write([]byte("pgdock derive\x00" + label))
+	h.Write([]byte("xenibase derive\x00" + label))
 	return h.Sum(nil)[:min(n, sha256.Size)]
 }
 

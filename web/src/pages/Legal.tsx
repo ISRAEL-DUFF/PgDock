@@ -71,7 +71,7 @@ export function OrgLegalPage() {
   return (
     <Page
       title="Legal"
-      description="The agreements between your organisation and PGDock, alongside the terms of use, privacy notice and acceptable use policy each person accepts. An owner accepts them for the organisation; a new version needs accepting again."
+      description="The agreements between your organisation and Xenibase, alongside the terms of use, privacy notice and acceptable use policy each person accepts. An owner accepts them for the organisation; a new version needs accepting again."
       testId="org-legal"
     >
       {err && <Alert>{err}</Alert>}

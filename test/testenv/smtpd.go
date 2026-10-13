@@ -56,7 +56,7 @@ func (s *SMTPServer) Mail() []Mail {
 func (s *SMTPServer) serve(c net.Conn) {
 	defer c.Close()
 	tp := textproto.NewConn(c)
-	_ = tp.PrintfLine("220 pgdock-test ESMTP")
+	_ = tp.PrintfLine("220 xenibase-test ESMTP")
 	var m Mail
 	for {
 		line, err := tp.ReadLine()
@@ -66,7 +66,7 @@ func (s *SMTPServer) serve(c net.Conn) {
 		cmd := strings.ToUpper(line)
 		switch {
 		case strings.HasPrefix(cmd, "EHLO"), strings.HasPrefix(cmd, "HELO"):
-			_ = tp.PrintfLine("250-pgdock-test")
+			_ = tp.PrintfLine("250-xenibase-test")
 			_ = tp.PrintfLine("250 AUTH PLAIN")
 		case strings.HasPrefix(cmd, "AUTH PLAIN"):
 			m.Auth = decodePlain(strings.TrimSpace(line[len("AUTH PLAIN"):]))

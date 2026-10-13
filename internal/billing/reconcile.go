@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Reconciliation compares the ledger's payments with a provider's
@@ -29,10 +29,10 @@ type Reconciliation struct {
 
 // Difference is one thing that doesn't match.
 type Difference struct {
-	Kind        string `json:"kind"` // missing_in_pgdock, missing_at_provider, amount, fee
+	Kind        string `json:"kind"` // missing_in_xenibase, missing_at_provider, amount, fee
 	ProviderRef string `json:"provider_ref"`
 	Provider    int64  `json:"provider_minor"`
-	PGDock      int64  `json:"pgdock_minor"`
+	Xenibase    int64  `json:"xenibase_minor"`
 	Note        string `json:"note,omitempty"`
 }
 
@@ -67,16 +67,16 @@ func (s *Service) Reconcile(ctx context.Context, from, to time.Time) ([]Reconcil
 			p, err := q.GetPaymentByProviderRef(ctx, store.GetPaymentByProviderRefParams{Provider: name, ProviderRef: tx.ProviderRef})
 			switch {
 			case errors.Is(err, pgx.ErrNoRows):
-				r.Differences = append(r.Differences, Difference{Kind: "missing_in_pgdock", ProviderRef: tx.ProviderRef, Provider: tx.AmountMinor})
+				r.Differences = append(r.Differences, Difference{Kind: "missing_in_xenibase", ProviderRef: tx.ProviderRef, Provider: tx.AmountMinor})
 				continue
 			case err != nil:
 				return out, err
 			}
 			switch {
 			case p.AmountMinor != tx.AmountMinor:
-				r.Differences = append(r.Differences, Difference{Kind: "amount", ProviderRef: tx.ProviderRef, Provider: tx.AmountMinor, PGDock: p.AmountMinor})
+				r.Differences = append(r.Differences, Difference{Kind: "amount", ProviderRef: tx.ProviderRef, Provider: tx.AmountMinor, Xenibase: p.AmountMinor})
 			case p.FeeMinor != tx.FeeMinor:
-				r.Differences = append(r.Differences, Difference{Kind: "fee", ProviderRef: tx.ProviderRef, Provider: tx.FeeMinor, PGDock: p.FeeMinor})
+				r.Differences = append(r.Differences, Difference{Kind: "fee", ProviderRef: tx.ProviderRef, Provider: tx.FeeMinor, Xenibase: p.FeeMinor})
 			default:
 				r.Matched++
 				r.GrossMinor += p.AmountMinor
@@ -89,13 +89,16 @@ func (s *Service) Reconcile(ctx context.Context, from, to time.Time) ([]Reconcil
 		}
 		for _, p := range recorded {
 			if !seen[p.ProviderRef] {
-				r.Differences = append(r.Differences, Difference{Kind: "missing_at_provider", ProviderRef: p.ProviderRef, PGDock: p.AmountMinor})
+				r.Differences = append(r.Differences, Difference{Kind: "missing_at_provider", ProviderRef: p.ProviderRef, Xenibase: p.AmountMinor})
 			}
 		}
 		out = append(out, r)
 		if len(r.Differences) > 0 {
 			s.log.Warn("billing: reconciliation differences", "provider", name, "from", from, "differences", len(r.Differences))
 		}
+	}
+	if s.wallets != nil {
+		out = append(out, s.reconcileWalletBalances(ctx))
 	}
 	raw, _ := json.Marshal(out)
 	if err := q.PutSetting(ctx, store.PutSettingParams{Key: reconcileKey, Value: raw}); err != nil {
@@ -116,4 +119,46 @@ func (s *Service) LastReconciliation(ctx context.Context) ([]Reconciliation, err
 	var out []Reconciliation
 	err = json.Unmarshal(raw, &out)
 	return out, err
+}
+
+// reconcileWalletBalances compares what each wallet holds at the provider
+// with what Xenibase's books say it holds (wallet_balance): they are the same
+// money, so any difference is a deposit missed, a debit not booked, or a
+// movement Xenibase didn't make.
+func (s *Service) reconcileWalletBalances(ctx context.Context) Reconciliation {
+	now := s.Now()
+	r := Reconciliation{Provider: s.wallets.Name() + " balances", From: now, To: now, Differences: []Difference{}, RanAt: now}
+	accts, err := store.New(s.db).ListBillingAccounts(ctx)
+	if err != nil {
+		r.Error = err.Error()
+		return r
+	}
+	for _, a := range accts {
+		wid := walletIDOf(a.ProviderCustomers)
+		if wid == "" {
+			continue
+		}
+		b, err := s.wallets.Balance(ctx, wid)
+		if err != nil {
+			r.Error = fmt.Sprintf("wallet %s: %v", wid, err)
+			continue
+		}
+		org := a.OrgID
+		led, err := Balance(ctx, s.db, &org, AccWalletBalance)
+		if err != nil {
+			r.Error = err.Error()
+			continue
+		}
+		if held := -led; held != b.Total {
+			r.Differences = append(r.Differences, Difference{Kind: "wallet_balance", ProviderRef: a.OrgName + " " + wid, Provider: b.Total, Xenibase: held,
+				Note: "the wallet and Xenibase's books disagree"})
+			continue
+		}
+		r.Matched++
+		r.GrossMinor += b.Total
+	}
+	if len(r.Differences) > 0 {
+		s.log.Warn("billing: wallet balances differ from the books", "differences", len(r.Differences))
+	}
+	return r
 }

@@ -285,7 +285,7 @@ type InsertIncidentParams struct {
 	CreatedBy  *uuid.UUID
 }
 
-// Incidents (V3 §2.6): the platform admin's, pushed to pgdock-status.
+// Incidents (V3 §2.6): the platform admin's, pushed to xenibase-status.
 func (q *Queries) InsertIncident(ctx context.Context, arg InsertIncidentParams) (Incident, error) {
 	row := q.db.QueryRow(ctx, insertIncident,
 		arg.Title,
@@ -434,7 +434,7 @@ type InsertMaintenanceDraftParams struct {
 	ProposedFor    *string
 }
 
-// tenant: system - maintenance PGDock proposes; not announced until confirmed.
+// tenant: system - maintenance Xenibase proposes; not announced until confirmed.
 func (q *Queries) InsertMaintenanceDraft(ctx context.Context, arg InsertMaintenanceDraftParams) (Incident, error) {
 	row := q.db.QueryRow(ctx, insertMaintenanceDraft,
 		arg.Title,

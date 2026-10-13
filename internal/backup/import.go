@@ -12,10 +12,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // SharedExtensions is the shared tier's extension allow-list (spec §7.4).
@@ -84,7 +84,7 @@ func connectSource(ctx context.Context, raw string) (*pgx.Conn, agentapi.PGConn,
 		return nil, pg, fmt.Errorf("%w: %w", ErrInvalid, redactErr(err, pg.Password))
 	}
 	cfg.ConnectTimeout = 15 * time.Second
-	cfg.RuntimeParams["application_name"] = "pgdock-import"
+	cfg.RuntimeParams["application_name"] = "xenibase-import"
 	cfg.RuntimeParams["default_transaction_read_only"] = "on"
 	conn, err := pgx.ConnectConfig(ctx, cfg)
 	if err != nil {
@@ -124,7 +124,7 @@ func preflight(ctx context.Context, conn *pgx.Conn) (Preflight, error) {
 		pf.Warnings = append(pf.Warnings, "source Postgres is older than 12; pg_dump 18 may not support it")
 	}
 	if pf.ServerVersionNum >= 190000 {
-		return pf, fmt.Errorf("%w: source Postgres %s is newer than PGDock's 18", ErrInvalid, pf.ServerVersion)
+		return pf, fmt.Errorf("%w: source Postgres %s is newer than Xenibase's 18", ErrInvalid, pf.ServerVersion)
 	}
 	if err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'auth')
 		AND EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('authenticated', 'service_role'))`).Scan(&pf.Supabase); err != nil {
@@ -300,7 +300,7 @@ func (s *Service) runImport(ctx context.Context, op store.Operation, log *jobs.S
 	params := wrapper.Import
 	sourceURL, ok := s.ephemeral.Get(params.SourceRef)
 	if !ok {
-		return jobs.Permanent(errors.New("the source connection string is no longer in memory (pgdock-server restarted?); start the import again"))
+		return jobs.Permanent(errors.New("the source connection string is no longer in memory (xenibase-server restarted?); start the import again"))
 	}
 	defer s.ephemeral.Delete(params.SourceRef)
 	source, err := agentapi.ParseURL(sourceURL)

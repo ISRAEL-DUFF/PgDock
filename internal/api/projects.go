@@ -8,11 +8,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/dedicated"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // ListProjects implements GET /api/v1/projects.
@@ -333,7 +333,7 @@ func (s *Server) myProjectRoles(ctx context.Context, acc access, userID uuid.UUI
 func (s *Server) requireProjects(w http.ResponseWriter) bool {
 	if s.projects == nil {
 		writeError(w, http.StatusServiceUnavailable, "unavailable",
-			"project provisioning is not configured (set PGDOCK_POOLER_CONFIG_DIR and the pooler settings)")
+			"project provisioning is not configured (set XENIBASE_POOLER_CONFIG_DIR and the pooler settings)")
 		return false
 	}
 	return true

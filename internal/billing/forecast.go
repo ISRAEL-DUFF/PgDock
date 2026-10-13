@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Forecast is an org's projected spend for the current month (V3 §3.10),
@@ -109,14 +109,14 @@ func (s *Service) RefreshForecast(ctx context.Context, orgID uuid.UUID) (Forecas
 	month := f.Month.Format("January 2006")
 	if crossed > 0 {
 		s.notifyOrg(ctx, orgID, "billing.budget",
-			fmt.Sprintf("PGDock: %s's spend is forecast at %d%% of its budget", s.orgName(ctx, orgID), crossed),
+			fmt.Sprintf("Xenibase: %s's spend is forecast at %d%% of its budget", s.orgName(ctx, orgID), crossed),
 			fmt.Sprintf("The forecast for %s is %s before VAT, %d%% of the monthly budget of %s.\n\nSee the forecast and what drives it: %s/org/billing?org=%s\n",
 				month, Naira(f.Spend), crossed, Naira(*a.BudgetMinor), s.publicURL, orgID))
 	}
 	switch {
 	case capped && !a.Capped:
 		s.notifyOrg(ctx, orgID, "billing.spend_cap",
-			fmt.Sprintf("PGDock: %s has reached its spend cap", s.orgName(ctx, orgID)),
+			fmt.Sprintf("Xenibase: %s has reached its spend cap", s.orgName(ctx, orgID)),
 			fmt.Sprintf("Usage charges for %s are forecast at %s, at or above the spend cap of %s.\n\n"+
 				"Until the cap is raised or next month starts, new branches, dedicated instances and HA are refused, webhook deliveries queue, and scheduled jobs are skipped. "+
 				"Backend services slow down: data and storage API rate limits are tightened, new image transforms pause and new realtime connections are refused; sign-in and existing connections carry on. "+
@@ -154,7 +154,7 @@ func (s *Service) notifyOrg(ctx context.Context, orgID uuid.UUID, event, subject
 	if err != nil || len(to) == 0 {
 		return
 	}
-	if err := s.mail.Send(ctx, mail.Message{To: to, Subject: subject, Body: body, Headers: map[string]string{"X-PGDock-Event": event}}); err != nil {
+	if err := s.mail.Send(ctx, mail.Message{To: to, Subject: subject, Body: body, Headers: map[string]string{"X-Xenibase-Event": event}}); err != nil {
 		s.log.Warn("billing email", "org", orgID, "event", event, "err", err)
 	}
 }
@@ -168,6 +168,10 @@ type Estimate struct {
 	HourlyMinor  int64
 	MonthlyMinor int64 // 730 hours
 	Lines        []Line
+	// For a dollar price book, the dollar price (cents) of a month and the
+	// rate the naira figures above are at.
+	MonthlyUSDMinor int64
+	FX              *FXQuote
 }
 
 // EstimateRequest describes what would run.
@@ -257,5 +261,18 @@ func (s *Service) EstimateDedicated(ctx context.Context, orgID uuid.UUID, r Esti
 	}
 	e.HourlyMinor = hourly.Round()
 	e.MonthlyMinor = hourly.Frac(HoursPerMonth, 1).Round()
+	if p.Currency == CurrencyUSD {
+		fx, err := s.Quote(ctx, false)
+		if err != nil {
+			return Estimate{}, err
+		}
+		e.MonthlyUSDMinor, e.FX = e.MonthlyMinor, &fx
+		e.HourlyMinor, e.MonthlyMinor = hourly.Mul(fx.Effective).Round(), hourly.Mul(fx.Effective).Frac(HoursPerMonth, 1).Round()
+		for i := range e.Lines {
+			l := &e.Lines[i]
+			l.AmountUSD, l.UnitPriceUSD = l.Amount, l.UnitPrice
+			l.Amount, l.UnitPrice = fx.Naira(l.Amount), l.UnitPrice.Mul(fx.Effective)
+		}
+	}
 	return e, nil
 }

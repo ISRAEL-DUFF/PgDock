@@ -10,11 +10,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Proposed maintenance (V4.1 §8.2): when the window gate holds work back,
-// PGDock drafts the announcement it needs. A draft is not announced: it
+// Xenibase drafts the announcement it needs. A draft is not announced: it
 // isn't on the status page, emails no one, and excludes nothing, until
 // the admin confirms it.
 

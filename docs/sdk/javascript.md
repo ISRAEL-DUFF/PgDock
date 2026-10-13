@@ -1,16 +1,16 @@
 # JavaScript SDK
 
-`@pgdock/client` works in browsers, React Native and Node 18+ (realtime
+`@xenibase/client` works in browsers, React Native and Node 18+ (realtime
 needs a `WebSocket`, built into browsers, React Native and Node 22). It has
 no dependencies.
 
-    npm install @pgdock/client
+    npm install @xenibase/client
 
 ```ts
-import { createClient } from "@pgdock/client";
-import type { Database } from "./database.types"; // pgdock gen types --lang ts
+import { createClient } from "@xenibase/client";
+import type { Database } from "./database.types"; // xenibase gen types --lang ts
 
-export const pgd = createClient<Database>("https://k7f3m2q9.api.pgdock.ng", "pgd_pub_…");
+export const xb = createClient<Database>("https://k7f3m2q9.api.xenibase.ng", "xb_pub_…");
 ```
 
 The URL and keys are on Project → API. Use the **publishable key** in apps.
@@ -21,13 +21,13 @@ Use the **secret key** only on servers: it skips row-level security.
 Calls never throw for API errors. Each one resolves to `{ data, error }`:
 
 - `data` is the result, or `null` when the call failed.
-- `error` is a `PgdockError` with `status`, `code` (such as
+- `error` is a `XenibaseError` with `status`, `code` (such as
   `rls_required` or `invalid_credentials`), `message` and `requestId`.
 
 A network failure is `status: 0` with `code: "network_error"`.
 
 ```ts
-const { data, error } = await pgd.data.from("todos").select();
+const { data, error } = await xb.data.from("todos").select();
 if (error?.code === "rls_required") …
 ```
 
@@ -35,7 +35,7 @@ if (error?.code === "rls_required") …
 
 ```ts
 // Read
-const { data, count, nextCursor } = await pgd.data
+const { data, count, nextCursor } = await xb.data
   .from("todos")
   .select("id, title, done, list:lists(name)") // related rows through foreign keys
   .eq("done", false)
@@ -44,18 +44,18 @@ const { data, count, nextCursor } = await pgd.data
   .order("created_at", "desc")
   .limit(20)
   .count();
-const next = await pgd.data.from("todos").select().cursor(nextCursor);
-const one = await pgd.data.from("todos").get(42);
+const next = await xb.data.from("todos").select().cursor(nextCursor);
+const one = await xb.data.from("todos").get(42);
 
 // Write
-await pgd.data.from("todos").insert({ title: "Buy milk" });
-await pgd.data.from("todos").update({ done: true }).eq("id", 42);
-await pgd.data.from("todos").delete().byKey(42);
-await pgd.data.from("stock").upsert({ item: "tea", n: 9 }, { onConflict: ["item"] });
+await xb.data.from("todos").insert({ title: "Buy milk" });
+await xb.data.from("todos").update({ done: true }).eq("id", 42);
+await xb.data.from("todos").delete().byKey(42);
+await xb.data.from("stock").upsert({ item: "tea", n: 9 }, { onConflict: ["item"] });
 
 // Functions and transactions
-await pgd.data.rpc("close_cart", { cart_id: 4 });
-await pgd.data.batch([
+await xb.data.rpc("close_cart", { cart_id: 4 });
+await xb.data.batch([
   { op: "insert", table: "orders", rows: [{ item: "tea" }] },
   { op: "update", table: "carts", key: 4, set: { closed: true } },
 ]);
@@ -82,25 +82,25 @@ asks for a resync, and after a reconnect. Turn realtime on for the table
 first (Project → Realtime).
 
 ```ts
-const stop = pgd.data.from("todos").select("id, title").eq("done", false).live(({ data }) => render(data));
+const stop = xb.data.from("todos").select("id, title").eq("done", false).live(({ data }) => render(data));
 // later: stop()
 ```
 
 ## Auth
 
 ```ts
-await pgd.auth.signUp({ email, password, data: { name: "Ada" } }); // session is null until confirmed
-await pgd.auth.signInWithPassword({ email, password });             // or { phone, password }
-await pgd.auth.signInWithOtp({ phone: "08031234567", channel: "whatsapp" }); // or { email }
-await pgd.auth.verifyOtp({ type: "whatsapp", phone: "+2348031234567", token: "123456" });
-await pgd.auth.signInAnonymously();
-await pgd.auth.signInWithOAuth({ provider: "google", redirectTo: "https://app.example.com/auth/callback" });
-await pgd.auth.signOut();
+await xb.auth.signUp({ email, password, data: { name: "Ada" } }); // session is null until confirmed
+await xb.auth.signInWithPassword({ email, password });             // or { phone, password }
+await xb.auth.signInWithOtp({ phone: "08031234567", channel: "whatsapp" }); // or { email }
+await xb.auth.verifyOtp({ type: "whatsapp", phone: "+2348031234567", token: "123456" });
+await xb.auth.signInAnonymously();
+await xb.auth.signInWithOAuth({ provider: "google", redirectTo: "https://app.example.com/auth/callback" });
+await xb.auth.signOut();
 
-const session = await pgd.auth.getSession();
-const { data: user } = await pgd.auth.getUser();
-await pgd.auth.updateUser({ data: { name: "Ada L." } });
-pgd.auth.onAuthStateChange((event, session) => …); // SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT, …
+const session = await xb.auth.getSession();
+const { data: user } = await xb.auth.getUser();
+await xb.auth.updateUser({ data: { name: "Ada L." } });
+xb.auth.onAuthStateChange((event, session) => …); // SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT, …
 ```
 
 - **Sessions** are kept in `localStorage` in browsers, and in memory
@@ -122,13 +122,13 @@ On a server, act as the user who made the request by passing their access
 token. The client then keeps no session:
 
 ```ts
-const pgd = createClient(url, publishableKey, { accessToken: () => cookies().get("pgd-access")?.value });
+const xb = createClient(url, publishableKey, { accessToken: () => cookies().get("xb-access")?.value });
 ```
 
 ## Storage
 
 ```ts
-const avatars = pgd.storage.bucket("avatars");
+const avatars = xb.storage.bucket("avatars");
 await avatars.upload(`${user.id}/me.png`, file, { contentType: "image/png", upsert: true });
 const { data: blob } = await avatars.download(`${user.id}/me.png`);
 const { data: url } = await avatars.signedUrl(`${user.id}/me.png`, { expiresIn: 3600, transform: { width: 200 } });
@@ -144,7 +144,7 @@ Buckets are created with the secret key: `storage.createBucket("avatars",
 ## Realtime
 
 ```ts
-const channel = pgd.realtime
+const channel = xb.realtime
   .channel("room-1")
   .onChange({ event: "INSERT", table: "messages", filter: "room_id=eq.1" }, (c) => add(c.record))
   .onBroadcast("typing", (payload) => showTyping(payload))
@@ -166,6 +166,6 @@ await channel.unsubscribe();
 
 ## Type generation
 
-    pgdock gen types --lang ts --project my-app > src/database.types.ts
+    xenibase gen types --lang ts --project my-app > src/database.types.ts
 
 Pass the generated type to `createClient<Database>(…)`.

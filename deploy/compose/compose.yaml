@@ -1,20 +1,20 @@
-# PGDock on a single host (spec §11.1): Caddy, pgdock-server, the metadata
+# Xenibase on a single host (spec §11.1): Caddy, xenibase-server, the metadata
 # database, the shared PostgreSQL 18 cluster, the two PgBouncer poolers, and
 # the node agent (backups, restores, imports, and dedicated instances).
 #
 #   ./install.sh            writes .env with generated secrets, then starts it
 #   docker compose up -d    (with an existing .env)
 #
-# Then open https://$PGDOCK_UI_DOMAIN and enter the setup code from
-# `docker compose logs pgdock-server`.
+# Then open https://$XENIBASE_UI_DOMAIN and enter the setup code from
+# `docker compose logs xenibase-server`.
 
-name: pgdock
+name: xenibase
 
 x-pooler: &pooler
   image: edoburu/pgbouncer:v1.25.1-p0
   restart: unless-stopped
   depends_on:
-    pgdock-server:
+    xenibase-server:
       condition: service_healthy
   healthcheck:
     test: ["CMD-SHELL", "nc -z 127.0.0.1 $$(grep -E '^listen_port' /etc/pgbouncer/pgbouncer.ini | tr -dc 0-9)"]
@@ -27,11 +27,11 @@ services:
     image: caddy:2
     restart: unless-stopped
     ports:
-      - "${PGDOCK_HTTP_PORT:-80}:80"
-      - "${PGDOCK_HTTPS_PORT:-443}:443"
+      - "${XENIBASE_HTTP_PORT:-80}:80"
+      - "${XENIBASE_HTTPS_PORT:-443}:443"
     environment:
-      PGDOCK_UI_DOMAIN: ${PGDOCK_UI_DOMAIN:?set PGDOCK_UI_DOMAIN in .env}
-      PGDOCK_ACME_EMAIL: ${PGDOCK_ACME_EMAIL:?set PGDOCK_ACME_EMAIL in .env}
+      XENIBASE_UI_DOMAIN: ${XENIBASE_UI_DOMAIN:?set XENIBASE_UI_DOMAIN in .env}
+      XENIBASE_ACME_EMAIL: ${XENIBASE_ACME_EMAIL:?set XENIBASE_ACME_EMAIL in .env}
       CADDY_UI_TLS: ${CADDY_UI_TLS:-}
       CADDY_GLOBAL_OPTIONS: ${CADDY_GLOBAL_OPTIONS:-}
     volumes:
@@ -42,8 +42,8 @@ services:
       default:
         ipv4_address: 172.31.250.10
 
-  pgdock-server:
-    image: ${PGDOCK_IMAGE:-pgdock:local}
+  xenibase-server:
+    image: ${XENIBASE_IMAGE:-xenibase:local}
     build:
       context: ../..
     restart: unless-stopped
@@ -53,132 +53,126 @@ services:
       shared-pg:
         condition: service_healthy
     environment:
-      PGDOCK_DATABASE_URL: postgres://pgdock:${METADATA_DB_PASSWORD:?}@metadata-db:5432/pgdock?sslmode=disable
-      PGDOCK_MASTER_KEY: ${PGDOCK_MASTER_KEY:?run install.sh or set PGDOCK_MASTER_KEY}
-      PGDOCK_LOG_FORMAT: ${PGDOCK_LOG_FORMAT:-json}
+      XENIBASE_DATABASE_URL: postgres://xenibase:${METADATA_DB_PASSWORD:?}@metadata-db:5432/xenibase?sslmode=disable
+      XENIBASE_MASTER_KEY: ${XENIBASE_MASTER_KEY:?run install.sh or set XENIBASE_MASTER_KEY}
+      XENIBASE_LOG_FORMAT: ${XENIBASE_LOG_FORMAT:-json}
       # Caddy terminates TLS; trust its X-Forwarded-For.
-      PGDOCK_TRUSTED_PROXIES: 172.31.250.10
+      XENIBASE_TRUSTED_PROXIES: 172.31.250.10
       # Links in account, invitation, and alert email.
-      PGDOCK_PUBLIC_URL: ${PGDOCK_PUBLIC_URL:-https://${PGDOCK_UI_DOMAIN}}
-      PGDOCK_PUBLIC_IPS: ${PGDOCK_PUBLIC_IPS:-}
-      PGDOCK_SETUP_CODE: ${PGDOCK_SETUP_CODE:-}
-      PGDOCK_SHARED_ADMIN_URL: postgres://pgdock_admin:${SHARED_ADMIN_PASSWORD:?}@shared-pg:5432/postgres?sslmode=disable
-      PGDOCK_SHARED_POOLER_HOST: shared-pg
-      PGDOCK_POOLER_ADMIN_PASSWORD: ${POOLER_ADMIN_PASSWORD:?}
-      PGDOCK_POOLER_SESSION_ADDR: pooler-session:5432
-      PGDOCK_POOLER_POOLED_ADDR: pooler-tx:6543
-      PGDOCK_POOLER_SSLMODE: require
-      PGDOCK_POOLER_TLS: ${PGDOCK_POOLER_TLS:-acme}
-      PGDOCK_ACME_EMAIL: ${PGDOCK_ACME_EMAIL:?}
-      PGDOCK_ACME_CA: ${PGDOCK_ACME_CA:-}
-      PGDOCK_ACME_CA_ROOTS: ${PGDOCK_ACME_CA_ROOTS:-}
+      XENIBASE_PUBLIC_URL: ${XENIBASE_PUBLIC_URL:-https://${XENIBASE_UI_DOMAIN}}
+      XENIBASE_PUBLIC_IPS: ${XENIBASE_PUBLIC_IPS:-}
+      XENIBASE_SETUP_CODE: ${XENIBASE_SETUP_CODE:-}
+      XENIBASE_SHARED_ADMIN_URL: postgres://xenibase_admin:${SHARED_ADMIN_PASSWORD:?}@shared-pg:5432/postgres?sslmode=disable
+      XENIBASE_SHARED_POOLER_HOST: shared-pg
+      XENIBASE_POOLER_ADMIN_PASSWORD: ${POOLER_ADMIN_PASSWORD:?}
+      XENIBASE_POOLER_SESSION_ADDR: pooler-session:5432
+      XENIBASE_POOLER_POOLED_ADDR: pooler-tx:6543
+      XENIBASE_POOLER_SSLMODE: require
+      XENIBASE_POOLER_TLS: ${XENIBASE_POOLER_TLS:-acme}
+      XENIBASE_ACME_EMAIL: ${XENIBASE_ACME_EMAIL:?}
+      XENIBASE_ACME_CA: ${XENIBASE_ACME_CA:-}
+      XENIBASE_ACME_CA_ROOTS: ${XENIBASE_ACME_CA_ROOTS:-}
       # The wizard sets the DB hostname; this is only the starting value.
-      PGDOCK_DB_HOST: ${PGDOCK_DB_HOST:-${PGDOCK_UI_DOMAIN}}
-      PGDOCK_DB_SESSION_PORT: ${PGDOCK_DB_SESSION_PORT:-5432}
-      PGDOCK_DB_POOLED_PORT: ${PGDOCK_DB_POOLED_PORT:-6543}
-      PGDOCK_DB_SSLMODE: require
+      XENIBASE_DB_HOST: ${XENIBASE_DB_HOST:-${XENIBASE_UI_DOMAIN}}
+      XENIBASE_DB_SESSION_PORT: ${XENIBASE_DB_SESSION_PORT:-5432}
+      XENIBASE_DB_POOLED_PORT: ${XENIBASE_DB_POOLED_PORT:-6543}
+      XENIBASE_DB_SSLMODE: require
       # Lets the bundled agent register the local node by itself.
-      PGDOCK_AGENT_BOOTSTRAP_TOKEN: ${AGENT_BOOTSTRAP_TOKEN:?run install.sh or set AGENT_BOOTSTRAP_TOKEN}
-      PGDOCK_BACKUP_HOUR: ${PGDOCK_BACKUP_HOUR:-2}
-      PGDOCK_METRICS_INTERVAL: ${PGDOCK_METRICS_INTERVAL:-1m}
-      PGDOCK_TENANCY_SWEEP_INTERVAL: ${PGDOCK_TENANCY_SWEEP_INTERVAL:-5m}
+      XENIBASE_AGENT_BOOTSTRAP_TOKEN: ${AGENT_BOOTSTRAP_TOKEN:?run install.sh or set AGENT_BOOTSTRAP_TOKEN}
+      XENIBASE_BACKUP_HOUR: ${XENIBASE_BACKUP_HOUR:-2}
+      XENIBASE_METRICS_INTERVAL: ${XENIBASE_METRICS_INTERVAL:-1m}
+      XENIBASE_TENANCY_SWEEP_INTERVAL: ${XENIBASE_TENANCY_SWEEP_INTERVAL:-5m}
       # Query insights (V3 §8): which plans get them, how often
       # pg_stat_statements is read, and the slow-query threshold.
-      PGDOCK_INSIGHTS_PLANS: ${PGDOCK_INSIGHTS_PLANS:-pro,team}
-      PGDOCK_INSIGHTS_INTERVAL: ${PGDOCK_INSIGHTS_INTERVAL:-5m}
-      PGDOCK_SLOW_QUERY_MS: ${PGDOCK_SLOW_QUERY_MS:-1000}
-      PGDOCK_METRICS_TOKEN: ${PGDOCK_METRICS_TOKEN:-}
-      PGDOCK_CONSOLE_DISABLED: ${PGDOCK_CONSOLE_DISABLED:-false}
+      XENIBASE_INSIGHTS_PLANS: ${XENIBASE_INSIGHTS_PLANS:-pro,team}
+      XENIBASE_INSIGHTS_INTERVAL: ${XENIBASE_INSIGHTS_INTERVAL:-5m}
+      XENIBASE_SLOW_QUERY_MS: ${XENIBASE_SLOW_QUERY_MS:-1000}
+      XENIBASE_METRICS_TOKEN: ${XENIBASE_METRICS_TOKEN:-}
+      XENIBASE_CONSOLE_DISABLED: ${XENIBASE_CONSOLE_DISABLED:-false}
       # The waker answers paused Free projects' connections (V3 §4.2); the
       # poolers reach it at this address. Pooler hosts elsewhere need the
       # server's private address instead (docs/free-tier.md).
-      PGDOCK_WAKER_ADDR: ${PGDOCK_WAKER_ADDR:-172.31.250.11:6435}
-      PGDOCK_WAKER_LISTEN: ${PGDOCK_WAKER_LISTEN:-:6435}
+      XENIBASE_WAKER_ADDR: ${XENIBASE_WAKER_ADDR:-172.31.250.11:6435}
+      XENIBASE_WAKER_LISTEN: ${XENIBASE_WAKER_LISTEN:-:6435}
       # Open signup's protection (V3 §7.4).
-      PGDOCK_TURNSTILE_SITE_KEY: ${PGDOCK_TURNSTILE_SITE_KEY:-}
-      PGDOCK_TURNSTILE_SECRET: ${PGDOCK_TURNSTILE_SECRET:-}
-      PGDOCK_SIGNUPS_PER_IP: ${PGDOCK_SIGNUPS_PER_IP:-3}
+      XENIBASE_TURNSTILE_SITE_KEY: ${XENIBASE_TURNSTILE_SITE_KEY:-}
+      XENIBASE_TURNSTILE_SECRET: ${XENIBASE_TURNSTILE_SECRET:-}
+      XENIBASE_SIGNUPS_PER_IP: ${XENIBASE_SIGNUPS_PER_IP:-3}
       # Support (V3 §7.1, docs/support.md): the inbox, the email
       # provider's inbound webhook secret, and WhatsApp's Cloud API.
-      PGDOCK_SUPPORT_EMAIL: ${PGDOCK_SUPPORT_EMAIL:-}
-      PGDOCK_SUPPORT_INBOUND_SECRET: ${PGDOCK_SUPPORT_INBOUND_SECRET:-}
-      PGDOCK_WHATSAPP_PHONE_NUMBER_ID: ${PGDOCK_WHATSAPP_PHONE_NUMBER_ID:-}
-      PGDOCK_WHATSAPP_ACCESS_TOKEN: ${PGDOCK_WHATSAPP_ACCESS_TOKEN:-}
-      PGDOCK_WHATSAPP_APP_SECRET: ${PGDOCK_WHATSAPP_APP_SECRET:-}
-      PGDOCK_WHATSAPP_VERIFY_TOKEN: ${PGDOCK_WHATSAPP_VERIFY_TOKEN:-}
+      XENIBASE_SUPPORT_EMAIL: ${XENIBASE_SUPPORT_EMAIL:-}
+      XENIBASE_SUPPORT_INBOUND_SECRET: ${XENIBASE_SUPPORT_INBOUND_SECRET:-}
+      XENIBASE_WHATSAPP_PHONE_NUMBER_ID: ${XENIBASE_WHATSAPP_PHONE_NUMBER_ID:-}
+      XENIBASE_WHATSAPP_ACCESS_TOKEN: ${XENIBASE_WHATSAPP_ACCESS_TOKEN:-}
+      XENIBASE_WHATSAPP_APP_SECRET: ${XENIBASE_WHATSAPP_APP_SECRET:-}
+      XENIBASE_WHATSAPP_VERIFY_TOKEN: ${XENIBASE_WHATSAPP_VERIFY_TOKEN:-}
       # Project auth codes (V4 §4.6, docs/backend-services.md): Termii for
       # SMS, and the WhatsApp number above with an authentication template.
-      PGDOCK_TERMII_API_KEY: ${PGDOCK_TERMII_API_KEY:-}
-      PGDOCK_TERMII_SENDER_ID: ${PGDOCK_TERMII_SENDER_ID:-}
-      PGDOCK_TERMII_URL: ${PGDOCK_TERMII_URL:-}
+      XENIBASE_TERMII_API_KEY: ${XENIBASE_TERMII_API_KEY:-}
+      XENIBASE_TERMII_SENDER_ID: ${XENIBASE_TERMII_SENDER_ID:-}
+      XENIBASE_TERMII_URL: ${XENIBASE_TERMII_URL:-}
       # Africa's Talking: the SMS fallback when Termii fails.
-      PGDOCK_AFRICASTALKING_USERNAME: ${PGDOCK_AFRICASTALKING_USERNAME:-}
-      PGDOCK_AFRICASTALKING_API_KEY: ${PGDOCK_AFRICASTALKING_API_KEY:-}
-      PGDOCK_AFRICASTALKING_FROM: ${PGDOCK_AFRICASTALKING_FROM:-}
-      PGDOCK_AFRICASTALKING_URL: ${PGDOCK_AFRICASTALKING_URL:-}
-      PGDOCK_WHATSAPP_OTP_TEMPLATE: ${PGDOCK_WHATSAPP_OTP_TEMPLATE:-}
-      PGDOCK_WHATSAPP_OTP_LANGUAGE: ${PGDOCK_WHATSAPP_OTP_LANGUAGE:-}
-      PGDOCK_SMS_PRICE_MINOR: ${PGDOCK_SMS_PRICE_MINOR:-}
-      PGDOCK_WHATSAPP_PRICE_MINOR: ${PGDOCK_WHATSAPP_PRICE_MINOR:-}
-      PGDOCK_MESSAGE_CURRENCY: ${PGDOCK_MESSAGE_CURRENCY:-}
-      PGDOCK_PHONE_AUTH_FREE: ${PGDOCK_PHONE_AUTH_FREE:-}
+      XENIBASE_AFRICASTALKING_USERNAME: ${XENIBASE_AFRICASTALKING_USERNAME:-}
+      XENIBASE_AFRICASTALKING_API_KEY: ${XENIBASE_AFRICASTALKING_API_KEY:-}
+      XENIBASE_AFRICASTALKING_FROM: ${XENIBASE_AFRICASTALKING_FROM:-}
+      XENIBASE_AFRICASTALKING_URL: ${XENIBASE_AFRICASTALKING_URL:-}
+      XENIBASE_WHATSAPP_OTP_TEMPLATE: ${XENIBASE_WHATSAPP_OTP_TEMPLATE:-}
+      XENIBASE_WHATSAPP_OTP_LANGUAGE: ${XENIBASE_WHATSAPP_OTP_LANGUAGE:-}
+      XENIBASE_SMS_PRICE_MINOR: ${XENIBASE_SMS_PRICE_MINOR:-}
+      XENIBASE_WHATSAPP_PRICE_MINOR: ${XENIBASE_WHATSAPP_PRICE_MINOR:-}
+      XENIBASE_MESSAGE_CURRENCY: ${XENIBASE_MESSAGE_CURRENCY:-}
+      XENIBASE_PHONE_AUTH_FREE: ${XENIBASE_PHONE_AUTH_FREE:-}
       # Capacity automation (V3 §5, docs/capacity.md): the provider new
       # servers come from, and what their cloud-init runs.
-      PGDOCK_REGION: ${PGDOCK_REGION:-eu-central}
-      PGDOCK_CLOUD_PROVIDER: ${PGDOCK_CLOUD_PROVIDER:-manual}
-      PGDOCK_HETZNER_TOKEN: ${PGDOCK_HETZNER_TOKEN:-}
-      PGDOCK_HETZNER_LOCATION: ${PGDOCK_HETZNER_LOCATION:-fsn1}
-      PGDOCK_HETZNER_NETWORK_ID: ${PGDOCK_HETZNER_NETWORK_ID:-}
-      PGDOCK_HETZNER_PLACEMENT_GROUP_ID: ${PGDOCK_HETZNER_PLACEMENT_GROUP_ID:-}
-      PGDOCK_HETZNER_SSH_KEYS: ${PGDOCK_HETZNER_SSH_KEYS:-}
-      PGDOCK_CLOUD_AGENT_IMAGE: ${PGDOCK_CLOUD_AGENT_IMAGE:-}
-      PGDOCK_CLOUD_PG_IMAGE: ${PGDOCK_CLOUD_PG_IMAGE:-}
-      PGDOCK_CLOUD_SERVER_URL: ${PGDOCK_CLOUD_SERVER_URL:-}
-      PGDOCK_CLOUD_PRIVATE_CIDR: ${PGDOCK_CLOUD_PRIVATE_CIDR:-10.0.0.0/16}
-      # Backend services (V4, docs/backend-services.md#running-pgdock-edge):
-      # projects' API domain, the secret every pgdock-edge shares (32+
-      # characters), and the edge image for edge nodes PGDock adds.
-      PGDOCK_API_DOMAIN: ${PGDOCK_API_DOMAIN:-}
-      PGDOCK_EDGE_SECRET: ${PGDOCK_EDGE_SECRET:-}
-      PGDOCK_CLOUD_EDGE_IMAGE: ${PGDOCK_CLOUD_EDGE_IMAGE:-}
+      XENIBASE_REGION: ${XENIBASE_REGION:-eu-central}
+      XENIBASE_CLOUD_PROVIDER: ${XENIBASE_CLOUD_PROVIDER:-manual}
+      XENIBASE_HETZNER_TOKEN: ${XENIBASE_HETZNER_TOKEN:-}
+      XENIBASE_HETZNER_LOCATION: ${XENIBASE_HETZNER_LOCATION:-fsn1}
+      XENIBASE_HETZNER_NETWORK_ID: ${XENIBASE_HETZNER_NETWORK_ID:-}
+      XENIBASE_HETZNER_PLACEMENT_GROUP_ID: ${XENIBASE_HETZNER_PLACEMENT_GROUP_ID:-}
+      XENIBASE_HETZNER_SSH_KEYS: ${XENIBASE_HETZNER_SSH_KEYS:-}
+      XENIBASE_CLOUD_AGENT_IMAGE: ${XENIBASE_CLOUD_AGENT_IMAGE:-}
+      XENIBASE_CLOUD_PG_IMAGE: ${XENIBASE_CLOUD_PG_IMAGE:-}
+      XENIBASE_CLOUD_SERVER_URL: ${XENIBASE_CLOUD_SERVER_URL:-}
+      XENIBASE_CLOUD_PRIVATE_CIDR: ${XENIBASE_CLOUD_PRIVATE_CIDR:-10.0.0.0/16}
+      # Backend services (V4, docs/backend-services.md#running-xenibase-edge):
+      # projects' API domain, the secret every xenibase-edge shares (32+
+      # characters), and the edge image for edge nodes Xenibase adds.
+      XENIBASE_API_DOMAIN: ${XENIBASE_API_DOMAIN:-}
+      XENIBASE_EDGE_SECRET: ${XENIBASE_EDGE_SECRET:-}
+      XENIBASE_CLOUD_EDGE_IMAGE: ${XENIBASE_CLOUD_EDGE_IMAGE:-}
       # Optional settings the docs describe; empty means the default.
       # Payments (docs/payments.md).
-      PGDOCK_FLW_SECRET_KEY: ${PGDOCK_FLW_SECRET_KEY:-}
-      PGDOCK_FLW_WEBHOOK_HASH: ${PGDOCK_FLW_WEBHOOK_HASH:-}
-      PGDOCK_FLW_BASE_URL: ${PGDOCK_FLW_BASE_URL:-}
-      PGDOCK_FLW_BVN: ${PGDOCK_FLW_BVN:-}
-      PGDOCK_ISPEND_BASE_URL: ${PGDOCK_ISPEND_BASE_URL:-}
-      PGDOCK_ISPEND_API_KEY: ${PGDOCK_ISPEND_API_KEY:-}
-      PGDOCK_ISPEND_WEBHOOK_SECRET: ${PGDOCK_ISPEND_WEBHOOK_SECRET:-}
-      PGDOCK_PAY_CARDS: ${PGDOCK_PAY_CARDS:-}
-      PGDOCK_PAY_VA_PRIMARY: ${PGDOCK_PAY_VA_PRIMARY:-}
-      PGDOCK_PAY_VA_FALLBACK: ${PGDOCK_PAY_VA_FALLBACK:-}
-      PGDOCK_PAY_WALLET: ${PGDOCK_PAY_WALLET:-}
+      XENIBASE_ISWALLET_BASE_URL: ${XENIBASE_ISWALLET_BASE_URL:-}
+      XENIBASE_ISWALLET_API_KEY: ${XENIBASE_ISWALLET_API_KEY:-}
+      XENIBASE_ISWALLET_WEBHOOK_SECRET: ${XENIBASE_ISWALLET_WEBHOOK_SECRET:-}
+      XENIBASE_ISWALLET_OWNER_PREFIX: ${XENIBASE_ISWALLET_OWNER_PREFIX:-}
+      XENIBASE_ISWALLET_CLIENT_ID: ${XENIBASE_ISWALLET_CLIENT_ID:-}
       # The Free tier's clocks (docs/free-tier.md), e.g. 720h.
-      PGDOCK_FREE_PAUSE_AFTER: ${PGDOCK_FREE_PAUSE_AFTER:-}
-      PGDOCK_FREE_ARCHIVE_AFTER: ${PGDOCK_FREE_ARCHIVE_AFTER:-}
-      PGDOCK_FREE_DELETE_AFTER: ${PGDOCK_FREE_DELETE_AFTER:-}
+      XENIBASE_FREE_PAUSE_AFTER: ${XENIBASE_FREE_PAUSE_AFTER:-}
+      XENIBASE_FREE_ARCHIVE_AFTER: ${XENIBASE_FREE_ARCHIVE_AFTER:-}
+      XENIBASE_FREE_DELETE_AFTER: ${XENIBASE_FREE_DELETE_AFTER:-}
       # HA minor upgrades wait for an announced window unless false
       # (docs/ha.md).
-      PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT: ${PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT:-}
-      PGDOCK_PG_VERSIONS: ${PGDOCK_PG_VERSIONS:-}
+      XENIBASE_MAINTENANCE_REQUIRE_ANNOUNCEMENT: ${XENIBASE_MAINTENANCE_REQUIRE_ANNOUNCEMENT:-}
+      XENIBASE_PG_VERSIONS: ${XENIBASE_PG_VERSIONS:-}
       # The status page (docs/status-page.md).
-      PGDOCK_STATUS_URL: ${PGDOCK_STATUS_URL:-}
-      PGDOCK_STATUS_PUSH_SECRET: ${PGDOCK_STATUS_PUSH_SECRET:-}
-      PGDOCK_STATUS_REGION: ${PGDOCK_STATUS_REGION:-}
-      PGDOCK_STATUS_COMPONENTS: ${PGDOCK_STATUS_COMPONENTS:-}
+      XENIBASE_STATUS_URL: ${XENIBASE_STATUS_URL:-}
+      XENIBASE_STATUS_PUSH_SECRET: ${XENIBASE_STATUS_PUSH_SECRET:-}
+      XENIBASE_STATUS_REGION: ${XENIBASE_STATUS_REGION:-}
+      XENIBASE_STATUS_COMPONENTS: ${XENIBASE_STATUS_COMPONENTS:-}
       # Purge a Cloudflare CDN when a bucket goes private (docs/backend-services.md).
-      PGDOCK_CDN_CLOUDFLARE_ZONE_ID: ${PGDOCK_CDN_CLOUDFLARE_ZONE_ID:-}
-      PGDOCK_CDN_CLOUDFLARE_TOKEN: ${PGDOCK_CDN_CLOUDFLARE_TOKEN:-}
+      XENIBASE_CDN_CLOUDFLARE_ZONE_ID: ${XENIBASE_CDN_CLOUDFLARE_ZONE_ID:-}
+      XENIBASE_CDN_CLOUDFLARE_TOKEN: ${XENIBASE_CDN_CLOUDFLARE_TOKEN:-}
       # Rotating the master key (docs/operations.md).
-      PGDOCK_MASTER_KEY_PREVIOUS: ${PGDOCK_MASTER_KEY_PREVIOUS:-}
-      PGDOCK_FLOATING_IP_ID: ${PGDOCK_FLOATING_IP_ID:-}
-      PGDOCK_OUTBOUND_BLOCK: ${PGDOCK_OUTBOUND_BLOCK:-}
+      XENIBASE_MASTER_KEY_PREVIOUS: ${XENIBASE_MASTER_KEY_PREVIOUS:-}
+      XENIBASE_FLOATING_IP_ID: ${XENIBASE_FLOATING_IP_ID:-}
+      XENIBASE_OUTBOUND_BLOCK: ${XENIBASE_OUTBOUND_BLOCK:-}
     volumes:
-      - pgdock-data:/var/lib/pgdock
-      - pooler-config:/var/lib/pgdock/pooler
+      - xenibase-data:/var/lib/xenibase
+      - pooler-config:/var/lib/xenibase/pooler
     healthcheck:
-      test: ["CMD", "/usr/local/bin/pgdock-server", "-healthcheck", "http://127.0.0.1:8080"]
+      test: ["CMD", "/usr/local/bin/xenibase-server", "-healthcheck", "http://127.0.0.1:8080"]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -190,34 +184,34 @@ services:
   # The local node's agent: it runs pg_dump/pg_restore next to the shared
   # cluster and registers with the bootstrap token on first start (mTLS
   # from then on; the CA is pinned in agent-state).
-  pgdock-agent:
-    image: ${PGDOCK_AGENT_IMAGE:-pgdock-agent:local}
+  xenibase-agent:
+    image: ${XENIBASE_AGENT_IMAGE:-xenibase-agent:local}
     build:
       context: ../..
       target: agent
     restart: unless-stopped
     depends_on:
-      pgdock-server:
+      xenibase-server:
         condition: service_healthy
     # Root, for the Docker socket: dedicated instances are sibling
     # containers on this network (spec §4.2).
     user: "0:0"
     environment:
-      PGDOCK_AGENT_SERVER: http://pgdock-server:8080
-      PGDOCK_AGENT_BOOTSTRAP_TOKEN: ${AGENT_BOOTSTRAP_TOKEN:?}
-      PGDOCK_AGENT_NODE: local
-      PGDOCK_AGENT_ADVERTISE: pgdock-agent:7070
-      PGDOCK_AGENT_LOG_FORMAT: ${PGDOCK_LOG_FORMAT:-json}
-      PGDOCK_AGENT_NETWORK: ${PGDOCK_NETWORK:-pgdock}
-      PGDOCK_AGENT_PG_IMAGE: ${PGDOCK_PG_IMAGE:-pgdock-postgres:{major}-walg3.0.9}
-      # Instances accept logins from pgdock-server, the poolers, and this
+      XENIBASE_AGENT_SERVER: http://xenibase-server:8080
+      XENIBASE_AGENT_BOOTSTRAP_TOKEN: ${AGENT_BOOTSTRAP_TOKEN:?}
+      XENIBASE_AGENT_NODE: local
+      XENIBASE_AGENT_ADVERTISE: xenibase-agent:7070
+      XENIBASE_AGENT_LOG_FORMAT: ${XENIBASE_LOG_FORMAT:-json}
+      XENIBASE_AGENT_NETWORK: ${XENIBASE_NETWORK:-xenibase}
+      XENIBASE_AGENT_PG_IMAGE: ${XENIBASE_PG_IMAGE:-xenibase-postgres:{major}-walg3.0.9}
+      # Instances accept logins from xenibase-server, the poolers, and this
       # agent only (spec §7.1). Add a remote control node's address here.
-      PGDOCK_AGENT_DB_ALLOW: ${PGDOCK_AGENT_DB_ALLOW:-172.31.250.11/32,172.31.250.12/32,172.31.250.13/32,172.31.250.14/32}
+      XENIBASE_AGENT_DB_ALLOW: ${XENIBASE_AGENT_DB_ALLOW:-172.31.250.11/32,172.31.250.12/32,172.31.250.13/32,172.31.250.14/32}
       # Moves (V3 §2.3): instances on this network replicate from each other
       # and from the shared cluster, as each move's own login only.
-      PGDOCK_AGENT_MOVE_ALLOW: ${PGDOCK_AGENT_MOVE_ALLOW:-172.31.250.0/24}
+      XENIBASE_AGENT_MOVE_ALLOW: ${XENIBASE_AGENT_MOVE_ALLOW:-172.31.250.0/24}
     volumes:
-      - agent-state:/var/lib/pgdock-agent
+      - agent-state:/var/lib/xenibase-agent
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       default:
@@ -227,14 +221,14 @@ services:
     image: postgres:18
     restart: unless-stopped
     environment:
-      POSTGRES_USER: pgdock
+      POSTGRES_USER: xenibase
       POSTGRES_PASSWORD: ${METADATA_DB_PASSWORD:?}
-      POSTGRES_DB: pgdock
+      POSTGRES_DB: xenibase
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     volumes:
       - metadata-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pgdock -d pgdock"]
+      test: ["CMD-SHELL", "pg_isready -U xenibase -d xenibase"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -243,7 +237,7 @@ services:
     image: postgres:18
     restart: unless-stopped
     environment:
-      POSTGRES_USER: pgdock_admin
+      POSTGRES_USER: xenibase_admin
       POSTGRES_PASSWORD: ${SHARED_ADMIN_PASSWORD:?}
       POSTGRES_DB: postgres
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=trust"
@@ -275,16 +269,16 @@ services:
       - -c
       - log_statement=none
       - -c
-      - hba_file=/etc/pgdock/pg_hba.conf
+      - hba_file=/etc/xenibase/pg_hba.conf
       # Moves by logical replication (V3 §2.3); changing it restarts the
       # cluster once.
       - -c
       - wal_level=logical
     volumes:
       - shared-data:/var/lib/postgresql
-      - ./shared-pg-hba.conf:/etc/pgdock/pg_hba.conf:ro
+      - ./shared-pg-hba.conf:/etc/xenibase/pg_hba.conf:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pgdock_admin -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -U xenibase_admin -d postgres"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -292,10 +286,10 @@ services:
   pooler-session:
     <<: *pooler
     ports:
-      - "${PGDOCK_DB_SESSION_PORT:-5432}:5432"
+      - "${XENIBASE_DB_SESSION_PORT:-5432}:5432"
     volumes:
       - ../pgbouncer/session.ini:/etc/pgbouncer/pgbouncer.ini:ro
-      - pooler-config:/etc/pgbouncer/pgdock:ro
+      - pooler-config:/etc/pgbouncer/xenibase:ro
     networks:
       default:
         ipv4_address: 172.31.250.12
@@ -303,10 +297,10 @@ services:
   pooler-tx:
     <<: *pooler
     ports:
-      - "${PGDOCK_DB_POOLED_PORT:-6543}:6543"
+      - "${XENIBASE_DB_POOLED_PORT:-6543}:6543"
     volumes:
       - ../pgbouncer/transaction.ini:/etc/pgbouncer/pgbouncer.ini:ro
-      - pooler-config:/etc/pgbouncer/pgdock:ro
+      - pooler-config:/etc/pgbouncer/xenibase:ro
     networks:
       default:
         ipv4_address: 172.31.250.13
@@ -314,7 +308,7 @@ services:
 networks:
   default:
     # Named, so the agent can attach dedicated instances to it.
-    name: ${PGDOCK_NETWORK:-pgdock}
+    name: ${XENIBASE_NETWORK:-xenibase}
     ipam:
       config:
         - subnet: 172.31.250.0/24
@@ -324,7 +318,7 @@ networks:
 volumes:
   caddy-data:
   caddy-config:
-  pgdock-data:
+  xenibase-data:
   pooler-config:
   metadata-data:
   shared-data:

@@ -17,10 +17,10 @@ paused, even though the billing migration gives it a Free billing account.
 | 30 days and 7 days before a year archived | A deletion notice. If the sweep runs late, only the most urgent notice goes out. |
 | A year archived | **Deleted**, like any project. The archive backup is kept for 30 more days. |
 
-"Client connections" are clients seen through the poolers. PgDock samples
+"Client connections" are clients seen through the poolers. Xenibase samples
 every minute: a project with clients connected, or whose pooler
 transaction counter moved since the last sample, is active. Using the
-SQL console or table editor also counts. PGDock's own sessions don't go
+SQL console or table editor also counts. Xenibase's own sessions don't go
 through the poolers, so they don't keep a project awake: backups, metrics,
 and webhook listeners.
 
@@ -50,7 +50,7 @@ connect. Clients that retry on connection errors (SQLSTATE class 08) come
 back by themselves.
 
 From the dashboard, the project's banner has **Resume** (or **Restore**).
-From the CLI, run `pgdock resume <project>`. From the API, call
+From the CLI, run `xenibase resume <project>`. From the API, call
 `POST /api/v1/projects/{id}/resume`. Anyone who can see the project can
 resume it; they could wake it by connecting anyway.
 
@@ -59,7 +59,7 @@ by the next sweep.
 
 ## The waker
 
-The waker is part of pgdock-server. It listens on `PGDOCK_WAKER_LISTEN`
+The waker is part of xenibase-server. It listens on `XENIBASE_WAKER_LISTEN`
 (default `:6435`) and speaks just enough of the Postgres wire protocol to
 read the startup message, queue the resume, and refuse the connection with
 the message above. It uses SQLSTATE `08004`, because PgBouncer passes that
@@ -70,19 +70,19 @@ reachable from the poolers.
 
 | Variable | |
 | --- | --- |
-| `PGDOCK_WAKER_ADDR` | The waker as the poolers reach it, `host:port`. The install bundle sets `172.31.250.11:6435` (pgdock-server on the Compose network). With standby pooler hosts (V3 §2.1), use the server's private address and open the port to the pooler hosts only. Empty turns pausing off. |
-| `PGDOCK_WAKER_LISTEN` | Where it listens (default `:6435`). |
-| `PGDOCK_FREE_PAUSE_AFTER` | Default `168h` (7 days). |
-| `PGDOCK_FREE_ARCHIVE_AFTER` | Default `2160h` (90 days). |
-| `PGDOCK_FREE_DELETE_AFTER` | Default `8760h` (a year). |
+| `XENIBASE_WAKER_ADDR` | The waker as the poolers reach it, `host:port`. The install bundle sets `172.31.250.11:6435` (xenibase-server on the Compose network). With standby pooler hosts (V3 §2.1), use the server's private address and open the port to the pooler hosts only. Empty turns pausing off. |
+| `XENIBASE_WAKER_LISTEN` | Where it listens (default `:6435`). |
+| `XENIBASE_FREE_PAUSE_AFTER` | Default `168h` (7 days). |
+| `XENIBASE_FREE_ARCHIVE_AFTER` | Default `2160h` (90 days). |
+| `XENIBASE_FREE_DELETE_AFTER` | Default `8760h` (a year). |
 
 Archiving needs backup storage and a backup key, as backups do. Without
 them, projects pause but are never archived.
 
 ### If the waker is down
 
-pgdock-server restarts the waker if it stops accepting connections. While
-it is unreachable at `PGDOCK_WAKER_ADDR` (checked from pgdock-server, so
+xenibase-server restarts the waker if it stops accepting connections. While
+it is unreachable at `XENIBASE_WAKER_ADDR` (checked from xenibase-server, so
 that address must be reachable from the server too):
 
 - the `waker_down` alert fires (critical);
@@ -90,7 +90,7 @@ that address must be reachable from the server too):
   waker every 2 seconds, up to PgBouncer's `query_wait_timeout`, 120 s by
   default) and nothing wakes; once the waker is back, a held client gets
   the "resuming" message and its retry gets in;
-- **Resume** on the project page (or `pgdock resume`) still works: it
+- **Resume** on the project page (or `xenibase resume`) still works: it
   doesn't need the waker;
 - the sweep doesn't pause or archive anything, so no more projects end up
   behind it.
@@ -101,12 +101,12 @@ The chaos test `TestChaosWakerFailure` covers this.
 
 Signup can be open (Admin → Settings → Signup), protected by:
 
-- **Cloudflare Turnstile**, when `PGDOCK_TURNSTILE_SITE_KEY` and
-  `PGDOCK_TURNSTILE_SECRET` (or `_FILE`) are set. The signup page shows the
+- **Cloudflare Turnstile**, when `XENIBASE_TURNSTILE_SITE_KEY` and
+  `XENIBASE_TURNSTILE_SECRET` (or `_FILE`) are set. The signup page shows the
   challenge, and the server verifies the token with Cloudflare.
-- **A per-IP cap** of `PGDOCK_SIGNUPS_PER_IP` new accounts a day from one
+- **A per-IP cap** of `XENIBASE_SIGNUPS_PER_IP` new accounts a day from one
   address (default 3; 0 turns it off). Behind a proxy, set
-  `PGDOCK_TRUSTED_PROXIES` so the client's address is the one counted.
+  `XENIBASE_TRUSTED_PROXIES` so the client's address is the one counted.
 - What V2 already required: a verified email address, TOTP for every
   account, and one personal (Free) organisation per user.
 

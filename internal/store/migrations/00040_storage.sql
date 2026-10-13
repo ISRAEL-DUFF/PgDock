@@ -1,7 +1,7 @@
 -- +goose Up
 -- V4-M33: backend services' storage (V4 §5). Buckets and objects' metadata
--- live in each project's database (pgd_storage, schema version 4); the
--- bytes in its region's object store. pgdock-edge enforces what the
+-- live in each project's database (xb_storage, schema version 4); the
+-- bytes in its region's object store. xenibase-edge enforces what the
 -- control plane works out here and sends in its feed.
 
 -- What the edge applies, recomputed by the storage sweep: the bytes the

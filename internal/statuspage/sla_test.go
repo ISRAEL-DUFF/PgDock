@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/statusapi"
 )
 
 func TestSLAProbes(t *testing.T) {

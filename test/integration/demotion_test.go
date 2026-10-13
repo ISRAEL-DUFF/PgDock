@@ -13,9 +13,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/tenancy"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/tenancy"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // teamWithAllowance is an organisation with its own shared cluster (the
@@ -429,7 +429,7 @@ func TestDemotionRollback(t *testing.T) {
 	failDemotion.Store(false)
 	bin := buildCLI(t)
 	token := e.CreateToken(map[string]any{"name": "ops", "org_id": e.OrgID, "scopes": []string{"write", "admin"}})
-	env := []string{"PGDOCK_SERVER=" + e.URL, "PGDOCK_TOKEN=" + token, "PGDOCK_CONFIG_DIR=" + t.TempDir()}
+	env := []string{"XENIBASE_SERVER=" + e.URL, "XENIBASE_TOKEN=" + token, "XENIBASE_CONFIG_DIR=" + t.TempDir()}
 	r := runCLI(t, bin, env, "demote", "Demote rollback", "--check")
 	if r.code != 0 || !strings.Contains(r.stdout, "ok      capacity") || !strings.Contains(r.stdout, "connection limit 90 → 20") {
 		t.Fatalf("demote --check: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)

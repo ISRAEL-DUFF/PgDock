@@ -14,14 +14,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/config"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/logging"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/config"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/logging"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
-const adminUsage = `usage: pgdock-server admin <command> [email]
+const adminUsage = `usage: xenibase-server admin <command> [email]
 
 Recovery for when no platform admin can sign in, run on the server (it talks
 to the metadata database directly, so it needs the same environment as the
@@ -37,10 +37,10 @@ server):
   reset-password <email>  print a one-hour, single-use password reset link
                           (when email doesn't work)
 
-With docker compose:  docker compose exec pgdock-server pgdock-server admin list
+With docker compose:  docker compose exec xenibase-server xenibase-server admin list
 Every change is recorded in the platform audit log as done on the server.`
 
-// runAdmin is `pgdock-server admin …`.
+// runAdmin is `xenibase-server admin …`.
 func runAdmin(args []string) error {
 	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" || args[0] == "help" {
 		fmt.Println(adminUsage)
@@ -124,7 +124,7 @@ func adminCommand(ctx context.Context, db *pgxpool.Pool, svc *auth.Service, args
 		}
 		fmt.Fprintf(out, "Open this link within one hour (it works once):\n\n%s\n", link)
 		if !strings.HasPrefix(link, "http") {
-			fmt.Fprintln(out, "\nPGDOCK_PUBLIC_URL isn't set here, so the link is relative: put your web UI's address in front of it.")
+			fmt.Fprintln(out, "\nXENIBASE_PUBLIC_URL isn't set here, so the link is relative: put your web UI's address in front of it.")
 		}
 	default:
 		return fmt.Errorf("unknown command %q\n\n%s", cmd, adminUsage)
@@ -136,7 +136,7 @@ func adminCommand(ctx context.Context, db *pgxpool.Pool, svc *auth.Service, args
 // server.
 func recordAdminAction(ctx context.Context, db *pgxpool.Pool, cmd string, u store.User) error {
 	target, id := "user", u.ID.String()
-	detail, _ := json.Marshal(map[string]string{"by": "an operator on the server (pgdock-server admin)", "email": u.Email})
+	detail, _ := json.Marshal(map[string]string{"by": "an operator on the server (xenibase-server admin)", "email": u.Email})
 	return store.New(db).InsertAudit(ctx, store.InsertAuditParams{
 		Action: "admin." + cmd, TargetType: &target, TargetID: &id, Detail: detail, Outcome: "success", ActorKind: "system",
 	})

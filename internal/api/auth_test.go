@@ -15,13 +15,13 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/orgs"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/orgs"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/store/storetest"
 )
 
 type fakeClock struct {
@@ -287,7 +287,7 @@ func TestSessionCookieFlags(t *testing.T) {
 	h.ServeHTTP(rec, req)
 	var csrf *http.Cookie
 	for _, c := range rec.Result().Cookies() {
-		if c.Name == "__Host-pgdock_csrf" {
+		if c.Name == "__Host-xenibase_csrf" {
 			csrf = c
 		}
 	}
@@ -315,7 +315,7 @@ func TestSessionCookieFlags(t *testing.T) {
 	w := post("/api/v1/setup/complete", map[string]string{"enrollment_token": enr.EnrollmentToken, "code": code}, &gen.SessionState{})
 	var sess *http.Cookie
 	for _, c := range w.Result().Cookies() {
-		if c.Name == "__Host-pgdock_session" {
+		if c.Name == "__Host-xenibase_session" {
 			sess = c
 		}
 	}

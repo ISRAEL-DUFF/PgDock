@@ -1,9 +1,9 @@
-From PGDock to the Taskiem team · reply to the update of 9 October 2026
+From Xenibase to the Taskiem team · reply to the update of 9 October 2026
 
-# PGDock's answers to Taskiem
+# Xenibase's answers to Taskiem
 
 Thank you for the clear list. Everything below is in the repository,
-which is the published contract you build from. Where we changed PGDock
+which is the published contract you build from. Where we changed Xenibase
 for you, the change is merged with tests, and the docs say how it works.
 Your IDs are kept.
 
@@ -18,7 +18,7 @@ use a one-time password-manager share, and you confirm it by fingerprint.
 | --- | --- | --- |
 | S1 | Sandbox, token, base URL | **People:** we set it up and enter the credentials on your Connections page (below). |
 | S2 | Signed sample deliveries | **Done:** `docs/integrations/fixtures/webhooks`, checked in CI. |
-| S3 | A contact | **People:** named below once confirmed; they will review your `docs/integrations/pgdock.md`. |
+| S3 | A contact | **People:** named below once confirmed; they will review your `docs/integrations/xenibase.md`. |
 | P1-G1 | Safe row writes | **Exists:** the data API's row writes. There will be no parameterised SQL endpoint. |
 | P1-G3 | Frozen webhook contract | **Done:** `docs/webhooks.md#managing-webhooks-from-another-tool`, plus `description` and `metadata`. |
 | P1-G4 | Error list, `Retry-After` | **Done:** `docs/errors.md`, which marks the retryable codes. Every `429` and retryable `503` sends `Retry-After`. |
@@ -44,7 +44,7 @@ the route above:
 
 - an API token restricted to those two projects, with scopes `read` and
   `write`;
-- each project's secret key (`pgd_sec_…`), which the data API's writes
+- each project's secret key (`xb_sec_…`), which the data API's writes
   need (see P1-G1).
 
 Q20 has the base URL.
@@ -171,7 +171,7 @@ its metadata.
      they answer `503 project_restoring` with `Retry-After: 60`, since
      restoring takes a minute or two. In both cases the call queues the
      wake.
-   - **Reads** of PGDock's own data (webhook get and list) still answer
+   - **Reads** of Xenibase's own data (webhook get and list) still answer
      normally.
    - So the joint doc can keep C6 as written.
 5. **Q21:** The public contracts covered by the deprecation policy are:
@@ -189,7 +189,7 @@ its metadata.
    announced in `CHANGELOG.md` and kept working for at least 6 months.
    Auth and storage have no OpenAPI file yet; their docs are the
    contract. V3 billing has no outbound events to build on (see P4).
-6. **Q20:** Yes. PGDock is installed per operator (`docs/install.md`),
+6. **Q20:** Yes. Xenibase is installed per operator (`docs/install.md`),
    so let each connection set its own management base URL and API
    domain. Our hosted install's URLs come with S1.
 7. **Q23:**
@@ -212,7 +212,7 @@ its metadata.
 9. **Q24:** `old_record` is always the **whole** row before the change
    (`to_jsonb(OLD)`), every column. A webhook can also be limited to
    changes in certain columns (`columns`).
-10. **Q25:** Send `Authorization: Bearer pgd_…`. The OpenAPI file now
+10. **Q25:** Send `Authorization: Bearer xb_…`. The OpenAPI file now
     declares it as `bearerAuth` (beside `sessionCookie`). Yes, token
     calls skip the CSRF header. Only browser sessions need it.
 11. **Q26:** `write`, and no `confirm`. Every webhook call, reads
@@ -227,8 +227,8 @@ its metadata.
 
 - **C1:** The V4 data API, auth and storage are published, as listed in
   Q21. Paused projects (V3) are covered in `docs/free-tier.md` and Q13.
-  **Billing events:** PGDock doesn't emit any yet (`docs/billing.md`
-  describes invoices and dunning inside PGDock). We'd like to work out
+  **Billing events:** Xenibase doesn't emit any yet (`docs/billing.md`
+  describes invoices and dunning inside Xenibase). We'd like to work out
   the event list with you under P4.
 - **P2-G1:** There is no OAuth consent flow yet. Until there is,
   customers paste a project-restricted token and the project's secret
@@ -238,7 +238,7 @@ its metadata.
   has the `write` scope and is not restricted to projects, within the
   organisation's quota (`409 quota_exceeded` past it). A restricted
   token can't create projects.
-- **P4, contract tests:** Yes. Send us your `pgdock@1` suite and we'll
+- **P4, contract tests:** Yes. Send us your `xenibase@1` suite and we'll
   run it in CI on changes to the contracts above. Our own contract checks
   are `TestWebhookIntegratorContract`, `TestWebhookFixtures`,
   `TestDataAPIIdempotencyKey` and `TestPausedProjectAnswersResuming`.
@@ -251,7 +251,7 @@ its metadata.
 - **P4, Taskiem's database on a dedicated instance:**
   - **Creating roles:** no. The project's roles are `NOSUPERUSER
     NOCREATEDB NOCREATEROLE NOBYPASSRLS`, so you get the owner role
-    (plus personal logins and `_ro` roles PGDock makes).
+    (plus personal logins and `_ro` roles Xenibase makes).
   - **`SECURITY DEFINER` functions:** yes, as the owner.
   - **Forced row-level security:** yes, as the owner of the tables.
   - **`LISTEN/NOTIFY`:** yes, over a direct or session-pooler

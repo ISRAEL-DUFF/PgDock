@@ -8,8 +8,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Swept counts what one sweep did.
@@ -95,7 +95,7 @@ func (s *Service) Sweep(ctx context.Context) (Swept, error) {
 					try(err)
 					continue
 				}
-				s.notify(ctx, p, fmt.Sprintf("[PGDock] %s will be paused in %s", p.Name, hours(s.cfg.Warn)), fmt.Sprintf(
+				s.notify(ctx, p, fmt.Sprintf("[Xenibase] %s will be paused in %s", p.Name, hours(s.cfg.Warn)), fmt.Sprintf(
 					"%s has had no client connections since %s. Free projects are paused after %d days without connections, so it will be paused in about %s.\n\n"+
 						"Connecting to it before then keeps it active. A paused project keeps its data and resumes on the next connection.\n\n%s",
 					p.Name, lastActive(p).UTC().Format("2 Jan 2006"), days(s.cfg.PauseAfter), hours(s.cfg.Warn), s.projectLink(p)))
@@ -150,7 +150,7 @@ func (s *Service) sweepArchived(ctx context.Context, p store.Project, now time.T
 		if n, err := store.New(s.db).SetArchiveNotice(ctx, store.SetArchiveNoticeParams{ID: p.ID, Days: ptr(int32(d))}); err != nil || n == 0 {
 			return noticed, 0, err // another server sent it
 		}
-		s.notify(ctx, p, fmt.Sprintf("[PGDock] %s will be deleted in %d days", p.Name, d), fmt.Sprintf(
+		s.notify(ctx, p, fmt.Sprintf("[Xenibase] %s will be deleted in %d days", p.Name, d), fmt.Sprintf(
 			"%s has been archived since %s. Archived Free projects are deleted after %d days, so it will be deleted on %s.\n\n"+
 				"Connecting to it, or restoring it from the dashboard, before then keeps it:\n%s",
 			p.Name, p.ArchivedAt.UTC().Format("2 Jan 2006"), days(s.cfg.DeleteAfter), due.UTC().Format("2 Jan 2006"), s.projectLink(p)))

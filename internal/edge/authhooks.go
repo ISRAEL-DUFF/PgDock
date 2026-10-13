@@ -12,13 +12,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/projauth"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/projauth"
 )
 
 // Hooks (V4 §4.7): custom claims and before-sign-up as Postgres functions
 // run as the project's hook role; before-sign-up, after-sign-up and
-// after-sign-in as signed webhooks that pgdock-server sends.
+// after-sign-in as signed webhooks that xenibase-server sends.
 
 const (
 	pgHookTimeout = 2 * time.Second
@@ -54,7 +54,7 @@ func (e *Edge) runPGHook(ctx context.Context, p *project, fn string, event map[s
 				return err
 			}
 		}
-		if _, err := tx.Exec(hctx, `SELECT set_config('statement_timeout', $1, true), set_config('pgd.claims', '{"role":"auth_hook"}', true)`,
+		if _, err := tx.Exec(hctx, `SELECT set_config('statement_timeout', $1, true), set_config('xb.claims', '{"role":"auth_hook"}', true)`,
 			fmt.Sprint(pgHookTimeout.Milliseconds())); err != nil {
 			return err
 		}
@@ -132,7 +132,7 @@ func (e *Edge) beforeSignup(ctx context.Context, c *call, n projauth.NewUser, me
 		var err error
 		if d, err = e.client.SendAuthHook(ctx, edgeapi.AuthHook{Ref: c.p.cfg.Ref, Event: "before_signup", Payload: event, Wait: true}); err != nil {
 			// A hook that can't be reached lets the sign-up through
-			// (pgdock-server already decides that for a slow hook).
+			// (xenibase-server already decides that for a slow hook).
 			e.cfg.Log.Warn("before-sign-up hook", "project", c.p.cfg.Ref, "err", err)
 			return nil
 		}

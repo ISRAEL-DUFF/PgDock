@@ -31,7 +31,7 @@ export function AdminUsersPage() {
     <>
       <PageHeading
         title="Users"
-        description="Every account on this PGDock. You see who they are, not what is in their organisations."
+        description="Every account on this Xenibase. You see who they are, not what is in their organisations."
         actions={
           <Button variant="primary" onClick={() => setInviting(true)} data-testid="invite-user">
             Invite someone
@@ -164,7 +164,7 @@ function PlatformInviteModal({ open, onClose }: { open: boolean; onClose: () => 
   };
   return (
     <SidePanel
-      title="Invite someone to PGDock"
+      title="Invite someone to Xenibase"
       description="They get an account and a personal organisation, and no access to anyone else's."
       open={open}
       onOpenChange={(o) => !o && close()}

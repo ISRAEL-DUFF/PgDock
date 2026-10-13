@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // fakeSuspender suspends in the database, as tenancy does.
@@ -186,54 +186,59 @@ func TestDunningFreeGraceAndDeletion(t *testing.T) {
 	}
 }
 
-func TestCardRetries(t *testing.T) {
+func TestChargeRetries(t *testing.T) {
 	w := newPayWorld(t)
 	ctx := context.Background()
 	q := store.New(w.db)
 	w.s.SetDunning(&fakeSuspender{db: w.db}, nil)
-	org := newOrg(t, w.db, "acme")
-	if _, err := w.s.AddContact(ctx, org, "ap@acme.example", nil); err != nil {
+	org, _ := w.walletOrg(t, "acme", 5_000_00, true) // ₦4,930: not enough for the invoice
+	va, err := w.s.EnsureTransferAccount(ctx, org)
+	if err != nil {
 		t.Fatal(err)
 	}
-	in, _ := w.s.StartCheckout(ctx, billing.CheckoutStart{OrgID: org, Channel: billing.ChannelCard, Purpose: billing.PurposeCardSetup})
-	_, _ = w.flw.CompleteCheckout(in.Reference, true)
-	w.event(t)
-	token := "flw-t1-" + in.Reference
-	w.flw.Decline(token, "Insufficient funds")
 
-	inv := issuedProInvoice(t, w.s, w.clk, org) // the charge on issue is declined
+	inv := issuedProInvoice(t, w.s, w.clk, org) // the debit on issue is declined
 	a, _ := w.s.Account(ctx, org)
-	if a.CardFailingSince == nil || a.DunningState != billing.DunningRetrying {
-		t.Fatalf("after the declined charge: %+v", a)
+	if a.ChargeFailingSince == nil || a.DunningState != billing.DunningRetrying {
+		t.Fatalf("after the declined debit: %+v", a)
 	}
-	start := *a.CardFailingSince
+	start := *a.ChargeFailingSince
 	w.clk.t = start.Add(3*24*time.Hour + time.Hour)
 	if err := w.s.RunDunning(ctx); err != nil { // day 3: declined again
 		t.Fatal(err)
 	}
-	if got := invoiceNow(t, q, inv.ID); got.Status == billing.StatusPaid { // the ₦100 card-setup credit paid a little
+	if got := invoiceNow(t, q, inv.ID); got.Status == billing.StatusPaid {
 		t.Fatalf("day 3: %s", got.Status)
 	}
-	w.flw.Accept(token)
+	// The wallet is topped up; the webhook is lost, so only the retry finds the money.
+	w.fake.DropWebhooks(1)
+	if _, _, _, err := w.fake.Deposit(va.AccountNumber, 50_000_00); err != nil {
+		t.Fatal(err)
+	}
+	w.noEvent(t)
 	w.clk.t = start.Add(5*24*time.Hour + time.Hour)
 	if err := w.s.RunDunning(ctx); err != nil { // day 5: paid
 		t.Fatal(err)
 	}
-	w.event(t)
 	if got := invoiceNow(t, q, inv.ID); got.Status != billing.StatusPaid {
 		t.Fatalf("day 5: %s", got.Status)
 	}
-	if a, _ := w.s.Account(ctx, org); a.CardFailingSince != nil || a.DunningState != billing.DunningOK {
+	if a, _ := w.s.Account(ctx, org); a.ChargeFailingSince != nil || a.DunningState != billing.DunningOK {
 		t.Errorf("after the retry: %+v", a)
 	}
 	n := 0
 	for _, m := range w.sent.msgs {
-		if strings.Contains(m.Subject, "payment for acme failed") {
+		if strings.Contains(m.Subject, "acme's wallet couldn't pay") {
 			n++
 		}
 	}
 	if n != 2 {
 		t.Errorf("%d failure emails, want 2 (day 0 and day 3)", n)
+	}
+	// The retry on day 5 had the money; the books catch up with the deposit.
+	from, to := start.Add(-time.Hour), w.clk.Now().Add(time.Hour)
+	if n, err := w.s.Requery(ctx, from, to); err != nil || n != 1 {
+		t.Fatalf("re-query: %d %v", n, err)
 	}
 	mustCheck(t, w.db)
 }
@@ -311,19 +316,18 @@ func TestWHTCertificate(t *testing.T) {
 func TestReconciliation(t *testing.T) {
 	w := newPayWorld(t)
 	ctx := context.Background()
-	org := newOrg(t, w.db, "acme")
-	va, err := w.s.EnsureVirtualAccount(ctx, org)
+	org, _ := w.walletOrg(t, "acme", 0, false)
+	va, err := w.s.EnsureTransferAccount(ctx, org)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, amt := range []int64{100_000, 250_000} {
-		if _, err := w.isp.Transfer(va.AccountNumber, amt); err != nil {
+		if _, _, _, err := w.fake.Deposit(va.AccountNumber, amt); err != nil {
 			t.Fatal(err)
 		}
 		w.event(t)
 	}
-	saveCard(t, w, org)
-	from, to := time.Now().Add(-time.Hour), time.Now().Add(time.Hour)
+	from, to := w.window()
 	res, err := w.s.Reconcile(ctx, from, to)
 	if err != nil {
 		t.Fatal(err)
@@ -334,11 +338,11 @@ func TestReconciliation(t *testing.T) {
 		}
 	}
 	// A missed transfer and a payment the provider doesn't know both show.
-	w.isp.DropWebhooks(1)
-	if _, err := w.isp.Transfer(va.AccountNumber, 5_000); err != nil {
+	w.fake.DropWebhooks(1)
+	if _, _, _, err := w.fake.Deposit(va.AccountNumber, 5_000); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.s.RecordPayment(ctx, billing.PaymentIn{OrgID: org, Provider: billing.ProviderISpend, Channel: billing.ChannelTransfer, ProviderRef: "txn_ghost", AmountMinor: 1_000, ReceivedAt: time.Now()}); err != nil {
+	if _, err := w.s.RecordPayment(ctx, billing.PaymentIn{OrgID: org, Provider: billing.ProviderISwallet, Channel: billing.ChannelTransfer, ProviderRef: "wal_ghost:txn_ghost", AmountMinor: 1_000, ReceivedAt: w.clk.Now()}); err != nil {
 		t.Fatal(err)
 	}
 	res, _ = w.s.Reconcile(ctx, from, to)
@@ -348,7 +352,7 @@ func TestReconciliation(t *testing.T) {
 			kinds[d.Kind] = true
 		}
 	}
-	if !kinds["missing_in_pgdock"] || !kinds["missing_at_provider"] {
+	if !kinds["missing_in_xenibase"] || !kinds["missing_at_provider"] || !kinds["wallet_balance"] {
 		t.Errorf("differences: %+v", res)
 	}
 	if last, _ := w.s.LastReconciliation(ctx); len(last) != 2 {

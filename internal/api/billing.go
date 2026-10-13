@@ -11,10 +11,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func (s *Server) billingSvc(w http.ResponseWriter) *billing.Service {
@@ -63,30 +63,32 @@ func (s *Server) toAPIBillingAccount(r *http.Request, a store.BillingAccount) (g
 		return out, err
 	}
 	out.PlanName = b.Prices.Plans[a.Plan].Name
+	out.PriceCurrency = &b.Prices.Currency
 	for _, id := range []string{billing.PlanFree, billing.PlanPro, billing.PlanTeam} {
 		if p, ok := b.Prices.Plans[id]; ok {
-			out.Plans = append(out.Plans, gen.PlanOption{Id: id, Name: p.Name, MonthlyMinor: p.MonthlyMinor, AnnualMinor: p.AnnualMinor})
+			cur := b.Prices.Currency
+			out.Plans = append(out.Plans, gen.PlanOption{Id: id, Name: p.Name, MonthlyMinor: p.MonthlyMinor, AnnualMinor: p.AnnualMinor, Currency: &cur})
 		}
 	}
+	if b.Prices.Currency == billing.CurrencyUSD {
+		if q, err := s.billing.Quote(ctx, false); err == nil {
+			fx := toAPIQuote(q)
+			out.Fx = &fx
+		}
+	}
+	out.DebitConsent = toAPIConsent(billing.ConsentOf(a))
 	st, err := s.billing.Standing(ctx, a.OrgID)
 	if err != nil {
 		return out, err
 	}
 	out.CreditMinor, out.OwedMinor, out.OverdueSince = &st.CreditMinor, &st.OwedMinor, st.OverdueSince
-	out.CardFailingSince, out.ZeroBalanceAt, out.GraceUntil, out.DeletionScheduledAt = a.CardFailingSince, a.ZeroBalanceAt, a.GraceUntil, a.DeletionScheduledAt
-	if len(a.AutoTopup) > 0 {
-		var at gen.AutoTopup
-		if json.Unmarshal(a.AutoTopup, &at) == nil {
-			out.AutoTopup = &at
-		}
-	}
-	ch := s.billing.Channels(ctx)
+	out.WalletMinor = &st.WalletMinor
+	out.CardFailingSince, out.ZeroBalanceAt, out.GraceUntil, out.DeletionScheduledAt = a.ChargeFailingSince, a.ZeroBalanceAt, a.GraceUntil, a.DeletionScheduledAt
+	ch := s.billing.Channels()
 	out.Channels = &struct {
-		Card       bool `json:"card"`
-		Stablecoin bool `json:"stablecoin"`
-		Transfer   bool `json:"transfer"`
-		Wallet     bool `json:"wallet"`
-	}{Card: ch.Card, Stablecoin: ch.Stablecoin, Transfer: ch.Transfer, Wallet: ch.Wallet}
+		Transfer bool `json:"transfer"`
+		Wallet   bool `json:"wallet"`
+	}{Transfer: ch.Transfer, Wallet: ch.Wallet}
 	pc, err := store.New(s.db).PendingPlanChange(ctx, a.OrgID)
 	if err == nil {
 		out.PendingChange = &struct {
@@ -175,10 +177,19 @@ func toAPIPlanChange(c billing.PlanChange) (gen.PlanChange, error) {
 	if lines == nil {
 		lines = []gen.InvoiceLine{}
 	}
-	return gen.PlanChange{
+	out := gen.PlanChange{
 		FromPlan: c.FromPlan, FromTerm: c.FromTerm, ToPlan: c.ToPlan, ToTerm: c.ToTerm, EffectiveAt: c.EffectiveAt,
 		Upgrade: c.Upgrade, Applied: c.Applied, TermEndsAt: c.TermEndsAt, Lines: lines, TotalMinor: c.Total,
-	}, err
+	}
+	if c.Currency != "" {
+		out.Currency = &c.Currency
+	}
+	if c.FX != nil {
+		fx := toAPIQuote(*c.FX)
+		out.Fx = &fx
+		out.TotalUsdMinor = &c.TotalUSD
+	}
+	return out, err
 }
 
 // ChangeOrgPlan implements POST /api/v1/orgs/{org}/billing/plan.
@@ -292,7 +303,7 @@ func (s *Server) RemoveBillingContact(w http.ResponseWriter, r *http.Request, or
 
 func toAPIBillingSettings(set billing.Settings) gen.BillingSettings {
 	out := gen.BillingSettings{VatRate: set.VATRate.String(), WhtRate: set.WHTRate.String(), AutoIssue: set.AutoIssue,
-		Stablecoin: &set.Stablecoin, DeleteForNonPayment: &set.DeleteForNonPayment}
+		DeleteForNonPayment: &set.DeleteForNonPayment}
 	out.Seller.LegalName, out.Seller.Address, out.Seller.Tin = set.Seller.LegalName, set.Seller.Address, set.Seller.TIN
 	out.Seller.VatNumber, out.Seller.Email = set.Seller.VATNumber, set.Seller.Email
 	return out
@@ -329,7 +340,7 @@ func (s *Server) PutBillingSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	set := billing.Settings{VATRate: vat, WHTRate: wht, AutoIssue: req.AutoIssue,
-		Stablecoin: req.Stablecoin != nil && *req.Stablecoin, DeleteForNonPayment: req.DeleteForNonPayment != nil && *req.DeleteForNonPayment, Seller: billing.Seller{
+		DeleteForNonPayment: req.DeleteForNonPayment != nil && *req.DeleteForNonPayment, Seller: billing.Seller{
 			LegalName: req.Seller.LegalName, Address: req.Seller.Address, TIN: req.Seller.Tin, VATNumber: req.Seller.VatNumber, Email: req.Seller.Email,
 		}}
 	if err := bs.SetSettings(r.Context(), set); err != nil {
@@ -635,7 +646,11 @@ func (s *Server) EstimateOrgCost(w http.ResponseWriter, r *http.Request, org gen
 		lines = []gen.InvoiceLine{}
 	}
 	lines = withServices(lines)
-	writeJSON(w, http.StatusOK, map[string]any{"hourly_minor": e.HourlyMinor, "monthly_minor": e.MonthlyMinor, "lines": lines})
+	out := map[string]any{"hourly_minor": e.HourlyMinor, "monthly_minor": e.MonthlyMinor, "lines": lines}
+	if e.FX != nil {
+		out["monthly_usd_minor"], out["fx"] = e.MonthlyUSDMinor, toAPIQuote(*e.FX)
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // PaymentWebhook implements POST /api/v1/payments/webhooks/{provider}. The
@@ -699,6 +714,12 @@ func (s *Server) GetPricing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := gen.Pricing{Version: int(cur.Version), EffectiveAt: cur.EffectiveAt, Prices: prices, VatRate: set.VATRate.String()}
+	if cur.Prices.Currency == billing.CurrencyUSD {
+		if q, err := bs.Quote(ctx, false); err == nil {
+			fx := toAPIQuote(q)
+			out.Fx = &fx
+		}
+	}
 	next, err := bs.NextBook(ctx)
 	if err != nil {
 		s.billingError(w, "pricing", err)

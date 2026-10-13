@@ -11,13 +11,13 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/dedicated"
-	"github.com/israel-duff/pgdock/internal/faildomain"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/faildomain"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func (s *Server) dedicatedSvc(w http.ResponseWriter) *dedicated.Service {
@@ -203,7 +203,7 @@ func (s *Server) CreateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	var warnings []string
 	if n.Role == nodes.RolePooler {
-		// The region's pooler hosts should be apart (V3.1 §2.2); PGDock
+		// The region's pooler hosts should be apart (V3.1 §2.2); Xenibase
 		// can't move them, so it says so rather than refusing.
 		if all, err := store.New(s.db).ListNodes(r.Context()); err == nil {
 			for _, o := range all {
@@ -224,7 +224,7 @@ func registerCommand(r *http.Request, token, addr string) string {
 	if addr == "" {
 		addr = "<this node's private address>"
 	}
-	return fmt.Sprintf("pgdock-agent register --server https://%s --token %s --advertise %s:7070", r.Host, token, addr)
+	return fmt.Sprintf("xenibase-agent register --server https://%s --token %s --advertise %s:7070", r.Host, token, addr)
 }
 
 // GetNode implements GET /api/v1/nodes/{id}.

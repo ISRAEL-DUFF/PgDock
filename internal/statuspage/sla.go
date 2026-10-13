@@ -7,13 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/statusapi"
 )
 
-// The SLA's outside vantage point (V3 §2.7): pgdock-server hands over the
+// The SLA's outside vantage point (V3 §2.7): xenibase-server hands over the
 // HA projects' pooler endpoints (each with a login that can only connect
 // and run SELECT 1); the status service probes them every interval and
-// keeps a result per minute, which pgdock-server fetches. A minute counts
+// keeps a result per minute, which xenibase-server fetches. A minute counts
 // as available here when every probe in it succeeded.
 
 const slaSchema = `
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS sla_minutes (
 ) WITHOUT ROWID;
 `
 
-// slaRetention is how long results are kept for pgdock-server to fetch.
+// slaRetention is how long results are kept for xenibase-server to fetch.
 const slaRetention = 7 * 24 * time.Hour
 
 func (st *store) setSLATargets(ctx context.Context, ts []statusapi.SLATarget) error {

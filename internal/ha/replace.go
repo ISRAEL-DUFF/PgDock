@@ -12,12 +12,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/faildomain"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/faildomain"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 type replaceParams struct {
@@ -178,7 +178,7 @@ func (s *Service) runReplace(ctx context.Context, op store.Operation, log *jobs.
 	if err != nil {
 		return err
 	}
-	client, err := ca.Client("pgdock-server")
+	client, err := ca.Client("xenibase-server")
 	if err != nil {
 		return err
 	}
@@ -275,7 +275,7 @@ func (s *Service) runReplace(ctx context.Context, op store.Operation, log *jobs.
 			return err
 		}
 		if _, err := newAgent.RunEtcd(ctx, agentapi.EtcdSpec{
-			Name: newName, InitialCluster: strings.Join(initial, ","), State: "existing", Token: "pgdock-join",
+			Name: newName, InitialCluster: strings.Join(initial, ","), State: "existing", Token: "xenibase-join",
 			CAPEM: string(ca.CertPEM()), CertPEM: pair.CertPEM, KeyPEM: pair.KeyPEM, Wipe: true,
 		}); err != nil {
 			return fmt.Errorf("start etcd on %s: %w", newAgent.Node.Name, err)

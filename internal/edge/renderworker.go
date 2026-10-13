@@ -16,18 +16,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/files"
+	"github.com/israel-duff/xenibase/internal/files"
 )
 
 // Render workers (V4.1 §12.4): image transforms run in child processes,
-// `pgdock-edge render-worker`, each rendering one image at a time over its
+// `xenibase-edge render-worker`, each rendering one image at a time over its
 // stdin and stdout. A decoder that panics or runs out of memory ends that
 // worker; the request gets 500 transform_failed and the next one starts a
 // new worker, while the edge carries on.
 
 // RenderWorkerCrashEnv names a byte string that makes a worker crash when
 // an image contains it: a test seam for the crash path, unset in service.
-const RenderWorkerCrashEnv = "PGDOCK_RENDER_CRASH_MARKER"
+const RenderWorkerCrashEnv = "XENIBASE_RENDER_CRASH_MARKER"
 
 // Frame limits: a request is a source image (at most maxSourceBytes) and a
 // header; a reply is an encoded image or an error.
@@ -72,7 +72,7 @@ func readFrame(r io.Reader, limit int) ([]byte, error) {
 }
 
 // RunRenderWorker serves render requests on in, replying on out, until in
-// closes (`pgdock-edge render-worker`). It doesn't recover a panic: a
+// closes (`xenibase-edge render-worker`). It doesn't recover a panic: a
 // crashing decoder ends the process, which is the point.
 func RunRenderWorker(in io.Reader, out io.Writer) error {
 	limitMemory()

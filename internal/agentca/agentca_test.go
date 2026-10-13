@@ -10,8 +10,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/store/storetest"
 )
 
 func TestLoadOrCreatePersists(t *testing.T) {
@@ -37,7 +37,7 @@ func TestLoadOrCreatePersists(t *testing.T) {
 }
 
 // TestMutualTLS wires an agent-style server and a server-style client
-// exactly as pgdock does, and checks both directions of verification.
+// exactly as xenibase does, and checks both directions of verification.
 func TestMutualTLS(t *testing.T) {
 	ca, err := generate()
 	if err != nil {

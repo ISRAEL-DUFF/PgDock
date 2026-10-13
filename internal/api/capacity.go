@@ -11,11 +11,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/capacity"
-	"github.com/israel-duff/pgdock/internal/cloud"
-	"github.com/israel-duff/pgdock/internal/costs"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/capacity"
+	"github.com/israel-duff/xenibase/internal/cloud"
+	"github.com/israel-duff/xenibase/internal/costs"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func (s *Server) capacitySvc(w http.ResponseWriter) *capacity.Service {
@@ -413,7 +413,7 @@ func (s *Server) AdminCosts(w http.ResponseWriter, r *http.Request, params gen.A
 	}
 	if params.Format != nil && *params.Format == gen.AdminCostsParamsFormatCsv {
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-		w.Header().Set("Content-Disposition", `attachment; filename="pgdock-margins-`+m.Month+`.csv"`)
+		w.Header().Set("Content-Disposition", `attachment; filename="xenibase-margins-`+m.Month+`.csv"`)
 		_ = costs.WriteMarginsCSV(w, m)
 		return
 	}

@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/pooler"
 )
 
 // A pooler counts as down only after failing for the grace period.
 func TestPoolerGrace(t *testing.T) {
-	ghost, err := pooler.NewAdmin("ghost", "127.0.0.1:1", "pgdock", "x", "disable")
+	ghost, err := pooler.NewAdmin("ghost", "127.0.0.1:1", "xenibase", "x", "disable")
 	if err != nil {
 		t.Fatal(err)
 	}

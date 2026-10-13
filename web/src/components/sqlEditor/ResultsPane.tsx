@@ -42,7 +42,7 @@ function StatementGrid({ r }: { r: Statement }) {
   const rows = useMemo(() => r.rows.map((v, i) => ({ i, v: v.map((x) => x ?? null) })), [r.rows]);
   return (
     <div className="min-h-0 flex-1" data-testid="sql-grid">
-      <DataGrid className="pgdock-grid" columns={columns} rows={rows} rowKeyGetter={(x) => x.i} rowHeight={30} headerRowHeight={32} aria-label="Results" />
+      <DataGrid className="xenibase-grid" columns={columns} rows={rows} rowKeyGetter={(x) => x.i} rowHeight={30} headerRowHeight={32} aria-label="Results" />
     </div>
   );
 }

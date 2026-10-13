@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/signature"
-	"github.com/israel-duff/pgdock/internal/statusapi"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/signature"
+	"github.com/israel-duff/xenibase/internal/statusapi"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 func TestAdvanceIncidentRules(t *testing.T) {
@@ -355,7 +355,7 @@ func TestServiceEndToEnd(t *testing.T) {
 		t.Fatalf("after 3 failing checks: %s, active %+v", s, st.Active)
 	}
 	inc := st.Active[0]
-	// pgdock-server can't take over an automatic incident.
+	// xenibase-server can't take over an automatic incident.
 	inc.Updates = append(inc.Updates, statusapi.IncidentUpdate{ID: "x", Status: "identified", Body: "b", PostedAt: *now})
 	if code := push(t, svc, ts, "PUT", statusapi.PathIncidents+inc.ID, inc); code != http.StatusConflict {
 		t.Fatalf("overwrite an automatic incident: %d", code)
@@ -382,7 +382,7 @@ func TestServiceEndToEnd(t *testing.T) {
 		t.Fatalf("edge pooler uptime %v", up)
 	}
 
-	// A manual incident from pgdock-server, then an update to it.
+	// A manual incident from xenibase-server, then an update to it.
 	manual := statusapi.Incident{ID: "inc-1", Title: "Backups delayed", Components: []string{"backups"}, Severity: "minor", Status: "investigating",
 		StartedAt: *now, Updates: []statusapi.IncidentUpdate{{ID: "1", Status: "investigating", Body: "Backups are running late.", PostedAt: *now}}}
 	if code := push(t, svc, ts, "PUT", statusapi.PathIncidents+"inc-1", manual); code != http.StatusNoContent {
@@ -428,7 +428,7 @@ func TestServiceEndToEnd(t *testing.T) {
 
 	// Bad signatures are refused.
 	req, _ := http.NewRequest("POST", ts.URL+statusapi.PathHeartbeat, strings.NewReader(`{"components":[]}`))
-	req.Header.Set("PGDock-Signature", "t=1,v1=00")
+	req.Header.Set("Xenibase-Signature", "t=1,v1=00")
 	if code := doCode(t, req); code != http.StatusUnauthorized {
 		t.Fatalf("bad signature: %d", code)
 	}
@@ -501,7 +501,7 @@ func push(t *testing.T, svc *Service, ts *httptest.Server, method, path string, 
 	// Signed with the service's clock.
 	body, _ := json.Marshal(v)
 	req, _ := http.NewRequest(method, ts.URL+path, strings.NewReader(string(body)))
-	req.Header.Set("PGDock-Signature", signature.Sign(secret, svc.Now(), body))
+	req.Header.Set("Xenibase-Signature", signature.Sign(secret, svc.Now(), body))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)

@@ -18,11 +18,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/cloud"
-	"github.com/israel-duff/pgdock/internal/dedicated"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/cloud"
+	"github.com/israel-duff/xenibase/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Errors.
@@ -156,7 +156,7 @@ type Settings struct {
 	BudgetCurrency     string       `json:"budget_currency"`
 	Shared             TierSettings `json:"shared"`
 	Dedicated          TierSettings `json:"dedicated"`
-	// Edge nodes run pgdock-edge only (V4.1 §11).
+	// Edge nodes run xenibase-edge only (V4.1 §11).
 	Edge TierSettings `json:"edge"`
 	// AutoRebalance moves a rebalance batch in the maintenance window
 	// without waiting for approval.

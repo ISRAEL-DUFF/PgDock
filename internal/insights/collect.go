@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // params matches a bind parameter ($1).
@@ -31,7 +31,7 @@ type snapKey struct {
 }
 
 // The baseline row: an instance with one has been snapshotted before, so
-// entries new since then are new work, not history from before PGDock
+// entries new since then are new work, not history from before Xenibase
 // looked.
 var baselineKey = snapKey{dbid: 0, userid: 0, queryid: 0, toplevel: true}
 

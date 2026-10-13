@@ -69,7 +69,7 @@ export function TopBar({
       >
         <Menu className="h-4 w-4" strokeWidth={1.6} />
       </button>
-      <Link to="/projects" className="mr-1 flex h-8 w-8 items-center justify-center rounded-md hover:bg-surface-2" aria-label="PGDock home">
+      <Link to="/projects" className="mr-1 flex h-8 w-8 items-center justify-center rounded-md hover:bg-surface-2" aria-label="Xenibase home">
         <LogoMark />
       </Link>
       <Slash />

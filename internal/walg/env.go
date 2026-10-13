@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/agentapi"
 )
 
 // S3Prefix is WALG_S3_PREFIX for w: s3://<bucket>/<target prefix>/<prefix>.

@@ -22,10 +22,10 @@ describe("policies", () => {
       "ALTER TABLE public.todos ENABLE ROW LEVEL SECURITY;",
     );
     expect(sql).toContain(
-      "CREATE POLICY todos_select ON public.todos FOR SELECT TO db_k7_user USING (owner_id = pgd_auth.uid());",
+      "CREATE POLICY todos_select ON public.todos FOR SELECT TO db_k7_user USING (owner_id = xb_auth.uid());",
     );
     expect(sql).toContain(
-      "FOR INSERT TO db_k7_user WITH CHECK (owner_id = pgd_auth.uid());",
+      "FOR INSERT TO db_k7_user WITH CHECK (owner_id = xb_auth.uid());",
     );
     expect(sql).not.toContain("db_k7_anon");
   });
@@ -42,7 +42,7 @@ describe("policies", () => {
       membersUserColumn: "user_id",
     });
     expect(sql).toContain(
-      "USING (org_id IN (SELECT org_id FROM app.members WHERE user_id = pgd_auth.uid()))",
+      "USING (org_id IN (SELECT org_id FROM app.members WHERE user_id = xb_auth.uid()))",
     );
   });
 
@@ -56,7 +56,7 @@ describe("policies", () => {
     });
     expect(sql).toContain("FOR SELECT TO db_k7_anon, db_k7_user USING (true);");
     expect(sql).toContain(
-      "FOR DELETE TO db_k7_user USING (author_id = pgd_auth.uid());",
+      "FOR DELETE TO db_k7_user USING (author_id = xb_auth.uid());",
     );
   });
 

@@ -1,4 +1,4 @@
-import { PgdockError } from "./errors.js";
+import { XenibaseError } from "./errors.js";
 
 /** A database change as realtime delivers it. */
 export interface Change<Row = Record<string, unknown>> {
@@ -76,7 +76,7 @@ export class Channel {
   private presenceJoins: ((key: string, joined: any[]) => void)[] = [];
   private presenceLeaves: ((key: string, left: any[]) => void)[] = [];
   private resyncs: (() => void)[] = [];
-  private statusCb?: (s: ChannelStatus, err?: PgdockError) => void;
+  private statusCb?: (s: ChannelStatus, err?: XenibaseError) => void;
   private pending = new Map<string, (status: string, response: any) => void>();
   private tracked: Record<string, unknown> | null = null;
   /** The presence state on this channel. */
@@ -137,7 +137,7 @@ export class Channel {
   }
 
   /** Joins (and rejoins after reconnects). */
-  subscribe(cb?: (status: ChannelStatus, err?: PgdockError) => void): this {
+  subscribe(cb?: (status: ChannelStatus, err?: XenibaseError) => void): this {
     this.statusCb = cb;
     this.wanted = true;
     this.rt.add(this);
@@ -201,7 +201,7 @@ export class Channel {
       const timer = setTimeout(() => {
         this.pending.delete(ref);
         reject(
-          new PgdockError(
+          new XenibaseError(
             0,
             "timeout",
             `${event} on ${this.name} got no reply`,
@@ -213,7 +213,7 @@ export class Channel {
         if (status === "ok") resolve(response);
         else
           reject(
-            new PgdockError(
+            new XenibaseError(
               0,
               "realtime_error",
               typeof response?.reason === "string"
@@ -250,7 +250,7 @@ export class Channel {
         const timer = setTimeout(() => {
           this.pending.delete(ref);
           reject(
-            new PgdockError(
+            new XenibaseError(
               0,
               "timeout",
               "joining " + this.name + " timed out",
@@ -262,7 +262,7 @@ export class Channel {
           if (status === "ok") resolve(response);
           else
             reject(
-              new PgdockError(
+              new XenibaseError(
                 0,
                 "join_refused",
                 typeof response?.reason === "string"
@@ -296,9 +296,9 @@ export class Channel {
     } catch (e) {
       this.joined = false;
       const err =
-        e instanceof PgdockError
+        e instanceof XenibaseError
           ? e
-          : new PgdockError(0, "join_refused", String(e));
+          : new XenibaseError(0, "join_refused", String(e));
       this.statusCb?.(
         err.code === "timeout" ? "TIMED_OUT" : "CHANNEL_ERROR",
         err,
@@ -362,7 +362,7 @@ export class Channel {
         else if (m.payload?.status === "error")
           this.statusCb?.(
             "CHANNEL_ERROR",
-            new PgdockError(0, "realtime_error", String(m.payload?.message)),
+            new XenibaseError(0, "realtime_error", String(m.payload?.message)),
           );
         return;
       }
@@ -374,7 +374,7 @@ export class Channel {
         this.joined = false;
         this.statusCb?.(
           "CHANNEL_ERROR",
-          new PgdockError(0, "realtime_error", "the channel failed"),
+          new XenibaseError(0, "realtime_error", "the channel failed"),
         );
         return;
     }
@@ -477,7 +477,7 @@ export class RealtimeClient {
   private connect() {
     if (this.ws || this.closedByUs || this.reconnectTimer) return;
     if (!this.WS)
-      throw new PgdockError(
+      throw new XenibaseError(
         0,
         "realtime_unavailable",
         "no WebSocket implementation; pass realtime.WebSocket",

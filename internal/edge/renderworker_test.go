@@ -14,12 +14,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/files"
+	"github.com/israel-duff/xenibase/internal/files"
 )
 
 // TestMain lets the test binary be a render worker: the pool tests start
 // it again with renderWorkerTestEnv set.
-const renderWorkerTestEnv = "PGDOCK_TEST_RENDER_WORKER"
+const renderWorkerTestEnv = "XENIBASE_TEST_RENDER_WORKER"
 
 func TestMain(m *testing.M) {
 	if os.Getenv(renderWorkerTestEnv) == "1" {
@@ -52,7 +52,7 @@ func TestRenderPool(t *testing.T) {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	// 512 MB of heap and 16 times that of address space, as pgdock-edge sets.
+	// 512 MB of heap and 16 times that of address space, as xenibase-edge sets.
 	pool := newRenderPool([]string{self}, []string{renderWorkerTestEnv + "=1", "GOMEMLIMIT=512MiB",
 		RenderWorkerASEnv + "=" + "8589934592", RenderWorkerCrashEnv + "=CRASH-ME-NOW"}, 2, log)
 	defer pool.close()

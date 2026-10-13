@@ -1911,24 +1911,6 @@ func (e OrgRole) Valid() bool {
 	}
 }
 
-// Defines values for PaymentMethodKind.
-const (
-	PaymentMethodKindCard    PaymentMethodKind = "card"
-	PaymentMethodKindMandate PaymentMethodKind = "mandate"
-)
-
-// Valid indicates whether the value is a known member of the PaymentMethodKind enum.
-func (e PaymentMethodKind) Valid() bool {
-	switch e {
-	case PaymentMethodKindCard:
-		return true
-	case PaymentMethodKindMandate:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for PersonalCredentialsAccess.
 const (
 	PersonalCredentialsAccessReadOnly  PersonalCredentialsAccess = "read_only"
@@ -2064,12 +2046,15 @@ func (e PoolerEventKind) Valid() bool {
 // Defines values for PricesCurrency.
 const (
 	NGN PricesCurrency = "NGN"
+	USD PricesCurrency = "USD"
 )
 
 // Valid indicates whether the value is a known member of the PricesCurrency enum.
 func (e PricesCurrency) Valid() bool {
 	switch e {
 	case NGN:
+		return true
+	case USD:
 		return true
 	default:
 		return false
@@ -2300,7 +2285,7 @@ const (
 	Amount            ReconciliationDifferencesKind = "amount"
 	Fee               ReconciliationDifferencesKind = "fee"
 	MissingAtProvider ReconciliationDifferencesKind = "missing_at_provider"
-	MissingInPgdock   ReconciliationDifferencesKind = "missing_in_pgdock"
+	MissingInXenibase ReconciliationDifferencesKind = "missing_in_xenibase"
 )
 
 // Valid indicates whether the value is a known member of the ReconciliationDifferencesKind enum.
@@ -2312,7 +2297,7 @@ func (e ReconciliationDifferencesKind) Valid() bool {
 		return true
 	case MissingAtProvider:
 		return true
-	case MissingInPgdock:
+	case MissingInXenibase:
 		return true
 	default:
 		return false
@@ -3747,48 +3732,6 @@ func (e ListOrgAuditParamsOutcome) Valid() bool {
 	}
 }
 
-// Defines values for StartCheckoutJSONBodyChannel.
-const (
-	StartCheckoutJSONBodyChannelCard       StartCheckoutJSONBodyChannel = "card"
-	StartCheckoutJSONBodyChannelStablecoin StartCheckoutJSONBodyChannel = "stablecoin"
-	StartCheckoutJSONBodyChannelWallet     StartCheckoutJSONBodyChannel = "wallet"
-)
-
-// Valid indicates whether the value is a known member of the StartCheckoutJSONBodyChannel enum.
-func (e StartCheckoutJSONBodyChannel) Valid() bool {
-	switch e {
-	case StartCheckoutJSONBodyChannelCard:
-		return true
-	case StartCheckoutJSONBodyChannelStablecoin:
-		return true
-	case StartCheckoutJSONBodyChannelWallet:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for StartCheckoutJSONBodyPurpose.
-const (
-	StartCheckoutJSONBodyPurposeCardSetup StartCheckoutJSONBodyPurpose = "card_setup"
-	StartCheckoutJSONBodyPurposeInvoice   StartCheckoutJSONBodyPurpose = "invoice"
-	StartCheckoutJSONBodyPurposeTopup     StartCheckoutJSONBodyPurpose = "topup"
-)
-
-// Valid indicates whether the value is a known member of the StartCheckoutJSONBodyPurpose enum.
-func (e StartCheckoutJSONBodyPurpose) Valid() bool {
-	switch e {
-	case StartCheckoutJSONBodyPurposeCardSetup:
-		return true
-	case StartCheckoutJSONBodyPurposeInvoice:
-		return true
-	case StartCheckoutJSONBodyPurposeTopup:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for EstimateOrgCostJSONBodyPitrDays.
 const (
 	EstimateOrgCostJSONBodyPitrDaysN14 EstimateOrgCostJSONBodyPitrDays = 14
@@ -3830,16 +3773,13 @@ func (e GetOrgUsageParamsFormat) Valid() bool {
 
 // Defines values for PaymentWebhookParamsProvider.
 const (
-	Flutterwave PaymentWebhookParamsProvider = "flutterwave"
-	Ispend      PaymentWebhookParamsProvider = "ispend"
+	Iswallet PaymentWebhookParamsProvider = "iswallet"
 )
 
 // Valid indicates whether the value is a known member of the PaymentWebhookParamsProvider enum.
 func (e PaymentWebhookParamsProvider) Valid() bool {
 	switch e {
-	case Flutterwave:
-		return true
-	case Ispend:
+	case Iswallet:
 		return true
 	default:
 		return false
@@ -4475,7 +4415,7 @@ type AuthConfig struct {
 	// HookRole The role Postgres hooks run as; grant it what they read.
 	HookRole *string `json:"hook_role,omitempty"`
 
-	// HookSecret Signs webhook hooks (PGDock-Signature); set once a hook URL is.
+	// HookSecret Signs webhook hooks (Xenibase-Signature); set once a hook URL is.
 	HookSecret         *string `json:"hook_secret,omitempty"`
 	MonthlyActiveUsers int64   `json:"monthly_active_users"`
 
@@ -4679,7 +4619,7 @@ type AuthSettings struct {
 	PhoneDailyCap *int      `json:"phone_daily_cap,omitempty"`
 	RedirectUrls  *[]string `json:"redirect_urls,omitempty"`
 
-	// SendMessageUrl A webhook that sends the project's emails and codes instead of PGDock.
+	// SendMessageUrl A webhook that sends the project's emails and codes instead of Xenibase.
 	SendMessageUrl           *string `json:"send_message_url,omitempty"`
 	SessionInactivitySeconds *int    `json:"session_inactivity_seconds,omitempty"`
 	SessionMaxSeconds        *int    `json:"session_max_seconds,omitempty"`
@@ -4771,12 +4711,6 @@ type AuthUserUpdate struct {
 	UserMetadata *map[string]interface{} `json:"user_metadata,omitempty"`
 }
 
-// AutoTopup defines model for AutoTopup.
-type AutoTopup struct {
-	AmountMinor int64 `json:"amount_minor"`
-	BelowMinor  int64 `json:"below_minor"`
-}
-
 // Availability defines model for Availability.
 type Availability struct {
 	// ExcludedMinutes Minutes excluded for maintenance announced at least 72 hours ahead (V3.1 §4.2).
@@ -4815,7 +4749,7 @@ type BackendServices struct {
 	// ExposedSchemas The schemas the data API serves (default public).
 	ExposedSchemas []string `json:"exposed_schemas"`
 
-	// FeedConfigured pgdock-server has an edge secret, so a pgdock-edge can serve the project.
+	// FeedConfigured xenibase-server has an edge secret, so a xenibase-edge can serve the project.
 	FeedConfigured bool     `json:"feed_configured"`
 	Keys           []ApiKey `json:"keys"`
 
@@ -4986,25 +4920,24 @@ type BatchDecision struct {
 // BillingAccount defines model for BillingAccount.
 type BillingAccount struct {
 	Address          *string    `json:"address,omitempty"`
-	AutoTopup        *AutoTopup `json:"auto_topup,omitempty"`
 	BudgetMinor      *int64     `json:"budget_minor,omitempty"`
 	Capped           *bool      `json:"capped,omitempty"`
 	CardFailingSince *time.Time `json:"card_failing_since,omitempty"`
 
 	// Channels The payment channels offered.
 	Channels *struct {
-		Card       bool `json:"card"`
-		Stablecoin bool `json:"stablecoin"`
-		Transfer   bool `json:"transfer"`
-		Wallet     bool `json:"wallet"`
+		Transfer bool `json:"transfer"`
+		Wallet   bool `json:"wallet"`
 	} `json:"channels,omitempty"`
 
 	// CreditMinor On the credit balance (prepaid funds, overpayments).
 	CreditMinor         *int64             `json:"credit_minor,omitempty"`
+	DebitConsent        *DebitConsent      `json:"debit_consent,omitempty"`
 	DeductsWht          bool               `json:"deducts_wht"`
 	DeletionScheduledAt *time.Time         `json:"deletion_scheduled_at,omitempty"`
 	DunningState        string             `json:"dunning_state"`
 	ForecastMinor       *int64             `json:"forecast_minor,omitempty"`
+	Fx                  *FXQuote           `json:"fx,omitempty"`
 	GraceUntil          *time.Time         `json:"grace_until,omitempty"`
 	Grandfathered       bool               `json:"grandfathered"`
 	LegalName           *string            `json:"legal_name,omitempty"`
@@ -5024,14 +4957,20 @@ type BillingAccount struct {
 	PlanName string `json:"plan_name"`
 
 	// Plans The plans on the organisation's price book.
-	Plans            []PlanOption       `json:"plans"`
-	PriceBookVersion int                `json:"price_book_version"`
-	SpendCapMinor    *int64             `json:"spend_cap_minor,omitempty"`
-	Term             BillingAccountTerm `json:"term"`
-	TermEndsAt       *time.Time         `json:"term_ends_at,omitempty"`
-	Tin              *string            `json:"tin,omitempty"`
-	VatRegistered    bool               `json:"vat_registered"`
-	ZeroBalanceAt    *time.Time         `json:"zero_balance_at,omitempty"`
+	Plans            []PlanOption `json:"plans"`
+	PriceBookVersion int          `json:"price_book_version"`
+
+	// PriceCurrency The currency the price book is in (USD, or NGN).
+	PriceCurrency *string            `json:"price_currency,omitempty"`
+	SpendCapMinor *int64             `json:"spend_cap_minor,omitempty"`
+	Term          BillingAccountTerm `json:"term"`
+	TermEndsAt    *time.Time         `json:"term_ends_at,omitempty"`
+	Tin           *string            `json:"tin,omitempty"`
+	VatRegistered bool               `json:"vat_registered"`
+
+	// WalletMinor In the organisation's wallet, by Xenibase's books (kobo).
+	WalletMinor   *int64     `json:"wallet_minor,omitempty"`
+	ZeroBalanceAt *time.Time `json:"zero_balance_at,omitempty"`
 }
 
 // BillingAccountMode defines model for BillingAccount.Mode.
@@ -5101,9 +5040,6 @@ type BillingSettings struct {
 		Tin       string `json:"tin"`
 		VatNumber string `json:"vat_number"`
 	} `json:"seller"`
-
-	// Stablecoin Allow USDT top-ups through iSpend (off until the regulatory position is confirmed).
-	Stablecoin *bool `json:"stablecoin,omitempty"`
 
 	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 	//
@@ -5391,7 +5327,7 @@ type ConnectionInfo struct {
 type CostSettings struct {
 	Currency string `json:"currency"`
 
-	// EdgeSharePercent The share of shared nodes' cost moved to the edge category, where pgdock-edge runs on them (0 to 100, default 0).
+	// EdgeSharePercent The share of shared nodes' cost moved to the edge category, where xenibase-edge runs on them (0 to 100, default 0).
 	EdgeSharePercent          *float32   `json:"edge_share_percent,omitempty"`
 	EgressGbMinor             float32    `json:"egress_gb_minor"`
 	FloatingIpMonthlyMinor    int64      `json:"floating_ip_monthly_minor"`
@@ -5416,7 +5352,7 @@ type CreateIncidentRequest struct {
 	Region     *string          `json:"region,omitempty"`
 	Severity   IncidentSeverity `json:"severity"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 	Title  string         `json:"title"`
 }
@@ -5437,11 +5373,11 @@ type CreateNodeRequest struct {
 	// Region The region the node is in (default the home region). A pooler host serves that region's projects.
 	Region *string `json:"region,omitempty"`
 
-	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
+	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs xenibase-edge only, its cost split by backend services' use (V4.1 §11).
 	Role CreateNodeRequestRole `json:"role"`
 }
 
-// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
+// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs xenibase-edge only, its cost split by backend services' use (V4.1 §11).
 type CreateNodeRequestRole string
 
 // CreateOrgRequest defines model for CreateOrgRequest.
@@ -5501,7 +5437,7 @@ type CreatedApiKey struct {
 
 // CreatedToken defines model for CreatedToken.
 type CreatedToken struct {
-	// Secret The token itself (`pgd_…`), shown only once.
+	// Secret The token itself (`xb_…`), shown only once.
 	Secret string   `json:"secret"`
 	Token  APIToken `json:"token"`
 }
@@ -5522,7 +5458,7 @@ type DBSession struct {
 	InTransactionMs int64 `json:"in_transaction_ms"`
 	Pid             int   `json:"pid"`
 
-	// Platform One of PGDock's own sessions.
+	// Platform One of Xenibase's own sessions.
 	Platform  bool   `json:"platform"`
 	Query     string `json:"query"`
 	Role      string `json:"role"`
@@ -5587,6 +5523,21 @@ type DbTable struct {
 
 // DbTableKind defines model for DbTable.Kind.
 type DbTableKind string
+
+// DebitConsent defines model for DebitConsent.
+type DebitConsent struct {
+	At time.Time           `json:"at"`
+	By *openapi_types.UUID `json:"by,omitempty"`
+
+	// Current Whether it is to the current wording of the terms.
+	Current bool   `json:"current"`
+	Version string `json:"version"`
+}
+
+// DebitConsentRequest defines model for DebitConsentRequest.
+type DebitConsentRequest struct {
+	TermsVersion string `json:"terms_version"`
+}
 
 // DecideRequest defines model for DecideRequest.
 type DecideRequest struct {
@@ -5757,7 +5708,7 @@ type DeviceRequest struct {
 
 // DeviceStartRequest defines model for DeviceStartRequest.
 type DeviceStartRequest struct {
-	// ClientName Shown on the approval page, e.g. "pgdock CLI on laptop".
+	// ClientName Shown on the approval page, e.g. "xenibase CLI on laptop".
 	ClientName *string `json:"client_name,omitempty"`
 
 	// Scopes The most the CLI wants; the user may narrow them. Default read and write.
@@ -5937,6 +5888,31 @@ type ExtensionTier string
 // ExtensionList defines model for ExtensionList.
 type ExtensionList struct {
 	Items []Extension `json:"items"`
+}
+
+// FXQuote The price of a dollar in naira an invoice was converted at.
+type FXQuote struct {
+	Derived *bool `json:"derived,omitempty"`
+
+	// EffectiveRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	EffectiveRate Decimal `json:"effective_rate"`
+
+	// FetchedAt When the provider last priced the pair.
+	FetchedAt time.Time `json:"fetched_at"`
+	From      string    `json:"from"`
+
+	// MarketRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	MarketRate Decimal `json:"market_rate"`
+
+	// QuotedAt When Xenibase asked.
+	QuotedAt  time.Time `json:"quoted_at"`
+	Sources   *[]string `json:"sources,omitempty"`
+	SpreadBps int       `json:"spread_bps"`
+	To        string    `json:"to"`
 }
 
 // FXRate defines model for FXRate.
@@ -6142,7 +6118,7 @@ type Incident struct {
 	Severity   IncidentSeverity `json:"severity"`
 	StartedAt  time.Time        `json:"started_at"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status    IncidentStatus   `json:"status"`
 	Title     string           `json:"title"`
 	UpdatedAt time.Time        `json:"updated_at"`
@@ -6161,7 +6137,7 @@ type IncidentList struct {
 // IncidentSeverity defines model for IncidentSeverity.
 type IncidentSeverity string
 
-// IncidentStatus draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+// IncidentStatus draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 type IncidentStatus string
 
 // IncidentUpdate defines model for IncidentUpdate.
@@ -6173,7 +6149,7 @@ type IncidentUpdate struct {
 	// PostedBy The poster's email.
 	PostedBy *string `json:"posted_by,omitempty"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 }
 
@@ -6181,7 +6157,7 @@ type IncidentUpdate struct {
 type IncidentUpdateRequest struct {
 	Body string `json:"body"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 }
 
@@ -6457,8 +6433,11 @@ type InviteRequest struct {
 
 // Invoice defines model for Invoice.
 type Invoice struct {
-	CreatedAt  time.Time          `json:"created_at"`
-	DueAt      *time.Time         `json:"due_at,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	DueAt     *time.Time `json:"due_at,omitempty"`
+
+	// Fx The rate they were converted at.
+	Fx         *FXQuote           `json:"fx,omitempty"`
 	Held       bool               `json:"held"`
 	HoldReason *string            `json:"hold_reason,omitempty"`
 	Id         openapi_types.UUID `json:"id"`
@@ -6476,7 +6455,12 @@ type Invoice struct {
 	Status           InvoiceStatus      `json:"status"`
 	SubtotalMinor    int64              `json:"subtotal_minor"`
 	TotalMinor       int64              `json:"total_minor"`
-	VatMinor         int64              `json:"vat_minor"`
+
+	// UsdSubtotalMinor The dollar price (cents) the naira amounts were converted from.
+	UsdSubtotalMinor *int64 `json:"usd_subtotal_minor,omitempty"`
+	UsdTotalMinor    *int64 `json:"usd_total_minor,omitempty"`
+	UsdVatMinor      *int64 `json:"usd_vat_minor,omitempty"`
+	VatMinor         int64  `json:"vat_minor"`
 
 	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 	//
@@ -6502,7 +6486,10 @@ type InvoiceDetail struct {
 // InvoiceLine defines model for InvoiceLine.
 type InvoiceLine struct {
 	// Amount Kobo.
-	Amount      int64               `json:"amount"`
+	Amount int64 `json:"amount"`
+
+	// AmountUsd The price in dollars (cents) of a line converted to naira.
+	AmountUsd   *int64              `json:"amount_usd,omitempty"`
 	Description string              `json:"description"`
 	Kind        InvoiceLineKind     `json:"kind"`
 	Metric      *string             `json:"metric,omitempty"`
@@ -6520,6 +6507,11 @@ type InvoiceLine struct {
 	//
 	// Example: 34.25
 	UnitPrice Decimal `json:"unit_price"`
+
+	// UnitPriceUsd An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	UnitPriceUsd *Decimal `json:"unit_price_usd,omitempty"`
 }
 
 // InvoiceLineKind defines model for InvoiceLine.Kind.
@@ -6814,7 +6806,7 @@ type MaintenanceAnnouncement struct {
 	AnnouncedAt *time.Time `json:"announced_at,omitempty"`
 	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
 
-	// Draft Proposed by PGDock and not announced yet; confirm or discard it.
+	// Draft Proposed by Xenibase and not announced yet; confirm or discard it.
 	Draft   *bool `json:"draft,omitempty"`
 	Emailed *int  `json:"emailed,omitempty"`
 
@@ -6822,7 +6814,7 @@ type MaintenanceAnnouncement struct {
 	ExcludedFrom *time.Time `json:"excluded_from,omitempty"`
 	Incident     Incident   `json:"incident"`
 
-	// ProposedFor What PGDock proposed it for (minor_upgrade).
+	// ProposedFor What Xenibase proposed it for (minor_upgrade).
 	ProposedFor    *string              `json:"proposed_for,omitempty"`
 	ScheduledEnd   *time.Time           `json:"scheduled_end,omitempty"`
 	ScheduledStart *time.Time           `json:"scheduled_start,omitempty"`
@@ -7019,7 +7011,7 @@ type Node struct {
 	// FailureDomain What fails with this node (a rack, a host, a power feed), as the admin recorded it. Null when not recorded.
 	FailureDomain *string `json:"failure_domain,omitempty"`
 
-	// FailureDomainLabel The node's failure domain as PGDock judges it (the recorded one, its placement group, or the node alone).
+	// FailureDomainLabel The node's failure domain as Xenibase judges it (the recorded one, its placement group, or the node alone).
 	FailureDomainLabel *string            `json:"failure_domain_label,omitempty"`
 	Id                 openapi_types.UUID `json:"id"`
 
@@ -7204,7 +7196,7 @@ type OrgIncident struct {
 	Severity     IncidentSeverity `json:"severity"`
 	StartedAt    time.Time        `json:"started_at"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 	Title  string         `json:"title"`
 
@@ -7371,22 +7363,6 @@ type PaymentList struct {
 	Items []Payment `json:"items"`
 }
 
-// PaymentMethod defines model for PaymentMethod.
-type PaymentMethod struct {
-	Brand      *string            `json:"brand,omitempty"`
-	ExpMonth   *int               `json:"exp_month,omitempty"`
-	ExpYear    *int               `json:"exp_year,omitempty"`
-	Id         openapi_types.UUID `json:"id"`
-	IsDefault  bool               `json:"is_default"`
-	Kind       PaymentMethodKind  `json:"kind"`
-	Last4      *string            `json:"last4,omitempty"`
-	LimitMinor *int64             `json:"limit_minor,omitempty"`
-	Provider   string             `json:"provider"`
-}
-
-// PaymentMethodKind defines model for PaymentMethod.Kind.
-type PaymentMethodKind string
-
 // PersonalCredentials defines model for PersonalCredentials.
 type PersonalCredentials struct {
 	Access     PersonalCredentialsAccess `json:"access"`
@@ -7415,7 +7391,7 @@ type PersonalCredentialsInfoAccess string
 type PgVersionInfo struct {
 	DeprecatedAt *time.Time `json:"deprecated_at,omitempty"`
 
-	// Installed The server has an image for it (PGDOCK_PG_VERSIONS).
+	// Installed The server has an image for it (XENIBASE_PG_VERSIONS).
 	Installed bool   `json:"installed"`
 	Major     int    `json:"major"`
 	Notes     string `json:"notes"`
@@ -7469,17 +7445,20 @@ type Plan struct {
 type PlanChange struct {
 	// Applied In effect now; otherwise scheduled for effective_at.
 	Applied     bool      `json:"applied"`
+	Currency    *string   `json:"currency,omitempty"`
 	EffectiveAt time.Time `json:"effective_at"`
 	FromPlan    string    `json:"from_plan"`
 	FromTerm    string    `json:"from_term"`
+	Fx          *FXQuote  `json:"fx,omitempty"`
 
 	// Lines Lines on the next invoice (before VAT).
-	Lines      []InvoiceLine `json:"lines"`
-	TermEndsAt *time.Time    `json:"term_ends_at,omitempty"`
-	ToPlan     string        `json:"to_plan"`
-	ToTerm     string        `json:"to_term"`
-	TotalMinor int64         `json:"total_minor"`
-	Upgrade    bool          `json:"upgrade"`
+	Lines         []InvoiceLine `json:"lines"`
+	TermEndsAt    *time.Time    `json:"term_ends_at,omitempty"`
+	ToPlan        string        `json:"to_plan"`
+	ToTerm        string        `json:"to_term"`
+	TotalMinor    int64         `json:"total_minor"`
+	TotalUsdMinor *int64        `json:"total_usd_minor,omitempty"`
+	Upgrade       bool          `json:"upgrade"`
 }
 
 // PlanChangeRequest defines model for PlanChangeRequest.
@@ -7517,10 +7496,13 @@ type PlanMargin struct {
 
 // PlanOption defines model for PlanOption.
 type PlanOption struct {
-	AnnualMinor  int64  `json:"annual_minor"`
-	Id           string `json:"id"`
-	MonthlyMinor int64  `json:"monthly_minor"`
-	Name         string `json:"name"`
+	AnnualMinor int64 `json:"annual_minor"`
+
+	// Currency The currency of the fees (USD, or NGN on a naira price book), in minor units.
+	Currency     *string `json:"currency,omitempty"`
+	Id           string  `json:"id"`
+	MonthlyMinor int64   `json:"monthly_minor"`
+	Name         string  `json:"name"`
 }
 
 // PlanRequest defines model for PlanRequest.
@@ -7670,6 +7652,8 @@ type Prices struct {
 		// Example: 34.25
 		SyncReplicationHour Decimal `json:"sync_replication_hour"`
 	} `json:"addons"`
+
+	// Currency USD (cents, converted to naira when an invoice is issued) or NGN (kobo).
 	Currency  PricesCurrency `json:"currency"`
 	Dedicated struct {
 		// DiskGbHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
@@ -7690,13 +7674,16 @@ type Prices struct {
 	Plans map[string]PricePlan `json:"plans"`
 }
 
-// PricesCurrency defines model for Prices.Currency.
+// PricesCurrency USD (cents, converted to naira when an invoice is issued) or NGN (kobo).
 type PricesCurrency string
 
 // Pricing defines model for Pricing.
 type Pricing struct {
 	EffectiveAt time.Time `json:"effective_at"`
-	Next        *struct {
+
+	// Fx The rate dollar prices are shown in naira at, when there is one.
+	Fx   *FXQuote `json:"fx,omitempty"`
+	Next *struct {
 		EffectiveAt time.Time `json:"effective_at"`
 		Prices      Prices    `json:"prices"`
 		Version     int       `json:"version"`
@@ -7826,7 +7813,7 @@ type ProjectBackupStorage struct {
 	Target            ProjectStorageChoice `json:"target"`
 }
 
-// ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
+// ProjectCredentials Shown once. Xenibase keeps only the SCRAM verifier.
 type ProjectCredentials struct {
 	// Api A branch's own backend services API (V4.1 §9.5), when its parent has them: a new ref and keys, shown once. The parent's keys and tokens don't work on it.
 	Api        *BranchApi     `json:"api,omitempty"`
@@ -8146,9 +8133,9 @@ type Reconciliation struct {
 	Differences []struct {
 		Kind          ReconciliationDifferencesKind `json:"kind"`
 		Note          *string                       `json:"note,omitempty"`
-		PgdockMinor   int64                         `json:"pgdock_minor"`
 		ProviderMinor int64                         `json:"provider_minor"`
 		ProviderRef   string                        `json:"provider_ref"`
+		XenibaseMinor int64                         `json:"xenibase_minor"`
 	} `json:"differences"`
 	Error      *string   `json:"error,omitempty"`
 	FeesMinor  int64     `json:"fees_minor"`
@@ -8350,7 +8337,7 @@ type RestoreRequestMode string
 
 // RestoreResponse defines model for RestoreResponse.
 type RestoreResponse struct {
-	// Credentials Shown once. PGDock keeps only the SCRAM verifier.
+	// Credentials Shown once. Xenibase keeps only the SCRAM verifier.
 	Credentials *ProjectCredentials `json:"credentials,omitempty"`
 	Operation   Operation           `json:"operation"`
 }
@@ -9723,6 +9710,51 @@ type VirtualAccount struct {
 	Provider      string `json:"provider"`
 }
 
+// Wallet defines model for Wallet.
+type Wallet struct {
+	Account *VirtualAccount `json:"account,omitempty"`
+
+	// Available Whether this platform bills through wallets.
+	Available    bool    `json:"available"`
+	BalanceError *string `json:"balance_error,omitempty"`
+
+	// BalanceMinor Available now, read from the provider (kobo).
+	BalanceMinor *int64        `json:"balance_minor,omitempty"`
+	Consent      *DebitConsent `json:"consent,omitempty"`
+
+	// LedgerMinor What Xenibase's books say the wallet holds.
+	LedgerMinor int64 `json:"ledger_minor"`
+
+	// OwedMinor Outstanding on issued invoices.
+	OwedMinor    int64    `json:"owed_minor"`
+	PendingMinor *int64   `json:"pending_minor,omitempty"`
+	Rate         *FXQuote `json:"rate,omitempty"`
+	Terms        string   `json:"terms"`
+	TermsVersion string   `json:"terms_version"`
+	WalletId     *string  `json:"wallet_id,omitempty"`
+}
+
+// WalletCharge defines model for WalletCharge.
+type WalletCharge struct {
+	Message     *string `json:"message,omitempty"`
+	PaidMinor   int64   `json:"paid_minor"`
+	Skipped     bool    `json:"skipped"`
+	Succeeded   bool    `json:"succeeded"`
+	Unavailable bool    `json:"unavailable"`
+}
+
+// WalletSetup defines model for WalletSetup.
+type WalletSetup struct {
+	BusinessName string `json:"business_name"`
+
+	// Bvn A director's, 11 digits. Forwarded to the wallet provider and not kept.
+	Bvn       string  `json:"bvn"`
+	CacNumber *string `json:"cac_number,omitempty"`
+	Email     string  `json:"email"`
+	Phone     *string `json:"phone,omitempty"`
+	Tin       *string `json:"tin,omitempty"`
+}
+
 // Webhook defines model for Webhook.
 type Webhook struct {
 	// Backlog Events waiting in the outbox.
@@ -9895,9 +9927,6 @@ type InvoiceID = openapi_types.UUID
 
 // JobID defines model for JobID.
 type JobID = openapi_types.UUID
-
-// MethodID defines model for MethodID.
-type MethodID = openapi_types.UUID
 
 // MetricNames defines model for MetricNames.
 type MetricNames = []string
@@ -10236,24 +10265,6 @@ type ListOrgAuditParams struct {
 
 // ListOrgAuditParamsOutcome defines parameters for ListOrgAudit.
 type ListOrgAuditParamsOutcome string
-
-// StartCheckoutJSONBody defines parameters for StartCheckout.
-type StartCheckoutJSONBody struct {
-	// AmountMinor For a top-up.
-	AmountMinor *int64                       `json:"amount_minor,omitempty"`
-	Channel     StartCheckoutJSONBodyChannel `json:"channel"`
-	InvoiceId   *openapi_types.UUID          `json:"invoice_id,omitempty"`
-
-	// MandateLimitMinor With a wallet payment, also set up a recurring mandate with this monthly limit.
-	MandateLimitMinor *int64                       `json:"mandate_limit_minor,omitempty"`
-	Purpose           StartCheckoutJSONBodyPurpose `json:"purpose"`
-}
-
-// StartCheckoutJSONBodyChannel defines parameters for StartCheckout.
-type StartCheckoutJSONBodyChannel string
-
-// StartCheckoutJSONBodyPurpose defines parameters for StartCheckout.
-type StartCheckoutJSONBodyPurpose string
 
 // UpdateBillingContactJSONBody defines parameters for UpdateBillingContact.
 type UpdateBillingContactJSONBody struct {
@@ -10833,23 +10844,23 @@ type UpdateOrgJSONRequestBody = UpdateOrgRequest
 // UpdateOrgBillingJSONRequestBody defines body for UpdateOrgBilling for application/json ContentType.
 type UpdateOrgBillingJSONRequestBody = BillingDetailsUpdate
 
-// SetAutoTopupJSONRequestBody defines body for SetAutoTopup for application/json ContentType.
-type SetAutoTopupJSONRequestBody = AutoTopup
-
-// StartCheckoutJSONRequestBody defines body for StartCheckout for application/json ContentType.
-type StartCheckoutJSONRequestBody StartCheckoutJSONBody
-
 // AddBillingContactJSONRequestBody defines body for AddBillingContact for application/json ContentType.
 type AddBillingContactJSONRequestBody = BillingContact
 
 // UpdateBillingContactJSONRequestBody defines body for UpdateBillingContact for application/json ContentType.
 type UpdateBillingContactJSONRequestBody UpdateBillingContactJSONBody
 
+// AcceptDebitTermsJSONRequestBody defines body for AcceptDebitTerms for application/json ContentType.
+type AcceptDebitTermsJSONRequestBody = DebitConsentRequest
+
 // EstimateOrgCostJSONRequestBody defines body for EstimateOrgCost for application/json ContentType.
 type EstimateOrgCostJSONRequestBody EstimateOrgCostJSONBody
 
 // ChangeOrgPlanJSONRequestBody defines body for ChangeOrgPlan for application/json ContentType.
 type ChangeOrgPlanJSONRequestBody = PlanChangeRequest
+
+// CreateOrgWalletJSONRequestBody defines body for CreateOrgWallet for application/json ContentType.
+type CreateOrgWalletJSONRequestBody = WalletSetup
 
 // InviteOrgMemberJSONRequestBody defines body for InviteOrgMember for application/json ContentType.
 type InviteOrgMemberJSONRequestBody = InviteRequest
@@ -11554,7 +11565,7 @@ type ClientInterface interface {
 	// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
 	CancelMaintenance(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+	// ConfirmMaintenanceDraft Announce a maintenance draft Xenibase proposed
 	//
 	// Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
 	//
@@ -12211,10 +12222,10 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/admin/wht (the `AdminOutstandingWht` operationId).
 	AdminOutstandingWht(ctx context.Context, params *AdminOutstandingWhtParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RegisterAgentWithBody Agent registration (called by pgdock-agent, not the UI)
+	// RegisterAgentWithBody Agent registration (called by xenibase-agent, not the UI)
 	//
 	// Exchanges a one-time registration token and a CSR for a client
-	// certificate signed by the PGDock agent CA. Needs no session; the
+	// certificate signed by the Xenibase agent CA. Needs no session; the
 	// token authenticates. Rate limited per address.
 	//
 	// Takes any type of body and a specified content type.
@@ -12222,10 +12233,10 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/agent/register (the `RegisterAgent` operationId).
 	RegisterAgentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RegisterAgent Agent registration (called by pgdock-agent, not the UI)
+	// RegisterAgent Agent registration (called by xenibase-agent, not the UI)
 	//
 	// Exchanges a one-time registration token and a CSR for a client
-	// certificate signed by the PGDock agent CA. Needs no session; the
+	// certificate signed by the Xenibase agent CA. Needs no session; the
 	// token authenticates. Rate limited per address.
 	//
 	// Takes a body of the `application/json` content type.
@@ -12478,7 +12489,7 @@ type ClientInterface interface {
 
 	// CreateDevOperationWithBody Enqueue a dummy operation (development only)
 	//
-	// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+	// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 	// otherwise returns 404. Enqueues a `noop` operation for exercising
 	// the queue end to end.
 	//
@@ -12489,7 +12500,7 @@ type ClientInterface interface {
 
 	// CreateDevOperation Enqueue a dummy operation (development only)
 	//
-	// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+	// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 	// otherwise returns 404. Enqueues a `noop` operation for exercising
 	// the queue end to end.
 	//
@@ -12498,75 +12509,75 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/dev/operations (the `CreateDevOperation` operationId).
 	CreateDevOperation(ctx context.Context, body CreateDevOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeAuthHookWithBody pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+	// EdgeAuthHookWithBody xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
 	EdgeAuthHookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeAuthHook pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+	// EdgeAuthHook xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
 	EdgeAuthHook(ctx context.Context, body EdgeAuthHookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeAuthMessageWithBody pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+	// EdgeAuthMessageWithBody xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
 	EdgeAuthMessageWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeAuthMessage pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+	// EdgeAuthMessage xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
 	EdgeAuthMessage(ctx context.Context, body EdgeAuthMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
+	// EdgeConfig xenibase-edge's configuration feed (signed with the edge secret; internal)
 	//
 	// Corresponds with GET /api/v1/edge/config (the `EdgeConfig` operationId).
 	EdgeConfig(ctx context.Context, params *EdgeConfigParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeReportWithBody pgdock-edge's usage and request logs (signed; internal)
+	// EdgeReportWithBody xenibase-edge's usage and request logs (signed; internal)
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
 	EdgeReportWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeReport pgdock-edge's usage and request logs (signed; internal)
+	// EdgeReport xenibase-edge's usage and request logs (signed; internal)
 	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
 	EdgeReport(ctx context.Context, body EdgeReportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeStorageEventWithBody pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+	// EdgeStorageEventWithBody xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
 	EdgeStorageEventWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeStorageEvent pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+	// EdgeStorageEvent xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
 	EdgeStorageEvent(ctx context.Context, body EdgeStorageEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeWakeWithBody pgdock-edge asks for a paused project to resume (signed; internal)
+	// EdgeWakeWithBody xenibase-edge asks for a paused project to resume (signed; internal)
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/edge/wake (the `EdgeWake` operationId).
 	EdgeWakeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeWake pgdock-edge asks for a paused project to resume (signed; internal)
+	// EdgeWake xenibase-edge asks for a paused project to resume (signed; internal)
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -12975,39 +12986,6 @@ type ClientInterface interface {
 	// Corresponds with PATCH /api/v1/orgs/{org}/billing (the `UpdateOrgBilling` operationId).
 	UpdateOrgBilling(ctx context.Context, org OrgID, body UpdateOrgBillingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ClearAutoTopup Stop automatic top-ups
-	//
-	// Corresponds with DELETE /api/v1/orgs/{org}/billing/auto-topup (the `ClearAutoTopup` operationId).
-	ClearAutoTopup(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SetAutoTopupWithBody Top up a prepaid balance from the default method when it falls below a threshold
-	//
-	// Takes any type of body and a specified content type.
-	//
-	// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-	SetAutoTopupWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SetAutoTopup Top up a prepaid balance from the default method when it falls below a threshold
-	//
-	// Takes a body of the `application/json` content type.
-	//
-	// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-	SetAutoTopup(ctx context.Context, org OrgID, body SetAutoTopupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// StartCheckoutWithBody Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-	//
-	// Takes any type of body and a specified content type.
-	//
-	// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-	StartCheckoutWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// StartCheckout Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-	//
-	// Takes a body of the `application/json` content type.
-	//
-	// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-	StartCheckout(ctx context.Context, org OrgID, body StartCheckoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListBillingContacts Billing contacts, who receive invoices and payment email
 	//
 	// Corresponds with GET /api/v1/orgs/{org}/billing/contacts (the `ListBillingContacts` operationId).
@@ -13050,6 +13028,25 @@ type ClientInterface interface {
 	// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
 	UpdateBillingContact(ctx context.Context, org OrgID, email string, body UpdateBillingContactJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// WithdrawDebitTerms Stop automatic debits (invoices are then paid by hand)
+	//
+	// Corresponds with DELETE /api/v1/orgs/{org}/billing/debit-consent (the `WithdrawDebitTerms` operationId).
+	WithdrawDebitTerms(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AcceptDebitTermsWithBody Agree to Xenibase debiting the wallet for invoices
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+	AcceptDebitTermsWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AcceptDebitTerms Agree to Xenibase debiting the wallet for invoices
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+	AcceptDebitTerms(ctx context.Context, org OrgID, body AcceptDebitTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// EstimateOrgCostWithBody What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	//
 	// Takes any type of body and a specified content type.
@@ -13079,6 +13076,11 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id} (the `GetOrgInvoice` operationId).
 	GetOrgInvoice(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PayInvoiceFromWallet Pay one invoice from the wallet now
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet (the `PayInvoiceFromWallet` operationId).
+	PayInvoiceFromWallet(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetOrgInvoicePdf An invoice as PDF
 	//
 	// Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf (the `GetOrgInvoicePdf` operationId).
@@ -13090,21 +13092,6 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate (the `UploadWhtCertificate` operationId).
 	UploadWhtCertificateWithBody(ctx context.Context, org OrgID, invoiceId InvoiceID, params *UploadWhtCertificateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListPaymentMethods Saved cards and wallet mandates
-	//
-	// Corresponds with GET /api/v1/orgs/{org}/billing/payment-methods (the `ListPaymentMethods` operationId).
-	ListPaymentMethods(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// RemovePaymentMethod Remove a saved card or revoke a mandate
-	//
-	// Corresponds with DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id} (the `RemovePaymentMethod` operationId).
-	RemovePaymentMethod(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SetDefaultPaymentMethod Charge this method for invoices and top-ups
-	//
-	// Corresponds with POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default (the `SetDefaultPaymentMethod` operationId).
-	SetDefaultPaymentMethod(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListOrgPayments Payments received, with receipts
 	//
@@ -13134,6 +13121,29 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/billing/virtual-account (the `OrgVirtualAccount` operationId).
 	OrgVirtualAccount(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOrgWallet The organisation's wallet, its balance, bank account and debit consent
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/wallet (the `GetOrgWallet` operationId).
+	GetOrgWallet(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateOrgWalletWithBody Open the organisation's wallet and its bank account
+	//
+	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+	CreateOrgWalletWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateOrgWallet Open the organisation's wallet and its bank account
+	//
+	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+	CreateOrgWallet(ctx context.Context, org OrgID, body CreateOrgWalletJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// EndBreakGlass End a break-glass session early (owner)
 	//
@@ -13412,7 +13422,7 @@ type ClientInterface interface {
 	// CreateProjectWithBody Create a shared-tier project
 	//
 	// Records the project and queues a `create` operation. The response
-	// carries the password and full connection URLs exactly once; PGDock
+	// carries the password and full connection URLs exactly once; Xenibase
 	// stores only the SCRAM verifier. The URLs work once the operation
 	// succeeds (stream it to follow progress).
 	//
@@ -13424,7 +13434,7 @@ type ClientInterface interface {
 	// CreateProject Create a shared-tier project
 	//
 	// Records the project and queues a `create` operation. The response
-	// carries the password and full connection URLs exactly once; PGDock
+	// carries the password and full connection URLs exactly once; Xenibase
 	// stores only the SCRAM verifier. The URLs work once the operation
 	// succeeds (stream it to follow progress).
 	//
@@ -14109,7 +14119,7 @@ type ClientInterface interface {
 	//
 	// For a project with backend services on, after its database was
 	// imported from Supabase. `policies` rewrites the imported policies
-	// and column defaults to the project's request roles and pgd_auth
+	// and column defaults to the project's request roles and xb_auth
 	// helpers; `users` copies auth.users and auth.identities from the
 	// Supabase database, keeping ids and bcrypt password hashes (upgraded
 	// to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -14127,7 +14137,7 @@ type ClientInterface interface {
 	//
 	// For a project with backend services on, after its database was
 	// imported from Supabase. `policies` rewrites the imported policies
-	// and column defaults to the project's request roles and pgd_auth
+	// and column defaults to the project's request roles and xb_auth
 	// helpers; `users` copies auth.users and auth.identities from the
 	// Supabase database, keeping ids and bcrypt password hashes (upgraded
 	// to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -14491,7 +14501,7 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/schema/preview (the `PreviewSchemaChange` operationId).
 	PreviewSchemaChange(ctx context.Context, id ProjectID, body PreviewSchemaChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DisableBackendServices Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+	// DisableBackendServices Turn backend services off (keys revoked; the xb_* schemas and their data stay)
 	//
 	// Corresponds with DELETE /api/v1/projects/{id}/services (the `DisableBackendServices` operationId).
 	DisableBackendServices(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -14565,7 +14575,7 @@ type ClientInterface interface {
 
 	// ListAPIRequestLogs The API's request logs (7 days), newest first; with after, newer ones oldest first
 	//
-	// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
+	// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`xenibase logs api --follow`). next is the cursor for the next call.
 	//
 	// Corresponds with GET /api/v1/projects/{id}/services/logs (the `ListAPIRequestLogs` operationId).
 	ListAPIRequestLogs(ctx context.Context, id ProjectID, params *ListAPIRequestLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -14984,7 +14994,7 @@ type ClientInterface interface {
 	//
 	// Whether first-run setup is needed, who is signed in, and the CSRF
 	// token to send as `X-CSRF-Token` on every mutating request (also set
-	// as the `pgdock_csrf` cookie).
+	// as the `xenibase_csrf` cookie).
 	//
 	// Corresponds with GET /api/v1/session (the `GetSession` operationId).
 	GetSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -15125,7 +15135,7 @@ type ClientInterface interface {
 	// BeginSetupWithBody First-run setup, step 1 - owner account and TOTP enrolment
 	//
 	// Only before any operator exists. `setup_code` is printed in the
-	// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+	// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 	// created until `/setup/complete` proves a code.
 	//
 	// Takes any type of body and a specified content type.
@@ -15136,7 +15146,7 @@ type ClientInterface interface {
 	// BeginSetup First-run setup, step 1 - owner account and TOTP enrolment
 	//
 	// Only before any operator exists. `setup_code` is printed in the
-	// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+	// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 	// created until `/setup/complete` proves a code.
 	//
 	// Takes a body of the `application/json` content type.
@@ -15182,8 +15192,8 @@ type ClientInterface interface {
 
 	// SupportInboundEmailWithBody An email to the support address, from the email provider's inbound webhook
 	//
-	// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-	// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+	// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+	// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 	// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 	//
 	// Takes any type of body and a specified content type.
@@ -15193,8 +15203,8 @@ type ClientInterface interface {
 
 	// SupportInboundEmail An email to the support address, from the email provider's inbound webhook
 	//
-	// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-	// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+	// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+	// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 	// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 	//
 	// Takes a body of the `application/json` content type.
@@ -15275,7 +15285,7 @@ type ClientInterface interface {
 	// GetPrometheusMetrics Prometheus exposition of the latest metrics
 	//
 	// Needs a signed-in operator, or `Authorization: Bearer <token>` with
-	// PGDOCK_METRICS_TOKEN.
+	// XENIBASE_METRICS_TOKEN.
 	//
 	// Corresponds with GET /metrics (the `GetPrometheusMetrics` operationId).
 	GetPrometheusMetrics(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -16311,7 +16321,7 @@ func (c *Client) CancelMaintenance(ctx context.Context, incidentId openapi_types
 	return c.Client.Do(req)
 }
 
-// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+// ConfirmMaintenanceDraft Announce a maintenance draft Xenibase proposed
 //
 // Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
 //
@@ -17918,10 +17928,10 @@ func (c *Client) AdminOutstandingWht(ctx context.Context, params *AdminOutstandi
 	return c.Client.Do(req)
 }
 
-// RegisterAgentWithBody Agent registration (called by pgdock-agent, not the UI)
+// RegisterAgentWithBody Agent registration (called by xenibase-agent, not the UI)
 //
 // Exchanges a one-time registration token and a CSR for a client
-// certificate signed by the PGDock agent CA. Needs no session; the
+// certificate signed by the Xenibase agent CA. Needs no session; the
 // token authenticates. Rate limited per address.
 //
 // Takes any type of body and a specified content type.
@@ -17939,10 +17949,10 @@ func (c *Client) RegisterAgentWithBody(ctx context.Context, contentType string, 
 	return c.Client.Do(req)
 }
 
-// RegisterAgent Agent registration (called by pgdock-agent, not the UI)
+// RegisterAgent Agent registration (called by xenibase-agent, not the UI)
 //
 // Exchanges a one-time registration token and a CSR for a client
-// certificate signed by the PGDock agent CA. Needs no session; the
+// certificate signed by the Xenibase agent CA. Needs no session; the
 // token authenticates. Rate limited per address.
 //
 // Takes a body of the `application/json` content type.
@@ -18505,7 +18515,7 @@ func (c *Client) RestoreBackup(ctx context.Context, id BackupID, body RestoreBac
 
 // CreateDevOperationWithBody Enqueue a dummy operation (development only)
 //
-// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 // otherwise returns 404. Enqueues a `noop` operation for exercising
 // the queue end to end.
 //
@@ -18526,7 +18536,7 @@ func (c *Client) CreateDevOperationWithBody(ctx context.Context, contentType str
 
 // CreateDevOperation Enqueue a dummy operation (development only)
 //
-// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 // otherwise returns 404. Enqueues a `noop` operation for exercising
 // the queue end to end.
 //
@@ -18545,7 +18555,7 @@ func (c *Client) CreateDevOperation(ctx context.Context, body CreateDevOperation
 	return c.Client.Do(req)
 }
 
-// EdgeAuthHookWithBody pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+// EdgeAuthHookWithBody xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 //
 // Takes any type of body and a specified content type.
 //
@@ -18562,7 +18572,7 @@ func (c *Client) EdgeAuthHookWithBody(ctx context.Context, contentType string, b
 	return c.Client.Do(req)
 }
 
-// EdgeAuthHook pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+// EdgeAuthHook xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 //
 // Takes a body of the `application/json` content type.
 //
@@ -18579,7 +18589,7 @@ func (c *Client) EdgeAuthHook(ctx context.Context, body EdgeAuthHookJSONRequestB
 	return c.Client.Do(req)
 }
 
-// EdgeAuthMessageWithBody pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+// EdgeAuthMessageWithBody xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 //
 // Takes any type of body and a specified content type.
 //
@@ -18596,7 +18606,7 @@ func (c *Client) EdgeAuthMessageWithBody(ctx context.Context, contentType string
 	return c.Client.Do(req)
 }
 
-// EdgeAuthMessage pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+// EdgeAuthMessage xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 //
 // Takes a body of the `application/json` content type.
 //
@@ -18613,7 +18623,7 @@ func (c *Client) EdgeAuthMessage(ctx context.Context, body EdgeAuthMessageJSONRe
 	return c.Client.Do(req)
 }
 
-// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
+// EdgeConfig xenibase-edge's configuration feed (signed with the edge secret; internal)
 //
 // Corresponds with GET /api/v1/edge/config (the `EdgeConfig` operationId).
 func (c *Client) EdgeConfig(ctx context.Context, params *EdgeConfigParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -18628,7 +18638,7 @@ func (c *Client) EdgeConfig(ctx context.Context, params *EdgeConfigParams, reqEd
 	return c.Client.Do(req)
 }
 
-// EdgeReportWithBody pgdock-edge's usage and request logs (signed; internal)
+// EdgeReportWithBody xenibase-edge's usage and request logs (signed; internal)
 //
 // Takes any type of body and a specified content type.
 //
@@ -18645,7 +18655,7 @@ func (c *Client) EdgeReportWithBody(ctx context.Context, contentType string, bod
 	return c.Client.Do(req)
 }
 
-// EdgeReport pgdock-edge's usage and request logs (signed; internal)
+// EdgeReport xenibase-edge's usage and request logs (signed; internal)
 //
 // Takes a body of the `application/json` content type.
 //
@@ -18662,7 +18672,7 @@ func (c *Client) EdgeReport(ctx context.Context, body EdgeReportJSONRequestBody,
 	return c.Client.Do(req)
 }
 
-// EdgeStorageEventWithBody pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+// EdgeStorageEventWithBody xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 //
 // Takes any type of body and a specified content type.
 //
@@ -18679,7 +18689,7 @@ func (c *Client) EdgeStorageEventWithBody(ctx context.Context, contentType strin
 	return c.Client.Do(req)
 }
 
-// EdgeStorageEvent pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+// EdgeStorageEvent xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 //
 // Takes a body of the `application/json` content type.
 //
@@ -18696,7 +18706,7 @@ func (c *Client) EdgeStorageEvent(ctx context.Context, body EdgeStorageEventJSON
 	return c.Client.Do(req)
 }
 
-// EdgeWakeWithBody pgdock-edge asks for a paused project to resume (signed; internal)
+// EdgeWakeWithBody xenibase-edge asks for a paused project to resume (signed; internal)
 //
 // Takes any type of body and a specified content type.
 //
@@ -18713,7 +18723,7 @@ func (c *Client) EdgeWakeWithBody(ctx context.Context, contentType string, body 
 	return c.Client.Do(req)
 }
 
-// EdgeWake pgdock-edge asks for a paused project to resume (signed; internal)
+// EdgeWake xenibase-edge asks for a paused project to resume (signed; internal)
 //
 // Takes a body of the `application/json` content type.
 //
@@ -19732,89 +19742,6 @@ func (c *Client) UpdateOrgBilling(ctx context.Context, org OrgID, body UpdateOrg
 	return c.Client.Do(req)
 }
 
-// ClearAutoTopup Stop automatic top-ups
-//
-// Corresponds with DELETE /api/v1/orgs/{org}/billing/auto-topup (the `ClearAutoTopup` operationId).
-func (c *Client) ClearAutoTopup(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewClearAutoTopupRequest(c.Server, org)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// SetAutoTopupWithBody Top up a prepaid balance from the default method when it falls below a threshold
-//
-// Takes any type of body and a specified content type.
-//
-// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-func (c *Client) SetAutoTopupWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetAutoTopupRequestWithBody(c.Server, org, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// SetAutoTopup Top up a prepaid balance from the default method when it falls below a threshold
-//
-// Takes a body of the `application/json` content type.
-//
-// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-func (c *Client) SetAutoTopup(ctx context.Context, org OrgID, body SetAutoTopupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetAutoTopupRequest(c.Server, org, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// StartCheckoutWithBody Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-//
-// Takes any type of body and a specified content type.
-//
-// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-func (c *Client) StartCheckoutWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStartCheckoutRequestWithBody(c.Server, org, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// StartCheckout Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-//
-// Takes a body of the `application/json` content type.
-//
-// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-func (c *Client) StartCheckout(ctx context.Context, org OrgID, body StartCheckoutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStartCheckoutRequest(c.Server, org, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 // ListBillingContacts Billing contacts, who receive invoices and payment email
 //
 // Corresponds with GET /api/v1/orgs/{org}/billing/contacts (the `ListBillingContacts` operationId).
@@ -19917,6 +19844,55 @@ func (c *Client) UpdateBillingContact(ctx context.Context, org OrgID, email stri
 	return c.Client.Do(req)
 }
 
+// WithdrawDebitTerms Stop automatic debits (invoices are then paid by hand)
+//
+// Corresponds with DELETE /api/v1/orgs/{org}/billing/debit-consent (the `WithdrawDebitTerms` operationId).
+func (c *Client) WithdrawDebitTerms(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewWithdrawDebitTermsRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AcceptDebitTermsWithBody Agree to Xenibase debiting the wallet for invoices
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+func (c *Client) AcceptDebitTermsWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcceptDebitTermsRequestWithBody(c.Server, org, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AcceptDebitTerms Agree to Xenibase debiting the wallet for invoices
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+func (c *Client) AcceptDebitTerms(ctx context.Context, org OrgID, body AcceptDebitTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAcceptDebitTermsRequest(c.Server, org, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // EstimateOrgCostWithBody What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 //
 // Takes any type of body and a specified content type.
@@ -19996,6 +19972,21 @@ func (c *Client) GetOrgInvoice(ctx context.Context, org OrgID, invoiceId Invoice
 	return c.Client.Do(req)
 }
 
+// PayInvoiceFromWallet Pay one invoice from the wallet now
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet (the `PayInvoiceFromWallet` operationId).
+func (c *Client) PayInvoiceFromWallet(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPayInvoiceFromWalletRequest(c.Server, org, invoiceId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetOrgInvoicePdf An invoice as PDF
 //
 // Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf (the `GetOrgInvoicePdf` operationId).
@@ -20018,51 +20009,6 @@ func (c *Client) GetOrgInvoicePdf(ctx context.Context, org OrgID, invoiceId Invo
 // Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate (the `UploadWhtCertificate` operationId).
 func (c *Client) UploadWhtCertificateWithBody(ctx context.Context, org OrgID, invoiceId InvoiceID, params *UploadWhtCertificateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUploadWhtCertificateRequestWithBody(c.Server, org, invoiceId, params, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// ListPaymentMethods Saved cards and wallet mandates
-//
-// Corresponds with GET /api/v1/orgs/{org}/billing/payment-methods (the `ListPaymentMethods` operationId).
-func (c *Client) ListPaymentMethods(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListPaymentMethodsRequest(c.Server, org)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// RemovePaymentMethod Remove a saved card or revoke a mandate
-//
-// Corresponds with DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id} (the `RemovePaymentMethod` operationId).
-func (c *Client) RemovePaymentMethod(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRemovePaymentMethodRequest(c.Server, org, methodId)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-// SetDefaultPaymentMethod Charge this method for invoices and top-ups
-//
-// Corresponds with POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default (the `SetDefaultPaymentMethod` operationId).
-func (c *Client) SetDefaultPaymentMethod(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetDefaultPaymentMethodRequest(c.Server, org, methodId)
 	if err != nil {
 		return nil, err
 	}
@@ -20142,6 +20088,59 @@ func (c *Client) ChangeOrgPlan(ctx context.Context, org OrgID, body ChangeOrgPla
 // Corresponds with POST /api/v1/orgs/{org}/billing/virtual-account (the `OrgVirtualAccount` operationId).
 func (c *Client) OrgVirtualAccount(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewOrgVirtualAccountRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetOrgWallet The organisation's wallet, its balance, bank account and debit consent
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/wallet (the `GetOrgWallet` operationId).
+func (c *Client) GetOrgWallet(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrgWalletRequest(c.Server, org)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateOrgWalletWithBody Open the organisation's wallet and its bank account
+//
+// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+func (c *Client) CreateOrgWalletWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrgWalletRequestWithBody(c.Server, org, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateOrgWallet Open the organisation's wallet and its bank account
+//
+// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+func (c *Client) CreateOrgWallet(ctx context.Context, org OrgID, body CreateOrgWalletJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateOrgWalletRequest(c.Server, org, body)
 	if err != nil {
 		return nil, err
 	}
@@ -20869,7 +20868,7 @@ func (c *Client) ListProjects(ctx context.Context, params *ListProjectsParams, r
 // CreateProjectWithBody Create a shared-tier project
 //
 // Records the project and queues a `create` operation. The response
-// carries the password and full connection URLs exactly once; PGDock
+// carries the password and full connection URLs exactly once; Xenibase
 // stores only the SCRAM verifier. The URLs work once the operation
 // succeeds (stream it to follow progress).
 //
@@ -20891,7 +20890,7 @@ func (c *Client) CreateProjectWithBody(ctx context.Context, contentType string, 
 // CreateProject Create a shared-tier project
 //
 // Records the project and queues a `create` operation. The response
-// carries the password and full connection URLs exactly once; PGDock
+// carries the password and full connection URLs exactly once; Xenibase
 // stores only the SCRAM verifier. The URLs work once the operation
 // succeeds (stream it to follow progress).
 //
@@ -22466,7 +22465,7 @@ func (c *Client) GetProjectMetrics(ctx context.Context, id ProjectID, params *Ge
 //
 // For a project with backend services on, after its database was
 // imported from Supabase. `policies` rewrites the imported policies
-// and column defaults to the project's request roles and pgd_auth
+// and column defaults to the project's request roles and xb_auth
 // helpers; `users` copies auth.users and auth.identities from the
 // Supabase database, keeping ids and bcrypt password hashes (upgraded
 // to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -22494,7 +22493,7 @@ func (c *Client) MigrateSupabaseWithBody(ctx context.Context, id ProjectID, cont
 //
 // For a project with backend services on, after its database was
 // imported from Supabase. `policies` rewrites the imported policies
-// and column defaults to the project's request roles and pgd_auth
+// and column defaults to the project's request roles and xb_auth
 // helpers; `users` copies auth.users and auth.identities from the
 // Supabase database, keeping ids and bcrypt password hashes (upgraded
 // to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -23288,7 +23287,7 @@ func (c *Client) PreviewSchemaChange(ctx context.Context, id ProjectID, body Pre
 	return c.Client.Do(req)
 }
 
-// DisableBackendServices Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+// DisableBackendServices Turn backend services off (keys revoked; the xb_* schemas and their data stay)
 //
 // Corresponds with DELETE /api/v1/projects/{id}/services (the `DisableBackendServices` operationId).
 func (c *Client) DisableBackendServices(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -23482,7 +23481,7 @@ func (c *Client) RevokeAPIKey(ctx context.Context, id ProjectID, keyId openapi_t
 
 // ListAPIRequestLogs The API's request logs (7 days), newest first; with after, newer ones oldest first
 //
-// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
+// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`xenibase logs api --follow`). next is the cursor for the next call.
 //
 // Corresponds with GET /api/v1/projects/{id}/services/logs (the `ListAPIRequestLogs` operationId).
 func (c *Client) ListAPIRequestLogs(ctx context.Context, id ProjectID, params *ListAPIRequestLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -24371,7 +24370,7 @@ func (c *Client) RunIsolationChecks(ctx context.Context, reqEditors ...RequestEd
 //
 // Whether first-run setup is needed, who is signed in, and the CSRF
 // token to send as `X-CSRF-Token` on every mutating request (also set
-// as the `pgdock_csrf` cookie).
+// as the `xenibase_csrf` cookie).
 //
 // Corresponds with GET /api/v1/session (the `GetSession` operationId).
 func (c *Client) GetSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -24712,7 +24711,7 @@ func (c *Client) TestStorageSettings(ctx context.Context, body TestStorageSettin
 // BeginSetupWithBody First-run setup, step 1 - owner account and TOTP enrolment
 //
 // Only before any operator exists. `setup_code` is printed in the
-// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 // created until `/setup/complete` proves a code.
 //
 // Takes any type of body and a specified content type.
@@ -24733,7 +24732,7 @@ func (c *Client) BeginSetupWithBody(ctx context.Context, contentType string, bod
 // BeginSetup First-run setup, step 1 - owner account and TOTP enrolment
 //
 // Only before any operator exists. `setup_code` is printed in the
-// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 // created until `/setup/complete` proves a code.
 //
 // Takes a body of the `application/json` content type.
@@ -24829,8 +24828,8 @@ func (c *Client) TestStorageTarget(ctx context.Context, params *TestStorageTarge
 
 // SupportInboundEmailWithBody An email to the support address, from the email provider's inbound webhook
 //
-// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 // inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 //
 // Takes any type of body and a specified content type.
@@ -24850,8 +24849,8 @@ func (c *Client) SupportInboundEmailWithBody(ctx context.Context, contentType st
 
 // SupportInboundEmail An email to the support address, from the email provider's inbound webhook
 //
-// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 // inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 //
 // Takes a body of the `application/json` content type.
@@ -25042,7 +25041,7 @@ func (c *Client) GetHealthz(ctx context.Context, reqEditors ...RequestEditorFn) 
 // GetPrometheusMetrics Prometheus exposition of the latest metrics
 //
 // Needs a signed-in operator, or `Authorization: Bearer <token>` with
-// PGDOCK_METRICS_TOKEN.
+// XENIBASE_METRICS_TOKEN.
 //
 // Corresponds with GET /metrics (the `GetPrometheusMetrics` operationId).
 func (c *Client) GetPrometheusMetrics(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -32509,134 +32508,6 @@ func NewUpdateOrgBillingRequestWithBody(server string, org OrgID, contentType st
 	return req, nil
 }
 
-// NewClearAutoTopupRequest constructs an http.Request for the ClearAutoTopup method
-func NewClearAutoTopupRequest(server string, org OrgID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/auto-topup", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewSetAutoTopupRequest calls the generic SetAutoTopup builder with application/json body
-func NewSetAutoTopupRequest(server string, org OrgID, body SetAutoTopupJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSetAutoTopupRequestWithBody(server, org, "application/json", bodyReader)
-}
-
-// NewSetAutoTopupRequestWithBody constructs an http.Request for the SetAutoTopup method, with any body, and a specified content type
-func NewSetAutoTopupRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/auto-topup", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewStartCheckoutRequest calls the generic StartCheckout builder with application/json body
-func NewStartCheckoutRequest(server string, org OrgID, body StartCheckoutJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewStartCheckoutRequestWithBody(server, org, "application/json", bodyReader)
-}
-
-// NewStartCheckoutRequestWithBody constructs an http.Request for the StartCheckout method, with any body, and a specified content type
-func NewStartCheckoutRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/checkout", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewListBillingContactsRequest constructs an http.Request for the ListBillingContacts method
 func NewListBillingContactsRequest(server string, org OrgID) (*http.Request, error) {
 	var err error
@@ -32813,6 +32684,87 @@ func NewUpdateBillingContactRequestWithBody(server string, org OrgID, email stri
 	return req, nil
 }
 
+// NewWithdrawDebitTermsRequest constructs an http.Request for the WithdrawDebitTerms method
+func NewWithdrawDebitTermsRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/debit-consent", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAcceptDebitTermsRequest calls the generic AcceptDebitTerms builder with application/json body
+func NewAcceptDebitTermsRequest(server string, org OrgID, body AcceptDebitTermsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAcceptDebitTermsRequestWithBody(server, org, "application/json", bodyReader)
+}
+
+// NewAcceptDebitTermsRequestWithBody constructs an http.Request for the AcceptDebitTerms method, with any body, and a specified content type
+func NewAcceptDebitTermsRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/debit-consent", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewEstimateOrgCostRequest calls the generic EstimateOrgCost builder with application/json body
 func NewEstimateOrgCostRequest(server string, org OrgID, body EstimateOrgCostJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -32969,6 +32921,47 @@ func NewGetOrgInvoiceRequest(server string, org OrgID, invoiceId InvoiceID) (*ht
 	return req, nil
 }
 
+// NewPayInvoiceFromWalletRequest constructs an http.Request for the PayInvoiceFromWallet method
+func NewPayInvoiceFromWalletRequest(server string, org OrgID, invoiceId InvoiceID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "invoice_id", invoiceId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/invoices/%s/pay-from-wallet", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetOrgInvoicePdfRequest constructs an http.Request for the GetOrgInvoicePdf method
 func NewGetOrgInvoicePdfRequest(server string, org OrgID, invoiceId InvoiceID) (*http.Request, error) {
 	var err error
@@ -33072,122 +33065,6 @@ func NewUploadWhtCertificateRequestWithBody(server string, org OrgID, invoiceId 
 	}
 
 	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewListPaymentMethodsRequest constructs an http.Request for the ListPaymentMethods method
-func NewListPaymentMethodsRequest(server string, org OrgID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/payment-methods", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewRemovePaymentMethodRequest constructs an http.Request for the RemovePaymentMethod method
-func NewRemovePaymentMethodRequest(server string, org OrgID, methodId MethodID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "method_id", methodId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/payment-methods/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewSetDefaultPaymentMethodRequest constructs an http.Request for the SetDefaultPaymentMethod method
-func NewSetDefaultPaymentMethodRequest(server string, org OrgID, methodId MethodID) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "method_id", methodId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/payment-methods/%s/default", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
 
 	return req, nil
 }
@@ -33344,6 +33221,87 @@ func NewOrgVirtualAccountRequest(server string, org OrgID) (*http.Request, error
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewGetOrgWalletRequest constructs an http.Request for the GetOrgWallet method
+func NewGetOrgWalletRequest(server string, org OrgID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/wallet", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateOrgWalletRequest calls the generic CreateOrgWallet builder with application/json body
+func NewCreateOrgWalletRequest(server string, org OrgID, body CreateOrgWalletJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateOrgWalletRequestWithBody(server, org, "application/json", bodyReader)
+}
+
+// NewCreateOrgWalletRequestWithBody constructs an http.Request for the CreateOrgWallet method, with any body, and a specified content type
+func NewCreateOrgWalletRequestWithBody(server string, org OrgID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "org", org, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/orgs/%s/billing/wallet", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -42884,7 +42842,7 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
 	CancelMaintenanceWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelMaintenanceResponse, error)
 
-	// ConfirmMaintenanceDraftWithResponse Announce a maintenance draft PGDock proposed
+	// ConfirmMaintenanceDraftWithResponse Announce a maintenance draft Xenibase proposed
 	//
 	// Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
 	//
@@ -43611,10 +43569,10 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/admin/wht (the `AdminOutstandingWht` operationId).
 	AdminOutstandingWhtWithResponse(ctx context.Context, params *AdminOutstandingWhtParams, reqEditors ...RequestEditorFn) (*AdminOutstandingWhtResponse, error)
 
-	// RegisterAgentWithBodyWithResponse Agent registration (called by pgdock-agent, not the UI)
+	// RegisterAgentWithBodyWithResponse Agent registration (called by xenibase-agent, not the UI)
 	//
 	// Exchanges a one-time registration token and a CSR for a client
-	// certificate signed by the PGDock agent CA. Needs no session; the
+	// certificate signed by the Xenibase agent CA. Needs no session; the
 	// token authenticates. Rate limited per address.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -43622,10 +43580,10 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/agent/register (the `RegisterAgent` operationId).
 	RegisterAgentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterAgentResponse, error)
 
-	// RegisterAgentWithResponse Agent registration (called by pgdock-agent, not the UI)
+	// RegisterAgentWithResponse Agent registration (called by xenibase-agent, not the UI)
 	//
 	// Exchanges a one-time registration token and a CSR for a client
-	// certificate signed by the PGDock agent CA. Needs no session; the
+	// certificate signed by the Xenibase agent CA. Needs no session; the
 	// token authenticates. Rate limited per address.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -43890,7 +43848,7 @@ type ClientWithResponsesInterface interface {
 
 	// CreateDevOperationWithBodyWithResponse Enqueue a dummy operation (development only)
 	//
-	// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+	// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 	// otherwise returns 404. Enqueues a `noop` operation for exercising
 	// the queue end to end.
 	//
@@ -43901,7 +43859,7 @@ type ClientWithResponsesInterface interface {
 
 	// CreateDevOperationWithResponse Enqueue a dummy operation (development only)
 	//
-	// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+	// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 	// otherwise returns 404. Enqueues a `noop` operation for exercising
 	// the queue end to end.
 	//
@@ -43910,77 +43868,77 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/dev/operations (the `CreateDevOperation` operationId).
 	CreateDevOperationWithResponse(ctx context.Context, body CreateDevOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDevOperationResponse, error)
 
-	// EdgeAuthHookWithBodyWithResponse pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+	// EdgeAuthHookWithBodyWithResponse xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
 	EdgeAuthHookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeAuthHookResponse, error)
 
-	// EdgeAuthHookWithResponse pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+	// EdgeAuthHookWithResponse xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
 	EdgeAuthHookWithResponse(ctx context.Context, body EdgeAuthHookJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeAuthHookResponse, error)
 
-	// EdgeAuthMessageWithBodyWithResponse pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+	// EdgeAuthMessageWithBodyWithResponse xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
 	EdgeAuthMessageWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeAuthMessageResponse, error)
 
-	// EdgeAuthMessageWithResponse pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+	// EdgeAuthMessageWithResponse xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
 	EdgeAuthMessageWithResponse(ctx context.Context, body EdgeAuthMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeAuthMessageResponse, error)
 
-	// EdgeConfigWithResponse pgdock-edge's configuration feed (signed with the edge secret; internal)
+	// EdgeConfigWithResponse xenibase-edge's configuration feed (signed with the edge secret; internal)
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /api/v1/edge/config (the `EdgeConfig` operationId).
 	EdgeConfigWithResponse(ctx context.Context, params *EdgeConfigParams, reqEditors ...RequestEditorFn) (*EdgeConfigResponse, error)
 
-	// EdgeReportWithBodyWithResponse pgdock-edge's usage and request logs (signed; internal)
+	// EdgeReportWithBodyWithResponse xenibase-edge's usage and request logs (signed; internal)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
 	EdgeReportWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeReportResponse, error)
 
-	// EdgeReportWithResponse pgdock-edge's usage and request logs (signed; internal)
+	// EdgeReportWithResponse xenibase-edge's usage and request logs (signed; internal)
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
 	EdgeReportWithResponse(ctx context.Context, body EdgeReportJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeReportResponse, error)
 
-	// EdgeStorageEventWithBodyWithResponse pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+	// EdgeStorageEventWithBodyWithResponse xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
 	EdgeStorageEventWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeStorageEventResponse, error)
 
-	// EdgeStorageEventWithResponse pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+	// EdgeStorageEventWithResponse xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
 	EdgeStorageEventWithResponse(ctx context.Context, body EdgeStorageEventJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeStorageEventResponse, error)
 
-	// EdgeWakeWithBodyWithResponse pgdock-edge asks for a paused project to resume (signed; internal)
+	// EdgeWakeWithBodyWithResponse xenibase-edge asks for a paused project to resume (signed; internal)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/wake (the `EdgeWake` operationId).
 	EdgeWakeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeWakeResponse, error)
 
-	// EdgeWakeWithResponse pgdock-edge asks for a paused project to resume (signed; internal)
+	// EdgeWakeWithResponse xenibase-edge asks for a paused project to resume (signed; internal)
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -44437,41 +44395,6 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /api/v1/orgs/{org}/billing (the `UpdateOrgBilling` operationId).
 	UpdateOrgBillingWithResponse(ctx context.Context, org OrgID, body UpdateOrgBillingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateOrgBillingResponse, error)
 
-	// ClearAutoTopupWithResponse Stop automatic top-ups
-	//
-	// Returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with DELETE /api/v1/orgs/{org}/billing/auto-topup (the `ClearAutoTopup` operationId).
-	ClearAutoTopupWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ClearAutoTopupResponse, error)
-
-	// SetAutoTopupWithBodyWithResponse Top up a prepaid balance from the default method when it falls below a threshold
-	//
-	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-	SetAutoTopupWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetAutoTopupResponse, error)
-
-	// SetAutoTopupWithResponse Top up a prepaid balance from the default method when it falls below a threshold
-	//
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-	SetAutoTopupWithResponse(ctx context.Context, org OrgID, body SetAutoTopupJSONRequestBody, reqEditors ...RequestEditorFn) (*SetAutoTopupResponse, error)
-
-	// StartCheckoutWithBodyWithResponse Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-	//
-	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-	StartCheckoutWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartCheckoutResponse, error)
-
-	// StartCheckoutWithResponse Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-	//
-	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-	StartCheckoutWithResponse(ctx context.Context, org OrgID, body StartCheckoutJSONRequestBody, reqEditors ...RequestEditorFn) (*StartCheckoutResponse, error)
-
 	// ListBillingContactsWithResponse Billing contacts, who receive invoices and payment email
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -44518,6 +44441,27 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PATCH /api/v1/orgs/{org}/billing/contacts/{email} (the `UpdateBillingContact` operationId).
 	UpdateBillingContactWithResponse(ctx context.Context, org OrgID, email string, body UpdateBillingContactJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateBillingContactResponse, error)
 
+	// WithdrawDebitTermsWithResponse Stop automatic debits (invoices are then paid by hand)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /api/v1/orgs/{org}/billing/debit-consent (the `WithdrawDebitTerms` operationId).
+	WithdrawDebitTermsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*WithdrawDebitTermsResponse, error)
+
+	// AcceptDebitTermsWithBodyWithResponse Agree to Xenibase debiting the wallet for invoices
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+	AcceptDebitTermsWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AcceptDebitTermsResponse, error)
+
+	// AcceptDebitTermsWithResponse Agree to Xenibase debiting the wallet for invoices
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+	AcceptDebitTermsWithResponse(ctx context.Context, org OrgID, body AcceptDebitTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*AcceptDebitTermsResponse, error)
+
 	// EstimateOrgCostWithBodyWithResponse What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -44553,6 +44497,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/orgs/{org}/billing/invoices/{invoice_id} (the `GetOrgInvoice` operationId).
 	GetOrgInvoiceWithResponse(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*GetOrgInvoiceResponse, error)
 
+	// PayInvoiceFromWalletWithResponse Pay one invoice from the wallet now
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet (the `PayInvoiceFromWallet` operationId).
+	PayInvoiceFromWalletWithResponse(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*PayInvoiceFromWalletResponse, error)
+
 	// GetOrgInvoicePdfWithResponse An invoice as PDF
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -44566,27 +44517,6 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate (the `UploadWhtCertificate` operationId).
 	UploadWhtCertificateWithBodyWithResponse(ctx context.Context, org OrgID, invoiceId InvoiceID, params *UploadWhtCertificateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadWhtCertificateResponse, error)
-
-	// ListPaymentMethodsWithResponse Saved cards and wallet mandates
-	//
-	// Returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with GET /api/v1/orgs/{org}/billing/payment-methods (the `ListPaymentMethods` operationId).
-	ListPaymentMethodsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListPaymentMethodsResponse, error)
-
-	// RemovePaymentMethodWithResponse Remove a saved card or revoke a mandate
-	//
-	// Returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id} (the `RemovePaymentMethod` operationId).
-	RemovePaymentMethodWithResponse(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*RemovePaymentMethodResponse, error)
-
-	// SetDefaultPaymentMethodWithResponse Charge this method for invoices and top-ups
-	//
-	// Returns a wrapper object for the known response body format(s).
-	//
-	// Corresponds with POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default (the `SetDefaultPaymentMethod` operationId).
-	SetDefaultPaymentMethodWithResponse(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*SetDefaultPaymentMethodResponse, error)
 
 	// ListOrgPaymentsWithResponse Payments received, with receipts
 	//
@@ -44622,6 +44552,31 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/billing/virtual-account (the `OrgVirtualAccount` operationId).
 	OrgVirtualAccountWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*OrgVirtualAccountResponse, error)
+
+	// GetOrgWalletWithResponse The organisation's wallet, its balance, bank account and debit consent
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/orgs/{org}/billing/wallet (the `GetOrgWallet` operationId).
+	GetOrgWalletWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*GetOrgWalletResponse, error)
+
+	// CreateOrgWalletWithBodyWithResponse Open the organisation's wallet and its bank account
+	//
+	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+	CreateOrgWalletWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrgWalletResponse, error)
+
+	// CreateOrgWalletWithResponse Open the organisation's wallet and its bank account
+	//
+	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+	CreateOrgWalletWithResponse(ctx context.Context, org OrgID, body CreateOrgWalletJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrgWalletResponse, error)
 
 	// EndBreakGlassWithResponse End a break-glass session early (owner)
 	//
@@ -44952,7 +44907,7 @@ type ClientWithResponsesInterface interface {
 	// CreateProjectWithBodyWithResponse Create a shared-tier project
 	//
 	// Records the project and queues a `create` operation. The response
-	// carries the password and full connection URLs exactly once; PGDock
+	// carries the password and full connection URLs exactly once; Xenibase
 	// stores only the SCRAM verifier. The URLs work once the operation
 	// succeeds (stream it to follow progress).
 	//
@@ -44964,7 +44919,7 @@ type ClientWithResponsesInterface interface {
 	// CreateProjectWithResponse Create a shared-tier project
 	//
 	// Records the project and queues a `create` operation. The response
-	// carries the password and full connection URLs exactly once; PGDock
+	// carries the password and full connection URLs exactly once; Xenibase
 	// stores only the SCRAM verifier. The URLs work once the operation
 	// succeeds (stream it to follow progress).
 	//
@@ -45731,7 +45686,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// For a project with backend services on, after its database was
 	// imported from Supabase. `policies` rewrites the imported policies
-	// and column defaults to the project's request roles and pgd_auth
+	// and column defaults to the project's request roles and xb_auth
 	// helpers; `users` copies auth.users and auth.identities from the
 	// Supabase database, keeping ids and bcrypt password hashes (upgraded
 	// to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -45749,7 +45704,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// For a project with backend services on, after its database was
 	// imported from Supabase. `policies` rewrites the imported policies
-	// and column defaults to the project's request roles and pgd_auth
+	// and column defaults to the project's request roles and xb_auth
 	// helpers; `users` copies auth.users and auth.identities from the
 	// Supabase database, keeping ids and bcrypt password hashes (upgraded
 	// to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -46137,7 +46092,7 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/schema/preview (the `PreviewSchemaChange` operationId).
 	PreviewSchemaChangeWithResponse(ctx context.Context, id ProjectID, body PreviewSchemaChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewSchemaChangeResponse, error)
 
-	// DisableBackendServicesWithResponse Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+	// DisableBackendServicesWithResponse Turn backend services off (keys revoked; the xb_* schemas and their data stay)
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -46223,7 +46178,7 @@ type ClientWithResponsesInterface interface {
 
 	// ListAPIRequestLogsWithResponse The API's request logs (7 days), newest first; with after, newer ones oldest first
 	//
-	// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
+	// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`xenibase logs api --follow`). next is the cursor for the next call.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -46680,7 +46635,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// Whether first-run setup is needed, who is signed in, and the CSRF
 	// token to send as `X-CSRF-Token` on every mutating request (also set
-	// as the `pgdock_csrf` cookie).
+	// as the `xenibase_csrf` cookie).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -46837,7 +46792,7 @@ type ClientWithResponsesInterface interface {
 	// BeginSetupWithBodyWithResponse First-run setup, step 1 - owner account and TOTP enrolment
 	//
 	// Only before any operator exists. `setup_code` is printed in the
-	// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+	// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 	// created until `/setup/complete` proves a code.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -46848,7 +46803,7 @@ type ClientWithResponsesInterface interface {
 	// BeginSetupWithResponse First-run setup, step 1 - owner account and TOTP enrolment
 	//
 	// Only before any operator exists. `setup_code` is printed in the
-	// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+	// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 	// created until `/setup/complete` proves a code.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -46894,8 +46849,8 @@ type ClientWithResponsesInterface interface {
 
 	// SupportInboundEmailWithBodyWithResponse An email to the support address, from the email provider's inbound webhook
 	//
-	// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-	// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+	// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+	// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 	// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -46905,8 +46860,8 @@ type ClientWithResponsesInterface interface {
 
 	// SupportInboundEmailWithResponse An email to the support address, from the email provider's inbound webhook
 	//
-	// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-	// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+	// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+	// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 	// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -46999,7 +46954,7 @@ type ClientWithResponsesInterface interface {
 	// GetPrometheusMetricsWithResponse Prometheus exposition of the latest metrics
 	//
 	// Needs a signed-in operator, or `Authorization: Bearer <token>` with
-	// PGDOCK_METRICS_TOKEN.
+	// XENIBASE_METRICS_TOKEN.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -55520,144 +55475,6 @@ func (r UpdateOrgBillingResponse) ContentType() string {
 	return ""
 }
 
-type ClearAutoTopupResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	// JSONDefault the response for an HTTP default `application/json` response
-	JSONDefault *Error
-}
-
-// GetJSONDefault returns the response for an HTTP default `application/json` response
-func (r ClearAutoTopupResponse) GetJSONDefault() *Error {
-	return r.JSONDefault
-}
-
-// GetBody returns the raw response body bytes
-func (r ClearAutoTopupResponse) GetBody() []byte {
-	return r.Body
-}
-
-// Status returns HTTPResponse.Status
-func (r ClearAutoTopupResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ClearAutoTopupResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ClearAutoTopupResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type SetAutoTopupResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	// JSONDefault the response for an HTTP default `application/json` response
-	JSONDefault *Error
-}
-
-// GetJSONDefault returns the response for an HTTP default `application/json` response
-func (r SetAutoTopupResponse) GetJSONDefault() *Error {
-	return r.JSONDefault
-}
-
-// GetBody returns the raw response body bytes
-func (r SetAutoTopupResponse) GetBody() []byte {
-	return r.Body
-}
-
-// Status returns HTTPResponse.Status
-func (r SetAutoTopupResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SetAutoTopupResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r SetAutoTopupResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type StartCheckoutResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	// JSON201 the response for an HTTP 201 `application/json` response
-	JSON201 *struct {
-		AmountMinor int64  `json:"amount_minor"`
-		CheckoutUrl string `json:"checkout_url"`
-		Reference   string `json:"reference"`
-	}
-	// JSONDefault the response for an HTTP default `application/json` response
-	JSONDefault *Error
-}
-
-// GetJSON201 returns the response for an HTTP 201 `application/json` response
-func (r StartCheckoutResponse) GetJSON201() *struct {
-	AmountMinor int64  `json:"amount_minor"`
-	CheckoutUrl string `json:"checkout_url"`
-	Reference   string `json:"reference"`
-} {
-	return r.JSON201
-}
-
-// GetJSONDefault returns the response for an HTTP default `application/json` response
-func (r StartCheckoutResponse) GetJSONDefault() *Error {
-	return r.JSONDefault
-}
-
-// GetBody returns the raw response body bytes
-func (r StartCheckoutResponse) GetBody() []byte {
-	return r.Body
-}
-
-// Status returns HTTPResponse.Status
-func (r StartCheckoutResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r StartCheckoutResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r StartCheckoutResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
 type ListBillingContactsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -55841,6 +55658,95 @@ func (r UpdateBillingContactResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateBillingContactResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type WithdrawDebitTermsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r WithdrawDebitTermsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r WithdrawDebitTermsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r WithdrawDebitTermsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r WithdrawDebitTermsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r WithdrawDebitTermsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AcceptDebitTermsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *DebitConsent
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AcceptDebitTermsResponse) GetJSON200() *DebitConsent {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r AcceptDebitTermsResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AcceptDebitTermsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AcceptDebitTermsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AcceptDebitTermsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AcceptDebitTermsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -56051,6 +55957,54 @@ func (r GetOrgInvoiceResponse) ContentType() string {
 	return ""
 }
 
+type PayInvoiceFromWalletResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *WalletCharge
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PayInvoiceFromWalletResponse) GetJSON200() *WalletCharge {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r PayInvoiceFromWalletResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PayInvoiceFromWalletResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PayInvoiceFromWalletResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PayInvoiceFromWalletResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PayInvoiceFromWalletResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetOrgInvoicePdfResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -56127,140 +56081,6 @@ func (r UploadWhtCertificateResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UploadWhtCertificateResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type ListPaymentMethodsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	// JSON200 the response for an HTTP 200 `application/json` response
-	JSON200 *struct {
-		Items []PaymentMethod `json:"items"`
-	}
-	// JSONDefault the response for an HTTP default `application/json` response
-	JSONDefault *Error
-}
-
-// GetJSON200 returns the response for an HTTP 200 `application/json` response
-func (r ListPaymentMethodsResponse) GetJSON200() *struct {
-	Items []PaymentMethod `json:"items"`
-} {
-	return r.JSON200
-}
-
-// GetJSONDefault returns the response for an HTTP default `application/json` response
-func (r ListPaymentMethodsResponse) GetJSONDefault() *Error {
-	return r.JSONDefault
-}
-
-// GetBody returns the raw response body bytes
-func (r ListPaymentMethodsResponse) GetBody() []byte {
-	return r.Body
-}
-
-// Status returns HTTPResponse.Status
-func (r ListPaymentMethodsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListPaymentMethodsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ListPaymentMethodsResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type RemovePaymentMethodResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	// JSONDefault the response for an HTTP default `application/json` response
-	JSONDefault *Error
-}
-
-// GetJSONDefault returns the response for an HTTP default `application/json` response
-func (r RemovePaymentMethodResponse) GetJSONDefault() *Error {
-	return r.JSONDefault
-}
-
-// GetBody returns the raw response body bytes
-func (r RemovePaymentMethodResponse) GetBody() []byte {
-	return r.Body
-}
-
-// Status returns HTTPResponse.Status
-func (r RemovePaymentMethodResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r RemovePaymentMethodResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r RemovePaymentMethodResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type SetDefaultPaymentMethodResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	// JSONDefault the response for an HTTP default `application/json` response
-	JSONDefault *Error
-}
-
-// GetJSONDefault returns the response for an HTTP default `application/json` response
-func (r SetDefaultPaymentMethodResponse) GetJSONDefault() *Error {
-	return r.JSONDefault
-}
-
-// GetBody returns the raw response body bytes
-func (r SetDefaultPaymentMethodResponse) GetBody() []byte {
-	return r.Body
-}
-
-// Status returns HTTPResponse.Status
-func (r SetDefaultPaymentMethodResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SetDefaultPaymentMethodResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r SetDefaultPaymentMethodResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -56446,6 +56266,102 @@ func (r OrgVirtualAccountResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r OrgVirtualAccountResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetOrgWalletResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Wallet
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetOrgWalletResponse) GetJSON200() *Wallet {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetOrgWalletResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetOrgWalletResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrgWalletResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrgWalletResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetOrgWalletResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateOrgWalletResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *Wallet
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateOrgWalletResponse) GetJSON201() *Wallet {
+	return r.JSON201
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r CreateOrgWalletResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateOrgWalletResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateOrgWalletResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateOrgWalletResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateOrgWalletResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -66639,7 +66555,7 @@ func (c *ClientWithResponses) CancelMaintenanceWithResponse(ctx context.Context,
 	return ParseCancelMaintenanceResponse(rsp)
 }
 
-// ConfirmMaintenanceDraftWithResponse Announce a maintenance draft PGDock proposed
+// ConfirmMaintenanceDraftWithResponse Announce a maintenance draft Xenibase proposed
 //
 // Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
 //
@@ -67936,10 +67852,10 @@ func (c *ClientWithResponses) AdminOutstandingWhtWithResponse(ctx context.Contex
 	return ParseAdminOutstandingWhtResponse(rsp)
 }
 
-// RegisterAgentWithBodyWithResponse Agent registration (called by pgdock-agent, not the UI)
+// RegisterAgentWithBodyWithResponse Agent registration (called by xenibase-agent, not the UI)
 //
 // Exchanges a one-time registration token and a CSR for a client
-// certificate signed by the PGDock agent CA. Needs no session; the
+// certificate signed by the Xenibase agent CA. Needs no session; the
 // token authenticates. Rate limited per address.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -67953,10 +67869,10 @@ func (c *ClientWithResponses) RegisterAgentWithBodyWithResponse(ctx context.Cont
 	return ParseRegisterAgentResponse(rsp)
 }
 
-// RegisterAgentWithResponse Agent registration (called by pgdock-agent, not the UI)
+// RegisterAgentWithResponse Agent registration (called by xenibase-agent, not the UI)
 //
 // Exchanges a one-time registration token and a CSR for a client
-// certificate signed by the PGDock agent CA. Needs no session; the
+// certificate signed by the Xenibase agent CA. Needs no session; the
 // token authenticates. Rate limited per address.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -68407,7 +68323,7 @@ func (c *ClientWithResponses) RestoreBackupWithResponse(ctx context.Context, id 
 
 // CreateDevOperationWithBodyWithResponse Enqueue a dummy operation (development only)
 //
-// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 // otherwise returns 404. Enqueues a `noop` operation for exercising
 // the queue end to end.
 //
@@ -68424,7 +68340,7 @@ func (c *ClientWithResponses) CreateDevOperationWithBodyWithResponse(ctx context
 
 // CreateDevOperationWithResponse Enqueue a dummy operation (development only)
 //
-// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 // otherwise returns 404. Enqueues a `noop` operation for exercising
 // the queue end to end.
 //
@@ -68439,7 +68355,7 @@ func (c *ClientWithResponses) CreateDevOperationWithResponse(ctx context.Context
 	return ParseCreateDevOperationResponse(rsp)
 }
 
-// EdgeAuthHookWithBodyWithResponse pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+// EdgeAuthHookWithBodyWithResponse xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68452,7 +68368,7 @@ func (c *ClientWithResponses) EdgeAuthHookWithBodyWithResponse(ctx context.Conte
 	return ParseEdgeAuthHookResponse(rsp)
 }
 
-// EdgeAuthHookWithResponse pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+// EdgeAuthHookWithResponse xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68465,7 +68381,7 @@ func (c *ClientWithResponses) EdgeAuthHookWithResponse(ctx context.Context, body
 	return ParseEdgeAuthHookResponse(rsp)
 }
 
-// EdgeAuthMessageWithBodyWithResponse pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+// EdgeAuthMessageWithBodyWithResponse xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68478,7 +68394,7 @@ func (c *ClientWithResponses) EdgeAuthMessageWithBodyWithResponse(ctx context.Co
 	return ParseEdgeAuthMessageResponse(rsp)
 }
 
-// EdgeAuthMessageWithResponse pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+// EdgeAuthMessageWithResponse xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68491,7 +68407,7 @@ func (c *ClientWithResponses) EdgeAuthMessageWithResponse(ctx context.Context, b
 	return ParseEdgeAuthMessageResponse(rsp)
 }
 
-// EdgeConfigWithResponse pgdock-edge's configuration feed (signed with the edge secret; internal)
+// EdgeConfigWithResponse xenibase-edge's configuration feed (signed with the edge secret; internal)
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -68504,7 +68420,7 @@ func (c *ClientWithResponses) EdgeConfigWithResponse(ctx context.Context, params
 	return ParseEdgeConfigResponse(rsp)
 }
 
-// EdgeReportWithBodyWithResponse pgdock-edge's usage and request logs (signed; internal)
+// EdgeReportWithBodyWithResponse xenibase-edge's usage and request logs (signed; internal)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68517,7 +68433,7 @@ func (c *ClientWithResponses) EdgeReportWithBodyWithResponse(ctx context.Context
 	return ParseEdgeReportResponse(rsp)
 }
 
-// EdgeReportWithResponse pgdock-edge's usage and request logs (signed; internal)
+// EdgeReportWithResponse xenibase-edge's usage and request logs (signed; internal)
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68530,7 +68446,7 @@ func (c *ClientWithResponses) EdgeReportWithResponse(ctx context.Context, body E
 	return ParseEdgeReportResponse(rsp)
 }
 
-// EdgeStorageEventWithBodyWithResponse pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+// EdgeStorageEventWithBodyWithResponse xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68543,7 +68459,7 @@ func (c *ClientWithResponses) EdgeStorageEventWithBodyWithResponse(ctx context.C
 	return ParseEdgeStorageEventResponse(rsp)
 }
 
-// EdgeStorageEventWithResponse pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+// EdgeStorageEventWithResponse xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68556,7 +68472,7 @@ func (c *ClientWithResponses) EdgeStorageEventWithResponse(ctx context.Context, 
 	return ParseEdgeStorageEventResponse(rsp)
 }
 
-// EdgeWakeWithBodyWithResponse pgdock-edge asks for a paused project to resume (signed; internal)
+// EdgeWakeWithBodyWithResponse xenibase-edge asks for a paused project to resume (signed; internal)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68569,7 +68485,7 @@ func (c *ClientWithResponses) EdgeWakeWithBodyWithResponse(ctx context.Context, 
 	return ParseEdgeWakeResponse(rsp)
 }
 
-// EdgeWakeWithResponse pgdock-edge asks for a paused project to resume (signed; internal)
+// EdgeWakeWithResponse xenibase-edge asks for a paused project to resume (signed; internal)
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -69392,71 +69308,6 @@ func (c *ClientWithResponses) UpdateOrgBillingWithResponse(ctx context.Context, 
 	return ParseUpdateOrgBillingResponse(rsp)
 }
 
-// ClearAutoTopupWithResponse Stop automatic top-ups
-//
-// Returns a wrapper object for the known response body format(s).
-//
-// Corresponds with DELETE /api/v1/orgs/{org}/billing/auto-topup (the `ClearAutoTopup` operationId).
-func (c *ClientWithResponses) ClearAutoTopupWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ClearAutoTopupResponse, error) {
-	rsp, err := c.ClearAutoTopup(ctx, org, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseClearAutoTopupResponse(rsp)
-}
-
-// SetAutoTopupWithBodyWithResponse Top up a prepaid balance from the default method when it falls below a threshold
-//
-// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-func (c *ClientWithResponses) SetAutoTopupWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetAutoTopupResponse, error) {
-	rsp, err := c.SetAutoTopupWithBody(ctx, org, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSetAutoTopupResponse(rsp)
-}
-
-// SetAutoTopupWithResponse Top up a prepaid balance from the default method when it falls below a threshold
-//
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with PUT /api/v1/orgs/{org}/billing/auto-topup (the `SetAutoTopup` operationId).
-func (c *ClientWithResponses) SetAutoTopupWithResponse(ctx context.Context, org OrgID, body SetAutoTopupJSONRequestBody, reqEditors ...RequestEditorFn) (*SetAutoTopupResponse, error) {
-	rsp, err := c.SetAutoTopup(ctx, org, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSetAutoTopupResponse(rsp)
-}
-
-// StartCheckoutWithBodyWithResponse Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-//
-// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-func (c *ClientWithResponses) StartCheckoutWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartCheckoutResponse, error) {
-	rsp, err := c.StartCheckoutWithBody(ctx, org, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseStartCheckoutResponse(rsp)
-}
-
-// StartCheckoutWithResponse Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-//
-// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
-//
-// Corresponds with POST /api/v1/orgs/{org}/billing/checkout (the `StartCheckout` operationId).
-func (c *ClientWithResponses) StartCheckoutWithResponse(ctx context.Context, org OrgID, body StartCheckoutJSONRequestBody, reqEditors ...RequestEditorFn) (*StartCheckoutResponse, error) {
-	rsp, err := c.StartCheckout(ctx, org, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseStartCheckoutResponse(rsp)
-}
-
 // ListBillingContactsWithResponse Billing contacts, who receive invoices and payment email
 //
 // Returns a wrapper object for the known response body format(s).
@@ -69539,6 +69390,45 @@ func (c *ClientWithResponses) UpdateBillingContactWithResponse(ctx context.Conte
 	return ParseUpdateBillingContactResponse(rsp)
 }
 
+// WithdrawDebitTermsWithResponse Stop automatic debits (invoices are then paid by hand)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /api/v1/orgs/{org}/billing/debit-consent (the `WithdrawDebitTerms` operationId).
+func (c *ClientWithResponses) WithdrawDebitTermsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*WithdrawDebitTermsResponse, error) {
+	rsp, err := c.WithdrawDebitTerms(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseWithdrawDebitTermsResponse(rsp)
+}
+
+// AcceptDebitTermsWithBodyWithResponse Agree to Xenibase debiting the wallet for invoices
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+func (c *ClientWithResponses) AcceptDebitTermsWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AcceptDebitTermsResponse, error) {
+	rsp, err := c.AcceptDebitTermsWithBody(ctx, org, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAcceptDebitTermsResponse(rsp)
+}
+
+// AcceptDebitTermsWithResponse Agree to Xenibase debiting the wallet for invoices
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
+func (c *ClientWithResponses) AcceptDebitTermsWithResponse(ctx context.Context, org OrgID, body AcceptDebitTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*AcceptDebitTermsResponse, error) {
+	rsp, err := c.AcceptDebitTerms(ctx, org, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAcceptDebitTermsResponse(rsp)
+}
+
 // EstimateOrgCostWithBodyWithResponse What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -69604,6 +69494,19 @@ func (c *ClientWithResponses) GetOrgInvoiceWithResponse(ctx context.Context, org
 	return ParseGetOrgInvoiceResponse(rsp)
 }
 
+// PayInvoiceFromWalletWithResponse Pay one invoice from the wallet now
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet (the `PayInvoiceFromWallet` operationId).
+func (c *ClientWithResponses) PayInvoiceFromWalletWithResponse(ctx context.Context, org OrgID, invoiceId InvoiceID, reqEditors ...RequestEditorFn) (*PayInvoiceFromWalletResponse, error) {
+	rsp, err := c.PayInvoiceFromWallet(ctx, org, invoiceId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePayInvoiceFromWalletResponse(rsp)
+}
+
 // GetOrgInvoicePdfWithResponse An invoice as PDF
 //
 // Returns a wrapper object for the known response body format(s).
@@ -69628,45 +69531,6 @@ func (c *ClientWithResponses) UploadWhtCertificateWithBodyWithResponse(ctx conte
 		return nil, err
 	}
 	return ParseUploadWhtCertificateResponse(rsp)
-}
-
-// ListPaymentMethodsWithResponse Saved cards and wallet mandates
-//
-// Returns a wrapper object for the known response body format(s).
-//
-// Corresponds with GET /api/v1/orgs/{org}/billing/payment-methods (the `ListPaymentMethods` operationId).
-func (c *ClientWithResponses) ListPaymentMethodsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*ListPaymentMethodsResponse, error) {
-	rsp, err := c.ListPaymentMethods(ctx, org, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListPaymentMethodsResponse(rsp)
-}
-
-// RemovePaymentMethodWithResponse Remove a saved card or revoke a mandate
-//
-// Returns a wrapper object for the known response body format(s).
-//
-// Corresponds with DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id} (the `RemovePaymentMethod` operationId).
-func (c *ClientWithResponses) RemovePaymentMethodWithResponse(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*RemovePaymentMethodResponse, error) {
-	rsp, err := c.RemovePaymentMethod(ctx, org, methodId, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRemovePaymentMethodResponse(rsp)
-}
-
-// SetDefaultPaymentMethodWithResponse Charge this method for invoices and top-ups
-//
-// Returns a wrapper object for the known response body format(s).
-//
-// Corresponds with POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default (the `SetDefaultPaymentMethod` operationId).
-func (c *ClientWithResponses) SetDefaultPaymentMethodWithResponse(ctx context.Context, org OrgID, methodId MethodID, reqEditors ...RequestEditorFn) (*SetDefaultPaymentMethodResponse, error) {
-	rsp, err := c.SetDefaultPaymentMethod(ctx, org, methodId, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSetDefaultPaymentMethodResponse(rsp)
 }
 
 // ListOrgPaymentsWithResponse Payments received, with receipts
@@ -69732,6 +69596,49 @@ func (c *ClientWithResponses) OrgVirtualAccountWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseOrgVirtualAccountResponse(rsp)
+}
+
+// GetOrgWalletWithResponse The organisation's wallet, its balance, bank account and debit consent
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/orgs/{org}/billing/wallet (the `GetOrgWallet` operationId).
+func (c *ClientWithResponses) GetOrgWalletWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*GetOrgWalletResponse, error) {
+	rsp, err := c.GetOrgWallet(ctx, org, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrgWalletResponse(rsp)
+}
+
+// CreateOrgWalletWithBodyWithResponse Open the organisation's wallet and its bank account
+//
+// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+func (c *ClientWithResponses) CreateOrgWalletWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateOrgWalletResponse, error) {
+	rsp, err := c.CreateOrgWalletWithBody(ctx, org, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrgWalletResponse(rsp)
+}
+
+// CreateOrgWalletWithResponse Open the organisation's wallet and its bank account
+//
+// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/orgs/{org}/billing/wallet (the `CreateOrgWallet` operationId).
+func (c *ClientWithResponses) CreateOrgWalletWithResponse(ctx context.Context, org OrgID, body CreateOrgWalletJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateOrgWalletResponse, error) {
+	rsp, err := c.CreateOrgWallet(ctx, org, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateOrgWalletResponse(rsp)
 }
 
 // EndBreakGlassWithResponse End a break-glass session early (owner)
@@ -70327,7 +70234,7 @@ func (c *ClientWithResponses) ListProjectsWithResponse(ctx context.Context, para
 // CreateProjectWithBodyWithResponse Create a shared-tier project
 //
 // Records the project and queues a `create` operation. The response
-// carries the password and full connection URLs exactly once; PGDock
+// carries the password and full connection URLs exactly once; Xenibase
 // stores only the SCRAM verifier. The URLs work once the operation
 // succeeds (stream it to follow progress).
 //
@@ -70345,7 +70252,7 @@ func (c *ClientWithResponses) CreateProjectWithBodyWithResponse(ctx context.Cont
 // CreateProjectWithResponse Create a shared-tier project
 //
 // Records the project and queues a `create` operation. The response
-// carries the password and full connection URLs exactly once; PGDock
+// carries the password and full connection URLs exactly once; Xenibase
 // stores only the SCRAM verifier. The URLs work once the operation
 // succeeds (stream it to follow progress).
 //
@@ -71646,7 +71553,7 @@ func (c *ClientWithResponses) GetProjectMetricsWithResponse(ctx context.Context,
 //
 // For a project with backend services on, after its database was
 // imported from Supabase. `policies` rewrites the imported policies
-// and column defaults to the project's request roles and pgd_auth
+// and column defaults to the project's request roles and xb_auth
 // helpers; `users` copies auth.users and auth.identities from the
 // Supabase database, keeping ids and bcrypt password hashes (upgraded
 // to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -71670,7 +71577,7 @@ func (c *ClientWithResponses) MigrateSupabaseWithBodyWithResponse(ctx context.Co
 //
 // For a project with backend services on, after its database was
 // imported from Supabase. `policies` rewrites the imported policies
-// and column defaults to the project's request roles and pgd_auth
+// and column defaults to the project's request roles and xb_auth
 // helpers; `users` copies auth.users and auth.identities from the
 // Supabase database, keeping ids and bcrypt password hashes (upgraded
 // to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -72316,7 +72223,7 @@ func (c *ClientWithResponses) PreviewSchemaChangeWithResponse(ctx context.Contex
 	return ParsePreviewSchemaChangeResponse(rsp)
 }
 
-// DisableBackendServicesWithResponse Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+// DisableBackendServicesWithResponse Turn backend services off (keys revoked; the xb_* schemas and their data stay)
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -72474,7 +72381,7 @@ func (c *ClientWithResponses) RevokeAPIKeyWithResponse(ctx context.Context, id P
 
 // ListAPIRequestLogsWithResponse The API's request logs (7 days), newest first; with after, newer ones oldest first
 //
-// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
+// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`xenibase logs api --follow`). next is the cursor for the next call.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -73213,7 +73120,7 @@ func (c *ClientWithResponses) RunIsolationChecksWithResponse(ctx context.Context
 //
 // Whether first-run setup is needed, who is signed in, and the CSRF
 // token to send as `X-CSRF-Token` on every mutating request (also set
-// as the `pgdock_csrf` cookie).
+// as the `xenibase_csrf` cookie).
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -73490,7 +73397,7 @@ func (c *ClientWithResponses) TestStorageSettingsWithResponse(ctx context.Contex
 // BeginSetupWithBodyWithResponse First-run setup, step 1 - owner account and TOTP enrolment
 //
 // Only before any operator exists. `setup_code` is printed in the
-// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 // created until `/setup/complete` proves a code.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -73507,7 +73414,7 @@ func (c *ClientWithResponses) BeginSetupWithBodyWithResponse(ctx context.Context
 // BeginSetupWithResponse First-run setup, step 1 - owner account and TOTP enrolment
 //
 // Only before any operator exists. `setup_code` is printed in the
-// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 // created until `/setup/complete` proves a code.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -73583,8 +73490,8 @@ func (c *ClientWithResponses) TestStorageTargetWithResponse(ctx context.Context,
 
 // SupportInboundEmailWithBodyWithResponse An email to the support address, from the email provider's inbound webhook
 //
-// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 // inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -73600,8 +73507,8 @@ func (c *ClientWithResponses) SupportInboundEmailWithBodyWithResponse(ctx contex
 
 // SupportInboundEmailWithResponse An email to the support address, from the email provider's inbound webhook
 //
-// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 // inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -73760,7 +73667,7 @@ func (c *ClientWithResponses) GetHealthzWithResponse(ctx context.Context, reqEdi
 // GetPrometheusMetricsWithResponse Prometheus exposition of the latest metrics
 //
 // Needs a signed-in operator, or `Authorization: Bearer <token>` with
-// PGDOCK_METRICS_TOKEN.
+// XENIBASE_METRICS_TOKEN.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -79643,101 +79550,6 @@ func ParseUpdateOrgBillingResponse(rsp *http.Response) (*UpdateOrgBillingRespons
 	return response, nil
 }
 
-// ParseClearAutoTopupResponse parses an HTTP response from a ClearAutoTopupWithResponse call
-func ParseClearAutoTopupResponse(rsp *http.Response) (*ClearAutoTopupResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ClearAutoTopupResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case rsp.StatusCode == 204:
-		break // No content-type
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSetAutoTopupResponse parses an HTTP response from a SetAutoTopupWithResponse call
-func ParseSetAutoTopupResponse(rsp *http.Response) (*SetAutoTopupResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SetAutoTopupResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case rsp.StatusCode == 204:
-		break // No content-type
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseStartCheckoutResponse parses an HTTP response from a StartCheckoutWithResponse call
-func ParseStartCheckoutResponse(rsp *http.Response) (*StartCheckoutResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &StartCheckoutResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest struct {
-			AmountMinor int64  `json:"amount_minor"`
-			CheckoutUrl string `json:"checkout_url"`
-			Reference   string `json:"reference"`
-		}
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseListBillingContactsResponse parses an HTTP response from a ListBillingContactsWithResponse call
 func ParseListBillingContactsResponse(rsp *http.Response) (*ListBillingContactsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -79851,6 +79663,68 @@ func ParseUpdateBillingContactResponse(rsp *http.Response) (*UpdateBillingContac
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest BillingContact
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseWithdrawDebitTermsResponse parses an HTTP response from a WithdrawDebitTermsWithResponse call
+func ParseWithdrawDebitTermsResponse(rsp *http.Response) (*WithdrawDebitTermsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &WithdrawDebitTermsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAcceptDebitTermsResponse parses an HTTP response from a AcceptDebitTermsWithResponse call
+func ParseAcceptDebitTermsResponse(rsp *http.Response) (*AcceptDebitTermsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AcceptDebitTermsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DebitConsent
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -80006,6 +79880,39 @@ func ParseGetOrgInvoiceResponse(rsp *http.Response) (*GetOrgInvoiceResponse, err
 	return response, nil
 }
 
+// ParsePayInvoiceFromWalletResponse parses an HTTP response from a PayInvoiceFromWalletWithResponse call
+func ParsePayInvoiceFromWalletResponse(rsp *http.Response) (*PayInvoiceFromWalletResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PayInvoiceFromWalletResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WalletCharge
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetOrgInvoicePdfResponse parses an HTTP response from a GetOrgInvoicePdfWithResponse call
 func ParseGetOrgInvoicePdfResponse(rsp *http.Response) (*GetOrgInvoicePdfResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -80047,99 +79954,6 @@ func ParseUploadWhtCertificateResponse(rsp *http.Response) (*UploadWhtCertificat
 
 	switch {
 	case rsp.StatusCode == 201:
-		break // No content-type
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListPaymentMethodsResponse parses an HTTP response from a ListPaymentMethodsWithResponse call
-func ParseListPaymentMethodsResponse(rsp *http.Response) (*ListPaymentMethodsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListPaymentMethodsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Items []PaymentMethod `json:"items"`
-		}
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseRemovePaymentMethodResponse parses an HTTP response from a RemovePaymentMethodWithResponse call
-func ParseRemovePaymentMethodResponse(rsp *http.Response) (*RemovePaymentMethodResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &RemovePaymentMethodResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case rsp.StatusCode == 204:
-		break // No content-type
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSetDefaultPaymentMethodResponse parses an HTTP response from a SetDefaultPaymentMethodWithResponse call
-func ParseSetDefaultPaymentMethodResponse(rsp *http.Response) (*SetDefaultPaymentMethodResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SetDefaultPaymentMethodResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case rsp.StatusCode == 204:
 		break // No content-type
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
@@ -80266,6 +80080,72 @@ func ParseOrgVirtualAccountResponse(rsp *http.Response) (*OrgVirtualAccountRespo
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrgWalletResponse parses an HTTP response from a GetOrgWalletWithResponse call
+func ParseGetOrgWalletResponse(rsp *http.Response) (*GetOrgWalletResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrgWalletResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Wallet
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateOrgWalletResponse parses an HTTP response from a CreateOrgWalletWithResponse call
+func ParseCreateOrgWalletResponse(rsp *http.Response) (*CreateOrgWalletResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateOrgWalletResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Wallet
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error

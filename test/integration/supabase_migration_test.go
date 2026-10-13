@@ -16,9 +16,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // supabaseHobby is a Supabase hobby project running on the real Supabase
@@ -34,11 +34,11 @@ type supabaseHobby struct {
 
 func supabaseHobbyEnv(t *testing.T) *supabaseHobby {
 	t.Helper()
-	h := &supabaseHobby{t: t, db: os.Getenv("PGDOCK_TEST_SUPA_DB_URL"), auth: os.Getenv("PGDOCK_TEST_SUPA_AUTH_URL"),
-		storage: os.Getenv("PGDOCK_TEST_SUPA_STORAGE_URL"), anonKey: os.Getenv("PGDOCK_TEST_SUPA_ANON_KEY"),
-		serviceKey: os.Getenv("PGDOCK_TEST_SUPA_SERVICE_KEY"), s3Key: os.Getenv("PGDOCK_TEST_SUPA_S3_KEY"), s3Secret: os.Getenv("PGDOCK_TEST_SUPA_S3_SECRET")}
+	h := &supabaseHobby{t: t, db: os.Getenv("XENIBASE_TEST_SUPA_DB_URL"), auth: os.Getenv("XENIBASE_TEST_SUPA_AUTH_URL"),
+		storage: os.Getenv("XENIBASE_TEST_SUPA_STORAGE_URL"), anonKey: os.Getenv("XENIBASE_TEST_SUPA_ANON_KEY"),
+		serviceKey: os.Getenv("XENIBASE_TEST_SUPA_SERVICE_KEY"), s3Key: os.Getenv("XENIBASE_TEST_SUPA_S3_KEY"), s3Secret: os.Getenv("XENIBASE_TEST_SUPA_S3_SECRET")}
 	if h.db == "" || h.auth == "" || h.storage == "" {
-		t.Skip("PGDOCK_TEST_SUPA_* not set; run `make test-integration`")
+		t.Skip("XENIBASE_TEST_SUPA_* not set; run `make test-integration`")
 	}
 	return h
 }
@@ -185,7 +185,7 @@ func (h *supabaseHobby) seed() (alice, bob uuid.UUID, aliceAvatar []byte) {
 }
 
 // TestSupabaseMigration is V4-M36's done-when: a Supabase hobby project is
-// migrated, including its users and files, and its users sign in on PGDock
+// migrated, including its users and files, and its users sign in on Xenibase
 // with their existing passwords.
 func TestSupabaseMigration(t *testing.T) {
 	h := supabaseHobbyEnv(t)
@@ -260,7 +260,7 @@ func TestSupabaseMigration(t *testing.T) {
 	log := step(gen.SupabaseMigrationRequest{Step: "policies"})
 	// (The "admins" policy, reading auth.users, didn't survive the import;
 	// its log said so.)
-	for _, want := range []string{"rewrote 2 of 2 policies", "rewrote 1 column defaults", "now read PGDock's tokens"} {
+	for _, want := range []string{"rewrote 2 of 2 policies", "rewrote 1 column defaults", "now read Xenibase's tokens"} {
 		if !strings.Contains(log, want) {
 			t.Errorf("policies log lacks %q:\n%s", want, log)
 		}
@@ -270,11 +270,11 @@ func TestSupabaseMigration(t *testing.T) {
 	var roles []string
 	var qual string
 	if err := app.QueryRow(ctx, `SELECT roles::text[], qual FROM pg_policies WHERE policyname = 'own notes'`).Scan(&roles, &qual); err != nil ||
-		!slices.Equal(roles, []string{store.UserRole(p.DbName)}) || !strings.Contains(qual, "pgd_auth.uid()") {
+		!slices.Equal(roles, []string{store.UserRole(p.DbName)}) || !strings.Contains(qual, "xb_auth.uid()") {
 		t.Fatalf("own notes: %v %s %v", roles, qual, err)
 	}
 	if err := app.QueryRow(ctx, `SELECT qual FROM pg_policies WHERE policyname = 'signed in can count'`).Scan(&qual); err != nil ||
-		!strings.Contains(qual, "pgd_auth.role() = 'service'") {
+		!strings.Contains(qual, "xb_auth.role() = 'service'") {
 		t.Fatalf("role policy: %s %v", qual, err)
 	}
 
@@ -312,11 +312,11 @@ func TestSupabaseMigration(t *testing.T) {
 	defer admin.Close(ctx)
 	var argon, bcrypt int
 	if err := admin.QueryRow(ctx, `SELECT count(*) FILTER (WHERE encrypted_password LIKE '$argon2id$%'), count(*) FILTER (WHERE encrypted_password LIKE '$2a$%')
-		FROM pgd_auth.users`).Scan(&argon, &bcrypt); err != nil || argon != 2 || bcrypt != 0 {
+		FROM xb_auth.users`).Scan(&argon, &bcrypt); err != nil || argon != 2 || bcrypt != 0 {
 		t.Fatalf("hashes: %d argon2id, %d bcrypt (%v)", argon, bcrypt, err)
 	}
 	var google uuid.UUID
-	if err := admin.QueryRow(ctx, `SELECT user_id FROM pgd_auth.identities WHERE provider = 'google' AND provider_id = 'google-sub-1234'`).Scan(&google); err != nil || google != bob {
+	if err := admin.QueryRow(ctx, `SELECT user_id FROM xb_auth.identities WHERE provider = 'google' AND provider_id = 'google-sub-1234'`).Scan(&google); err != nil || google != bob {
 		t.Fatalf("google identity: %s %v", google, err)
 	}
 	if r := signIn(`{"email":"alice@hobby.test","password":"alice-old-password-1"}`); r.Code != 200 {
@@ -350,7 +350,7 @@ func TestSupabaseMigration(t *testing.T) {
 	if got := notes(bobTok); !slices.Equal(got, []string{"bob 1"}) {
 		t.Fatalf("bob's notes: %v", got)
 	}
-	if code, _, body := ed.Do(ref, "POST", "/data/v1/notes", strings.NewReader(`{"body":"alice on pgdock"}`), "apikey", pub,
+	if code, _, body := ed.Do(ref, "POST", "/data/v1/notes", strings.NewReader(`{"body":"alice on xenibase"}`), "apikey", pub,
 		"Authorization", "Bearer "+aliceTok, "Content-Type", "application/json"); code != 201 {
 		t.Fatalf("alice adds a note: %d %s", code, body)
 	}
@@ -370,23 +370,23 @@ func TestSupabaseMigration(t *testing.T) {
 	fs := files{t: t, ed: ed, ref: ref, key: pub}
 	got := fs.do("GET", "/storage/v1/object/avatars/"+alice.String()+"/me.png", nil, aliceTok)
 	if got.Code != 200 || !bytes.Equal(got.Body, aliceAvatar) || got.Header.Get("Content-Type") != "image/png" {
-		t.Fatalf("alice's avatar on PGDock: %d %s", got.Code, got.Header.Get("Content-Type"))
+		t.Fatalf("alice's avatar on Xenibase: %d %s", got.Code, got.Header.Get("Content-Type"))
 	}
 	if r := fs.do("GET", "/storage/v1/object/avatars/"+alice.String()+"/me.png", nil, bobTok); r.Code == 200 {
 		t.Fatal("bob read alice's avatar: the storage policy didn't carry over")
 	}
 	if r := fs.do("POST", "/storage/v1/object/avatars/"+bob.String()+"/new.png", bytes.NewReader(aliceAvatar), aliceTok, "Content-Type", "image/png"); r.Code != 403 {
-		t.Fatalf("alice writes into bob's folder on PGDock: %s", r)
+		t.Fatalf("alice writes into bob's folder on Xenibase: %s", r)
 	}
 	if r := fs.do("POST", "/storage/v1/object/avatars/"+alice.String()+"/new.png", bytes.NewReader(aliceAvatar), aliceTok, "Content-Type", "image/png"); r.Code != 200 {
-		t.Fatalf("alice writes into her folder on PGDock: %s", r)
+		t.Fatalf("alice writes into her folder on Xenibase: %s", r)
 	}
 	if r := fs.do("GET", "/storage/v1/object/public/docs/guides/readme.txt", nil, ""); r.Code != 200 || string(r.Body) != "hello from supabase\n" {
 		t.Fatalf("the public doc: %s", r)
 	}
 	var owner *uuid.UUID
 	var n int
-	if err := admin.QueryRow(ctx, `SELECT (SELECT owner FROM pgd_storage.objects WHERE path = $1), (SELECT count(*) FROM pgd_storage.objects WHERE path LIKE '%emptyFolderPlaceholder')`,
+	if err := admin.QueryRow(ctx, `SELECT (SELECT owner FROM xb_storage.objects WHERE path = $1), (SELECT count(*) FROM xb_storage.objects WHERE path LIKE '%emptyFolderPlaceholder')`,
 		alice.String()+"/me.png").Scan(&owner, &n); err != nil || owner == nil || *owner != alice || n != 0 {
 		t.Fatalf("owner %v placeholders %d (%v)", owner, n, err)
 	}

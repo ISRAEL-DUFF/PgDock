@@ -1,6 +1,6 @@
 # User guide
 
-For people who use a PGDock someone else runs: organisations, members and
+For people who use a Xenibase someone else runs: organisations, members and
 roles, your database logins, branches, your own backup bucket, and leaving.
 The [CLI guide](cli.md) covers the same from a terminal and in CI;
 [webhooks and jobs](webhooks.md) has its own page.
@@ -107,8 +107,8 @@ feature, or one per pull request in CI ([CLI guide](cli.md#a-database-branch-per
   credentials, captcha and hook secrets): set those on the branch. Its
   users are the ones the copy brought (none for a schema-only branch);
   they sign in again there. The create response and
-  `pgdock branch create --env` give `PGDOCK_API_URL`,
-  `PGDOCK_PUBLISHABLE_KEY` and `PGDOCK_SECRET_KEY`. Stored files are not
+  `xenibase branch create --env` give `XENIBASE_API_URL`,
+  `XENIBASE_PUBLISHABLE_KEY` and `XENIBASE_SECRET_KEY`. Stored files are not
   copied unless you ask (**Copy its stored files too**, or `--copy-files`):
   they are then copied in the background and count toward file storage.
 - A branch can't have branches. Its parent's webhooks and jobs are not
@@ -134,15 +134,15 @@ own bucket, which then doesn't count against your backup quota:
      "Version": "2012-10-17",
      "Statement": [
        { "Effect": "Allow", "Action": ["s3:ListBucket"], "Resource": "arn:aws:s3:::acme-backups",
-         "Condition": { "StringLike": { "s3:prefix": ["pgdock/*"] } } },
+         "Condition": { "StringLike": { "s3:prefix": ["xenibase/*"] } } },
        { "Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
-         "Resource": "arn:aws:s3:::acme-backups/pgdock/*" }
+         "Resource": "arn:aws:s3:::acme-backups/xenibase/*" }
      ]
    }
    ```
 
 2. **Organisation → Backup storage → Add**: endpoint, region, bucket,
-   prefix, key. PGDock writes, reads, lists and deletes a test object
+   prefix, key. Xenibase writes, reads, lists and deletes a test object
    before it saves the target; the key is encrypted and never shown again.
    Nobody outside your organisation, including the platform admin, sees
    it.
@@ -151,7 +151,7 @@ own bucket, which then doesn't count against your backup quota:
 4. Optionally **enable a project backup key** and download it (with your
    password and code). New backups are then encrypted with a key you hold,
    and the download's README shows how to decrypt and restore one with
-   `gpg` and `pg_restore`, without PGDock.
+   `gpg` and `pg_restore`, without Xenibase.
 
 Deleting your organisation never deletes what is in your own bucket.
 
@@ -159,7 +159,7 @@ Deleting your organisation never deletes what is in your own bucket.
 
 - [Webhooks and scheduled jobs](webhooks.md): table changes POSTed to a
   URL, signed; SQL or HTTP on a cron schedule.
-- [The CLI and API tokens](cli.md): `pgdock login`, tokens scoped to one
+- [The CLI and API tokens](cli.md): `xenibase login`, tokens scoped to one
   organisation (read, write or admin, optionally to some projects), and
   branches in CI.
 
@@ -203,13 +203,13 @@ first query. A project paused for 90 days is **archived** to a verified
 backup. The next connection restores it, which takes minutes. Archived
 projects are deleted after a year, with 30 and 7 days' notice. You can
 also resume a project with **Resume** on its page, or with
-`pgdock resume <project>`. Paid plans never sleep: see **Pricing** in the
+`xenibase resume <project>`. Paid plans never sleep: see **Pricing** in the
 sidebar. Details: [The Free tier](free-tier.md).
 
 ## Getting help
 
 **Organisation → Support**: open a ticket, follow it and reply. You can also
-email the support address and reply to PGDock's emails, which thread into
+email the support address and reply to Xenibase's emails, which thread into
 the ticket. Pro and Team organisations can register WhatsApp numbers that
 message support directly. Pro tickets are answered within a business day,
 Team tickets within four business hours, and urgent issues on a paid plan
@@ -223,9 +223,9 @@ the organisation, and can also accept them when changing plan. Details:
 ## Your data
 
 - **Export** any project as a `pg_dump` file at any time (Project →
-  Backups → Download, or `pgdock backups download`).
+  Backups → Download, or `xenibase backups download`).
 - The platform admin can't open your databases, console or backups through
-  PGDock except with **break-glass** access: at most 4 hours, with a reason,
+  Xenibase except with **break-glass** access: at most 4 hours, with a reason,
   emailed to every owner, shown as a banner while it lasts, and marked in
   your audit log. Any owner can end it. It is an audit control, not
   encryption: someone with root on the servers can read the data.

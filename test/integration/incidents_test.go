@@ -12,21 +12,21 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/statusapi"
-	"github.com/israel-duff/pgdock/internal/statuspage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/statuspage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 const statusSecret = "integration-status-push-secret-0123456789"
 
-// startStatusPage runs pgdock-status in-process with PGDock's default
+// startStatusPage runs xenibase-status in-process with Xenibase's default
 // components (probes always pass).
 func startStatusPage(t *testing.T) (*statuspage.Service, *httptest.Server) {
 	t.Helper()
 	dir := t.TempDir()
-	cfg := `public_url = "https://status.pgdock.test"
+	cfg := `public_url = "https://status.xenibase.test"
 push_secret = "` + statusSecret + `"
 data = "` + filepath.Join(dir, "status.db") + `"
 `
@@ -68,7 +68,7 @@ func statusOf(t *testing.T, base, path string, v any) {
 }
 
 // TestIncidentsReachTheStatusPage covers Admin → Incidents (V3 §2.6):
-// incidents and their updates are pushed, signed, to pgdock-status, a
+// incidents and their updates are pushed, signed, to xenibase-status, a
 // failed push is kept and retried, and heartbeats report the components
 // the status page can't probe.
 func TestIncidentsReachTheStatusPage(t *testing.T) {

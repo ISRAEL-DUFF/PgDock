@@ -1907,24 +1907,6 @@ func (e OrgRole) Valid() bool {
 	}
 }
 
-// Defines values for PaymentMethodKind.
-const (
-	PaymentMethodKindCard    PaymentMethodKind = "card"
-	PaymentMethodKindMandate PaymentMethodKind = "mandate"
-)
-
-// Valid indicates whether the value is a known member of the PaymentMethodKind enum.
-func (e PaymentMethodKind) Valid() bool {
-	switch e {
-	case PaymentMethodKindCard:
-		return true
-	case PaymentMethodKindMandate:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for PersonalCredentialsAccess.
 const (
 	PersonalCredentialsAccessReadOnly  PersonalCredentialsAccess = "read_only"
@@ -2060,12 +2042,15 @@ func (e PoolerEventKind) Valid() bool {
 // Defines values for PricesCurrency.
 const (
 	NGN PricesCurrency = "NGN"
+	USD PricesCurrency = "USD"
 )
 
 // Valid indicates whether the value is a known member of the PricesCurrency enum.
 func (e PricesCurrency) Valid() bool {
 	switch e {
 	case NGN:
+		return true
+	case USD:
 		return true
 	default:
 		return false
@@ -2296,7 +2281,7 @@ const (
 	Amount            ReconciliationDifferencesKind = "amount"
 	Fee               ReconciliationDifferencesKind = "fee"
 	MissingAtProvider ReconciliationDifferencesKind = "missing_at_provider"
-	MissingInPgdock   ReconciliationDifferencesKind = "missing_in_pgdock"
+	MissingInXenibase ReconciliationDifferencesKind = "missing_in_xenibase"
 )
 
 // Valid indicates whether the value is a known member of the ReconciliationDifferencesKind enum.
@@ -2308,7 +2293,7 @@ func (e ReconciliationDifferencesKind) Valid() bool {
 		return true
 	case MissingAtProvider:
 		return true
-	case MissingInPgdock:
+	case MissingInXenibase:
 		return true
 	default:
 		return false
@@ -3743,48 +3728,6 @@ func (e ListOrgAuditParamsOutcome) Valid() bool {
 	}
 }
 
-// Defines values for StartCheckoutJSONBodyChannel.
-const (
-	StartCheckoutJSONBodyChannelCard       StartCheckoutJSONBodyChannel = "card"
-	StartCheckoutJSONBodyChannelStablecoin StartCheckoutJSONBodyChannel = "stablecoin"
-	StartCheckoutJSONBodyChannelWallet     StartCheckoutJSONBodyChannel = "wallet"
-)
-
-// Valid indicates whether the value is a known member of the StartCheckoutJSONBodyChannel enum.
-func (e StartCheckoutJSONBodyChannel) Valid() bool {
-	switch e {
-	case StartCheckoutJSONBodyChannelCard:
-		return true
-	case StartCheckoutJSONBodyChannelStablecoin:
-		return true
-	case StartCheckoutJSONBodyChannelWallet:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for StartCheckoutJSONBodyPurpose.
-const (
-	StartCheckoutJSONBodyPurposeCardSetup StartCheckoutJSONBodyPurpose = "card_setup"
-	StartCheckoutJSONBodyPurposeInvoice   StartCheckoutJSONBodyPurpose = "invoice"
-	StartCheckoutJSONBodyPurposeTopup     StartCheckoutJSONBodyPurpose = "topup"
-)
-
-// Valid indicates whether the value is a known member of the StartCheckoutJSONBodyPurpose enum.
-func (e StartCheckoutJSONBodyPurpose) Valid() bool {
-	switch e {
-	case StartCheckoutJSONBodyPurposeCardSetup:
-		return true
-	case StartCheckoutJSONBodyPurposeInvoice:
-		return true
-	case StartCheckoutJSONBodyPurposeTopup:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for EstimateOrgCostJSONBodyPitrDays.
 const (
 	EstimateOrgCostJSONBodyPitrDaysN14 EstimateOrgCostJSONBodyPitrDays = 14
@@ -3826,16 +3769,13 @@ func (e GetOrgUsageParamsFormat) Valid() bool {
 
 // Defines values for PaymentWebhookParamsProvider.
 const (
-	Flutterwave PaymentWebhookParamsProvider = "flutterwave"
-	Ispend      PaymentWebhookParamsProvider = "ispend"
+	Iswallet PaymentWebhookParamsProvider = "iswallet"
 )
 
 // Valid indicates whether the value is a known member of the PaymentWebhookParamsProvider enum.
 func (e PaymentWebhookParamsProvider) Valid() bool {
 	switch e {
-	case Flutterwave:
-		return true
-	case Ispend:
+	case Iswallet:
 		return true
 	default:
 		return false
@@ -4471,7 +4411,7 @@ type AuthConfig struct {
 	// HookRole The role Postgres hooks run as; grant it what they read.
 	HookRole *string `json:"hook_role,omitempty"`
 
-	// HookSecret Signs webhook hooks (PGDock-Signature); set once a hook URL is.
+	// HookSecret Signs webhook hooks (Xenibase-Signature); set once a hook URL is.
 	HookSecret         *string `json:"hook_secret,omitempty"`
 	MonthlyActiveUsers int64   `json:"monthly_active_users"`
 
@@ -4675,7 +4615,7 @@ type AuthSettings struct {
 	PhoneDailyCap *int      `json:"phone_daily_cap,omitempty"`
 	RedirectUrls  *[]string `json:"redirect_urls,omitempty"`
 
-	// SendMessageUrl A webhook that sends the project's emails and codes instead of PGDock.
+	// SendMessageUrl A webhook that sends the project's emails and codes instead of Xenibase.
 	SendMessageUrl           *string `json:"send_message_url,omitempty"`
 	SessionInactivitySeconds *int    `json:"session_inactivity_seconds,omitempty"`
 	SessionMaxSeconds        *int    `json:"session_max_seconds,omitempty"`
@@ -4767,12 +4707,6 @@ type AuthUserUpdate struct {
 	UserMetadata *map[string]interface{} `json:"user_metadata,omitempty"`
 }
 
-// AutoTopup defines model for AutoTopup.
-type AutoTopup struct {
-	AmountMinor int64 `json:"amount_minor"`
-	BelowMinor  int64 `json:"below_minor"`
-}
-
 // Availability defines model for Availability.
 type Availability struct {
 	// ExcludedMinutes Minutes excluded for maintenance announced at least 72 hours ahead (V3.1 §4.2).
@@ -4811,7 +4745,7 @@ type BackendServices struct {
 	// ExposedSchemas The schemas the data API serves (default public).
 	ExposedSchemas []string `json:"exposed_schemas"`
 
-	// FeedConfigured pgdock-server has an edge secret, so a pgdock-edge can serve the project.
+	// FeedConfigured xenibase-server has an edge secret, so a xenibase-edge can serve the project.
 	FeedConfigured bool     `json:"feed_configured"`
 	Keys           []ApiKey `json:"keys"`
 
@@ -4982,25 +4916,24 @@ type BatchDecision struct {
 // BillingAccount defines model for BillingAccount.
 type BillingAccount struct {
 	Address          *string    `json:"address,omitempty"`
-	AutoTopup        *AutoTopup `json:"auto_topup,omitempty"`
 	BudgetMinor      *int64     `json:"budget_minor,omitempty"`
 	Capped           *bool      `json:"capped,omitempty"`
 	CardFailingSince *time.Time `json:"card_failing_since,omitempty"`
 
 	// Channels The payment channels offered.
 	Channels *struct {
-		Card       bool `json:"card"`
-		Stablecoin bool `json:"stablecoin"`
-		Transfer   bool `json:"transfer"`
-		Wallet     bool `json:"wallet"`
+		Transfer bool `json:"transfer"`
+		Wallet   bool `json:"wallet"`
 	} `json:"channels,omitempty"`
 
 	// CreditMinor On the credit balance (prepaid funds, overpayments).
 	CreditMinor         *int64             `json:"credit_minor,omitempty"`
+	DebitConsent        *DebitConsent      `json:"debit_consent,omitempty"`
 	DeductsWht          bool               `json:"deducts_wht"`
 	DeletionScheduledAt *time.Time         `json:"deletion_scheduled_at,omitempty"`
 	DunningState        string             `json:"dunning_state"`
 	ForecastMinor       *int64             `json:"forecast_minor,omitempty"`
+	Fx                  *FXQuote           `json:"fx,omitempty"`
 	GraceUntil          *time.Time         `json:"grace_until,omitempty"`
 	Grandfathered       bool               `json:"grandfathered"`
 	LegalName           *string            `json:"legal_name,omitempty"`
@@ -5020,14 +4953,20 @@ type BillingAccount struct {
 	PlanName string `json:"plan_name"`
 
 	// Plans The plans on the organisation's price book.
-	Plans            []PlanOption       `json:"plans"`
-	PriceBookVersion int                `json:"price_book_version"`
-	SpendCapMinor    *int64             `json:"spend_cap_minor,omitempty"`
-	Term             BillingAccountTerm `json:"term"`
-	TermEndsAt       *time.Time         `json:"term_ends_at,omitempty"`
-	Tin              *string            `json:"tin,omitempty"`
-	VatRegistered    bool               `json:"vat_registered"`
-	ZeroBalanceAt    *time.Time         `json:"zero_balance_at,omitempty"`
+	Plans            []PlanOption `json:"plans"`
+	PriceBookVersion int          `json:"price_book_version"`
+
+	// PriceCurrency The currency the price book is in (USD, or NGN).
+	PriceCurrency *string            `json:"price_currency,omitempty"`
+	SpendCapMinor *int64             `json:"spend_cap_minor,omitempty"`
+	Term          BillingAccountTerm `json:"term"`
+	TermEndsAt    *time.Time         `json:"term_ends_at,omitempty"`
+	Tin           *string            `json:"tin,omitempty"`
+	VatRegistered bool               `json:"vat_registered"`
+
+	// WalletMinor In the organisation's wallet, by Xenibase's books (kobo).
+	WalletMinor   *int64     `json:"wallet_minor,omitempty"`
+	ZeroBalanceAt *time.Time `json:"zero_balance_at,omitempty"`
 }
 
 // BillingAccountMode defines model for BillingAccount.Mode.
@@ -5097,9 +5036,6 @@ type BillingSettings struct {
 		Tin       string `json:"tin"`
 		VatNumber string `json:"vat_number"`
 	} `json:"seller"`
-
-	// Stablecoin Allow USDT top-ups through iSpend (off until the regulatory position is confirmed).
-	Stablecoin *bool `json:"stablecoin,omitempty"`
 
 	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 	//
@@ -5387,7 +5323,7 @@ type ConnectionInfo struct {
 type CostSettings struct {
 	Currency string `json:"currency"`
 
-	// EdgeSharePercent The share of shared nodes' cost moved to the edge category, where pgdock-edge runs on them (0 to 100, default 0).
+	// EdgeSharePercent The share of shared nodes' cost moved to the edge category, where xenibase-edge runs on them (0 to 100, default 0).
 	EdgeSharePercent          *float32   `json:"edge_share_percent,omitempty"`
 	EgressGbMinor             float32    `json:"egress_gb_minor"`
 	FloatingIpMonthlyMinor    int64      `json:"floating_ip_monthly_minor"`
@@ -5412,7 +5348,7 @@ type CreateIncidentRequest struct {
 	Region     *string          `json:"region,omitempty"`
 	Severity   IncidentSeverity `json:"severity"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 	Title  string         `json:"title"`
 }
@@ -5433,11 +5369,11 @@ type CreateNodeRequest struct {
 	// Region The region the node is in (default the home region). A pooler host serves that region's projects.
 	Region *string `json:"region,omitempty"`
 
-	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
+	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs xenibase-edge only, its cost split by backend services' use (V4.1 §11).
 	Role CreateNodeRequestRole `json:"role"`
 }
 
-// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
+// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs xenibase-edge only, its cost split by backend services' use (V4.1 §11).
 type CreateNodeRequestRole string
 
 // CreateOrgRequest defines model for CreateOrgRequest.
@@ -5497,7 +5433,7 @@ type CreatedApiKey struct {
 
 // CreatedToken defines model for CreatedToken.
 type CreatedToken struct {
-	// Secret The token itself (`pgd_…`), shown only once.
+	// Secret The token itself (`xb_…`), shown only once.
 	Secret string   `json:"secret"`
 	Token  APIToken `json:"token"`
 }
@@ -5518,7 +5454,7 @@ type DBSession struct {
 	InTransactionMs int64 `json:"in_transaction_ms"`
 	Pid             int   `json:"pid"`
 
-	// Platform One of PGDock's own sessions.
+	// Platform One of Xenibase's own sessions.
 	Platform  bool   `json:"platform"`
 	Query     string `json:"query"`
 	Role      string `json:"role"`
@@ -5583,6 +5519,21 @@ type DbTable struct {
 
 // DbTableKind defines model for DbTable.Kind.
 type DbTableKind string
+
+// DebitConsent defines model for DebitConsent.
+type DebitConsent struct {
+	At time.Time           `json:"at"`
+	By *openapi_types.UUID `json:"by,omitempty"`
+
+	// Current Whether it is to the current wording of the terms.
+	Current bool   `json:"current"`
+	Version string `json:"version"`
+}
+
+// DebitConsentRequest defines model for DebitConsentRequest.
+type DebitConsentRequest struct {
+	TermsVersion string `json:"terms_version"`
+}
 
 // DecideRequest defines model for DecideRequest.
 type DecideRequest struct {
@@ -5753,7 +5704,7 @@ type DeviceRequest struct {
 
 // DeviceStartRequest defines model for DeviceStartRequest.
 type DeviceStartRequest struct {
-	// ClientName Shown on the approval page, e.g. "pgdock CLI on laptop".
+	// ClientName Shown on the approval page, e.g. "xenibase CLI on laptop".
 	ClientName *string `json:"client_name,omitempty"`
 
 	// Scopes The most the CLI wants; the user may narrow them. Default read and write.
@@ -5933,6 +5884,31 @@ type ExtensionTier string
 // ExtensionList defines model for ExtensionList.
 type ExtensionList struct {
 	Items []Extension `json:"items"`
+}
+
+// FXQuote The price of a dollar in naira an invoice was converted at.
+type FXQuote struct {
+	Derived *bool `json:"derived,omitempty"`
+
+	// EffectiveRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	EffectiveRate Decimal `json:"effective_rate"`
+
+	// FetchedAt When the provider last priced the pair.
+	FetchedAt time.Time `json:"fetched_at"`
+	From      string    `json:"from"`
+
+	// MarketRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	MarketRate Decimal `json:"market_rate"`
+
+	// QuotedAt When Xenibase asked.
+	QuotedAt  time.Time `json:"quoted_at"`
+	Sources   *[]string `json:"sources,omitempty"`
+	SpreadBps int       `json:"spread_bps"`
+	To        string    `json:"to"`
 }
 
 // FXRate defines model for FXRate.
@@ -6138,7 +6114,7 @@ type Incident struct {
 	Severity   IncidentSeverity `json:"severity"`
 	StartedAt  time.Time        `json:"started_at"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status    IncidentStatus   `json:"status"`
 	Title     string           `json:"title"`
 	UpdatedAt time.Time        `json:"updated_at"`
@@ -6157,7 +6133,7 @@ type IncidentList struct {
 // IncidentSeverity defines model for IncidentSeverity.
 type IncidentSeverity string
 
-// IncidentStatus draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+// IncidentStatus draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 type IncidentStatus string
 
 // IncidentUpdate defines model for IncidentUpdate.
@@ -6169,7 +6145,7 @@ type IncidentUpdate struct {
 	// PostedBy The poster's email.
 	PostedBy *string `json:"posted_by,omitempty"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 }
 
@@ -6177,7 +6153,7 @@ type IncidentUpdate struct {
 type IncidentUpdateRequest struct {
 	Body string `json:"body"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 }
 
@@ -6453,8 +6429,11 @@ type InviteRequest struct {
 
 // Invoice defines model for Invoice.
 type Invoice struct {
-	CreatedAt  time.Time          `json:"created_at"`
-	DueAt      *time.Time         `json:"due_at,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	DueAt     *time.Time `json:"due_at,omitempty"`
+
+	// Fx The rate they were converted at.
+	Fx         *FXQuote           `json:"fx,omitempty"`
 	Held       bool               `json:"held"`
 	HoldReason *string            `json:"hold_reason,omitempty"`
 	Id         openapi_types.UUID `json:"id"`
@@ -6472,7 +6451,12 @@ type Invoice struct {
 	Status           InvoiceStatus      `json:"status"`
 	SubtotalMinor    int64              `json:"subtotal_minor"`
 	TotalMinor       int64              `json:"total_minor"`
-	VatMinor         int64              `json:"vat_minor"`
+
+	// UsdSubtotalMinor The dollar price (cents) the naira amounts were converted from.
+	UsdSubtotalMinor *int64 `json:"usd_subtotal_minor,omitempty"`
+	UsdTotalMinor    *int64 `json:"usd_total_minor,omitempty"`
+	UsdVatMinor      *int64 `json:"usd_vat_minor,omitempty"`
+	VatMinor         int64  `json:"vat_minor"`
 
 	// VatRate An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
 	//
@@ -6498,7 +6482,10 @@ type InvoiceDetail struct {
 // InvoiceLine defines model for InvoiceLine.
 type InvoiceLine struct {
 	// Amount Kobo.
-	Amount      int64               `json:"amount"`
+	Amount int64 `json:"amount"`
+
+	// AmountUsd The price in dollars (cents) of a line converted to naira.
+	AmountUsd   *int64              `json:"amount_usd,omitempty"`
 	Description string              `json:"description"`
 	Kind        InvoiceLineKind     `json:"kind"`
 	Metric      *string             `json:"metric,omitempty"`
@@ -6516,6 +6503,11 @@ type InvoiceLine struct {
 	//
 	// Example: 34.25
 	UnitPrice Decimal `json:"unit_price"`
+
+	// UnitPriceUsd An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+	//
+	// Example: 34.25
+	UnitPriceUsd *Decimal `json:"unit_price_usd,omitempty"`
 }
 
 // InvoiceLineKind defines model for InvoiceLine.Kind.
@@ -6810,7 +6802,7 @@ type MaintenanceAnnouncement struct {
 	AnnouncedAt *time.Time `json:"announced_at,omitempty"`
 	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
 
-	// Draft Proposed by PGDock and not announced yet; confirm or discard it.
+	// Draft Proposed by Xenibase and not announced yet; confirm or discard it.
 	Draft   *bool `json:"draft,omitempty"`
 	Emailed *int  `json:"emailed,omitempty"`
 
@@ -6818,7 +6810,7 @@ type MaintenanceAnnouncement struct {
 	ExcludedFrom *time.Time `json:"excluded_from,omitempty"`
 	Incident     Incident   `json:"incident"`
 
-	// ProposedFor What PGDock proposed it for (minor_upgrade).
+	// ProposedFor What Xenibase proposed it for (minor_upgrade).
 	ProposedFor    *string              `json:"proposed_for,omitempty"`
 	ScheduledEnd   *time.Time           `json:"scheduled_end,omitempty"`
 	ScheduledStart *time.Time           `json:"scheduled_start,omitempty"`
@@ -7015,7 +7007,7 @@ type Node struct {
 	// FailureDomain What fails with this node (a rack, a host, a power feed), as the admin recorded it. Null when not recorded.
 	FailureDomain *string `json:"failure_domain,omitempty"`
 
-	// FailureDomainLabel The node's failure domain as PGDock judges it (the recorded one, its placement group, or the node alone).
+	// FailureDomainLabel The node's failure domain as Xenibase judges it (the recorded one, its placement group, or the node alone).
 	FailureDomainLabel *string            `json:"failure_domain_label,omitempty"`
 	Id                 openapi_types.UUID `json:"id"`
 
@@ -7200,7 +7192,7 @@ type OrgIncident struct {
 	Severity     IncidentSeverity `json:"severity"`
 	StartedAt    time.Time        `json:"started_at"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 	Title  string         `json:"title"`
 
@@ -7367,22 +7359,6 @@ type PaymentList struct {
 	Items []Payment `json:"items"`
 }
 
-// PaymentMethod defines model for PaymentMethod.
-type PaymentMethod struct {
-	Brand      *string            `json:"brand,omitempty"`
-	ExpMonth   *int               `json:"exp_month,omitempty"`
-	ExpYear    *int               `json:"exp_year,omitempty"`
-	Id         openapi_types.UUID `json:"id"`
-	IsDefault  bool               `json:"is_default"`
-	Kind       PaymentMethodKind  `json:"kind"`
-	Last4      *string            `json:"last4,omitempty"`
-	LimitMinor *int64             `json:"limit_minor,omitempty"`
-	Provider   string             `json:"provider"`
-}
-
-// PaymentMethodKind defines model for PaymentMethod.Kind.
-type PaymentMethodKind string
-
 // PersonalCredentials defines model for PersonalCredentials.
 type PersonalCredentials struct {
 	Access     PersonalCredentialsAccess `json:"access"`
@@ -7411,7 +7387,7 @@ type PersonalCredentialsInfoAccess string
 type PgVersionInfo struct {
 	DeprecatedAt *time.Time `json:"deprecated_at,omitempty"`
 
-	// Installed The server has an image for it (PGDOCK_PG_VERSIONS).
+	// Installed The server has an image for it (XENIBASE_PG_VERSIONS).
 	Installed bool   `json:"installed"`
 	Major     int    `json:"major"`
 	Notes     string `json:"notes"`
@@ -7465,17 +7441,20 @@ type Plan struct {
 type PlanChange struct {
 	// Applied In effect now; otherwise scheduled for effective_at.
 	Applied     bool      `json:"applied"`
+	Currency    *string   `json:"currency,omitempty"`
 	EffectiveAt time.Time `json:"effective_at"`
 	FromPlan    string    `json:"from_plan"`
 	FromTerm    string    `json:"from_term"`
+	Fx          *FXQuote  `json:"fx,omitempty"`
 
 	// Lines Lines on the next invoice (before VAT).
-	Lines      []InvoiceLine `json:"lines"`
-	TermEndsAt *time.Time    `json:"term_ends_at,omitempty"`
-	ToPlan     string        `json:"to_plan"`
-	ToTerm     string        `json:"to_term"`
-	TotalMinor int64         `json:"total_minor"`
-	Upgrade    bool          `json:"upgrade"`
+	Lines         []InvoiceLine `json:"lines"`
+	TermEndsAt    *time.Time    `json:"term_ends_at,omitempty"`
+	ToPlan        string        `json:"to_plan"`
+	ToTerm        string        `json:"to_term"`
+	TotalMinor    int64         `json:"total_minor"`
+	TotalUsdMinor *int64        `json:"total_usd_minor,omitempty"`
+	Upgrade       bool          `json:"upgrade"`
 }
 
 // PlanChangeRequest defines model for PlanChangeRequest.
@@ -7513,10 +7492,13 @@ type PlanMargin struct {
 
 // PlanOption defines model for PlanOption.
 type PlanOption struct {
-	AnnualMinor  int64  `json:"annual_minor"`
-	Id           string `json:"id"`
-	MonthlyMinor int64  `json:"monthly_minor"`
-	Name         string `json:"name"`
+	AnnualMinor int64 `json:"annual_minor"`
+
+	// Currency The currency of the fees (USD, or NGN on a naira price book), in minor units.
+	Currency     *string `json:"currency,omitempty"`
+	Id           string  `json:"id"`
+	MonthlyMinor int64   `json:"monthly_minor"`
+	Name         string  `json:"name"`
 }
 
 // PlanRequest defines model for PlanRequest.
@@ -7666,6 +7648,8 @@ type Prices struct {
 		// Example: 34.25
 		SyncReplicationHour Decimal `json:"sync_replication_hour"`
 	} `json:"addons"`
+
+	// Currency USD (cents, converted to naira when an invoice is issued) or NGN (kobo).
 	Currency  PricesCurrency `json:"currency"`
 	Dedicated struct {
 		// DiskGbHour An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
@@ -7686,13 +7670,16 @@ type Prices struct {
 	Plans map[string]PricePlan `json:"plans"`
 }
 
-// PricesCurrency defines model for Prices.Currency.
+// PricesCurrency USD (cents, converted to naira when an invoice is issued) or NGN (kobo).
 type PricesCurrency string
 
 // Pricing defines model for Pricing.
 type Pricing struct {
 	EffectiveAt time.Time `json:"effective_at"`
-	Next        *struct {
+
+	// Fx The rate dollar prices are shown in naira at, when there is one.
+	Fx   *FXQuote `json:"fx,omitempty"`
+	Next *struct {
 		EffectiveAt time.Time `json:"effective_at"`
 		Prices      Prices    `json:"prices"`
 		Version     int       `json:"version"`
@@ -7822,7 +7809,7 @@ type ProjectBackupStorage struct {
 	Target            ProjectStorageChoice `json:"target"`
 }
 
-// ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
+// ProjectCredentials Shown once. Xenibase keeps only the SCRAM verifier.
 type ProjectCredentials struct {
 	// Api A branch's own backend services API (V4.1 §9.5), when its parent has them: a new ref and keys, shown once. The parent's keys and tokens don't work on it.
 	Api        *BranchApi     `json:"api,omitempty"`
@@ -8142,9 +8129,9 @@ type Reconciliation struct {
 	Differences []struct {
 		Kind          ReconciliationDifferencesKind `json:"kind"`
 		Note          *string                       `json:"note,omitempty"`
-		PgdockMinor   int64                         `json:"pgdock_minor"`
 		ProviderMinor int64                         `json:"provider_minor"`
 		ProviderRef   string                        `json:"provider_ref"`
+		XenibaseMinor int64                         `json:"xenibase_minor"`
 	} `json:"differences"`
 	Error      *string   `json:"error,omitempty"`
 	FeesMinor  int64     `json:"fees_minor"`
@@ -8346,7 +8333,7 @@ type RestoreRequestMode string
 
 // RestoreResponse defines model for RestoreResponse.
 type RestoreResponse struct {
-	// Credentials Shown once. PGDock keeps only the SCRAM verifier.
+	// Credentials Shown once. Xenibase keeps only the SCRAM verifier.
 	Credentials *ProjectCredentials `json:"credentials,omitempty"`
 	Operation   Operation           `json:"operation"`
 }
@@ -9719,6 +9706,51 @@ type VirtualAccount struct {
 	Provider      string `json:"provider"`
 }
 
+// Wallet defines model for Wallet.
+type Wallet struct {
+	Account *VirtualAccount `json:"account,omitempty"`
+
+	// Available Whether this platform bills through wallets.
+	Available    bool    `json:"available"`
+	BalanceError *string `json:"balance_error,omitempty"`
+
+	// BalanceMinor Available now, read from the provider (kobo).
+	BalanceMinor *int64        `json:"balance_minor,omitempty"`
+	Consent      *DebitConsent `json:"consent,omitempty"`
+
+	// LedgerMinor What Xenibase's books say the wallet holds.
+	LedgerMinor int64 `json:"ledger_minor"`
+
+	// OwedMinor Outstanding on issued invoices.
+	OwedMinor    int64    `json:"owed_minor"`
+	PendingMinor *int64   `json:"pending_minor,omitempty"`
+	Rate         *FXQuote `json:"rate,omitempty"`
+	Terms        string   `json:"terms"`
+	TermsVersion string   `json:"terms_version"`
+	WalletId     *string  `json:"wallet_id,omitempty"`
+}
+
+// WalletCharge defines model for WalletCharge.
+type WalletCharge struct {
+	Message     *string `json:"message,omitempty"`
+	PaidMinor   int64   `json:"paid_minor"`
+	Skipped     bool    `json:"skipped"`
+	Succeeded   bool    `json:"succeeded"`
+	Unavailable bool    `json:"unavailable"`
+}
+
+// WalletSetup defines model for WalletSetup.
+type WalletSetup struct {
+	BusinessName string `json:"business_name"`
+
+	// Bvn A director's, 11 digits. Forwarded to the wallet provider and not kept.
+	Bvn       string  `json:"bvn"`
+	CacNumber *string `json:"cac_number,omitempty"`
+	Email     string  `json:"email"`
+	Phone     *string `json:"phone,omitempty"`
+	Tin       *string `json:"tin,omitempty"`
+}
+
 // Webhook defines model for Webhook.
 type Webhook struct {
 	// Backlog Events waiting in the outbox.
@@ -9891,9 +9923,6 @@ type InvoiceID = openapi_types.UUID
 
 // JobID defines model for JobID.
 type JobID = openapi_types.UUID
-
-// MethodID defines model for MethodID.
-type MethodID = openapi_types.UUID
 
 // MetricNames defines model for MetricNames.
 type MetricNames = []string
@@ -10232,24 +10261,6 @@ type ListOrgAuditParams struct {
 
 // ListOrgAuditParamsOutcome defines parameters for ListOrgAudit.
 type ListOrgAuditParamsOutcome string
-
-// StartCheckoutJSONBody defines parameters for StartCheckout.
-type StartCheckoutJSONBody struct {
-	// AmountMinor For a top-up.
-	AmountMinor *int64                       `json:"amount_minor,omitempty"`
-	Channel     StartCheckoutJSONBodyChannel `json:"channel"`
-	InvoiceId   *openapi_types.UUID          `json:"invoice_id,omitempty"`
-
-	// MandateLimitMinor With a wallet payment, also set up a recurring mandate with this monthly limit.
-	MandateLimitMinor *int64                       `json:"mandate_limit_minor,omitempty"`
-	Purpose           StartCheckoutJSONBodyPurpose `json:"purpose"`
-}
-
-// StartCheckoutJSONBodyChannel defines parameters for StartCheckout.
-type StartCheckoutJSONBodyChannel string
-
-// StartCheckoutJSONBodyPurpose defines parameters for StartCheckout.
-type StartCheckoutJSONBodyPurpose string
 
 // UpdateBillingContactJSONBody defines parameters for UpdateBillingContact.
 type UpdateBillingContactJSONBody struct {
@@ -10829,23 +10840,23 @@ type UpdateOrgJSONRequestBody = UpdateOrgRequest
 // UpdateOrgBillingJSONRequestBody defines body for UpdateOrgBilling for application/json ContentType.
 type UpdateOrgBillingJSONRequestBody = BillingDetailsUpdate
 
-// SetAutoTopupJSONRequestBody defines body for SetAutoTopup for application/json ContentType.
-type SetAutoTopupJSONRequestBody = AutoTopup
-
-// StartCheckoutJSONRequestBody defines body for StartCheckout for application/json ContentType.
-type StartCheckoutJSONRequestBody StartCheckoutJSONBody
-
 // AddBillingContactJSONRequestBody defines body for AddBillingContact for application/json ContentType.
 type AddBillingContactJSONRequestBody = BillingContact
 
 // UpdateBillingContactJSONRequestBody defines body for UpdateBillingContact for application/json ContentType.
 type UpdateBillingContactJSONRequestBody UpdateBillingContactJSONBody
 
+// AcceptDebitTermsJSONRequestBody defines body for AcceptDebitTerms for application/json ContentType.
+type AcceptDebitTermsJSONRequestBody = DebitConsentRequest
+
 // EstimateOrgCostJSONRequestBody defines body for EstimateOrgCost for application/json ContentType.
 type EstimateOrgCostJSONRequestBody EstimateOrgCostJSONBody
 
 // ChangeOrgPlanJSONRequestBody defines body for ChangeOrgPlan for application/json ContentType.
 type ChangeOrgPlanJSONRequestBody = PlanChangeRequest
+
+// CreateOrgWalletJSONRequestBody defines body for CreateOrgWallet for application/json ContentType.
+type CreateOrgWalletJSONRequestBody = WalletSetup
 
 // InviteOrgMemberJSONRequestBody defines body for InviteOrgMember for application/json ContentType.
 type InviteOrgMemberJSONRequestBody = InviteRequest
@@ -11221,7 +11232,7 @@ type ServerInterface interface {
 	// CancelMaintenance Cancel an announced maintenance window
 	// (DELETE /api/v1/admin/maintenance/announcements/{incident_id})
 	CancelMaintenance(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID)
-	// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+	// ConfirmMaintenanceDraft Announce a maintenance draft Xenibase proposed
 	// (POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm)
 	ConfirmMaintenanceDraft(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID)
 	// DiscardMaintenanceDraft Discard a maintenance draft; the work it was for keeps waiting
@@ -11416,7 +11427,7 @@ type ServerInterface interface {
 	// AdminOutstandingWht Deducted WHT awaiting its credit note, oldest first (format=csv exports all WHT receivable for tax filing)
 	// (GET /api/v1/admin/wht)
 	AdminOutstandingWht(w http.ResponseWriter, r *http.Request, params AdminOutstandingWhtParams)
-	// RegisterAgent Agent registration (called by pgdock-agent, not the UI)
+	// RegisterAgent Agent registration (called by xenibase-agent, not the UI)
 	// (POST /api/v1/agent/register)
 	RegisterAgent(w http.ResponseWriter, r *http.Request)
 	// ListAlerts Alerts, firing first
@@ -11476,22 +11487,22 @@ type ServerInterface interface {
 	// CreateDevOperation Enqueue a dummy operation (development only)
 	// (POST /api/v1/dev/operations)
 	CreateDevOperation(w http.ResponseWriter, r *http.Request)
-	// EdgeAuthHook pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+	// EdgeAuthHook xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 	// (POST /api/v1/edge/auth-hook)
 	EdgeAuthHook(w http.ResponseWriter, r *http.Request)
-	// EdgeAuthMessage pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+	// EdgeAuthMessage xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 	// (POST /api/v1/edge/auth-message)
 	EdgeAuthMessage(w http.ResponseWriter, r *http.Request)
-	// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
+	// EdgeConfig xenibase-edge's configuration feed (signed with the edge secret; internal)
 	// (GET /api/v1/edge/config)
 	EdgeConfig(w http.ResponseWriter, r *http.Request, params EdgeConfigParams)
-	// EdgeReport pgdock-edge's usage and request logs (signed; internal)
+	// EdgeReport xenibase-edge's usage and request logs (signed; internal)
 	// (POST /api/v1/edge/report)
 	EdgeReport(w http.ResponseWriter, r *http.Request)
-	// EdgeStorageEvent pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+	// EdgeStorageEvent xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 	// (POST /api/v1/edge/storage-event)
 	EdgeStorageEvent(w http.ResponseWriter, r *http.Request)
-	// EdgeWake pgdock-edge asks for a paused project to resume (signed; internal)
+	// EdgeWake xenibase-edge asks for a paused project to resume (signed; internal)
 	// (POST /api/v1/edge/wake)
 	EdgeWake(w http.ResponseWriter, r *http.Request)
 	// CreateImport Import an existing database into a new project
@@ -11620,15 +11631,6 @@ type ServerInterface interface {
 	// UpdateOrgBilling Change business details and spend controls
 	// (PATCH /api/v1/orgs/{org}/billing)
 	UpdateOrgBilling(w http.ResponseWriter, r *http.Request, org OrgID)
-	// ClearAutoTopup Stop automatic top-ups
-	// (DELETE /api/v1/orgs/{org}/billing/auto-topup)
-	ClearAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID)
-	// SetAutoTopup Top up a prepaid balance from the default method when it falls below a threshold
-	// (PUT /api/v1/orgs/{org}/billing/auto-topup)
-	SetAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID)
-	// StartCheckout Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-	// (POST /api/v1/orgs/{org}/billing/checkout)
-	StartCheckout(w http.ResponseWriter, r *http.Request, org OrgID)
 	// ListBillingContacts Billing contacts, who receive invoices and payment email
 	// (GET /api/v1/orgs/{org}/billing/contacts)
 	ListBillingContacts(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -11641,6 +11643,12 @@ type ServerInterface interface {
 	// UpdateBillingContact Turn a billing contact's status page emails on or off
 	// (PATCH /api/v1/orgs/{org}/billing/contacts/{email})
 	UpdateBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string)
+	// WithdrawDebitTerms Stop automatic debits (invoices are then paid by hand)
+	// (DELETE /api/v1/orgs/{org}/billing/debit-consent)
+	WithdrawDebitTerms(w http.ResponseWriter, r *http.Request, org OrgID)
+	// AcceptDebitTerms Agree to Xenibase debiting the wallet for invoices
+	// (POST /api/v1/orgs/{org}/billing/debit-consent)
+	AcceptDebitTerms(w http.ResponseWriter, r *http.Request, org OrgID)
 	// EstimateOrgCost What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
 	// (POST /api/v1/orgs/{org}/billing/estimate)
 	EstimateOrgCost(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -11653,21 +11661,15 @@ type ServerInterface interface {
 	// GetOrgInvoice An invoice with its lines and credit notes
 	// (GET /api/v1/orgs/{org}/billing/invoices/{invoice_id})
 	GetOrgInvoice(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID)
+	// PayInvoiceFromWallet Pay one invoice from the wallet now
+	// (POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet)
+	PayInvoiceFromWallet(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID)
 	// GetOrgInvoicePdf An invoice as PDF
 	// (GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf)
 	GetOrgInvoicePdf(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID)
 	// UploadWhtCertificate Upload the WHT credit note for an invoice whose WHT was deducted (PDF, PNG or JPEG, up to 10 MB)
 	// (POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate)
 	UploadWhtCertificate(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID, params UploadWhtCertificateParams)
-	// ListPaymentMethods Saved cards and wallet mandates
-	// (GET /api/v1/orgs/{org}/billing/payment-methods)
-	ListPaymentMethods(w http.ResponseWriter, r *http.Request, org OrgID)
-	// RemovePaymentMethod Remove a saved card or revoke a mandate
-	// (DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id})
-	RemovePaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID)
-	// SetDefaultPaymentMethod Charge this method for invoices and top-ups
-	// (POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default)
-	SetDefaultPaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID)
 	// ListOrgPayments Payments received, with receipts
 	// (GET /api/v1/orgs/{org}/billing/payments)
 	ListOrgPayments(w http.ResponseWriter, r *http.Request, org OrgID)
@@ -11680,6 +11682,12 @@ type ServerInterface interface {
 	// OrgVirtualAccount The organisation's bank account for transfers, issued on first use
 	// (POST /api/v1/orgs/{org}/billing/virtual-account)
 	OrgVirtualAccount(w http.ResponseWriter, r *http.Request, org OrgID)
+	// GetOrgWallet The organisation's wallet, its balance, bank account and debit consent
+	// (GET /api/v1/orgs/{org}/billing/wallet)
+	GetOrgWallet(w http.ResponseWriter, r *http.Request, org OrgID)
+	// CreateOrgWallet Open the organisation's wallet and its bank account
+	// (POST /api/v1/orgs/{org}/billing/wallet)
+	CreateOrgWallet(w http.ResponseWriter, r *http.Request, org OrgID)
 	// EndBreakGlass End a break-glass session early (owner)
 	// (POST /api/v1/orgs/{org}/break-glass/{session_id}/end)
 	EndBreakGlass(w http.ResponseWriter, r *http.Request, org OrgID, sessionId openapi_types.UUID)
@@ -12067,7 +12075,7 @@ type ServerInterface interface {
 	// PreviewSchemaChange Turn a schema change into DDL, risk notes, and a reverse
 	// (POST /api/v1/projects/{id}/schema/preview)
 	PreviewSchemaChange(w http.ResponseWriter, r *http.Request, id ProjectID)
-	// DisableBackendServices Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+	// DisableBackendServices Turn backend services off (keys revoked; the xb_* schemas and their data stay)
 	// (DELETE /api/v1/projects/{id}/services)
 	DisableBackendServices(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// GetBackendServices The project's backend services (V4 §2.4) - URL, keys, settings
@@ -12559,7 +12567,7 @@ func (_ Unimplemented) CancelMaintenance(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+// ConfirmMaintenanceDraft Announce a maintenance draft Xenibase proposed
 // (POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm)
 func (_ Unimplemented) ConfirmMaintenanceDraft(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -12949,7 +12957,7 @@ func (_ Unimplemented) AdminOutstandingWht(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// RegisterAgent Agent registration (called by pgdock-agent, not the UI)
+// RegisterAgent Agent registration (called by xenibase-agent, not the UI)
 // (POST /api/v1/agent/register)
 func (_ Unimplemented) RegisterAgent(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -13069,37 +13077,37 @@ func (_ Unimplemented) CreateDevOperation(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// EdgeAuthHook pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+// EdgeAuthHook xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 // (POST /api/v1/edge/auth-hook)
 func (_ Unimplemented) EdgeAuthHook(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// EdgeAuthMessage pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+// EdgeAuthMessage xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 // (POST /api/v1/edge/auth-message)
 func (_ Unimplemented) EdgeAuthMessage(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
+// EdgeConfig xenibase-edge's configuration feed (signed with the edge secret; internal)
 // (GET /api/v1/edge/config)
 func (_ Unimplemented) EdgeConfig(w http.ResponseWriter, r *http.Request, params EdgeConfigParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// EdgeReport pgdock-edge's usage and request logs (signed; internal)
+// EdgeReport xenibase-edge's usage and request logs (signed; internal)
 // (POST /api/v1/edge/report)
 func (_ Unimplemented) EdgeReport(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// EdgeStorageEvent pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+// EdgeStorageEvent xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 // (POST /api/v1/edge/storage-event)
 func (_ Unimplemented) EdgeStorageEvent(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// EdgeWake pgdock-edge asks for a paused project to resume (signed; internal)
+// EdgeWake xenibase-edge asks for a paused project to resume (signed; internal)
 // (POST /api/v1/edge/wake)
 func (_ Unimplemented) EdgeWake(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -13357,24 +13365,6 @@ func (_ Unimplemented) UpdateOrgBilling(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// ClearAutoTopup Stop automatic top-ups
-// (DELETE /api/v1/orgs/{org}/billing/auto-topup)
-func (_ Unimplemented) ClearAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// SetAutoTopup Top up a prepaid balance from the default method when it falls below a threshold
-// (PUT /api/v1/orgs/{org}/billing/auto-topup)
-func (_ Unimplemented) SetAutoTopup(w http.ResponseWriter, r *http.Request, org OrgID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// StartCheckout Start a payment on the provider's hosted page (an invoice, a top-up, or saving a card)
-// (POST /api/v1/orgs/{org}/billing/checkout)
-func (_ Unimplemented) StartCheckout(w http.ResponseWriter, r *http.Request, org OrgID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // ListBillingContacts Billing contacts, who receive invoices and payment email
 // (GET /api/v1/orgs/{org}/billing/contacts)
 func (_ Unimplemented) ListBillingContacts(w http.ResponseWriter, r *http.Request, org OrgID) {
@@ -13396,6 +13386,18 @@ func (_ Unimplemented) RemoveBillingContact(w http.ResponseWriter, r *http.Reque
 // UpdateBillingContact Turn a billing contact's status page emails on or off
 // (PATCH /api/v1/orgs/{org}/billing/contacts/{email})
 func (_ Unimplemented) UpdateBillingContact(w http.ResponseWriter, r *http.Request, org OrgID, email string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// WithdrawDebitTerms Stop automatic debits (invoices are then paid by hand)
+// (DELETE /api/v1/orgs/{org}/billing/debit-consent)
+func (_ Unimplemented) WithdrawDebitTerms(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AcceptDebitTerms Agree to Xenibase debiting the wallet for invoices
+// (POST /api/v1/orgs/{org}/billing/debit-consent)
+func (_ Unimplemented) AcceptDebitTerms(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -13423,6 +13425,12 @@ func (_ Unimplemented) GetOrgInvoice(w http.ResponseWriter, r *http.Request, org
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// PayInvoiceFromWallet Pay one invoice from the wallet now
+// (POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet)
+func (_ Unimplemented) PayInvoiceFromWallet(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetOrgInvoicePdf An invoice as PDF
 // (GET /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf)
 func (_ Unimplemented) GetOrgInvoicePdf(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID) {
@@ -13432,24 +13440,6 @@ func (_ Unimplemented) GetOrgInvoicePdf(w http.ResponseWriter, r *http.Request, 
 // UploadWhtCertificate Upload the WHT credit note for an invoice whose WHT was deducted (PDF, PNG or JPEG, up to 10 MB)
 // (POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate)
 func (_ Unimplemented) UploadWhtCertificate(w http.ResponseWriter, r *http.Request, org OrgID, invoiceId InvoiceID, params UploadWhtCertificateParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// ListPaymentMethods Saved cards and wallet mandates
-// (GET /api/v1/orgs/{org}/billing/payment-methods)
-func (_ Unimplemented) ListPaymentMethods(w http.ResponseWriter, r *http.Request, org OrgID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// RemovePaymentMethod Remove a saved card or revoke a mandate
-// (DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id})
-func (_ Unimplemented) RemovePaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// SetDefaultPaymentMethod Charge this method for invoices and top-ups
-// (POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default)
-func (_ Unimplemented) SetDefaultPaymentMethod(w http.ResponseWriter, r *http.Request, org OrgID, methodId MethodID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -13474,6 +13464,18 @@ func (_ Unimplemented) ChangeOrgPlan(w http.ResponseWriter, r *http.Request, org
 // OrgVirtualAccount The organisation's bank account for transfers, issued on first use
 // (POST /api/v1/orgs/{org}/billing/virtual-account)
 func (_ Unimplemented) OrgVirtualAccount(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOrgWallet The organisation's wallet, its balance, bank account and debit consent
+// (GET /api/v1/orgs/{org}/billing/wallet)
+func (_ Unimplemented) GetOrgWallet(w http.ResponseWriter, r *http.Request, org OrgID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateOrgWallet Open the organisation's wallet and its bank account
+// (POST /api/v1/orgs/{org}/billing/wallet)
+func (_ Unimplemented) CreateOrgWallet(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -14251,7 +14253,7 @@ func (_ Unimplemented) PreviewSchemaChange(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// DisableBackendServices Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+// DisableBackendServices Turn backend services off (keys revoked; the xb_* schemas and their data stay)
 // (DELETE /api/v1/projects/{id}/services)
 func (_ Unimplemented) DisableBackendServices(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -18925,84 +18927,6 @@ func (siw *ServerInterfaceWrapper) UpdateOrgBilling(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
-// ClearAutoTopup operation middleware
-func (siw *ServerInterfaceWrapper) ClearAutoTopup(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "org" -------------
-	var org OrgID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ClearAutoTopup(w, r, org)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// SetAutoTopup operation middleware
-func (siw *ServerInterfaceWrapper) SetAutoTopup(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "org" -------------
-	var org OrgID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SetAutoTopup(w, r, org)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// StartCheckout operation middleware
-func (siw *ServerInterfaceWrapper) StartCheckout(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "org" -------------
-	var org OrgID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.StartCheckout(w, r, org)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // ListBillingContacts operation middleware
 func (siw *ServerInterfaceWrapper) ListBillingContacts(w http.ResponseWriter, r *http.Request) {
 
@@ -19125,6 +19049,58 @@ func (siw *ServerInterfaceWrapper) UpdateBillingContact(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// WithdrawDebitTerms operation middleware
+func (siw *ServerInterfaceWrapper) WithdrawDebitTerms(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.WithdrawDebitTerms(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AcceptDebitTerms operation middleware
+func (siw *ServerInterfaceWrapper) AcceptDebitTerms(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AcceptDebitTerms(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // EstimateOrgCost operation middleware
 func (siw *ServerInterfaceWrapper) EstimateOrgCost(w http.ResponseWriter, r *http.Request) {
 
@@ -19238,6 +19214,41 @@ func (siw *ServerInterfaceWrapper) GetOrgInvoice(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// PayInvoiceFromWallet operation middleware
+func (siw *ServerInterfaceWrapper) PayInvoiceFromWallet(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "invoice_id" -------------
+	var invoiceId InvoiceID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PayInvoiceFromWallet(w, r, org, invoiceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetOrgInvoicePdf operation middleware
 func (siw *ServerInterfaceWrapper) GetOrgInvoicePdf(w http.ResponseWriter, r *http.Request) {
 
@@ -19315,102 +19326,6 @@ func (siw *ServerInterfaceWrapper) UploadWhtCertificate(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UploadWhtCertificate(w, r, org, invoiceId, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListPaymentMethods operation middleware
-func (siw *ServerInterfaceWrapper) ListPaymentMethods(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "org" -------------
-	var org OrgID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListPaymentMethods(w, r, org)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// RemovePaymentMethod operation middleware
-func (siw *ServerInterfaceWrapper) RemovePaymentMethod(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "org" -------------
-	var org OrgID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "method_id" -------------
-	var methodId MethodID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "method_id", chi.URLParam(r, "method_id"), &methodId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "method_id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RemovePaymentMethod(w, r, org, methodId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// SetDefaultPaymentMethod operation middleware
-func (siw *ServerInterfaceWrapper) SetDefaultPaymentMethod(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "org" -------------
-	var org OrgID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
-		return
-	}
-
-	// ------------- Path parameter "method_id" -------------
-	var methodId MethodID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "method_id", chi.URLParam(r, "method_id"), &methodId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "method_id", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SetDefaultPaymentMethod(w, r, org, methodId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -19524,6 +19439,58 @@ func (siw *ServerInterfaceWrapper) OrgVirtualAccount(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.OrgVirtualAccount(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOrgWallet operation middleware
+func (siw *ServerInterfaceWrapper) GetOrgWallet(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOrgWallet(w, r, org)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateOrgWallet operation middleware
+func (siw *ServerInterfaceWrapper) CreateOrgWallet(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "org" -------------
+	var org OrgID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "org", chi.URLParam(r, "org"), &org, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateOrgWallet(w, r, org)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -26564,25 +26531,22 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/estimate", wrapper.EstimateOrgCost)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/checkout", wrapper.StartCheckout)
-	})
-	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/virtual-account", wrapper.OrgVirtualAccount)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/payment-methods", wrapper.ListPaymentMethods)
+		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/wallet", wrapper.GetOrgWallet)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/billing/payment-methods/{method_id}", wrapper.RemovePaymentMethod)
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/wallet", wrapper.CreateOrgWallet)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/payment-methods/{method_id}/default", wrapper.SetDefaultPaymentMethod)
+		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/billing/debit-consent", wrapper.WithdrawDebitTerms)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/v1/orgs/{org}/billing/auto-topup", wrapper.ClearAutoTopup)
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/debit-consent", wrapper.AcceptDebitTerms)
 	})
 	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/api/v1/orgs/{org}/billing/auto-topup", wrapper.SetAutoTopup)
+		r.Post(options.BaseURL+"/api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet", wrapper.PayInvoiceFromWallet)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/orgs/{org}/billing/payments", wrapper.ListOrgPayments)

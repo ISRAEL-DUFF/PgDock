@@ -1,4 +1,4 @@
-// Package cli is the pgdock command-line tool (V2 §7.1): contexts, device
+// Package cli is the xenibase command-line tool (V2 §7.1): contexts, device
 // login, and commands for organisations, projects, branches, SQL, backups,
 // promotion, members, tokens and operations, over the generated API
 // client. Every command takes --json; destructive ones need --confirm.
@@ -23,8 +23,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
-	"github.com/israel-duff/pgdock/internal/version"
+	"github.com/israel-duff/xenibase/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/version"
 )
 
 // Exit codes.
@@ -246,7 +246,8 @@ func (a *App) commands() []command {
 			{name: "plan", summary: "Change plan: plan free|pro|team [--annual] [--now] [--dry-run]", run: (*App).billingPlan},
 			{name: "invoices", summary: "List invoices", run: (*App).billingInvoices},
 			{name: "invoice", summary: "Show or download one: invoice <number|id> [--pdf file.pdf]", run: (*App).billingInvoice},
-			{name: "pay", summary: "Get a link to pay an invoice: pay <number|id> [--wallet]", run: (*App).billingPay},
+			{name: "pay", summary: "Pay an invoice from the wallet now: pay <number|id>", run: (*App).billingPay},
+			{name: "wallet", summary: "The wallet's balance, what is owed and the debit consent", run: (*App).billingWallet},
 			{name: "transfer", summary: "Show the bank account to transfer to", run: (*App).billingTransfer},
 			{name: "payments", summary: "List payments received", run: (*App).billingPayments},
 		}},
@@ -311,7 +312,7 @@ func (a *App) commands() []command {
 			{name: "get", summary: "Show an operation: get <id> [--follow]", run: (*App).operationsGet},
 		}},
 		{name: "version", summary: "Print the CLI version", run: func(a *App, _ []string) error {
-			fmt.Fprintf(a.Stdout, "pgdock %s (%s)\n", version.Version, version.Commit)
+			fmt.Fprintf(a.Stdout, "xenibase %s (%s)\n", version.Version, version.Commit)
 			return nil
 		}},
 	}
@@ -329,12 +330,12 @@ func (a *App) Run(args []string) int {
 		a.Stdin = os.Stdin
 	}
 	args = a.globalFlags(args)
-	err := a.dispatch(a.commands(), args, "pgdock")
+	err := a.dispatch(a.commands(), args, "xenibase")
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return ExitOK
 		}
-		fmt.Fprintln(a.Stderr, "pgdock: "+err.Error())
+		fmt.Fprintln(a.Stderr, "xenibase: "+err.Error())
 	}
 	return exitCode(err)
 }
@@ -400,9 +401,9 @@ func (a *App) usage(cmds []command, path string) {
 		fmt.Fprintf(w, "  %s\t%s\n", c.name, c.summary)
 	}
 	_ = w.Flush()
-	if path == "pgdock" {
+	if path == "xenibase" {
 		fmt.Fprint(a.Stderr, "\nGlobal flags: --json, --context <name>, --server <url>, --no-wait\n"+
-			"Environment: PGDOCK_TOKEN and PGDOCK_SERVER (CI), PGDOCK_CONTEXT, PGDOCK_CA_FILE\n")
+			"Environment: XENIBASE_TOKEN and XENIBASE_SERVER (CI), XENIBASE_CONTEXT, XENIBASE_CA_FILE\n")
 	}
 }
 
@@ -429,7 +430,7 @@ func parse(fs *flag.FlagSet, args []string) ([]string, error) {
 
 func need(pos []string, n int, usage string) error {
 	if len(pos) != n {
-		return usageErrorf("usage: pgdock %s", usage)
+		return usageErrorf("usage: xenibase %s", usage)
 	}
 	return nil
 }
@@ -479,7 +480,7 @@ func (a *App) useTarget(t target) error {
 		if t.Token != "" {
 			r.Header.Set("Authorization", "Bearer "+t.Token)
 		}
-		r.Header.Set("User-Agent", "pgdock-cli/"+version.Version)
+		r.Header.Set("User-Agent", "xenibase-cli/"+version.Version)
 		return nil
 	}))
 	if err != nil {

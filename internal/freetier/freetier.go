@@ -19,12 +19,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/waker"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/waker"
 )
 
 // Lifecycles (projects.lifecycle).
@@ -128,7 +128,7 @@ func (s *Service) notify(ctx context.Context, p store.Project, subject, body str
 	if err != nil || len(to) == 0 {
 		return
 	}
-	if err := s.mail.Send(ctx, mail.Message{To: to, Subject: subject, Body: body, Headers: map[string]string{"X-PGDock-Event": "free_tier"}}); err != nil {
+	if err := s.mail.Send(ctx, mail.Message{To: to, Subject: subject, Body: body, Headers: map[string]string{"X-Xenibase-Event": "free_tier"}}); err != nil {
 		s.log.Warn("free tier notice", "project_id", p.ID, "err", err)
 	}
 }

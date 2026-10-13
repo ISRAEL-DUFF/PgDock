@@ -19,12 +19,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
-// dropTenants drops the databases and roles PGDock created on the cluster
+// dropTenants drops the databases and roles Xenibase created on the cluster
 // at adminURL.
 func dropTenants(adminURL string) {
 	ctx := context.Background()
@@ -50,22 +50,22 @@ func dropTenants(adminURL string) {
 // minute; 50 branches created at once; a quiet project's latency
 // throughout. It writes tmp/load-report-v2.md.
 func TestLoadV2(t *testing.T) {
-	if os.Getenv("PGDOCK_TEST_LOAD") == "" {
-		t.Skip("set PGDOCK_TEST_LOAD=1 (make test-load)")
+	if os.Getenv("XENIBASE_TEST_LOAD") == "" {
+		t.Skip("set XENIBASE_TEST_LOAD=1 (make test-load)")
 	}
-	load2 := os.Getenv("PGDOCK_TEST_LOAD2_ADMIN_URL")
+	load2 := os.Getenv("XENIBASE_TEST_LOAD2_ADMIN_URL")
 	if load2 == "" {
-		t.Skip("PGDOCK_TEST_LOAD2_ADMIN_URL not set (make test-load)")
+		t.Skip("XENIBASE_TEST_LOAD2_ADMIN_URL not set (make test-load)")
 	}
-	orgsN := envInt("PGDOCK_LOAD_ORGS", 30)
-	total := envInt("PGDOCK_LOAD_V2_PROJECTS", 300)
-	hooksN := envInt("PGDOCK_LOAD_WEBHOOK_PROJECTS", 20)
-	evRate := envInt("PGDOCK_LOAD_EVENTS_PER_SEC", 50) // per webhook project
-	evSecs := envInt("PGDOCK_LOAD_EVENT_SECONDS", 30)
-	jobsN := envInt("PGDOCK_LOAD_JOBS", 100)
-	jobMins := envInt("PGDOCK_LOAD_JOB_MINUTES", 3)
-	branchesN := envInt("PGDOCK_LOAD_BRANCHES", 50)
-	parallel := envInt("PGDOCK_LOAD_PARALLEL", 8)
+	orgsN := envInt("XENIBASE_LOAD_ORGS", 30)
+	total := envInt("XENIBASE_LOAD_V2_PROJECTS", 300)
+	hooksN := envInt("XENIBASE_LOAD_WEBHOOK_PROJECTS", 20)
+	evRate := envInt("XENIBASE_LOAD_EVENTS_PER_SEC", 50) // per webhook project
+	evSecs := envInt("XENIBASE_LOAD_EVENT_SECONDS", 30)
+	jobsN := envInt("XENIBASE_LOAD_JOBS", 100)
+	jobMins := envInt("XENIBASE_LOAD_JOB_MINUTES", 3)
+	branchesN := envInt("XENIBASE_LOAD_BRANCHES", 50)
+	parallel := envInt("XENIBASE_LOAD_PARALLEL", 8)
 	if hooksN+jobsN+1 > total {
 		t.Fatalf("%d projects can't hold %d webhook and %d job projects", total, hooksN, jobsN)
 	}
@@ -82,7 +82,7 @@ func TestLoadV2(t *testing.T) {
 	}
 	e.StartSecondAgent("node-b", node.Token)
 	if err := provision.RegisterSharedCluster(ctx, e.DB, e.Keyring, provision.SharedCluster{
-		NodeName: "node-b", AdminURL: load2, PoolerHost: os.Getenv("PGDOCK_TEST_LOAD2_POOLER_HOST"), PoolerPort: 5432,
+		NodeName: "node-b", AdminURL: load2, PoolerHost: os.Getenv("XENIBASE_TEST_LOAD2_POOLER_HOST"), PoolerPort: 5432,
 	}, slog.New(slog.NewTextHandler(io.Discard, nil))); err != nil {
 		t.Fatal(err)
 	}

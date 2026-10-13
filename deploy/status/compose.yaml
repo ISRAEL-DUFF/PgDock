@@ -1,22 +1,22 @@
-# pgdock-status on its own server (another provider than PGDock's).
+# xenibase-status on its own server (another provider than Xenibase's).
 # Put status.toml and the secret files next to this file, then:
 #
 #   docker compose up -d
 #
 # Caddy terminates TLS for STATUS_DOMAIN (point its DNS here first).
 
-name: pgdock-status
+name: xenibase-status
 
 services:
   status:
-    image: ${PGDOCK_STATUS_IMAGE:-pgdock-status:local}
+    image: ${XENIBASE_STATUS_IMAGE:-xenibase-status:local}
     restart: unless-stopped
     volumes:
-      - ./status.toml:/etc/pgdock-status/status.toml:ro
+      - ./status.toml:/etc/xenibase-status/status.toml:ro
       - ./secrets:/run/secrets:ro
-      - data:/var/lib/pgdock-status
+      - data:/var/lib/xenibase-status
     environment:
-      PGDOCK_STATUS_LOG_FORMAT: json
+      XENIBASE_STATUS_LOG_FORMAT: json
 
   caddy:
     image: caddy:2

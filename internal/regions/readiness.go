@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/israel-duff/pgdock/internal/faildomain"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/faildomain"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Check is one launch check of a region (V4.1 §13, docs/lagos-launch.md).
@@ -18,7 +18,7 @@ type Check struct {
 }
 
 // Readiness runs the launch checks of region id: what docs/lagos-launch.md
-// asks before a region is opened, as far as PGDock can see it.
+// asks before a region is opened, as far as Xenibase can see it.
 func (s *Service) Readiness(ctx context.Context, id string) ([]Check, error) {
 	r, err := s.Get(ctx, id)
 	if err != nil {

@@ -1,4 +1,4 @@
-// Package jobs runs PGDock's long actions as operations: rows in the
+// Package jobs runs Xenibase's long actions as operations: rows in the
 // operations table that a pool of workers claims with FOR UPDATE SKIP
 // LOCKED, runs with retries and a step log, and streams to clients over
 // Server-Sent Events (spec §6).
@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Operation statuses.

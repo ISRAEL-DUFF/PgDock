@@ -1,5 +1,5 @@
 // The app of the imported Supabase project, as a stand-in for the real one:
-// a tiny HTTP API over its tables, using only the connection string PGDock
+// a tiny HTTP API over its tables, using only the connection string Xenibase
 // handed out. "Serving its app" means these requests work after the import.
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";

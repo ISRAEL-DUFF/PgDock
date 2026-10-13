@@ -220,7 +220,7 @@ UPDATE backups SET expires_at = @expires_at WHERE id = @id;
 -- name: CopyQueue :many
 -- tenant: system - the cross-region copy worker.
 SELECT b.*, r.copy_target_id AS region_copy_target_id, p.region AS project_region, p.data_residency AS project_residency,
-       ct.pgdock_region AS copy_target_region
+       ct.xenibase_region AS copy_target_region
 FROM backups b
 JOIN projects p ON p.id = b.project_id
 JOIN regions r ON r.id = p.region
@@ -266,4 +266,4 @@ GROUP BY 1 ORDER BY 1;
 SELECT b.* FROM backups b
 JOIN storage_targets ct ON ct.id = b.copy_target_id
 WHERE b.project_id = @project_id AND b.copy_status = 'copied'
-  AND (ct.pgdock_region IS NULL OR ct.pgdock_region <> @region::text);
+  AND (ct.xenibase_region IS NULL OR ct.xenibase_region <> @region::text);

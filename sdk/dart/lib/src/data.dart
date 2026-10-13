@@ -203,7 +203,7 @@ class SelectQuery with _Filters<SelectQuery> {
   void Function() live<T>(void Function(Page<T>? page, Object? error) onResult,
       {T Function(Map<String, dynamic>)? fromJson, Duration debounce = const Duration(milliseconds: 100)}) {
     final w = _ctx.watch;
-    if (w == null) throw const PgdockException(0, 'realtime_unavailable', 'live() needs realtime');
+    if (w == null) throw const XenibaseException(0, 'realtime_unavailable', 'live() needs realtime');
     Timer? timer;
     var stopped = false;
     var seq = 0;
@@ -246,7 +246,7 @@ class WriteQuery with _Filters<WriteQuery> {
 
   /// Runs the write; returns the written rows and how many changed.
   Future<({int affected, List<Map<String, dynamic>> rows})> run() async {
-    if (!_simple) throw const PgdockException(0, 'invalid_filter', 'updates and deletes take where() and or() groups; use data.batch for more');
+    if (!_simple) throw const XenibaseException(0, 'invalid_filter', 'updates and deletes take where() and or() groups; use data.batch for more');
     final path = _key == null ? _base : '$_base/${Uri.encodeComponent('$_key')}';
     final r = await _ctx.t.json(_method, path, body: _body, query: {..._urlFilters(), ..._q});
     return (affected: (r['affected'] as num).toInt(), rows: ((r['data'] as List?) ?? const []).cast<Map<String, dynamic>>());

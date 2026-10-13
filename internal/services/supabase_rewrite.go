@@ -6,11 +6,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
-// Rewriting Supabase policies and defaults into PGDock's form (V4 §9): the
-// helper calls (auth.uid() → pgd_auth.uid() and so on), the role names a
+// Rewriting Supabase policies and defaults into Xenibase's form (V4 §9): the
+// helper calls (auth.uid() → xb_auth.uid() and so on), the role names a
 // policy applies to, and the role names expressions compare with. Anything
 // else that refers to Supabase's auth or storage schemas can't be mapped
 // and is reported instead.
@@ -97,7 +97,7 @@ func joinExpr(segs []exprSegment) string {
 }
 
 // rewriteKind says what an expression belongs to: a table's policy or
-// default, or a policy moving from storage.objects to pgd_storage.objects.
+// default, or a policy moving from storage.objects to xb_storage.objects.
 type rewriteKind int
 
 const (
@@ -116,7 +116,7 @@ var (
 	reWord        = regexp.MustCompile(`(^|[^a-zA-Z0-9_.$])([a-z_][a-z0-9_]*)\b`)
 	storageColMap = map[string]string{"bucket_id": "bucket", "name": "path", "owner": "owner", "id": "id",
 		"created_at": "created_at", "updated_at": "updated_at", "user_metadata": "user_metadata"}
-	// storageNoCol are storage.objects columns PGDock has no equivalent of.
+	// storageNoCol are storage.objects columns Xenibase has no equivalent of.
 	storageNoCol = map[string]bool{"metadata": true, "path_tokens": true, "version": true, "last_accessed_at": true, "level": true}
 )
 
@@ -145,7 +145,7 @@ func rewriteExpr(expr string, kind rewriteKind) (string, []string) {
 				// A quoted column of storage.objects.
 				name := strings.ReplaceAll(strings.Trim(s.text, `"`), `""`, `"`)
 				if storageNoCol[name] {
-					note("uses storage.objects.%s, which PGDock storage has no equivalent of", name)
+					note("uses storage.objects.%s, which Xenibase storage has no equivalent of", name)
 				} else if to, ok := storageColMap[name]; ok && to != name {
 					segs[i].text = to
 				}
@@ -156,15 +156,15 @@ func rewriteExpr(expr string, kind rewriteKind) (string, []string) {
 		if reAuthRole.MatchString(t) {
 			roleCompare = true
 		}
-		t = reAuthUID.ReplaceAllString(t, "pgd_auth.uid()")
-		t = reAuthRole.ReplaceAllString(t, "pgd_auth.role()")
-		t = reAuthJWT.ReplaceAllString(t, "pgd_auth.claims()")
-		t = reAuthEmail.ReplaceAllString(t, "(pgd_auth.claims() ->> 'email')")
+		t = reAuthUID.ReplaceAllString(t, "xb_auth.uid()")
+		t = reAuthRole.ReplaceAllString(t, "xb_auth.role()")
+		t = reAuthJWT.ReplaceAllString(t, "xb_auth.claims()")
+		t = reAuthEmail.ReplaceAllString(t, "(xb_auth.claims() ->> 'email')")
 		for _, m := range reAuthAny.FindAllStringSubmatch(t, -1) {
 			note("refers to auth.%s", m[1])
 		}
 		if kind == rewriteStorage {
-			t = reStorageFn.ReplaceAllString(t, "pgd_storage.$1(")
+			t = reStorageFn.ReplaceAllString(t, "xb_storage.$1(")
 			t = rewriteStorageColumns(t, note)
 		}
 		for _, m := range reStorageAny.FindAllStringSubmatch(t, -1) {
@@ -189,7 +189,7 @@ func rewriteExpr(expr string, kind rewriteKind) (string, []string) {
 }
 
 // rewriteStorageColumns renames storage.objects' columns in code to
-// pgd_storage.objects' (a word followed by "(" is a function, not one).
+// xb_storage.objects' (a word followed by "(" is a function, not one).
 func rewriteStorageColumns(t string, note func(string, ...any)) string {
 	var b strings.Builder
 	last := 0
@@ -199,7 +199,7 @@ func rewriteStorageColumns(t string, note func(string, ...any)) string {
 		to := name
 		switch {
 		case storageNoCol[name]:
-			note("uses storage.objects.%s, which PGDock storage has no equivalent of", name)
+			note("uses storage.objects.%s, which Xenibase storage has no equivalent of", name)
 		case name == "owner_id":
 			to = "(owner)::text"
 		case storageColMap[name] != "":
