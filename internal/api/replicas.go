@@ -3,10 +3,10 @@ package api
 import (
 	"net/http"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/dedicated"
-	"github.com/israel-duff/pgdock/internal/pooler"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // ListProjectReplicas implements GET /api/v1/projects/{id}/replicas.

@@ -1245,21 +1245,21 @@ type StorageCleanup struct {
 }
 
 type StorageTarget struct {
-	ID           uuid.UUID
-	Name         string
-	Endpoint     string
-	Bucket       string
-	Prefix       string
-	Credentials  []byte
-	IsDefault    bool
-	CreatedAt    time.Time
-	OrgID        *uuid.UUID
-	Region       string
-	PathStyle    bool
-	CreatedBy    *uuid.UUID
-	UpdatedAt    time.Time
-	DeletedAt    *time.Time
-	PgdockRegion *string
+	ID             uuid.UUID
+	Name           string
+	Endpoint       string
+	Bucket         string
+	Prefix         string
+	Credentials    []byte
+	IsDefault      bool
+	CreatedAt      time.Time
+	OrgID          *uuid.UUID
+	Region         string
+	PathStyle      bool
+	CreatedBy      *uuid.UUID
+	UpdatedAt      time.Time
+	DeletedAt      *time.Time
+	XenibaseRegion *string
 }
 
 type TermsAcceptance struct {

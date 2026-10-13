@@ -2,7 +2,7 @@
 // fresh install to a working database; then back up, delete data, restore
 // into a new project and verify it, and import a Supabase project and serve
 // its app. Run against the install bundle by `make test-e2e`, or against a
-// dev server with PGDOCK_E2E_URL.
+// dev server with XENIBASE_E2E_URL.
 import { expect, test, type Page } from "@playwright/test";
 import { execFile } from "node:child_process";
 import { createHmac } from "node:crypto";
@@ -14,27 +14,27 @@ import pg from "pg";
 import { startTodoApp } from "./todo-app";
 import { freshTotp } from "./totp";
 
-const setupCode = process.env.PGDOCK_E2E_SETUP_CODE ?? "";
-const dbHost = process.env.PGDOCK_E2E_DB_HOST ?? "127.0.0.1";
+const setupCode = process.env.XENIBASE_E2E_SETUP_CODE ?? "";
+const dbHost = process.env.XENIBASE_E2E_DB_HOST ?? "127.0.0.1";
 // Where the DB hostname really points (no DNS in CI): "host[:port]" pairs
 // are rewritten to this address, keeping TLS hostname verification.
-const dbAddr = process.env.PGDOCK_E2E_DB_ADDR;
-const caFile = process.env.PGDOCK_E2E_DB_CA; // verify-full against this root
+const dbAddr = process.env.XENIBASE_E2E_DB_ADDR;
+const caFile = process.env.XENIBASE_E2E_DB_CA; // verify-full against this root
 // Wait for the pooler certificate from this issuer (ACME) before connecting.
-const expectIssuer = process.env.PGDOCK_E2E_EXPECT_ISSUER;
+const expectIssuer = process.env.XENIBASE_E2E_EXPECT_ISSUER;
 // Backup storage the wizard configures (the bundle's fake S3).
-const s3Endpoint = process.env.PGDOCK_E2E_S3_ENDPOINT;
-const s3Bucket = process.env.PGDOCK_E2E_S3_BUCKET ?? "pgdock-e2e";
+const s3Endpoint = process.env.XENIBASE_E2E_S3_ENDPOINT;
+const s3Bucket = process.env.XENIBASE_E2E_S3_BUCKET ?? "xenibase-e2e";
 // A Supabase project to import: seeded through seedURL, imported from
 // sourceURL (the same database, as the control plane reaches it).
-const supabaseSeedURL = process.env.PGDOCK_E2E_SUPABASE_SEED_URL;
-const supabaseURL = process.env.PGDOCK_E2E_SUPABASE_URL;
+const supabaseSeedURL = process.env.XENIBASE_E2E_SUPABASE_SEED_URL;
+const supabaseURL = process.env.XENIBASE_E2E_SUPABASE_URL;
 // The bundle's catch-all mail server: SMTP for the wizard, HTTP for the tests.
-const smtpHost = process.env.PGDOCK_E2E_SMTP_HOST ?? "fakesmtp";
-const smtpPort = process.env.PGDOCK_E2E_SMTP_PORT ?? "2525";
-const mailAPI = process.env.PGDOCK_E2E_MAIL_API ?? "http://127.0.0.1:18025";
+const smtpHost = process.env.XENIBASE_E2E_SMTP_HOST ?? "fakesmtp";
+const smtpPort = process.env.XENIBASE_E2E_SMTP_PORT ?? "2525";
+const mailAPI = process.env.XENIBASE_E2E_MAIL_API ?? "http://127.0.0.1:18025";
 // The bundle's webhook receiver, as the tests read it.
-const hookAPI = process.env.PGDOCK_E2E_HOOK_API ?? "http://127.0.0.1:18090";
+const hookAPI = process.env.XENIBASE_E2E_HOOK_API ?? "http://127.0.0.1:18090";
 const email = "owner@example.com";
 const password = "a long enough passphrase";
 
@@ -45,16 +45,16 @@ let totpSecret = "";
 const stateFile = "test-results/.session.json";
 
 // Optional screenshots of key screens, in both themes, for review.
-const shotDir = process.env.PGDOCK_E2E_SCREENSHOTS;
+const shotDir = process.env.XENIBASE_E2E_SCREENSHOTS;
 /** Checks a screen against WCAG 2.1 A and AA with axe: serious and
  * critical issues fail the run (docs/ui-redesign.md, phase 6). With
- * PGDOCK_E2E_AXE=report they are written to axe.jsonl instead. */
+ * XENIBASE_E2E_AXE=report they are written to axe.jsonl instead. */
 async function a11y(page: Page, name: string, theme: string) {
   const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   const bad = r.violations
     .filter((v) => v.impact === "serious" || v.impact === "critical")
     .map((v) => `${v.id} (${v.impact}): ${v.help} — ${v.nodes.map((n) => n.target.join(" ")).slice(0, 5).join(" | ")}`);
-  if (process.env.PGDOCK_E2E_AXE === "report") {
+  if (process.env.XENIBASE_E2E_AXE === "report") {
     if (shotDir && bad.length) fs.appendFileSync(`${shotDir}/axe.jsonl`, JSON.stringify({ name, theme, bad }) + "\n");
     return;
   }
@@ -64,7 +64,7 @@ async function a11y(page: Page, name: string, theme: string) {
 async function shot(page: Page, name: string) {
   for (const theme of ["dark", "light"]) {
     await page.evaluate((t) => {
-      localStorage.setItem("pgdock.theme", t);
+      localStorage.setItem("xenibase.theme", t);
       document.documentElement.dataset.theme = t;
     }, theme);
     await page.waitForTimeout(400); // let colour transitions finish
@@ -72,7 +72,7 @@ async function shot(page: Page, name: string) {
     if (shotDir) await page.screenshot({ path: `${shotDir}/${name}-${theme}.png`, fullPage: true });
   }
   await page.evaluate(() => {
-    localStorage.setItem("pgdock.theme", "dark");
+    localStorage.setItem("xenibase.theme", "dark");
     document.documentElement.dataset.theme = "dark";
   });
 }
@@ -123,7 +123,7 @@ async function platformNav(page: Page, label: string) {
 // The organisation's pages: leave the project through the logo first.
 async function orgNav(page: Page, label: string) {
   const nav = page.getByRole("navigation", { name: "Organisation" });
-  if (!(await nav.isVisible())) await page.getByLabel("PGDock home").click();
+  if (!(await nav.isVisible())) await page.getByLabel("Xenibase home").click();
   await nav.getByRole("link", { name: label, exact: true }).click();
   await page.mouse.move(900, 500);
 }
@@ -268,9 +268,9 @@ async function revealedValue(page: Page, testId: string): Promise<string> {
 
 // The bundle's metadata database, for seeding history the tests cannot wait
 // a week for.
-const metadataContainer = process.env.PGDOCK_E2E_METADATA_CONTAINER ?? "pgdock-e2e-metadata-db-1";
+const metadataContainer = process.env.XENIBASE_E2E_METADATA_CONTAINER ?? "xenibase-e2e-metadata-db-1";
 async function metadataSQL(sql: string): Promise<string> {
-  const { stdout } = await promisify(execFile)("docker", ["exec", metadataContainer, "psql", "-U", "pgdock", "-d", "pgdock", "-v", "ON_ERROR_STOP=1", "-Atc", sql]);
+  const { stdout } = await promisify(execFile)("docker", ["exec", metadataContainer, "psql", "-U", "xenibase", "-d", "xenibase", "-v", "ON_ERROR_STOP=1", "-Atc", sql]);
   return stdout.trim();
 }
 
@@ -309,12 +309,12 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
   await page.getByLabel("SMTP host").fill(smtpHost);
   await page.getByLabel("Port").fill(smtpPort);
   await page.getByLabel("Encryption").selectOption("none");
-  await page.getByLabel("From address").fill("PGDock <pgdock@pgdock.test>");
+  await page.getByLabel("From address").fill("Xenibase <xenibase@xenibase.test>");
   await expect(page.getByLabel("Send the test to")).toHaveValue(email);
   await page.getByRole("button", { name: "Send a test, save, and continue" }).click();
   await expect(async () => {
     const res = await fetch(`${mailAPI}/messages?to=${encodeURIComponent(email)}`);
-    expect(((await res.json()) as { data: string }[]).some((m) => m.data.includes("PGDock email works"))).toBe(true);
+    expect(((await res.json()) as { data: string }[]).some((m) => m.data.includes("Xenibase email works"))).toBe(true);
   }).toPass({ timeout: 30_000 });
 
   // 3. The database hostname, with a DNS check.
@@ -348,8 +348,8 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
   await expect(page.getByRole("button", { name: "Confirm backup key" })).toBeDisabled();
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download key file" }).click()]);
   const keyFile = readFileSync((await download.path())!, "utf8");
-  expect(keyFile).toMatch(/^pgdock-backup-key-v1:[A-Za-z0-9+/=]+$/m);
-  await page.getByTestId("confirm-backup-key").fill("pgdock-backup-key-v1:" + "A".repeat(43) + "=");
+  expect(keyFile).toMatch(/^xenibase-backup-key-v1:[A-Za-z0-9+/=]+$/m);
+  await page.getByTestId("confirm-backup-key").fill("xenibase-backup-key-v1:" + "A".repeat(43) + "=");
   await page.getByRole("button", { name: "Confirm backup key" }).click();
   await expect(page.getByText("That is not this installation's backup key.")).toBeVisible();
   await page.getByLabel("Load key file").setInputFiles({ name: "key.txt", mimeType: "text/plain", buffer: Buffer.from(keyFile) });
@@ -366,7 +366,7 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
   } else {
     await page.getByRole("button", { name: /Continue/ }).click();
   }
-  await expect(page.getByRole("heading", { name: "PGDock is ready" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Xenibase is ready" })).toBeVisible();
 
   // The pooler certificate for the hostname arrives over ACME (HTTP-01).
   if (expectIssuer) {
@@ -498,7 +498,7 @@ test("fresh install to a working database, entirely in the browser", async ({ pa
 });
 
 // The M3 "done when" (spec §14): delete data, restore to a new project, and
-// verify it; then import a Supabase project and serve its app from PGDock.
+// verify it; then import a Supabase project and serve its app from Xenibase.
 // (A hosted Supabase project is not reachable from CI, so the import source
 // is the supabase/postgres image with a Supabase-shaped app in it.)
 test.describe("with the saved session", () => {
@@ -602,14 +602,14 @@ test.describe("with the saved session", () => {
     const todoURL = await revealedValue(page, "credential-pooled-url");
     expect(todoURL).toContain(`@${dbHost}:`);
 
-    // 8. The app runs against PGDock with nothing but the new URL.
+    // 8. The app runs against Xenibase with nothing but the new URL.
     const todo = await startTodoApp(() => connect(todoURL));
     try {
       const ada = "00000000-0000-0000-0000-000000000001";
       const list = (await (await fetch(`${todo.url}/todos?user=${ada}`)).json()) as { id: number }[];
       expect(list).toHaveLength(60);
       expect(await (await fetch(`${todo.url}/profile?user=${ada}`)).json()).toEqual({ username: "ada" });
-      const created = (await (await fetch(`${todo.url}/todos`, { method: "POST", body: JSON.stringify({ user: ada, task: "written on PGDock" }) })).json()) as {
+      const created = (await (await fetch(`${todo.url}/todos`, { method: "POST", body: JSON.stringify({ user: ada, task: "written on Xenibase" }) })).json()) as {
         id: number;
         ref: string;
       };
@@ -1206,7 +1206,7 @@ test.describe("with the saved session", () => {
     const row = page.getByTestId("admin-invoice-row").filter({ hasText: "Metered team" });
     await expect(row).toContainText("Draft");
     await row.getByRole("button", { name: "Issue" }).click();
-    await expect(row).toContainText(/PGD-\d{4}-\d{6}/);
+    await expect(row).toContainText(/XB-\d{4}-\d{6}/);
     await page.getByRole("radio", { name: "Ledger" }).click();
     await expect(page.getByTestId("ledger")).toContainText("Balanced");
     await shot(page, "51-admin-billing");
@@ -1214,18 +1214,18 @@ test.describe("with the saved session", () => {
     // The team sees it, with the details frozen on it, and downloads it.
     await page.goto("/org/billing");
     const inv = page.getByTestId("invoice-row").first();
-    await expect(inv).toContainText(/PGD-/);
+    await expect(inv).toContainText(/XB-/);
     await inv.getByRole("button").click();
     await expect(page.getByTestId("invoice-panel")).toContainText("Pro (monthly)");
     await expect(page.getByTestId("invoice-total")).toContainText("₦");
     const [pdf] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name: /Download PDF/ }).click()]);
-    expect(pdf.suggestedFilename()).toMatch(/^PGD-\d{4}-\d{6}\.pdf$/);
+    expect(pdf.suggestedFilename()).toMatch(/^XB-\d{4}-\d{6}\.pdf$/);
     expect(readFileSync((await pdf.path())!).subarray(0, 4).toString()).toBe("%PDF");
     await shot(page, "52-invoice");
     const total = ((await page.getByTestId("invoice-total").textContent()) ?? "").replace(/[^\d.,]/g, "");
     await page.keyboard.press("Escape");
 
-    // The team pays by transfer to PGDock's account; the admin records it
+    // The team pays by transfer to Xenibase's account; the admin records it
     // and the invoice is settled, with a receipt.
     await page.goto("/admin/billing");
     await page.getByRole("radio", { name: "Payments" }).click();
@@ -1446,7 +1446,7 @@ test.describe("with the saved session", () => {
     await page.getByTestId("token-project-Team data").check();
     await page.getByTestId("create-token").click();
     const token = await revealedValue(page, "token-secret");
-    expect(token).toMatch(/^pgd_[0-9A-Za-z]{43}$/);
+    expect(token).toMatch(/^xb_[0-9A-Za-z]{43}$/);
     await shot(page, "37-token-created");
     await page.getByRole("button", { name: "Done" }).click();
     await expect(page.getByTestId("token-GitHub Actions — team data")).toContainText("1 only");
@@ -1464,7 +1464,7 @@ test.describe("with the saved session", () => {
 
     // The CLI's device login, approved here for the Metered team org.
     const start = await page.evaluate(async () => {
-      const r = await fetch("/api/v1/auth/device", { method: "POST", credentials: "omit", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_name: "pgdock CLI on ci-runner" }) });
+      const r = await fetch("/api/v1/auth/device", { method: "POST", credentials: "omit", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_name: "xenibase CLI on ci-runner" }) });
       return r.json();
     });
     await page.goto(new URL(start.verification_uri_complete).pathname + new URL(start.verification_uri_complete).search);
@@ -1484,9 +1484,9 @@ test.describe("with the saved session", () => {
     // The org's owners see every token scoped to it, and can revoke one.
     await switchOrg(page, metered.id);
     await page.goto("/org/settings");
-    await expect(page.getByTestId("org-tokens")).toContainText("pgdock CLI on ci-runner");
+    await expect(page.getByTestId("org-tokens")).toContainText("xenibase CLI on ci-runner");
     page.once("dialog", (d) => void d.accept());
-    await page.getByTestId("revoke-token-pgdock CLI on ci-runner").click();
+    await page.getByTestId("revoke-token-xenibase CLI on ci-runner").click();
     await expect(page.getByTestId("org-tokens")).toContainText("revoked");
     expect((await bearer(collected.body.secret, "GET", "/api/v1/me")).status).toBe(401);
   });
@@ -1800,10 +1800,10 @@ test.describe("with the saved session", () => {
       hook = got.find((h) => h.path === "/orders" && h.body.includes("kettle"));
       expect(hook).toBeTruthy();
     }).toPass({ timeout: 15_000 });
-    const sig = Object.fromEntries(hook!.header["Pgdock-Signature"].split(",").map((kv) => kv.split("=") as [string, string]));
+    const sig = Object.fromEntries(hook!.header["Xenibase-Signature"].split(",").map((kv) => kv.split("=") as [string, string]));
     expect(createHmac("sha256", secret).update(`${sig.t}.${hook!.body}`).digest("hex")).toBe(sig.v1);
     expect(JSON.parse(hook!.body)).toMatchObject({ webhook: "orders-to-shop", table: "public.orders", type: "INSERT", record: { item: "kettle" } });
-    expect(hook!.header["Pgdock-Event-Id"]).toMatch(/^evt_/);
+    expect(hook!.header["Xenibase-Event-Id"]).toMatch(/^evt_/);
 
     // The delivery log, and a test event.
     // The new webhook's details are open.
@@ -1846,8 +1846,8 @@ test.describe("with the saved session", () => {
     await page.goto(`/projects/${id}/settings/api`);
     await page.getByRole("button", { name: "Enable backend services" }).click();
     const keys = page.getByTestId("new-api-keys");
-    await expect(keys.getByTestId("key-secret")).toContainText("pgd_sec_");
-    await expect(keys.getByTestId("key-publishable")).toContainText("pgd_pub_");
+    await expect(keys.getByTestId("key-secret")).toContainText("xb_sec_");
+    await expect(keys.getByTestId("key-publishable")).toContainText("xb_pub_");
     await shot(page, "70-api-keys-once");
     await keys.getByRole("button", { name: "I've copied them" }).click();
     await expect(page.getByTestId("services-url")).toContainText(/[a-z][a-z0-9]{7}/, { timeout: 30_000 });
@@ -1859,7 +1859,7 @@ test.describe("with the saved session", () => {
     await page.getByLabel("Name").fill("rotated");
     await page.getByLabel("Kind").selectOption("secret");
     await page.getByRole("button", { name: "Create" }).click();
-    await expect(page.getByTestId("new-api-keys").getByTestId("key-secret")).toContainText("pgd_sec_");
+    await expect(page.getByTestId("new-api-keys").getByTestId("key-secret")).toContainText("xb_sec_");
     await page.getByRole("button", { name: "I've copied them" }).click();
     await expect(rows).toHaveCount(3);
     const first = rows.filter({ hasText: "default" }).filter({ hasText: "secret" });
@@ -1887,7 +1887,7 @@ test.describe("with the saved session", () => {
     await page.getByTestId("schema-tree").getByRole("button", { name: "notes", exact: true }).click();
     await page.getByTestId("policy-helper").click();
     const pd = page.getByTestId("policy-dialog");
-    await expect(pd.getByTestId("policy-sql")).toContainText("owner_id = pgd_auth.uid()");
+    await expect(pd.getByTestId("policy-sql")).toContainText("owner_id = xb_auth.uid()");
     await shot(page, "73-policy-helper");
     await pd.getByTestId("policy-apply").click();
     await expect(pd).toBeHidden();
@@ -1904,10 +1904,10 @@ test.describe("with the saved session", () => {
     const apiURL = (await page.getByTestId("services-url").innerText()).match(/https?:\/\/\S+/)![0];
     const quick = page.getByTestId("services-quickstart");
     await expect(quick.getByTestId("quickstart-values")).toContainText(apiURL);
-    await expect(quick.getByTestId("quickstart-values")).toContainText("pgd_pub_");
-    await expect(quick.locator("pre").last()).toContainText(`createClient("${apiURL}", "pgd_pub_`);
+    await expect(quick.getByTestId("quickstart-values")).toContainText("xb_pub_");
+    await expect(quick.locator("pre").last()).toContainText(`createClient("${apiURL}", "xb_pub_`);
     await quick.getByRole("radio", { name: "Dart" }).click();
-    await expect(quick.locator("pre").last()).toContainText(`PgdockClient('${apiURL}', 'pgd_pub_`);
+    await expect(quick.locator("pre").last()).toContainText(`XenibaseClient('${apiURL}', 'xb_pub_`);
     await quick.getByRole("button", { name: "Hide" }).click();
     await page.reload();
     await expect(page.getByTestId("services-quickstart").getByRole("button", { name: "Show" })).toBeVisible();
@@ -1917,7 +1917,7 @@ test.describe("with the saved session", () => {
     await expect(docs.getByTestId("docs-table")).toContainText(/Row-level security\s*on/);
     const read = docs.getByTestId("docs-example-read");
     await expect(read).toContainText(`${apiURL}/data/v1/notes`);
-    await expect(read).toContainText("apikey: pgd_pub_");
+    await expect(read).toContainText("apikey: xb_pub_");
     await shot(page, "75-api-docs");
     await read.getByRole("button", { name: "Try it" }).click();
     await expect(explorer.getByLabel("Path")).toHaveValue(/^\/data\/v1\/notes\?select=/);
@@ -2039,7 +2039,7 @@ test.describe("with the saved session", () => {
     // The owner's personal organisation, where the earlier projects are.
     const orgs = await page.evaluate(async () => (await (await fetch("/api/v1/orgs")).json()).items as { id: string; personal: boolean }[]);
     const orgID = orgs.find((o) => o.personal)!.id;
-    await page.evaluate((id) => localStorage.setItem("pgdock.org", id), orgID);
+    await page.evaluate((id) => localStorage.setItem("xenibase.org", id), orgID);
 
     // Dana joins as a plain member: no billing access.
     const danaEmail = "dana@example.com";
@@ -2053,7 +2053,7 @@ test.describe("with the saved session", () => {
     const danaCtx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const dana = await danaCtx.newPage();
     await acceptInvitation(dana, await mailLink(danaEmail, "invitation"), "Dana");
-    await dana.evaluate((id) => localStorage.setItem("pgdock.org", id), orgID);
+    await dana.evaluate((id) => localStorage.setItem("xenibase.org", id), orgID);
 
     // An overdue invoice: every member sees it; only the owner gets the pay link, and nobody sees an amount here.
     expect(await apiStatus(page, `/api/v1/orgs/${orgID}/billing`)).toBe(200); // opens the billing account

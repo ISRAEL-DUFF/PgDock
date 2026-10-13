@@ -13,15 +13,15 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/dedicated"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/regions"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/regions"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // regionBucket starts a fake S3 bucket the agent can reach and saves it
@@ -29,7 +29,7 @@ import (
 func regionBucket(t *testing.T, e *testenv.Env, name string) (*storage.Fake, store.StorageTarget) {
 	t.Helper()
 	addr := ""
-	if gw := os.Getenv("PGDOCK_TEST_DOCKER_GATEWAY"); gw != "" {
+	if gw := os.Getenv("XENIBASE_TEST_DOCKER_GATEWAY"); gw != "" {
 		addr = net.JoinHostPort(gw, "0")
 	}
 	f, err := storage.NewFakeAt(name, addr)
@@ -39,7 +39,7 @@ func regionBucket(t *testing.T, e *testenv.Env, name string) (*storage.Fake, sto
 	t.Cleanup(f.Close)
 	tgt := f.Target(name)
 	row, _, err := e.Backups.SaveTarget(context.Background(), nil, nil, backup.TargetInput{
-		Name: name, Endpoint: tgt.Endpoint, Region: tgt.Region, Bucket: tgt.Bucket, Prefix: "pgdock",
+		Name: name, Endpoint: tgt.Endpoint, Region: tgt.Region, Bucket: tgt.Bucket, Prefix: "xenibase",
 		AccessKey: tgt.AccessKey, SecretKey: tgt.SecretKey, PathStyle: true,
 	}, nil)
 	if err != nil {
@@ -87,7 +87,7 @@ func TestRegionBackupsAndCopies(t *testing.T) {
 	// Lagos's copies would go to the EU bucket: fine for ordinary Lagos
 	// projects, not for residency ones.
 	if _, err := e.Regions.Save(ctx, regions.Input{
-		ID: "ng-lagos", Name: "Lagos", Country: "NG", PoolerHost: "db.ng.pgdock.test",
+		ID: "ng-lagos", Name: "Lagos", Country: "NG", PoolerHost: "db.ng.xenibase.test",
 		StorageTargetID: &lagosT.ID, CopyTargetID: &euCopyT.ID, Residency: true,
 	}); err != nil {
 		t.Fatal(err)
@@ -344,7 +344,7 @@ func TestLagosHAResidency(t *testing.T) {
 	if !has(t, lagos, "ng-lagos", inst.ID) {
 		t.Fatal("no WAL-G archive in the Lagos bucket")
 	}
-	if has(t, e.S3, "pgdock-test", inst.ID) || has(t, e.S3, "pgdock-test", c.Project.Id) {
+	if has(t, e.S3, "xenibase-test", inst.ID) || has(t, e.S3, "xenibase-test", c.Project.Id) {
 		t.Fatal("the project's data reached the platform default bucket")
 	}
 	if _, err := e.Backups.CopyRegionBackups(ctx, 100); err != nil {
@@ -368,7 +368,7 @@ func TestLagosHAResidency(t *testing.T) {
 	time.Sleep(5 * time.Second)
 	e.KillAgent("test")
 	killed := time.Now()
-	for _, name := range []string{"pgdock-" + primary.Id.String(), "pgdock-etcd-" + ns[0].Id.String()} {
+	for _, name := range []string{"xenibase-" + primary.Id.String(), "xenibase-etcd-" + ns[0].Id.String()} {
 		if out, err := exec.Command("docker", "kill", name).CombinedOutput(); err != nil {
 			t.Fatalf("kill %s: %v %s", name, err, out)
 		}

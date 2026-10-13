@@ -9,19 +9,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestMoveUnderLoad is M18's done-when at scale: a dedicated project of
-// PGDOCK_TEST_MOVE_GB gigabytes (CI: 1; the milestone: 20, `make test-move`)
+// XENIBASE_TEST_MOVE_GB gigabytes (CI: 1; the milestone: 20, `make test-move`)
 // moves to another node by logical replication while a client keeps
 // committing, with writes paused under 5 seconds and every acknowledged
 // commit on the new node.
 func TestMoveUnderLoad(t *testing.T) {
-	gb, _ := strconv.Atoi(os.Getenv("PGDOCK_TEST_MOVE_GB"))
+	gb, _ := strconv.Atoi(os.Getenv("XENIBASE_TEST_MOVE_GB"))
 	if gb <= 0 {
-		t.Skip("PGDOCK_TEST_MOVE_GB is not set")
+		t.Skip("XENIBASE_TEST_MOVE_GB is not set")
 	}
 	needDedicated(t)
 	e := testenv.Start(t, testenv.Options{})

@@ -13,9 +13,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/backupfmt"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/backupfmt"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Settings errors.
@@ -106,7 +106,7 @@ type KeyInfo struct {
 }
 
 func fingerprint(k []byte) string {
-	sum := sha256.Sum256(append([]byte("pgdock backup key\x00"), k...))
+	sum := sha256.Sum256(append([]byte("xenibase backup key\x00"), k...))
 	return hex.EncodeToString(sum[:6])
 }
 
@@ -147,7 +147,7 @@ func (s *Service) GenerateKey(ctx context.Context) ([]byte, KeyInfo, error) {
 	}
 	var info KeyInfo
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('pgdock_backup_key'))`); err != nil {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('xenibase_backup_key'))`); err != nil {
 			return err
 		}
 		q := store.New(tx)

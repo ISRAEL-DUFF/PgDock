@@ -12,11 +12,11 @@ import (
 )
 
 // FakeGraph is a fake of the WhatsApp Cloud API for tests: it records the
-// messages PGDock sends and delivers customers' messages to PGDock's
+// messages Xenibase sends and delivers customers' messages to Xenibase's
 // webhook, signed like Meta's.
 type FakeGraph struct {
 	AppSecret, AccessToken, PhoneNumberID string
-	// WebhookURL is PGDock's webhook.
+	// WebhookURL is Xenibase's webhook.
 	WebhookURL string
 
 	mu   sync.Mutex
@@ -24,7 +24,7 @@ type FakeGraph struct {
 	n    int
 }
 
-// FakeSent is a message PGDock sent.
+// FakeSent is a message Xenibase sent.
 type FakeSent struct{ To, Body string }
 
 // NewFakeGraph returns a fake.
@@ -56,7 +56,7 @@ func (f *FakeGraph) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintf(w, `{"messaging_product":"whatsapp","messages":[{"id":%q}]}`, id)
 }
 
-// Sent returns what PGDock sent to a number.
+// Sent returns what Xenibase sent to a number.
 func (f *FakeGraph) Sent(to string) []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -69,7 +69,7 @@ func (f *FakeGraph) Sent(to string) []string {
 	return out
 }
 
-// Deliver sends PGDock's webhook a customer's text message, returning the
+// Deliver sends Xenibase's webhook a customer's text message, returning the
 // HTTP status.
 func (f *FakeGraph) Deliver(from, name, text string) (int, error) {
 	f.mu.Lock()

@@ -4,10 +4,10 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/regions"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/regions"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func (s *Server) regionsSvc(w http.ResponseWriter) *regions.Service {

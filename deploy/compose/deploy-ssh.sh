@@ -3,7 +3,7 @@
 # report. Put it in the deploy user's ~/.ssh/authorized_keys as a forced
 # command (docs/deploying.md), so a stolen key can't open a shell:
 #
-#   restrict,command="/opt/pgdock/deploy/compose/deploy-ssh.sh" ssh-ed25519 AAAA… pgdock-deploy
+#   restrict,command="/opt/xenibase/deploy/compose/deploy-ssh.sh" ssh-ed25519 AAAA… xenibase-deploy
 #
 # The caller asks with one of
 #
@@ -47,7 +47,7 @@ upgrade)
 	;;
 status)
 	docker compose ps -a --format 'table {{.Service}}\t{{.State}}\t{{.Health}}'
-	docker compose exec -T pgdock-server pgdock-server -version
+	docker compose exec -T xenibase-server xenibase-server -version
 	;;
 last)
 	if [ -f "$rc_file" ]; then echo "last upgrade: exit status $(cat "$rc_file") (0 upgraded, 2 rolled back, 3 rollback failed)"; else echo "last upgrade: no result recorded (still running, or never run)"; fi

@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
 func mustUUID(s string) uuid.UUID {
@@ -111,7 +111,7 @@ func (a *App) projectsInfo(args []string) error {
 		fmt.Fprintf(w, "Tier:\t%s\n", p.Tier)
 		fmt.Fprintf(w, "Status:\t%s\n", p.Status)
 		if p.Lifecycle != nil && *p.Lifecycle != "active" {
-			fmt.Fprintf(w, "Lifecycle:\t%s for inactivity (pgdock resume %s)\n", *p.Lifecycle, p.Name)
+			fmt.Fprintf(w, "Lifecycle:\t%s for inactivity (xenibase resume %s)\n", *p.Lifecycle, p.Name)
 		}
 		fmt.Fprintf(w, "Database:\t%s\n", p.DbName)
 		if p.Region != nil {
@@ -136,7 +136,7 @@ func (a *App) projectsCreate(args []string) error {
 	profile := fs.String("profile", "", "dedicated size (small, medium, large)")
 	desc := fs.String("description", "", "a description")
 	version := fs.Int("pg-version", 0, "the Postgres major (default: the newest supported)")
-	region := fs.String("region", "", "the region (see pgdock regions; default: the platform's home region)")
+	region := fs.String("region", "", "the region (see xenibase regions; default: the platform's home region)")
 	residency := fs.Bool("data-residency", false, "keep the data, backups and branches in the region's country")
 	pos, err := parse(fs, args)
 	if err != nil {
@@ -310,13 +310,13 @@ func (a *App) creds(args []string) error {
 		_, cached := f.Projects[p.Id.String()]
 		return a.emit(r.JSON200, func(w io.Writer) {
 			if !r.JSON200.Exists {
-				fmt.Fprintf(w, "You have no personal login on %s yet: pgdock creds %s --rotate, or pgdock connect %s.\n", p.Name, pos[0], pos[0])
+				fmt.Fprintf(w, "You have no personal login on %s yet: xenibase creds %s --rotate, or xenibase connect %s.\n", p.Name, pos[0], pos[0])
 				return
 			}
 			fmt.Fprintf(w, "Login:\t%s\n", orDash(r.JSON200.Role))
 			fmt.Fprintf(w, "Access:\t%s\n", r.JSON200.Access)
 			if cached {
-				fmt.Fprintf(w, "Saved locally:\tyes (pgdock connect %s prints the URL)\n", pos[0])
+				fmt.Fprintf(w, "Saved locally:\tyes (xenibase connect %s prints the URL)\n", pos[0])
 			} else {
 				fmt.Fprintln(w, "Saved locally:\tno (the password was shown once; --rotate for a new one)")
 			}

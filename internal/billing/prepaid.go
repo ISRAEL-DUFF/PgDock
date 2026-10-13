@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Prepaid billing (V3 §3.5): the org keeps a credit balance; usage is rated
@@ -175,7 +175,7 @@ func (s *Service) CheckPrepaid(ctx context.Context, orgID uuid.UUID) error {
 	switch {
 	case bal <= 0 && zero == nil:
 		zero = &now
-		s.notifyOrg(ctx, orgID, "billing.prepaid_empty", fmt.Sprintf("PGDock: %s's prepaid balance has run out", s.orgName(ctx, orgID)),
+		s.notifyOrg(ctx, orgID, "billing.prepaid_empty", fmt.Sprintf("Xenibase: %s's prepaid balance has run out", s.orgName(ctx, orgID)),
 			fmt.Sprintf("The prepaid balance is %s. Top up within %d days to avoid restrictions; projects keep running meanwhile.\n\nTop up: %s/org/billing?org=%s\n",
 				Naira(bal), GraceDays, s.publicURL, orgID))
 	case bal > 0:
@@ -184,7 +184,7 @@ func (s *Service) CheckPrepaid(ctx context.Context, orgID uuid.UUID) error {
 	next := alerted
 	if crossed > 0 {
 		next = crossed
-		s.notifyOrg(ctx, orgID, "billing.prepaid_low", fmt.Sprintf("PGDock: %s's prepaid balance is low", s.orgName(ctx, orgID)),
+		s.notifyOrg(ctx, orgID, "billing.prepaid_low", fmt.Sprintf("Xenibase: %s's prepaid balance is low", s.orgName(ctx, orgID)),
 			fmt.Sprintf("The prepaid balance of %s covers %s.\n\nTop up: %s/org/billing?org=%s\n", Naira(bal), why, s.publicURL, orgID))
 	}
 	return store.New(s.db).SetBalanceAlert(ctx, store.SetBalanceAlertParams{OrgID: orgID, BalanceAlerted: next, BalanceMonth: pgDate(month), ZeroBalanceAt: zero})

@@ -1,4 +1,4 @@
-// Package mail sends PGDock's email: account verification, password resets,
+// Package mail sends Xenibase's email: account verification, password resets,
 // invitations, and alerts (V2 §3.1). One platform SMTP configuration, set
 // in the setup wizard and the platform settings, serves all of them.
 package mail
@@ -22,8 +22,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // TLS modes.
@@ -60,7 +60,7 @@ type Message struct {
 	To      []string
 	Subject string
 	Body    string
-	// Headers are extra headers (e.g. X-PGDock-Event).
+	// Headers are extra headers (e.g. X-Xenibase-Event).
 	Headers map[string]string
 }
 

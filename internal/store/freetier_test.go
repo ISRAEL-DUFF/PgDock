@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/store/storetest"
 )
 
 // The Free tier pauses idle projects of organisations on the Free billing

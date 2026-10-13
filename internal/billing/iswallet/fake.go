@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/billing"
+	"github.com/israel-duff/xenibase/internal/billing"
 )
 
 // Fake is a stand-in for iswallet, for tests and the local demo. It follows
-// the real service where it matters to PGDock: wallets keyed by a globally
+// the real service where it matters to Xenibase: wallets keyed by a globally
 // unique owner reference, a permanent virtual account per wallet, deposits
 // that arrive net of the collection fee, transfers that are synchronous,
 // final and idempotent for 24 hours, a lookup by idempotency key, and rates
@@ -90,7 +90,7 @@ func NewFake(apiKey, secret string) *Fake {
 		wallets: map[string]*fakeWallet{}, owners: map[string]string{}, accounts: map[string]string{},
 		idem: map[string]idemRecord{}, reqs: map[string]billing.RequestState{},
 		rate: fakeRate{market: "1500.00000000", live: true}, operator: fakeOperator}
-	f.wallets[fakeOperator] = &fakeWallet{ID: fakeOperator, OwnerRef: "pgdock:operating", Status: "active", Tier: "TIER_3"}
+	f.wallets[fakeOperator] = &fakeWallet{ID: fakeOperator, OwnerRef: "xenibase:operating", Status: "active", Tier: "TIER_3"}
 	return f
 }
 
@@ -131,7 +131,7 @@ func (f *Fake) WalletBalance(walletID string) int64 {
 	return 0
 }
 
-// OperatingBalance is what PGDock's own wallet holds.
+// OperatingBalance is what Xenibase's own wallet holds.
 func (f *Fake) OperatingBalance() int64 { return f.WalletBalance(fakeOperator) }
 
 // WalletByOwner finds a wallet id by owner reference.
@@ -225,7 +225,7 @@ func (f *Fake) walletJSON(w *fakeWallet) map[string]any {
 		"status": w.Status, "tier": w.Tier, "created_at": f.Now().UTC()}
 }
 
-// ServeHTTP serves the API PGDock uses.
+// ServeHTTP serves the API Xenibase uses.
 func (f *Fake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -307,7 +307,7 @@ func (f *Fake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			wl.Account = fmt.Sprintf("99%08d", len(f.accounts)+1)
 			f.accounts[wl.Account] = wl.ID
 		}
-		f.reply(w, 200, map[string]any{"wallet_id": wl.ID, "account_number": wl.Account, "account_name": "PGDOCK / " + strings.ToUpper(wl.OwnerRef),
+		f.reply(w, 200, map[string]any{"wallet_id": wl.ID, "account_number": wl.Account, "account_name": "XENIBASE / " + strings.ToUpper(wl.OwnerRef),
 			"bank_name": "Wema Bank", "is_permanent": true, "provider_code": "flutterwave", "status": "active"})
 	case r.Method == http.MethodGet && len(parts) == 4 && parts[1] == "wallets" && parts[3] == "balance":
 		wl := f.wallets[parts[2]]
@@ -364,7 +364,7 @@ func (f *Fake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		f.reply(w, 200, map[string]any{"idempotency_key": parts[2], "kind": st.Kind, "resource_id": st.ResourceID, "status": st.Status, "terminal": st.Terminal})
 	case r.Method == http.MethodGet && r.URL.Path == "/v1/platform/account":
-		f.reply(w, 200, map[string]any{"operating_wallet_id": f.operator, "canonical_currency": "NGN", "client_id": "pgdock"})
+		f.reply(w, 200, map[string]any{"operating_wallet_id": f.operator, "canonical_currency": "NGN", "client_id": "xenibase"})
 	case r.Method == http.MethodGet && r.URL.Path == "/v1/rates":
 		q := r.URL.Query()
 		if q.Get("from") != "USD" || q.Get("to") != "NGN" {

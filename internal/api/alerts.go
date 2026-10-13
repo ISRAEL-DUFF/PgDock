@@ -5,8 +5,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/israel-duff/pgdock/internal/alerts"
-	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/alerts"
+	"github.com/israel-duff/xenibase/internal/api/gen"
 )
 
 func (s *Server) requireAlerts(w http.ResponseWriter) bool {

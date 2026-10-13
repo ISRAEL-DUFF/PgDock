@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
 )
 
 // Key kinds and prefixes (V4 §2.2).
@@ -13,8 +13,8 @@ const (
 	KindPublishable = edgeapi.KindPublishable
 	KindSecret      = edgeapi.KindSecret
 
-	PrefixPublishable = "pgd_pub_"
-	PrefixSecret      = "pgd_sec_"
+	PrefixPublishable = "xb_pub_"
+	PrefixSecret      = "xb_sec_"
 )
 
 const (

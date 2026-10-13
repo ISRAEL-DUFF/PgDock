@@ -40,13 +40,13 @@ if [ "$ver" = v2.0.0 ]; then
 	case "$mode" in
 	install_fail) echo 5 > "$FAKE/schema"; exit 1 ;;           # migrated, then died
 	unhealthy) echo "$ver" > "$FAKE/version"; echo "$n" > "$FAKE/schema"
-		printf 'pgdock-server|restarting||0\nmetadata-db|running|healthy|0\n' > "$FAKE/ps"; exit 0 ;;
+		printf 'xenibase-server|restarting||0\nmetadata-db|running|healthy|0\n' > "$FAKE/ps"; exit 0 ;;
 	unhealthy_nomigrate) echo "$ver" > "$FAKE/version"
-		printf 'pgdock-server|restarting||0\nmetadata-db|running|healthy|0\n' > "$FAKE/ps"; exit 0 ;;
+		printf 'xenibase-server|restarting||0\nmetadata-db|running|healthy|0\n' > "$FAKE/ps"; exit 0 ;;
 	esac
 fi
 echo "$ver" > "$FAKE/version"; echo "$n" > "$FAKE/schema"
-printf 'pgdock-server|running|healthy|0\nmetadata-db|running|healthy|0\npooler-tx|running|healthy|0\n' > "$FAKE/ps"
+printf 'xenibase-server|running|healthy|0\nmetadata-db|running|healthy|0\npooler-tx|running|healthy|0\n' > "$FAKE/ps"
 I
 	chmod +x deploy/compose/install.sh deploy/compose/upgrade.sh
 	for i in 1 2 3; do echo "-- $i" > internal/store/migrations/0000${i}_m.sql; done
@@ -64,7 +64,7 @@ echo "docker $*" >> "$FAKE/calls"
 case "$*" in
 "compose version"*) echo "Docker Compose version v2.29.0" ;;
 "compose ps -a"*) cat "$FAKE/ps" ;;
-"compose exec -T pgdock-server pgdock-server -version") echo "pgdock-server $(cat "$FAKE/version") (commit x)" ;;
+"compose exec -T xenibase-server xenibase-server -version") echo "xenibase-server $(cat "$FAKE/version") (commit x)" ;;
 "compose exec -T metadata-db psql"*goose_db_version*) cat "$FAKE/schema" ;;
 "compose exec -T metadata-db psql"*"drop database"*) [ -f "$FAKE/restore_fails" ] && exit 1; echo "RESTORE-DROP" >> "$FAKE/events" ;;
 "compose exec -T metadata-db psql"*operations*) echo 0 ;;
@@ -77,7 +77,7 @@ esac
 D
 	chmod +x "$FAKE/bin/docker"
 	echo v1.0.0 > "$FAKE/version"; echo 3 > "$FAKE/schema"; : > "$FAKE/events"
-	printf 'pgdock-server|running|healthy|0\nmetadata-db|running|healthy|0\npooler-tx|running|healthy|0\n' > "$FAKE/ps"
+	printf 'xenibase-server|running|healthy|0\nmetadata-db|running|healthy|0\npooler-tx|running|healthy|0\n' > "$FAKE/ps"
 	export PATH="$FAKE/bin:$PATH" UPGRADE_WAIT=2 UPGRADE_POLL=1 UPGRADE_MIN_FREE_GB=0
 	cd deploy/compose
 }
@@ -121,7 +121,7 @@ setup; echo unhealthy > "$FAKE/mode"; run v2.0.0 --yes
 check "unhealthy: exit 2" [ "$rc" = 2 ]
 check "unhealthy: back on v1.0.0" head_is v1.0.0
 check "unhealthy: restored" has "$FAKE/events" RESTORE-LOAD
-check "unhealthy: names the failing service" has "$T/out" "pgdock-server(restarting)"
+check "unhealthy: names the failing service" has "$T/out" "xenibase-server(restarting)"
 
 # 5. Unhealthy but never migrated: roll back without touching the database.
 setup; echo unhealthy_nomigrate > "$FAKE/mode"; run v2.0.0 --yes
@@ -162,13 +162,13 @@ echo dirty >> deploy-note.txt 2>/dev/null || true; echo x >> upgrade.sh; run v2.
 check "local changes: exit 1" [ "$rc" = 1 ]
 check "local changes: says so" has "$T/out" "local changes"
 git checkout -q -- upgrade.sh
-printf 'pgdock-server|restarting||0\n' > "$FAKE/ps"; run v2.0.0 --yes
+printf 'xenibase-server|restarting||0\n' > "$FAKE/ps"; run v2.0.0 --yes
 check "unhealthy start: exit 1" [ "$rc" = 1 ]
 check "unhealthy start: says so" has "$T/out" "isn't healthy"
 check "unhealthy start: nothing changed" head_is v1.0.0
 check "unhealthy start: no backup taken" hasnt "$FAKE/calls" pg_dump
 git checkout -q v2.0.0 && git checkout -q -B main v2.0.0; echo 5 > "$FAKE/schema"
-printf 'pgdock-server|running|healthy|0\n' > "$FAKE/ps"; echo v2.0.0 > "$FAKE/version"
+printf 'xenibase-server|running|healthy|0\n' > "$FAKE/ps"; echo v2.0.0 > "$FAKE/version"
 run v1.0.0 --yes
 check "downgrade: exit 1" [ "$rc" = 1 ]
 check "downgrade: explains" has "$T/out" "downgrade"
@@ -192,7 +192,7 @@ for bad in "" "bash" "upgrade" "upgrade v2.0.0;id" "upgrade v2.0.0 --force" "upg
 	check "ssh refuses '$bad'" [ "$rc" = 64 ]
 done
 ssh_run "status"
-check "ssh status: lists services" has "$T/out" "pgdock-server"
+check "ssh status: lists services" has "$T/out" "xenibase-server"
 ssh_run "last"
 check "ssh last: reports the earlier result" has "$T/out" "last upgrade"
 # An upgrade through the wrapper that fails: its exit status and log survive.
@@ -205,14 +205,14 @@ check "ssh last: says rolled back, exit 2" has "$T/out" "exit status 2"
 check "ssh last: shows the log" has "$T/out" "rolled back"
 
 # 12. The first upgrade of an install that doesn't have the script: a copy kept
-# elsewhere, pointed at the install with PGDOCK_DIR.
+# elsewhere, pointed at the install with XENIBASE_DIR.
 BARE=1 setup; mkdir -p "$T/elsewhere"; cp "$script" "$T/elsewhere/upgrade.sh"; unset BARE
 check "external copy: the old release really has no upgrade.sh" test ! -f ./upgrade.sh
-set +e; PGDOCK_DIR=$PWD sh "$T/elsewhere/upgrade.sh" v2.0.0 --yes > "$T/out" 2>&1; rc=$?; set -e
+set +e; XENIBASE_DIR=$PWD sh "$T/elsewhere/upgrade.sh" v2.0.0 --yes > "$T/out" 2>&1; rc=$?; set -e
 check "external copy: exit 0" [ "$rc" = 0 ]
 check "external copy: upgraded" head_is v2.0.0
 check "external copy: the tag's own upgrade.sh arrived with the checkout" test -f ./upgrade.sh
-check "external copy: no private copies left in /tmp" sh -c "! ls ${TMPDIR:-/tmp}/pgdock-upgrade.* 2>/dev/null | grep -q ."
+check "external copy: no private copies left in /tmp" sh -c "! ls ${TMPDIR:-/tmp}/xenibase-upgrade.* 2>/dev/null | grep -q ."
 
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]

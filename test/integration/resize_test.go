@@ -9,11 +9,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/cloud"
-	"github.com/israel-duff/pgdock/internal/dedicated"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/cloud"
+	"github.com/israel-duff/xenibase/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // resize asks for a new size and waits for what it queued.
@@ -34,7 +34,7 @@ func resize(t *testing.T, e *testenv.Env, project uuid.UUID, req gen.InstanceUpd
 // limits are a member container's CPU and memory limits.
 func limits(t *testing.T, member uuid.UUID) string {
 	t.Helper()
-	got, err := dockerInspect(t, "pgdock-"+member.String(), "{{.HostConfig.NanoCpus}} {{.HostConfig.Memory}}")
+	got, err := dockerInspect(t, "xenibase-"+member.String(), "{{.HostConfig.NanoCpus}} {{.HostConfig.Memory}}")
 	if err != nil {
 		t.Fatalf("inspect %s: %v", member, err)
 	}

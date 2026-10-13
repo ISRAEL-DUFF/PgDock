@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/services"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/services"
 )
 
 // Project → Storage (V4 §5): buckets and files, managed from the dashboard

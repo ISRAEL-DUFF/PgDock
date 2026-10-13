@@ -13,30 +13,30 @@ func TestAuthPhone(t *testing.T) {
 	if a := cfg.AuthPhone; a.SMSOn() || a.SMSPriceMinor != 450 || a.WhatsAppPriceMinor != 1500 || a.Currency != "NGN" || a.FreeAllowed {
 		t.Fatalf("defaults: %+v", a)
 	}
-	cfg, err = load(env(map[string]string{"PGDOCK_TERMII_API_KEY": "tk", "PGDOCK_TERMII_SENDER_ID": "PGDock",
-		"PGDOCK_SMS_PRICE_MINOR": "500", "PGDOCK_PHONE_AUTH_FREE": "true", "PGDOCK_MESSAGE_CURRENCY": "ghs"}), noFiles)
+	cfg, err = load(env(map[string]string{"XENIBASE_TERMII_API_KEY": "tk", "XENIBASE_TERMII_SENDER_ID": "Xenibase",
+		"XENIBASE_SMS_PRICE_MINOR": "500", "XENIBASE_PHONE_AUTH_FREE": "true", "XENIBASE_MESSAGE_CURRENCY": "ghs"}), noFiles)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if a := cfg.AuthPhone; !a.SMSOn() || a.SMSPriceMinor != 500 || !a.FreeAllowed || a.Currency != "GHS" {
 		t.Fatalf("set: %+v", a)
 	}
-	cfg, err = load(env(map[string]string{"PGDOCK_AFRICASTALKING_API_KEY": "at", "PGDOCK_AFRICASTALKING_USERNAME": "pgdock"}), noFiles)
+	cfg, err = load(env(map[string]string{"XENIBASE_AFRICASTALKING_API_KEY": "at", "XENIBASE_AFRICASTALKING_USERNAME": "xenibase"}), noFiles)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a := cfg.AuthPhone; !a.SMSOn() || !a.ATOn() || a.ATUsername != "pgdock" {
+	if a := cfg.AuthPhone; !a.SMSOn() || !a.ATOn() || a.ATUsername != "xenibase" {
 		t.Fatalf("africa's talking: %+v", a)
 	}
 	for _, bad := range []map[string]string{
-		{"PGDOCK_TERMII_API_KEY": "tk"},
-		{"PGDOCK_AFRICASTALKING_API_KEY": "at"},
-		{"PGDOCK_AFRICASTALKING_API_KEY": "at", "PGDOCK_AFRICASTALKING_USERNAME": "u", "PGDOCK_AFRICASTALKING_URL": "x"},
-		{"PGDOCK_SMS_PRICE_MINOR": "4.5"},
-		{"PGDOCK_WHATSAPP_OTP_TEMPLATE": "code"},
-		{"PGDOCK_TERMII_URL": "ftp://x"},
+		{"XENIBASE_TERMII_API_KEY": "tk"},
+		{"XENIBASE_AFRICASTALKING_API_KEY": "at"},
+		{"XENIBASE_AFRICASTALKING_API_KEY": "at", "XENIBASE_AFRICASTALKING_USERNAME": "u", "XENIBASE_AFRICASTALKING_URL": "x"},
+		{"XENIBASE_SMS_PRICE_MINOR": "4.5"},
+		{"XENIBASE_WHATSAPP_OTP_TEMPLATE": "code"},
+		{"XENIBASE_TERMII_URL": "ftp://x"},
 	} {
-		if _, err := load(env(bad), noFiles); err == nil || !strings.Contains(err.Error(), "PGDOCK_") {
+		if _, err := load(env(bad), noFiles); err == nil || !strings.Contains(err.Error(), "XENIBASE_") {
 			t.Fatalf("%v: %v", bad, err)
 		}
 	}

@@ -25,7 +25,7 @@ WHERE scope = 'node' AND scope_id = @node_id AND metric = @metric AND resolution
 ORDER BY ts;
 
 -- name: InsertProvisionedNode :one
--- A node for a server PGDock is creating; its agent registers with the
+-- A node for a server Xenibase is creating; its agent registers with the
 -- token in the server's cloud-init.
 INSERT INTO nodes (name, private_addr, role, capacity, registration_token, registration_expires_at,
   provider, region, server_type, monthly_cost_minor, cost_currency, lifecycle)

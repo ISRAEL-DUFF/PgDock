@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // webhookFixture is one signed sample delivery (Taskiem S2), for
@@ -31,8 +31,8 @@ const fixtureDir = "../../docs/integrations/fixtures/webhooks"
 
 // TestWebhookFixtures captures one real delivery of each kind and checks
 // the published samples in docs/integrations/fixtures/webhooks still match
-// what PGDock sends: the same fields, and signatures that verify with the
-// sample's throwaway secret. PGDOCK_WRITE_FIXTURES=1 rewrites them.
+// what Xenibase sends: the same fields, and signatures that verify with the
+// sample's throwaway secret. XENIBASE_WRITE_FIXTURES=1 rewrites them.
 func TestWebhookFixtures(t *testing.T) {
 	e := testenv.Start(t, testenv.Options{})
 	ctx := context.Background()
@@ -71,11 +71,11 @@ func TestWebhookFixtures(t *testing.T) {
 		{"insert-truncated.json", "An INSERT of a row over 256 KB: truncated is true, record and old_record are null, primary_key identifies the row to fetch."},
 		{"test.json", "The event POST /projects/{id}/webhooks/{id}/test sends: type TEST, no table or row."},
 	}
-	write := os.Getenv("PGDOCK_WRITE_FIXTURES") == "1"
+	write := os.Getenv("XENIBASE_WRITE_FIXTURES") == "1"
 	for i, n := range names {
 		h := got[i]
 		fresh := webhookFixture{Description: n.desc, Secret: wh.Secret, Body: string(h.Body), Headers: map[string]string{}}
-		for _, k := range []string{"Content-Type", "User-Agent", "PGDock-Event-Id", "PGDock-Webhook", "PGDock-Signature"} {
+		for _, k := range []string{"Content-Type", "User-Agent", "Xenibase-Event-Id", "Xenibase-Webhook", "Xenibase-Signature"} {
 			fresh.Headers[k] = h.Header.Get(k)
 		}
 		path := filepath.Join(fixtureDir, n.file)
@@ -91,14 +91,14 @@ func TestWebhookFixtures(t *testing.T) {
 		}
 		raw, err := os.ReadFile(path) //nolint:gosec // a fixed path in the repository
 		if err != nil {
-			t.Fatalf("%s: %v (PGDOCK_WRITE_FIXTURES=1 writes it)", path, err)
+			t.Fatalf("%s: %v (XENIBASE_WRITE_FIXTURES=1 writes it)", path, err)
 		}
 		var pub webhookFixture
 		if err := json.Unmarshal(raw, &pub); err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}
 		// The sample's signature verifies with its secret, at its own time.
-		sig := pub.Headers["PGDock-Signature"]
+		sig := pub.Headers["Xenibase-Signature"]
 		ts, _, _ := strings.Cut(strings.TrimPrefix(sig, "t="), ",")
 		unix, err := strconv.ParseInt(ts, 10, 64)
 		if err != nil {
@@ -109,7 +109,7 @@ func TestWebhookFixtures(t *testing.T) {
 		}
 		// And it has the fields a delivery has today, no more and no fewer.
 		if a, b := topKeys(t, pub.Body), topKeys(t, fresh.Body); !slices.Equal(a, b) {
-			t.Fatalf("%s is out of date: fields %v, a delivery today has %v (PGDOCK_WRITE_FIXTURES=1 rewrites it)", path, a, b)
+			t.Fatalf("%s is out of date: fields %v, a delivery today has %v (XENIBASE_WRITE_FIXTURES=1 rewrites it)", path, a, b)
 		}
 		if a, b := slices.Sorted(maps.Keys(pub.Headers)), slices.Sorted(maps.Keys(fresh.Headers)); !slices.Equal(a, b) {
 			t.Fatalf("%s's headers: %v, want %v", path, a, b)

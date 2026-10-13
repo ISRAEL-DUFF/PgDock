@@ -1,4 +1,4 @@
-// Package billing is PGDock's billing core (V3 §3): price books, billing
+// Package billing is Xenibase's billing core (V3 §3): price books, billing
 // accounts, the double-entry ledger, rating, invoices and credit notes,
 // the forecast and spend controls. Amounts are integers in kobo.
 package billing
@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Ledger accounts (V3 §3.3). Per-organisation accounts carry the org;

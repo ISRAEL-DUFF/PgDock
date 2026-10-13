@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
-  title: PGDock API
+  title: Xenibase API
   version: 1.0.0
   description: |
-    Control-plane API for PGDock. This file is the single source of truth:
+    Control-plane API for Xenibase. This file is the single source of truth:
     Go server interfaces (oapi-codegen) and TypeScript client types
     (openapi-typescript) are generated from it with `make generate`.
 servers:
@@ -176,7 +176,7 @@ paths:
       description: |
         Whether first-run setup is needed, who is signed in, and the CSRF
         token to send as `X-CSRF-Token` on every mutating request (also set
-        as the `pgdock_csrf` cookie).
+        as the `xenibase_csrf` cookie).
       tags: [auth]
       responses:
         "200":
@@ -191,7 +191,7 @@ paths:
       summary: First-run setup, step 1 - owner account and TOTP enrolment
       description: |
         Only before any operator exists. `setup_code` is printed in the
-        pgdock-server log. Returns the TOTP secret to enrol; nothing is
+        xenibase-server log. Returns the TOTP secret to enrol; nothing is
         created until `/setup/complete` proves a code.
       tags: [setup]
       requestBody:
@@ -368,7 +368,7 @@ paths:
       operationId: createDevOperation
       summary: Enqueue a dummy operation (development only)
       description: |
-        Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+        Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
         otherwise returns 404. Enqueues a `noop` operation for exercising
         the queue end to end.
       tags: [dev]
@@ -419,7 +419,7 @@ paths:
       summary: Create a shared-tier project
       description: |
         Records the project and queues a `create` operation. The response
-        carries the password and full connection URLs exactly once; PGDock
+        carries the password and full connection URLs exactly once; Xenibase
         stores only the SCRAM verifier. The URLs work once the operation
         succeeds (stream it to follow progress).
       tags: [projects]
@@ -1225,7 +1225,7 @@ paths:
       description: |
         For a project with backend services on, after its database was
         imported from Supabase. `policies` rewrites the imported policies
-        and column defaults to the project's request roles and pgd_auth
+        and column defaults to the project's request roles and xb_auth
         helpers; `users` copies auth.users and auth.identities from the
         Supabase database, keeping ids and bcrypt password hashes (upgraded
         to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -1612,10 +1612,10 @@ paths:
   /api/v1/agent/register:
     post:
       operationId: registerAgent
-      summary: Agent registration (called by pgdock-agent, not the UI)
+      summary: Agent registration (called by xenibase-agent, not the UI)
       description: |
         Exchanges a one-time registration token and a CSR for a client
-        certificate signed by the PGDock agent CA. Needs no session; the
+        certificate signed by the Xenibase agent CA. Needs no session; the
         token authenticates. Rate limited per address.
       tags: [nodes]
       requestBody:
@@ -1774,7 +1774,7 @@ paths:
             default: csv
       responses:
         "200":
-          description: The rows; X-PGDock-Truncated is true when there were more.
+          description: The rows; X-Xenibase-Truncated is true when there were more.
           content:
             text/csv:
               schema:
@@ -2256,7 +2256,7 @@ paths:
       summary: Prometheus exposition of the latest metrics
       description: |
         Needs a signed-in operator, or `Authorization: Bearer <token>` with
-        PGDOCK_METRICS_TOKEN.
+        XENIBASE_METRICS_TOKEN.
       tags: [metrics]
       responses:
         "200":
@@ -3667,7 +3667,7 @@ paths:
           $ref: "#/components/responses/Error"
     delete:
       operationId: disableBackendServices
-      summary: Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+      summary: Turn backend services off (keys revoked; the xb_* schemas and their data stay)
       tags: [services]
       parameters:
         - $ref: "#/components/parameters/ProjectID"
@@ -3731,7 +3731,7 @@ paths:
       description: >-
         With after (a log id; 0 for "from now", which answers with no logs
         and the cursor to follow from), returns the logs after it, oldest
-        first, waiting up to wait seconds for one (`pgdock logs api
+        first, waiting up to wait seconds for one (`xenibase logs api
         --follow`). next is the cursor for the next call.
       tags: [services]
       parameters:
@@ -3882,7 +3882,7 @@ paths:
   /api/v1/edge/config:
     get:
       operationId: edgeConfig
-      summary: pgdock-edge's configuration feed (signed with the edge secret; internal)
+      summary: xenibase-edge's configuration feed (signed with the edge secret; internal)
       tags: [edge]
       security: []
       parameters:
@@ -3913,7 +3913,7 @@ paths:
   /api/v1/edge/report:
     post:
       operationId: edgeReport
-      summary: pgdock-edge's usage and request logs (signed; internal)
+      summary: xenibase-edge's usage and request logs (signed; internal)
       tags: [edge]
       security: []
       requestBody:
@@ -3931,7 +3931,7 @@ paths:
   /api/v1/edge/wake:
     post:
       operationId: edgeWake
-      summary: pgdock-edge asks for a paused project to resume (signed; internal)
+      summary: xenibase-edge asks for a paused project to resume (signed; internal)
       tags: [edge]
       security: []
       requestBody:
@@ -3949,7 +3949,7 @@ paths:
   /api/v1/edge/auth-message:
     post:
       operationId: edgeAuthMessage
-      summary: pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+      summary: xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
       tags: [edge]
       security: []
       requestBody:
@@ -3967,7 +3967,7 @@ paths:
   /api/v1/edge/auth-hook:
     post:
       operationId: edgeAuthHook
-      summary: pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+      summary: xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
       tags: [edge]
       security: []
       requestBody:
@@ -3990,7 +3990,7 @@ paths:
   /api/v1/edge/storage-event:
     post:
       operationId: edgeStorageEvent
-      summary: pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+      summary: xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
       tags: [edge]
       security: []
       requestBody:
@@ -5166,7 +5166,7 @@ paths:
     post:
       operationId: createOrgWallet
       summary: Open the organisation's wallet and its bank account
-      description: A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+      description: A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
       tags: [billing]
       parameters:
         - $ref: "#/components/parameters/OrgID"
@@ -5188,7 +5188,7 @@ paths:
   /api/v1/orgs/{org}/billing/debit-consent:
     post:
       operationId: acceptDebitTerms
-      summary: Agree to PGDock debiting the wallet for invoices
+      summary: Agree to Xenibase debiting the wallet for invoices
       tags: [billing]
       parameters:
         - $ref: "#/components/parameters/OrgID"
@@ -6679,7 +6679,7 @@ paths:
               additionalProperties: true
       responses:
         "200":
-          description: Accepted (including duplicates and events PGDock doesn't act on).
+          description: Accepted (including duplicates and events Xenibase doesn't act on).
         "401":
           description: The signature didn't verify.
         default:
@@ -6829,8 +6829,8 @@ paths:
       operationId: supportInboundEmail
       summary: An email to the support address, from the email provider's inbound webhook
       description: |
-        Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-        password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+        Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+        password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
         inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
       tags: [support]
       security: []
@@ -8085,7 +8085,7 @@ paths:
   /api/v1/admin/maintenance/announcements/{incident_id}/confirm:
     post:
       operationId: confirmMaintenanceDraft
-      summary: Announce a maintenance draft PGDock proposed
+      summary: Announce a maintenance draft Xenibase proposed
       description: Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
       tags: [admin]
       parameters:
@@ -8303,7 +8303,7 @@ components:
       type: http
       scheme: bearer
       description: |
-        An API token (`pgd_…`, from Account → API tokens, `pgdock login` or
+        An API token (`xb_…`, from Account → API tokens, `xenibase login` or
         `POST /api/v1/tokens`) as `Authorization: Bearer <token>`. Token
         calls need no CSRF header and carry the token's scopes (`read`,
         `write`, …) and project restriction; routes that a token can't
@@ -8311,7 +8311,7 @@ components:
     sessionCookie:
       type: apiKey
       in: cookie
-      name: pgdock_session
+      name: xenibase_session
       description: |
         The dashboard's session cookie (the browser flow). Mutating calls
         also need the `X-CSRF-Token` header from `GET /api/v1/session`.
@@ -9194,7 +9194,7 @@ components:
           description: Postgres major version (see /profiles); default the newest.
     ProjectCredentials:
       type: object
-      description: Shown once. PGDock keeps only the SCRAM verifier.
+      description: Shown once. Xenibase keeps only the SCRAM verifier.
       required: [project, operation, password, connection]
       properties:
         project:
@@ -10067,7 +10067,7 @@ components:
           description: The provider's spread placement group the server is in (Hetzner).
         failure_domain_label:
           type: string
-          description: The node's failure domain as PGDock judges it (the recorded one, its placement group, or the node alone).
+          description: The node's failure domain as Xenibase judges it (the recorded one, its placement group, or the node alone).
     FailureDomainProblems:
       type: object
       required: [items]
@@ -10590,11 +10590,11 @@ components:
           type: integer
         draft:
           type: boolean
-          description: Proposed by PGDock and not announced yet; confirm or discard it.
+          description: Proposed by Xenibase and not announced yet; confirm or discard it.
         proposed_for:
           type: string
           nullable: true
-          description: What PGDock proposed it for (minor_upgrade).
+          description: What Xenibase proposed it for (minor_upgrade).
         scope_projects:
           type: array
           items:
@@ -10696,7 +10696,7 @@ components:
           $ref: "#/components/schemas/BackendServicesSettings"
         feed_configured:
           type: boolean
-          description: pgdock-server has an edge secret, so a pgdock-edge can serve the project.
+          description: xenibase-server has an edge secret, so a xenibase-edge can serve the project.
         roles:
           type: object
           description: The project's request roles, for row-level security policies.
@@ -10850,7 +10850,7 @@ components:
           type: string
         send_message_url:
           type: string
-          description: A webhook that sends the project's emails and codes instead of PGDock.
+          description: A webhook that sends the project's emails and codes instead of Xenibase.
         captcha_enabled:
           type: boolean
         captcha_site_key:
@@ -10996,7 +10996,7 @@ components:
           type: boolean
         hook_secret:
           type: string
-          description: Signs webhook hooks (PGDock-Signature); set once a hook URL is.
+          description: Signs webhook hooks (Xenibase-Signature); set once a hook URL is.
         hook_role:
           type: string
           description: The role Postgres hooks run as; grant it what they read.
@@ -12172,7 +12172,7 @@ components:
           type: string
         installed:
           type: boolean
-          description: The server has an image for it (PGDOCK_PG_VERSIONS).
+          description: The server has an image for it (XENIBASE_PG_VERSIONS).
         projects:
           type: integer
           description: Live projects on it (the admin list only).
@@ -12204,7 +12204,7 @@ components:
         role:
           type: string
           enum: [shared, dedicated, both, pooler, edge]
-          description: "pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11)."
+          description: "pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs xenibase-edge only, its cost split by backend services' use (V4.1 §11)."
         region:
           type: string
           description: The region the node is in (default the home region). A pooler host serves that region's projects.
@@ -13906,7 +13906,7 @@ components:
       enum: [minor, major, critical, maintenance]
     IncidentStatus:
       type: string
-      description: draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+      description: draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
       enum: [draft, investigating, identified, monitoring, resolved]
     Incident:
       type: object
@@ -14321,7 +14321,7 @@ components:
       properties:
         secret:
           type: string
-          description: The token itself (`pgd_…`), shown only once.
+          description: The token itself (`xb_…`), shown only once.
         token:
           $ref: "#/components/schemas/APIToken"
     DeviceStartRequest:
@@ -14330,7 +14330,7 @@ components:
         client_name:
           type: string
           maxLength: 100
-          description: Shown on the approval page, e.g. "pgdock CLI on laptop".
+          description: Shown on the approval page, e.g. "xenibase CLI on laptop".
         scopes:
           type: array
           description: The most the CLI wants; the user may narrow them. Default read and write.
@@ -15647,7 +15647,7 @@ components:
         quoted_at:
           type: string
           format: date-time
-          description: When PGDock asked.
+          description: When Xenibase asked.
         sources:
           type: array
           items:
@@ -15718,7 +15718,7 @@ components:
         ledger_minor:
           type: integer
           format: int64
-          description: What PGDock's books say the wallet holds.
+          description: What Xenibase's books say the wallet holds.
         owed_minor:
           type: integer
           format: int64
@@ -15883,7 +15883,7 @@ components:
         wallet_minor:
           type: integer
           format: int64
-          description: In the organisation's wallet, by PGDock's books (kobo).
+          description: In the organisation's wallet, by Xenibase's books (kobo).
         fx:
           allOf:
             - $ref: "#/components/schemas/FXQuote"
@@ -16629,7 +16629,7 @@ components:
             $ref: "#/components/schemas/Overhead"
         edge_share_percent:
           type: number
-          description: The share of shared nodes' cost moved to the edge category, where pgdock-edge runs on them (0 to 100, default 0).
+          description: The share of shared nodes' cost moved to the edge category, where xenibase-edge runs on them (0 to 100, default 0).
     FXRate:
       type: object
       required: [id, currency, ngn_per_unit, effective_at, source]
@@ -17099,17 +17099,17 @@ components:
           type: array
           items:
             type: object
-            required: [kind, provider_ref, provider_minor, pgdock_minor]
+            required: [kind, provider_ref, provider_minor, xenibase_minor]
             properties:
               kind:
                 type: string
-                enum: [missing_in_pgdock, missing_at_provider, amount, fee]
+                enum: [missing_in_xenibase, missing_at_provider, amount, fee]
               provider_ref:
                 type: string
               provider_minor:
                 type: integer
                 format: int64
-              pgdock_minor:
+              xenibase_minor:
                 type: integer
                 format: int64
               note:
@@ -17733,7 +17733,7 @@ components:
           format: int64
         platform:
           type: boolean
-          description: One of PGDock's own sessions.
+          description: One of Xenibase's own sessions.
     LockBlock:
       type: object
       required: [blocked, lock, blockers]

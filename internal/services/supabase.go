@@ -13,13 +13,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/files"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/projauth"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/files"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/projauth"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // The Supabase migration helper (V4 §9). After a database import (which
@@ -27,8 +27,8 @@ import (
 // an auth.uid() shim), on a project with backend services on:
 //
 //   - migrate_supabase_policies rewrites the imported policies and column
-//     defaults to PGDock's request roles and pgd_auth helpers, and points
-//     the auth shim at pgd_auth so functions it can't rewrite keep working;
+//     defaults to Xenibase's request roles and xb_auth helpers, and points
+//     the auth shim at xb_auth so functions it can't rewrite keep working;
 //   - migrate_supabase_users copies auth.users and auth.identities from the
 //     Supabase database, keeping ids and bcrypt hashes (upgraded to
 //     argon2id at each user's next sign-in);
@@ -194,7 +194,7 @@ func connectSupabase(ctx context.Context, raw string) (*pgx.Conn, agentapi.PGCon
 		return nil, pg, fmt.Errorf("%w: %w", ErrInvalid, redact(err, pg.Password))
 	}
 	cfg.ConnectTimeout = 15 * time.Second
-	cfg.RuntimeParams["application_name"] = "pgdock-migrate"
+	cfg.RuntimeParams["application_name"] = "xenibase-migrate"
 	cfg.RuntimeParams["default_transaction_read_only"] = "on"
 	conn, err := pgx.ConnectConfig(ctx, cfg)
 	if err != nil {
@@ -225,7 +225,7 @@ func (s *Service) migrationStart(ctx context.Context, op store.Operation, needSo
 		}
 		raw, ok := s.secrets.Get(*params.SecretRef)
 		if !ok {
-			return store.Project{}, sec, nil, jobs.Permanent(errors.New("the source credentials are no longer in memory (pgdock-server restarted?); start the step again"))
+			return store.Project{}, sec, nil, jobs.Permanent(errors.New("the source credentials are no longer in memory (xenibase-server restarted?); start the step again"))
 		}
 		if err := json.Unmarshal([]byte(raw), &sec); err != nil {
 			return store.Project{}, sec, nil, jobs.Permanent(err)
@@ -303,15 +303,15 @@ func roleList(roles []string) string {
 	return strings.Join(out, ", ")
 }
 
-// authShimCompat points the import's auth.* shim at pgd_auth, so function
-// bodies and views still calling them work with PGDock's tokens; role()
+// authShimCompat points the import's auth.* shim at xb_auth, so function
+// bodies and views still calling them work with Xenibase's tokens; role()
 // answers in Supabase's names, as code comparing with them expects.
 var authShimCompat = []string{
-	`CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT pgd_auth.claims() $$`,
-	`CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT pgd_auth.uid() $$`,
+	`CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT xb_auth.claims() $$`,
+	`CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT xb_auth.uid() $$`,
 	`CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
-		SELECT CASE pgd_auth.role() WHEN 'user' THEN 'authenticated' WHEN 'service' THEN 'service_role' ELSE pgd_auth.role() END $$`,
-	`CREATE OR REPLACE FUNCTION auth.email() RETURNS text LANGUAGE sql STABLE AS $$ SELECT pgd_auth.claims() ->> 'email' $$`,
+		SELECT CASE xb_auth.role() WHEN 'user' THEN 'authenticated' WHEN 'service' THEN 'service_role' ELSE xb_auth.role() END $$`,
+	`CREATE OR REPLACE FUNCTION auth.email() RETURNS text LANGUAGE sql STABLE AS $$ SELECT xb_auth.claims() ->> 'email' $$`,
 }
 
 func (s *Service) runMigratePolicies(ctx context.Context, op store.Operation, log *jobs.StepLogger) error {
@@ -326,7 +326,7 @@ func (s *Service) runMigratePolicies(ctx context.Context, op store.Operation, lo
 	}
 	defer conn.Close(context.Background())
 
-	pols, err := readPolicies(ctx, conn, `schemaname NOT IN ('pgd_auth', 'pgd_storage', 'pgd_realtime', 'auth', 'storage')
+	pols, err := readPolicies(ctx, conn, `schemaname NOT IN ('xb_auth', 'xb_storage', 'xb_realtime', 'auth', 'storage')
 		AND (roles && ARRAY['anon', 'authenticated', 'service_role']::name[] OR qual ~ '\mauth\s*\.' OR with_check ~ '\mauth\s*\.')`)
 	if err != nil {
 		return err
@@ -366,7 +366,7 @@ func (s *Service) runMigratePolicies(ctx context.Context, op store.Operation, lo
 	if err != nil {
 		return err
 	}
-	if err := log.Info(ctx, "policies", "rewrote %d of %d policies to %s, %s and %s and the pgd_auth helpers", rewritten, len(pols),
+	if err := log.Info(ctx, "policies", "rewrote %d of %d policies to %s, %s and %s and the xb_auth helpers", rewritten, len(pols),
 		store.AnonRole(p.DbName), store.UserRole(p.DbName), store.ServiceRole(p.DbName)); err != nil {
 		return err
 	}
@@ -376,7 +376,7 @@ func (s *Service) runMigratePolicies(ctx context.Context, op store.Operation, lo
 	rows, err := conn.Query(ctx, `SELECT n.nspname::text, c.relname::text, a.attname::text, pg_get_expr(d.adbin, d.adrelid)
 		FROM pg_attrdef d JOIN pg_class c ON c.oid = d.adrelid JOIN pg_namespace n ON n.oid = c.relnamespace
 		JOIN pg_attribute a ON a.attrelid = d.adrelid AND a.attnum = d.adnum
-		WHERE n.nspname NOT IN ('pgd_auth', 'pgd_storage', 'pgd_realtime', 'auth', 'storage', 'pg_catalog', 'information_schema')
+		WHERE n.nspname NOT IN ('xb_auth', 'xb_storage', 'xb_realtime', 'auth', 'storage', 'pg_catalog', 'information_schema')
 		  AND pg_get_expr(d.adbin, d.adrelid) ~ '\mauth\s*\.' ORDER BY 1, 2, 3`)
 	if err != nil {
 		return err
@@ -431,12 +431,12 @@ func (s *Service) runMigratePolicies(ctx context.Context, op store.Operation, lo
 		if err != nil {
 			return fmt.Errorf("auth helpers: %w", err)
 		}
-		if err := log.Info(ctx, "auth", "auth.uid(), auth.role(), auth.jwt() and auth.email() now read PGDock's tokens, for code that still calls them"); err != nil {
+		if err := log.Info(ctx, "auth", "auth.uid(), auth.role(), auth.jwt() and auth.email() now read Xenibase's tokens, for code that still calls them"); err != nil {
 			return err
 		}
 	}
 	rows, err = conn.Query(ctx, `SELECT p.oid::regprocedure::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-		WHERE n.nspname NOT IN ('pgd_auth', 'pgd_storage', 'pgd_realtime', 'auth', 'storage', 'pg_catalog', 'information_schema')
+		WHERE n.nspname NOT IN ('xb_auth', 'xb_storage', 'xb_realtime', 'auth', 'storage', 'pg_catalog', 'information_schema')
 		  AND p.prosrc ~ '\m(auth\s*\.\s*users|storage\s*\.\s*(objects|buckets))\M' ORDER BY 1`)
 	if err != nil {
 		return err
@@ -446,7 +446,7 @@ func (s *Service) runMigratePolicies(ctx context.Context, op store.Operation, lo
 		return err
 	}
 	if len(fns) > 0 {
-		_ = log.Warn(ctx, "functions", "%d functions use Supabase's auth.users or storage tables; change them to pgd_auth.users or pgd_storage.objects:", len(fns))
+		_ = log.Warn(ctx, "functions", "%d functions use Supabase's auth.users or storage tables; change them to xb_auth.users or xb_storage.objects:", len(fns))
 		warnList(ctx, log, "functions", fns)
 	}
 	return log.Info(ctx, "done", "policies migrated")
@@ -463,7 +463,7 @@ func supabasePhone(p string) string {
 	return "+" + p
 }
 
-// supabaseProviders renames Supabase's providers to PGDock's.
+// supabaseProviders renames Supabase's providers to Xenibase's.
 var supabaseProviders = map[string]string{"azure": "microsoft"}
 
 func (s *Service) runMigrateUsers(ctx context.Context, op store.Operation, log *jobs.StepLogger) error {
@@ -558,7 +558,7 @@ func (s *Service) runMigrateUsers(ctx context.Context, op store.Operation, log *
 				skipped = append(skipped, fmt.Sprintf("user %s skipped: deleted in Supabase", u.id))
 				continue
 			case u.sso:
-				skipped = append(skipped, fmt.Sprintf("user %s skipped: a SAML SSO user (PGDock has no SSO for projects yet)", u.id))
+				skipped = append(skipped, fmt.Sprintf("user %s skipped: a SAML SSO user (Xenibase has no SSO for projects yet)", u.id))
 				continue
 			}
 			var email, phone *string
@@ -570,7 +570,7 @@ func (s *Service) runMigrateUsers(ctx context.Context, op store.Operation, log *
 				ph := supabasePhone(*u.phone)
 				phone = &ph
 			}
-			b.Queue(`INSERT INTO pgd_auth.users (id, email, phone, encrypted_password, email_confirmed_at, phone_confirmed_at, invited_at, is_anonymous,
+			b.Queue(`INSERT INTO xb_auth.users (id, email, phone, encrypted_password, email_confirmed_at, phone_confirmed_at, invited_at, is_anonymous,
 				app_metadata, user_metadata, banned_until, created_at, updated_at, last_sign_in_at)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) ON CONFLICT DO NOTHING RETURNING id`,
 				u.id, email, phone, u.pw, u.emailAt, u.phoneAt, u.invitedAt, u.anonymous, u.app, u.meta, u.banned, u.created, u.updated, u.lastSignIn)
@@ -596,13 +596,13 @@ func (s *Service) runMigrateUsers(ctx context.Context, op store.Operation, log *
 		}
 		for _, id := range conflicts {
 			var same bool
-			if err := dst.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pgd_auth.users WHERE id = $1)`, id).Scan(&same); err != nil {
+			if err := dst.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM xb_auth.users WHERE id = $1)`, id).Scan(&same); err != nil {
 				return err
 			}
 			if same {
 				existing++
 			} else {
-				skipped = append(skipped, fmt.Sprintf("user %s skipped: another PGDock user has the same email or phone", id))
+				skipped = append(skipped, fmt.Sprintf("user %s skipped: another Xenibase user has the same email or phone", id))
 			}
 		}
 	}
@@ -642,13 +642,13 @@ func (s *Service) runMigrateUsers(ctx context.Context, op store.Operation, log *
 			i.provider = to
 		}
 		if i.provider == "email" || i.provider == "phone" {
-			i.id = i.user.String() // PGDock keys these by the user
+			i.id = i.user.String() // Xenibase keys these by the user
 		}
 		if strings.HasPrefix(i.provider, "sso:") {
 			continue // the user was skipped
 		}
-		b.Queue(`INSERT INTO pgd_auth.identities (user_id, provider, provider_id, identity_data, created_at, last_sign_in_at)
-			SELECT $1, $2, $3, $4, $5, $6 WHERE EXISTS (SELECT 1 FROM pgd_auth.users WHERE id = $1)
+		b.Queue(`INSERT INTO xb_auth.identities (user_id, provider, provider_id, identity_data, created_at, last_sign_in_at)
+			SELECT $1, $2, $3, $4, $5, $6 WHERE EXISTS (SELECT 1 FROM xb_auth.users WHERE id = $1)
 			ON CONFLICT (provider, provider_id) DO NOTHING`, i.user, i.provider, i.id, i.data, i.created, i.lastSignIn)
 	}
 	res := dst.SendBatch(ctx, b)
@@ -669,8 +669,8 @@ func (s *Service) runMigrateUsers(ctx context.Context, op store.Operation, log *
 		return err
 	}
 	// Users with an email or phone but no identity for it (made by the admin API).
-	if _, err := dst.Exec(ctx, `INSERT INTO pgd_auth.identities (user_id, provider, provider_id, identity_data)
-		SELECT id, 'email', id::text, jsonb_build_object('sub', id::text, 'email', email) FROM pgd_auth.users WHERE email IS NOT NULL
+	if _, err := dst.Exec(ctx, `INSERT INTO xb_auth.identities (user_id, provider, provider_id, identity_data)
+		SELECT id, 'email', id::text, jsonb_build_object('sub', id::text, 'email', email) FROM xb_auth.users WHERE email IS NOT NULL
 		ON CONFLICT DO NOTHING`); err != nil {
 		return err
 	}
@@ -693,7 +693,7 @@ func (s *Service) runMigrateUsers(ctx context.Context, op store.Operation, log *
 // ---- Storage ------------------------------------------------------------------
 
 // supabasePlaceholder is the empty object Supabase's dashboard makes to
-// show an empty folder; PGDock folders exist by their files.
+// show an empty folder; Xenibase folders exist by their files.
 const supabasePlaceholder = ".emptyFolderPlaceholder"
 
 func (s *Service) runMigrateStorage(ctx context.Context, op store.Operation, log *jobs.StepLogger) error {
@@ -749,7 +749,7 @@ func (s *Service) runMigrateStorage(ctx context.Context, op store.Operation, log
 		return redact(err, pg.Password)
 	}
 	var report []string
-	buckets := map[string]string{} // Supabase id → PGDock id
+	buckets := map[string]string{} // Supabase id → Xenibase id
 	made := 0
 	for _, b := range bs {
 		id := strings.ToLower(b.id)
@@ -766,10 +766,10 @@ func (s *Service) runMigrateStorage(ctx context.Context, op store.Operation, log
 			if files.MIMEPatternRe.MatchString(m) {
 				mimes = append(mimes, m)
 			} else {
-				report = append(report, fmt.Sprintf("bucket %s: allowed type %q dropped (PGDock takes type/subtype or type/*)", id, m))
+				report = append(report, fmt.Sprintf("bucket %s: allowed type %q dropped (Xenibase takes type/subtype or type/*)", id, m))
 			}
 		}
-		tag, err := dst.Exec(ctx, `INSERT INTO pgd_storage.buckets (id, public, file_size_limit, allowed_mime_types) VALUES ($1, $2, $3, $4)
+		tag, err := dst.Exec(ctx, `INSERT INTO xb_storage.buckets (id, public, file_size_limit, allowed_mime_types) VALUES ($1, $2, $3, $4)
 			ON CONFLICT (id) DO NOTHING`, id, b.public, b.limit, mimes)
 		if err != nil {
 			return fmt.Errorf("bucket %s: %w", id, err)
@@ -807,11 +807,11 @@ func (s *Service) runMigrateStorage(ctx context.Context, op store.Operation, log
 	copyOne := func(ctx context.Context, o orow) error {
 		id := buckets[o.bucket]
 		if !files.ValidPath(o.name) {
-			report = append(report, fmt.Sprintf("file %s/%s skipped: not a valid PGDock path", o.bucket, o.name))
+			report = append(report, fmt.Sprintf("file %s/%s skipped: not a valid Xenibase path", o.bucket, o.name))
 			return nil
 		}
 		var exists bool
-		if err := dst.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pgd_storage.objects WHERE bucket = $1 AND path = $2)`, id, o.name).Scan(&exists); err != nil {
+		if err := dst.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM xb_storage.objects WHERE bucket = $1 AND path = $2)`, id, o.name).Scan(&exists); err != nil {
 			return err
 		}
 		if exists {
@@ -829,7 +829,7 @@ func (s *Service) runMigrateStorage(ctx context.Context, op store.Operation, log
 		defer obj.Body.Close()
 		if q := svc.StorageQuotaBytes; q != nil {
 			var used int64
-			if err := dst.QueryRow(ctx, `SELECT coalesce((SELECT bytes FROM pgd_storage.usage), 0)`).Scan(&used); err != nil {
+			if err := dst.QueryRow(ctx, `SELECT coalesce((SELECT bytes FROM xb_storage.usage), 0)`).Scan(&used); err != nil {
 				return err
 			}
 			if used+obj.Length > *q {
@@ -860,7 +860,7 @@ func (s *Service) runMigrateStorage(ctx context.Context, op store.Operation, log
 		if len(meta) == 0 || string(meta) == "null" {
 			meta = json.RawMessage(`{}`)
 		}
-		if _, err := dst.Exec(ctx, `INSERT INTO pgd_storage.objects (bucket, path, version, size, mime_type, etag, checksum, owner, user_metadata, created_at, updated_at)
+		if _, err := dst.Exec(ctx, `INSERT INTO xb_storage.objects (bucket, path, version, size, mime_type, etag, checksum, owner, user_metadata, created_at, updated_at)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (bucket, path) DO NOTHING`,
 			id, o.name, version, obj.Length, mt, etag, sum, owner, meta, o.created, o.updated); err != nil {
 			_ = dstStore.Delete(context.WithoutCancel(ctx), files.ObjectKey(files.Prefix(svc.Ref), version))
@@ -934,7 +934,7 @@ func (s *Service) runMigrateStorage(ctx context.Context, op store.Operation, log
 	}
 	warnList(ctx, log, "files", report)
 
-	// Policies on storage.objects become pgd_storage.objects policies.
+	// Policies on storage.objects become xb_storage.objects policies.
 	pols, err := readPoliciesSrc(ctx, src)
 	if err != nil {
 		return redact(err, pg.Password)
@@ -944,11 +944,11 @@ func (s *Service) runMigrateStorage(ctx context.Context, op store.Operation, log
 	for _, pol := range pols {
 		label := fmt.Sprintf("storage policy %q", pol.name)
 		if pol.table != "objects" {
-			skipped = append(skipped, fmt.Sprintf("policy %q on storage.%s not copied: PGDock manages buckets with the secret key and the dashboard", pol.name, pol.table))
+			skipped = append(skipped, fmt.Sprintf("policy %q on storage.%s not copied: Xenibase manages buckets with the secret key and the dashboard", pol.name, pol.table))
 			continue
 		}
-		if pol.name == "pgdock_edge" {
-			skipped = append(skipped, label+" not copied: the name is PGDock's")
+		if pol.name == "xenibase_edge" {
+			skipped = append(skipped, label+" not copied: the name is Xenibase's")
 			continue
 		}
 		qual, check, problems := rewritePolicy(pol, rewriteStorage)
@@ -960,7 +960,7 @@ func (s *Service) runMigrateStorage(ctx context.Context, op store.Operation, log
 		if !pol.permissive {
 			as = "RESTRICTIVE"
 		}
-		stmt := "CREATE POLICY " + provision.Ident(pol.name) + " ON pgd_storage.objects AS " + as + " FOR " + pol.cmd +
+		stmt := "CREATE POLICY " + provision.Ident(pol.name) + " ON xb_storage.objects AS " + as + " FOR " + pol.cmd +
 			" TO " + roleList(mapPolicyRoles(p, pol.roles))
 		if qual != nil {
 			stmt += " USING (" + *qual + ")"
@@ -969,7 +969,7 @@ func (s *Service) runMigrateStorage(ctx context.Context, op store.Operation, log
 			stmt += " WITH CHECK (" + *check + ")"
 		}
 		err := pgx.BeginFunc(ctx, dst, func(tx pgx.Tx) error {
-			if _, err := tx.Exec(ctx, "DROP POLICY IF EXISTS "+provision.Ident(pol.name)+" ON pgd_storage.objects"); err != nil {
+			if _, err := tx.Exec(ctx, "DROP POLICY IF EXISTS "+provision.Ident(pol.name)+" ON xb_storage.objects"); err != nil {
 				return err
 			}
 			_, err := tx.Exec(ctx, stmt)
@@ -981,7 +981,7 @@ func (s *Service) runMigrateStorage(ctx context.Context, op store.Operation, log
 		}
 		made2++
 	}
-	if err := log.Info(ctx, "policies", "recreated %d of %d storage policies on pgd_storage.objects", made2, len(pols)); err != nil {
+	if err := log.Info(ctx, "policies", "recreated %d of %d storage policies on xb_storage.objects", made2, len(pols)); err != nil {
 		return err
 	}
 	warnList(ctx, log, "policies", skipped)

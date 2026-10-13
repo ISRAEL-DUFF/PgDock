@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestSavedQueries is phase 3's API (docs/ui-redesign.md): private and

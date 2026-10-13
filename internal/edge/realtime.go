@@ -17,9 +17,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/datacat"
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/jwtes"
+	"github.com/israel-duff/xenibase/internal/datacat"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/jwtes"
 )
 
 // Realtime (V4 §6): one WebSocket per client at /realtime/v1/websocket,
@@ -522,7 +522,7 @@ func (e *Edge) bindChanges(ctx context.Context, p *project, req Request, ch *rtC
 		}
 	}
 	if !enabled[schema+"."+table] {
-		return nil, fmt.Errorf("realtime is off for %s.%s: turn it on in the dashboard or with pgd_realtime.enable('%s.%s')", schema, table, schema, table)
+		return nil, fmt.Errorf("realtime is off for %s.%s: turn it on in the dashboard or with xb_realtime.enable('%s.%s')", schema, table, schema, table)
 	}
 	var t *datacat.Table
 	err = e.WithRequest(ctx, p, req, func(tx pgx.Tx) error {
@@ -558,7 +558,7 @@ func (e *Edge) bindChanges(ctx context.Context, p *project, req Request, ch *rtC
 	return &rtSub{id: rtSubIDs.Add(1), ch: ch, event: event, schema: schema, table: table, filter: f, raw: filter, seen: newPKSet(10000)}, nil
 }
 
-// channelAccess asks the owner's policies on pgd_realtime.channel_access
+// channelAccess asks the owner's policies on xb_realtime.channel_access
 // what a private channel's user may do (§6.1), in a transaction rolled
 // back: probe() adds a row as the platform; seeing it means may receive,
 // adding one may send.
@@ -571,16 +571,16 @@ func (e *Edge) channelAccess(ctx context.Context, p *project, req Request, ch *r
 	err := e.WithRequest(ctx, p, req, func(tx pgx.Tx) error {
 		for i, ext := range []string{"broadcast", "presence"} {
 			var id int64
-			if err := tx.QueryRow(ctx, `SELECT pgd_realtime.probe($1, $2)`, name, ext).Scan(&id); err != nil {
+			if err := tx.QueryRow(ctx, `SELECT xb_realtime.probe($1, $2)`, name, ext).Scan(&id); err != nil {
 				return err
 			}
-			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pgd_realtime.channel_access WHERE id = $1)`, id).Scan(&r[i*2]); err != nil {
+			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM xb_realtime.channel_access WHERE id = $1)`, id).Scan(&r[i*2]); err != nil {
 				return err
 			}
 			if _, err := tx.Exec(ctx, `SAVEPOINT w`); err != nil {
 				return err
 			}
-			_, err := tx.Exec(ctx, `INSERT INTO pgd_realtime.channel_access (topic, extension) VALUES ($1, $2)`, name, ext)
+			_, err := tx.Exec(ctx, `INSERT INTO xb_realtime.channel_access (topic, extension) VALUES ($1, $2)`, name, ext)
 			r[i*2+1] = err == nil
 			if _, err := tx.Exec(ctx, `ROLLBACK TO SAVEPOINT w`); err != nil {
 				return err
@@ -593,7 +593,7 @@ func (e *Edge) channelAccess(ctx context.Context, p *project, req Request, ch *r
 	}
 	ch.readBroadcast, ch.writeBroadcast, ch.readPresence, ch.writePresence = r[0], r[1], r[2], r[3]
 	if !ch.readBroadcast && !ch.readPresence {
-		return errors.New("not allowed to join this private channel: no policy on pgd_realtime.channel_access lets this user read it")
+		return errors.New("not allowed to join this private channel: no policy on xb_realtime.channel_access lets this user read it")
 	}
 	return nil
 }

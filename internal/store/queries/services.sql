@@ -1,5 +1,5 @@
 -- Backend services (V4 §2): project refs, API keys, signing keys, and what
--- pgdock-edge reads.
+-- xenibase-edge reads.
 
 -- name: GetProjectServices :one
 -- tenant: system - a project the request already authorized.
@@ -32,7 +32,7 @@ WHERE project_id = @project_id
 RETURNING *;
 
 -- name: ServicesToReconcile :many
--- tenant: system - the services reconciler: enabled projects whose roles or pgd_* schemas are behind or on another instance.
+-- tenant: system - the services reconciler: enabled projects whose roles or xb_* schemas are behind or on another instance.
 SELECT p.* FROM project_services s JOIN projects p ON p.id = s.project_id
 WHERE s.enabled AND p.deleted_at IS NULL AND p.status = 'active' AND p.lifecycle = 'active'
   AND (s.schema_version < @schema_version OR s.roles_instance IS DISTINCT FROM p.instance_id)
@@ -79,7 +79,7 @@ SELECT * FROM project_jwt_keys WHERE project_id = @project_id AND status = 'acti
 SELECT * FROM project_jwt_keys WHERE project_id = @project_id AND status <> 'retired' ORDER BY created_at;
 
 -- name: EdgeConfigChanges :many
--- tenant: system - pgdock-edge's configuration feed: every project with backend services changed since a point.
+-- tenant: system - xenibase-edge's configuration feed: every project with backend services changed since a point.
 SELECT s.project_id, s.ref, s.enabled, s.cors_origins, s.settings, s.exposed_schemas, s.public_tables,
   s.config_version, s.changed_seq, (s.edge_verifier IS NOT NULL)::boolean AS edge_ready,
   s.storage_quota_bytes, s.upload_max_bytes, s.storage_egress_blocked, s.transforms_blocked,
@@ -95,21 +95,21 @@ ORDER BY s.changed_seq
 LIMIT @lim;
 
 -- name: EdgeConfigSeq :one
--- tenant: system - pgdock-edge's configuration feed position.
+-- tenant: system - xenibase-edge's configuration feed position.
 SELECT coalesce(max(changed_seq), 0)::bigint FROM project_services;
 
 -- name: EdgeAPIKeys :many
--- tenant: system - pgdock-edge's configuration feed: the live keys' hashes.
+-- tenant: system - xenibase-edge's configuration feed: the live keys' hashes.
 SELECT project_id, id, kind, key_hash FROM project_api_keys
 WHERE project_id = ANY(@project_ids::uuid[]) AND revoked_at IS NULL;
 
 -- name: EdgeJWTKeys :many
--- tenant: system - pgdock-edge's configuration feed: public signing keys.
+-- tenant: system - xenibase-edge's configuration feed: public signing keys.
 SELECT project_id, kid, public_jwk FROM project_jwt_keys
 WHERE project_id = ANY(@project_ids::uuid[]) AND status <> 'retired';
 
 -- name: ProjectServicesByRef :one
--- tenant: system - pgdock-edge names a project by its reference.
+-- tenant: system - xenibase-edge names a project by its reference.
 SELECT s.*, p.db_name FROM project_services s JOIN projects p ON p.id = s.project_id WHERE s.ref = @ref;
 
 -- name: PoolerEdgeUsers :many
@@ -120,7 +120,7 @@ WHERE s.enabled AND s.edge_verifier IS NOT NULL AND p.deleted_at IS NULL
 ORDER BY p.db_name;
 
 -- name: InsertEdgeReport :execrows
--- tenant: system - pgdock-edge's usage and log reports, once per batch.
+-- tenant: system - xenibase-edge's usage and log reports, once per batch.
 INSERT INTO edge_reports (batch_id, edge) VALUES (@batch_id, @edge) ON CONFLICT DO NOTHING;
 
 -- name: PruneEdgeReports :execrows
@@ -128,7 +128,7 @@ INSERT INTO edge_reports (batch_id, edge) VALUES (@batch_id, @edge) ON CONFLICT 
 DELETE FROM edge_reports WHERE received_at < @before;
 
 -- name: InsertRequestLogs :copyfrom
--- tenant: system - pgdock-edge's request logs.
+-- tenant: system - xenibase-edge's request logs.
 INSERT INTO api_request_logs (project_id, at, request_id, method, path, status, latency_ms, role, user_id, key_id, ip, bytes_out)
 VALUES (@project_id, @at, @request_id, @method, @path, @status, @latency_ms, @role, @user_id, @key_id, @ip, @bytes_out);
 
@@ -144,7 +144,7 @@ WHERE project_id = @project_id AND (sqlc.narg(before)::bigint IS NULL OR id < sq
 ORDER BY id DESC LIMIT @lim;
 
 -- name: ProjectRequestLogsAfter :many
--- tenant: system - a project the request already authorized: logs newer than a cursor, oldest first (`pgdock logs api --follow`).
+-- tenant: system - a project the request already authorized: logs newer than a cursor, oldest first (`xenibase logs api --follow`).
 SELECT * FROM api_request_logs
 WHERE project_id = @project_id AND id > @after::bigint
   AND status BETWEEN @status_min::int AND @status_max::int AND path LIKE @path_prefix::text || '%'
@@ -155,7 +155,7 @@ ORDER BY id LIMIT @lim;
 SELECT coalesce(max(id), 0)::bigint FROM api_request_logs WHERE project_id = @project_id;
 
 -- name: ProjectUsageOwner :many
--- tenant: system - pgdock-edge's usage: each project's organisation and plan.
+-- tenant: system - xenibase-edge's usage: each project's organisation and plan.
 SELECT p.id, p.org_id, o.plan_id FROM projects p JOIN organizations o ON o.id = p.org_id
 WHERE p.id = ANY(@project_ids::uuid[]);
 

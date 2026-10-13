@@ -1,5 +1,5 @@
 // Package docker is a small client for the Docker Engine API, covering what
-// pgdock-agent needs for instances: images, volumes, containers, and exec.
+// xenibase-agent needs for instances: images, volumes, containers, and exec.
 // It talks HTTP over the daemon's Unix socket (or TCP) at a pinned API
 // version, so the agent carries no SDK dependency tree.
 package docker
@@ -296,7 +296,7 @@ func (c *Client) RemoveVolume(ctx context.Context, name string) error {
 
 // ---- Containers ------------------------------------------------------------
 
-// ContainerConfig is the subset of the create body PGDock uses.
+// ContainerConfig is the subset of the create body Xenibase uses.
 type ContainerConfig struct {
 	Image        string              `json:"Image"`
 	Cmd          []string            `json:"Cmd,omitempty"`

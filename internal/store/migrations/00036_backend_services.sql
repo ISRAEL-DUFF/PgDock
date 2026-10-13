@@ -2,7 +2,7 @@
 -- V4-M28: backend services' edge foundation (V4 §2). A project with backend
 -- services enabled gets a short reference (its API hostname), publishable
 -- and secret API keys, an ES256 signing key for its users' tokens, and four
--- roles in its database. pgdock-edge serves it from a per-region cache of
+-- roles in its database. xenibase-edge serves it from a per-region cache of
 -- this configuration, which it follows by changed_seq.
 CREATE SEQUENCE edge_config_seq;
 
@@ -16,7 +16,7 @@ CREATE TABLE project_services (
   settings        jsonb NOT NULL DEFAULT '{}',
   -- The edge login's SCRAM verifier, for the poolers' auth file.
   edge_verifier   text,
-  -- The version of the pgd_* schemas applied to the project database, and
+  -- The version of the xb_* schemas applied to the project database, and
   -- the instance they were applied on (a move re-applies the roles).
   schema_version  int NOT NULL DEFAULT 0,
   roles_instance  uuid,

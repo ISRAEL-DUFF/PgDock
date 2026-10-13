@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/projauth"
+	"github.com/israel-duff/xenibase/internal/projauth"
 )
 
 // Anonymous users and identities (V4 §4.1): an anonymous user has no

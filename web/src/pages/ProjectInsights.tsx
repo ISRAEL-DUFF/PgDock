@@ -769,7 +769,7 @@ function LocksTab({ projectId }: { projectId: string }) {
                   >
                     <div className="text-xs text-muted">
                       Held by session {x.pid} ({x.role || "?"}
-                      {x.platform ? ", PGDock" : ""}), {x.state}
+                      {x.platform ? ", Xenibase" : ""}), {x.state}
                       {x.in_transaction_ms > 0
                         ? `, in a transaction for ${ms(x.in_transaction_ms)}`
                         : ""}

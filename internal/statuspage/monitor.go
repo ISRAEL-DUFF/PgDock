@@ -15,7 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/statusapi"
 )
 
 // Service is a running status service.
@@ -78,7 +78,7 @@ func runProbe(ctx context.Context, p Probe) error {
 		if err != nil {
 			return err
 		}
-		req.Header.Set("User-Agent", "pgdock-status")
+		req.Header.Set("User-Agent", "xenibase-status")
 		resp, err := probeHTTP.Do(req)
 		if err != nil {
 			return err
@@ -157,14 +157,14 @@ func shortErr(err error) string {
 	return s
 }
 
-// heartbeatState is a heartbeat component's state: what pgdock-server last
+// heartbeatState is a heartbeat component's state: what xenibase-server last
 // said, or unknown once that is older than ttl.
 func heartbeatState(h heartbeat, ok bool, now time.Time, ttl time.Duration) (string, string) {
 	switch {
 	case !ok:
-		return statusapi.Unknown, "No report from PGDock yet."
+		return statusapi.Unknown, "No report from Xenibase yet."
 	case now.Sub(h.At) > ttl:
-		return statusapi.Unknown, "No report from PGDock since " + h.At.Format("2006-01-02 15:04 MST") + "."
+		return statusapi.Unknown, "No report from Xenibase since " + h.At.Format("2006-01-02 15:04 MST") + "."
 	default:
 		return h.State, h.Detail
 	}
@@ -215,7 +215,7 @@ func impact(severity string) string {
 }
 
 // displayState is what the page shows for a component: the worse of what
-// was measured and what open incidents posted in PGDock say.
+// was measured and what open incidents posted in Xenibase say.
 func displayState(measured, id string, open []statusapi.Incident) string {
 	r := statusapi.Rank(measured)
 	for _, in := range open {
@@ -341,7 +341,7 @@ func (s *Service) Tick(ctx context.Context) error {
 				in.Status, in.ResolvedAt = "resolved", &now
 				in.Updates = append(in.Updates, statusapi.IncidentUpdate{
 					ID: "resolved", Status: "resolved", PostedAt: now,
-					Body: "Checks from outside PGDock are passing again. This incident was resolved automatically.",
+					Body: "Checks from outside Xenibase are passing again. This incident was resolved automatically.",
 				})
 				fresh, err := s.st.putIncident(ctx, tx, *in, now)
 				if err != nil {
@@ -385,12 +385,12 @@ func (s *Service) autoIncident(c Component, t track, now time.Time) statusapi.In
 		Severity: sev, Status: "investigating", StartedAt: started, Auto: true,
 		Updates: []statusapi.IncidentUpdate{{
 			ID: "opened", Status: "investigating", PostedAt: now,
-			Body: fmt.Sprintf("Checks from outside PGDock have failed %d times in a row (%s). We are investigating.", t.Fails, t.Detail),
+			Body: fmt.Sprintf("Checks from outside Xenibase have failed %d times in a row (%s). We are investigating.", t.Fails, t.Detail),
 		}},
 	}
 }
 
-// PutIncident stores an incident pushed by pgdock-server and notifies
+// PutIncident stores an incident pushed by xenibase-server and notifies
 // subscribers of its new updates.
 func (s *Service) PutIncident(ctx context.Context, in statusapi.Incident) error {
 	in.Auto = false
@@ -415,7 +415,7 @@ func (s *Service) PutIncident(ctx context.Context, in statusapi.Incident) error 
 	return tx.Commit()
 }
 
-// Heartbeat stores pgdock-server's report.
+// Heartbeat stores xenibase-server's report.
 func (s *Service) Heartbeat(ctx context.Context, hb statusapi.Heartbeat) error {
 	if err := hb.Validate(); err != nil {
 		return err

@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-pdf/fpdf"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // InvoicePDF renders an invoice (V3 §3.6): both parties' details, the

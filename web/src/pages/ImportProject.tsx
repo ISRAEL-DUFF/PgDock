@@ -140,7 +140,7 @@ export function ImportProjectPage() {
                 <>
                   <h3 className="mb-1 text-sm font-semibold">References to Supabase roles</h3>
                   <p className="mb-2 text-xs text-muted">
-                    Kept as written, but PGDock has no <code>anon</code>, <code>authenticated</code> or <code>service_role</code> logins: your app connects as
+                    Kept as written, but Xenibase has no <code>anon</code>, <code>authenticated</code> or <code>service_role</code> logins: your app connects as
                     the project role, which owns the tables. Review these after the import.
                   </p>
                   <Table head={["Kind", "Table", "Name", "Roles"]}>

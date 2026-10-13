@@ -78,8 +78,8 @@ Fixes M27 made on the way, all covered by the tests above:
    with **Move to the region's etcd** on their HA card (V3.1 §3.3; a pause
    of a few seconds each). With only two failure domains in the facility,
    don't offer HA in Lagos yet ([HA](ha.md), [failure domains](failure-domains.md)).
-10. Open the **waker port** (`PGDOCK_WAKER_ADDR`) from the Lagos pooler
-    hosts to pgdock-server, and check `waker_down` isn't firing.
+10. Open the **waker port** (`XENIBASE_WAKER_ADDR`) from the Lagos pooler
+    hosts to xenibase-server, and check `waker_down` isn't firing.
 
 ### Rehearsals in Lagos (with a client writing throughout)
 

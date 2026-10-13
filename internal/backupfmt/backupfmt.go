@@ -1,4 +1,4 @@
-// Package backupfmt is PGDock's encrypted backup object format (spec §6.3:
+// Package backupfmt is Xenibase's encrypted backup object format (spec §6.3:
 // backups are encrypted on the client before upload).
 //
 // An object is self-describing, so it can be restored with nothing but the
@@ -204,7 +204,7 @@ func (z *Writer) Close() error {
 func ReadHeader(r io.Reader) (wrapped []byte, header []byte, err error) {
 	m := make([]byte, len(magic))
 	if _, err := io.ReadFull(r, m); err != nil || string(m) != magic {
-		return nil, nil, errors.New("backupfmt: not a PGDock backup object")
+		return nil, nil, errors.New("backupfmt: not a Xenibase backup object")
 	}
 	var wl uint16
 	if err := binary.Read(r, binary.BigEndian, &wl); err != nil {
@@ -325,7 +325,7 @@ func (z *Reader) Read(p []byte) (int, error) {
 }
 
 // KeyPrefix starts a backup key in its text form.
-const KeyPrefix = "pgdock-backup-key-v1:"
+const KeyPrefix = "xenibase-backup-key-v1:"
 
 // EncodeKey renders a backup key as text, for download.
 func EncodeKey(k []byte) string { return KeyPrefix + base64.StdEncoding.EncodeToString(k) }
@@ -342,7 +342,7 @@ func DecodeKey(s string) ([]byte, error) {
 	s = strings.TrimPrefix(strings.TrimSpace(s), KeyPrefix)
 	k, err := base64.StdEncoding.DecodeString(s)
 	if err != nil || len(k) != keySize {
-		return nil, errors.New("not a PGDock backup key")
+		return nil, errors.New("not a Xenibase backup key")
 	}
 	return k, nil
 }

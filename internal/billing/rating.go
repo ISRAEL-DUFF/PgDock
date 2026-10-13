@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
 // Revenue accounts for what isn't a plan.

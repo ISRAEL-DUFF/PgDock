@@ -104,15 +104,15 @@ export function policySQL(input: PolicyInput): string {
   };
   switch (input.template) {
     case "owner":
-      crud(`${ident(input.ownerColumn ?? "")} = pgd_auth.uid()`);
+      crud(`${ident(input.ownerColumn ?? "")} = xb_auth.uid()`);
       break;
     case "org_members":
       crud(
-        `${ident(input.orgColumn ?? "")} IN (SELECT ${ident(input.membersOrgColumn ?? "")} FROM ${membersRef(input)} WHERE ${ident(input.membersUserColumn ?? "")} = pgd_auth.uid())`,
+        `${ident(input.orgColumn ?? "")} IN (SELECT ${ident(input.membersOrgColumn ?? "")} FROM ${membersRef(input)} WHERE ${ident(input.membersUserColumn ?? "")} = xb_auth.uid())`,
       );
       break;
     case "public_read": {
-      const own = `${ident(input.ownerColumn ?? "")} = pgd_auth.uid()`;
+      const own = `${ident(input.ownerColumn ?? "")} = xb_auth.uid()`;
       lines.push(
         `CREATE POLICY ${name("read_all")} ON ${t} FOR SELECT TO ${anon}, ${user} USING (true);`,
       );

@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // The revenue dashboard (V3 §7.2), first version: recurring revenue and

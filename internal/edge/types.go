@@ -1,6 +1,6 @@
 package edge
 
-import "github.com/israel-duff/pgdock/internal/datacat"
+import "github.com/israel-duff/xenibase/internal/datacat"
 
 // The catalog types, from internal/datacat.
 type (

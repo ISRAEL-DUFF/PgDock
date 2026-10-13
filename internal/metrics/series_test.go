@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/metrics"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/xenibase/internal/metrics"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/store/storetest"
 )
 
 // The Prometheus export is read by the platform admin and by whatever holds

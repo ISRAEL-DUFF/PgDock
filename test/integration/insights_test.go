@@ -14,10 +14,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/insights"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/insights"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestQueryInsightsMissingIndex is M26's done-when (V3 §8): a seeded
@@ -59,7 +59,7 @@ func TestQueryInsightsMissingIndex(t *testing.T) {
 			t.Fatalf("collect: %v", err)
 		}
 	}
-	collect() // the baseline: history before PGDock looked isn't counted
+	collect() // the baseline: history before Xenibase looked isn't counted
 
 	const lookup = `SELECT count(*), sum(total) FROM orders WHERE customer_id = $1`
 	workload := func(n int) {

@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // trapSQL plants a function a CHECK constraint calls on every row: as an
@@ -22,7 +22,7 @@ CREATE FUNCTION trap() RETURNS boolean LANGUAGE plpgsql AS $$
 BEGIN
   BEGIN
     EXECUTE 'RESET ROLE';
-    EXECUTE 'CREATE ROLE ' || quote_ident('pgdock_esc_' || current_database()) || ' SUPERUSER';
+    EXECUTE 'CREATE ROLE ' || quote_ident('xenibase_esc_' || current_database()) || ' SUPERUSER';
   EXCEPTION WHEN OTHERS THEN NULL;
   END;
   RETURN true;
@@ -32,7 +32,7 @@ INSERT INTO trapped VALUES (1), (2);`
 
 func escaped(t *testing.T, conn *pgx.Conn) []string {
 	t.Helper()
-	rows, err := conn.Query(context.Background(), `SELECT rolname FROM pg_roles WHERE rolname LIKE 'pgdock_esc_%'`)
+	rows, err := conn.Query(context.Background(), `SELECT rolname FROM pg_roles WHERE rolname LIKE 'xenibase_esc_%'`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,8 +112,8 @@ func TestCopiesDoNotRunAsSuperuser(t *testing.T) {
 	waitOK("restore test", op)
 	check("the restore test", shared)
 
-	if os.Getenv("PGDOCK_TEST_PG_IMAGE") == "" {
-		t.Log("PGDOCK_TEST_PG_IMAGE not set: promotion and demotion not checked")
+	if os.Getenv("XENIBASE_TEST_PG_IMAGE") == "" {
+		t.Log("XENIBASE_TEST_PG_IMAGE not set: promotion and demotion not checked")
 		return
 	}
 	// Promotion onto a dedicated instance, and demotion back.

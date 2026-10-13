@@ -17,12 +17,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/agentsvc"
-	"github.com/israel-duff/pgdock/internal/floatip"
-	"github.com/israel-duff/pgdock/internal/pooler"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/agentsvc"
+	"github.com/israel-duff/xenibase/internal/floatip"
+	"github.com/israel-duff/xenibase/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // poolerHostsDriver stands in for the nodes service: it calls each pooler
@@ -92,8 +92,8 @@ func TestPoolerHostsSyncAndArbiter(t *testing.T) {
 
 	// The hosts' admin consoles are the test PgBouncers (both "hosts" sit
 	// at 127.0.0.1), so RELOADs really happen.
-	sessionAddr := os.Getenv("PGDOCK_TEST_POOLER_SESSION_ADDR")
-	pooledAddr := os.Getenv("PGDOCK_TEST_POOLER_POOLED_ADDR")
+	sessionAddr := os.Getenv("XENIBASE_TEST_POOLER_SESSION_ADDR")
+	pooledAddr := os.Getenv("XENIBASE_TEST_POOLER_POOLED_ADDR")
 	port := func(addr string) int {
 		p, _ := strconv.Atoi(addr[strings.LastIndex(addr, ":")+1:])
 		return p
@@ -125,13 +125,13 @@ func TestPoolerHostsSyncAndArbiter(t *testing.T) {
 	})
 
 	dir := t.TempDir()
-	adminPW := os.Getenv("PGDOCK_TEST_POOLER_ADMIN_PASSWORD")
-	pm, err := pooler.NewManager(dir, 0o640, e.DB, nil, []pooler.User{{Name: "pgdock", Secret: "SCRAM-SHA-256$4096:x"}}, log)
+	adminPW := os.Getenv("XENIBASE_TEST_POOLER_ADMIN_PASSWORD")
+	pm, err := pooler.NewManager(dir, 0o640, e.DB, nil, []pooler.User{{Name: "xenibase", Secret: "SCRAM-SHA-256$4096:x"}}, log)
 	if err != nil {
 		t.Fatal(err)
 	}
 	pm.SetHostDriver(d, pooler.HostAdminConfig{
-		User: "pgdock", Password: adminPW, SSLMode: "prefer", SessionPort: port(sessionAddr), PooledPort: port(pooledAddr),
+		User: "xenibase", Password: adminPW, SSLMode: "prefer", SessionPort: port(sessionAddr), PooledPort: port(pooledAddr),
 	})
 
 	status := func(name string) agentapi.PoolerStatus {

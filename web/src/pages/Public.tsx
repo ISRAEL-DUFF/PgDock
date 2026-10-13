@@ -62,7 +62,7 @@ export function SignupPage() {
     return (
       <AuthShell>
         <h1 className="mb-2 text-lg font-semibold">Sign-up is by invitation</h1>
-        <p className="text-sm text-muted">Ask someone who uses this PGDock to invite you. The email it sends has a link that creates your account.</p>
+        <p className="text-sm text-muted">Ask someone who uses this Xenibase to invite you. The email it sends has a link that creates your account.</p>
         <Link to="/login" className="mt-4 block text-sm underline">
           Back to sign in
         </Link>
@@ -291,7 +291,7 @@ export function InvitePage() {
       {preview.isError && <Alert>This invitation is invalid, expired, or already used.</Alert>}
       {p && (
         <div className="flex flex-col gap-4">
-          <h1 className="text-lg font-semibold">{p.org_name ? `Join ${p.org_name}` : "Join PGDock"}</h1>
+          <h1 className="text-lg font-semibold">{p.org_name ? `Join ${p.org_name}` : "Join Xenibase"}</h1>
           <p className="text-sm text-muted">
             {p.invited_by} invited <strong>{p.email}</strong>
             {p.org_name ? ` as ${p.role}${p.project_count ? `, with access to ${p.project_count} project${p.project_count === 1 ? "" : "s"}` : ""}` : ""}.

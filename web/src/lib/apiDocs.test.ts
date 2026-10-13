@@ -64,7 +64,7 @@ const todos: CatalogTable = {
 };
 
 const url = "https://k7f3.api.example";
-const key = "pgd_pub_abc";
+const key = "xb_pub_abc";
 
 describe("quickStart", () => {
   it("fills in the URL and key in every language", () => {

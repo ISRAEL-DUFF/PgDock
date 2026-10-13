@@ -31,7 +31,7 @@ export function TermsGate({ version }: { version: number }) {
     <AuthShell wide>
       <div className="flex flex-col gap-4">
         <h1 className="text-lg font-semibold">The terms of use have changed</h1>
-        <p className="text-sm text-muted">Read and accept version {version} to keep using PGDock.</p>
+        <p className="text-sm text-muted">Read and accept version {version} to keep using Xenibase.</p>
         {q.data && <TermsText terms={q.data} />}
         {err && <Alert>{err}</Alert>}
         <Button variant="primary" busy={busy} onClick={accept} data-testid="accept-terms">
@@ -138,7 +138,7 @@ const BILLING_TEXT: Record<string, string> = {
     "has an overdue invoice: creating projects, branches and dedicated instances is blocked until it is paid",
   suspended:
     "is suspended for non-payment: its databases are offline until it is paid",
-  payment_failed: "had a payment declined: PGDock will try again",
+  payment_failed: "had a payment declined: Xenibase will try again",
 };
 
 export function OrgBanners() {

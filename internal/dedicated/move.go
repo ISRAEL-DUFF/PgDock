@@ -10,12 +10,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/logical"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/pgverify"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/logical"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/pgverify"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // KindMove moves a project to another node, on the same tier and Postgres

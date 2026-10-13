@@ -32,9 +32,9 @@ export interface Example {
 }
 
 const installs: Record<ClientLang, string> = {
-  ts: "npm install @pgdock/client",
-  dart: "flutter pub add pgdock",
-  go: "go get github.com/israel-duff/pgdock/sdk/go",
+  ts: "npm install @xenibase/client",
+  dart: "flutter pub add xenibase",
+  go: "go get github.com/israel-duff/xenibase/sdk/go",
 };
 
 /** The quick start in one language: its install line and a first program
@@ -46,36 +46,36 @@ export function quickStart(
   table = "todos",
 ): { install: string; code: string } {
   const code = {
-    ts: `import { createClient } from "@pgdock/client";
+    ts: `import { createClient } from "@xenibase/client";
 
-const pgd = createClient("${url}", "${key}");
+const xb = createClient("${url}", "${key}");
 
 // Read: the rows row-level security lets this caller see.
-const { data, error } = await pgd.data.from("${table}").select().limit(20);
+const { data, error } = await xb.data.from("${table}").select().limit(20);
 
 // Sign in with a code by SMS (or channel: "whatsapp").
-await pgd.auth.signInWithOtp({ phone: "+2348031234567", channel: "sms" });
-const { data: session } = await pgd.auth.verifyOtp({ type: "sms", phone: "+2348031234567", token: "123456" });`,
-    dart: `import 'package:pgdock/pgdock.dart';
+await xb.auth.signInWithOtp({ phone: "+2348031234567", channel: "sms" });
+const { data: session } = await xb.auth.verifyOtp({ type: "sms", phone: "+2348031234567", token: "123456" });`,
+    dart: `import 'package:xenibase/xenibase.dart';
 
-final pgd = PgdockClient('${url}', '${key}');
+final xb = XenibaseClient('${url}', '${key}');
 
 // Read: the rows row-level security lets this caller see.
-final page = await pgd.data.from('${table}').select().limit(20).get();
+final page = await xb.data.from('${table}').select().limit(20).get();
 
 // Sign in with a code by SMS (or channel: 'whatsapp').
-await pgd.auth.signInWithOtp(phone: '+2348031234567', channel: 'sms');
-final session = await pgd.auth.verifyOtp(type: 'sms', phone: '+2348031234567', token: '123456');`,
-    go: `import pgdock "github.com/israel-duff/pgdock/sdk/go"
+await xb.auth.signInWithOtp(phone: '+2348031234567', channel: 'sms');
+final session = await xb.auth.verifyOtp(type: 'sms', phone: '+2348031234567', token: '123456');`,
+    go: `import xenibase "github.com/israel-duff/xenibase/sdk/go"
 
-c, err := pgdock.New("${url}", "${key}")
+c, err := xenibase.New("${url}", "${key}")
 
 // Read: the rows row-level security lets this caller see.
-rows, _, err := pgdock.List[map[string]any](ctx, c.Data.From("${table}").Select("*").Limit(20))
+rows, _, err := xenibase.List[map[string]any](ctx, c.Data.From("${table}").Select("*").Limit(20))
 
 // Sign in with a code by SMS (or Channel: "whatsapp").
-err = c.Auth.SignInWithOTP(ctx, pgdock.OTP{Phone: "+2348031234567", Channel: "sms"})
-session, err := c.Auth.VerifyOTP(ctx, pgdock.Verify{Type: "sms", Phone: "+2348031234567", Token: "123456"})`,
+err = c.Auth.SignInWithOTP(ctx, xenibase.OTP{Phone: "+2348031234567", Channel: "sms"})
+session, err := c.Auth.VerifyOTP(ctx, xenibase.Verify{Type: "sms", Phone: "+2348031234567", Token: "123456"})`,
   }[lang];
   return { install: installs[lang], code };
 }
@@ -188,9 +188,9 @@ export function tableExamples(
     title: "Read",
     code: {
       curl: `curl -G "${base}" ${hdr} \\\n${qs.map((q) => `  --data-urlencode "${q}"`).join(" \\\n")}`,
-      ts: `const { data, error } = await pgd.data\n  .from("${name}")\n  .select("${select}")${f ? `\n  .eq("${f.column}", ${json(f.value)})` : ""}${order ? `\n  .order("${order}", "desc")` : ""}\n  .limit(20);`,
-      dart: `final page = await pgd.data\n    .from('${name}')\n    .select('${select}')${f ? `\n    .eq('${f.column}', ${dartLit(f.value)})` : ""}${order ? `\n    .order('${order}', descending: true)` : ""}\n    .limit(20)\n    .get();`,
-      go: `rows, page, err := pgdock.List[map[string]any](ctx, c.Data.From("${name}").\n\tSelect("${select}").${f ? `\n\tEq("${f.column}", ${goLit(f.value)}).` : ""}${order ? `\n\tOrder("${order}", true).` : ""}\n\tLimit(20))`,
+      ts: `const { data, error } = await xb.data\n  .from("${name}")\n  .select("${select}")${f ? `\n  .eq("${f.column}", ${json(f.value)})` : ""}${order ? `\n  .order("${order}", "desc")` : ""}\n  .limit(20);`,
+      dart: `final page = await xb.data\n    .from('${name}')\n    .select('${select}')${f ? `\n    .eq('${f.column}', ${dartLit(f.value)})` : ""}${order ? `\n    .order('${order}', descending: true)` : ""}\n    .limit(20)\n    .get();`,
+      go: `rows, page, err := xenibase.List[map[string]any](ctx, c.Data.From("${name}").\n\tSelect("${select}").${f ? `\n\tEq("${f.column}", ${goLit(f.value)}).` : ""}${order ? `\n\tOrder("${order}", true).` : ""}\n\tLimit(20))`,
     },
     explore: {
       method: "GET",
@@ -206,8 +206,8 @@ export function tableExamples(
     title: "Insert",
     code: {
       curl: `curl -X POST "${base}" ${hdr} \\\n  -d '${json(ins)}'`,
-      ts: `const { data, error } = await pgd.data.from("${name}").insert(${json(ins)});`,
-      dart: `final w = await pgd.data.from('${name}').insert(${dartLit(ins)}).run();`,
+      ts: `const { data, error } = await xb.data.from("${name}").insert(${json(ins)});`,
+      dart: `final w = await xb.data.from('${name}').insert(${dartLit(ins)}).run();`,
       go: `n, err := c.Data.From("${name}").Insert(${goLit(ins)}).Exec(ctx, &created)`,
     },
     explore: { method: "POST", path: `/data/v1/${name}`, body: json(ins) },
@@ -226,8 +226,8 @@ export function tableExamples(
       title: "Update",
       code: {
         curl: `curl -X PATCH "${url}${keyPath}" ${hdr} \\\n  -d '${json(upd)}'`,
-        ts: `await pgd.data.from("${name}").update(${json(upd)})${byKey ? ".byKey(1)" : `.eq("${f?.column ?? order}", ${json(f?.value ?? 1)})`};`,
-        dart: `await pgd.data.from('${name}').update(${dartLit(upd)})${byKey ? ".byKey(1)" : `.eq('${f?.column ?? order}', ${dartLit(f?.value ?? 1)})`}.run();`,
+        ts: `await xb.data.from("${name}").update(${json(upd)})${byKey ? ".byKey(1)" : `.eq("${f?.column ?? order}", ${json(f?.value ?? 1)})`};`,
+        dart: `await xb.data.from('${name}').update(${dartLit(upd)})${byKey ? ".byKey(1)" : `.eq('${f?.column ?? order}', ${dartLit(f?.value ?? 1)})`}.run();`,
         go: `n, err := c.Data.From("${name}").Update(${goLit(upd)}).${byKey ? "Key(1)" : `Eq("${f?.column ?? order}", ${goLit(f?.value ?? 1)})`}.Exec(ctx, nil)`,
       },
       explore: { method: "PATCH", path: keyPath, body: json(upd) },
@@ -238,8 +238,8 @@ export function tableExamples(
     title: "Delete",
     code: {
       curl: `curl -X DELETE "${url}${keyPath}" ${hdr}`,
-      ts: `await pgd.data.from("${name}").delete()${byKey ? ".byKey(1)" : `.eq("${f?.column ?? order}", ${json(f?.value ?? 1)})`};`,
-      dart: `await pgd.data.from('${name}').delete()${byKey ? ".byKey(1)" : `.eq('${f?.column ?? order}', ${dartLit(f?.value ?? 1)})`}.run();`,
+      ts: `await xb.data.from("${name}").delete()${byKey ? ".byKey(1)" : `.eq("${f?.column ?? order}", ${json(f?.value ?? 1)})`};`,
+      dart: `await xb.data.from('${name}').delete()${byKey ? ".byKey(1)" : `.eq('${f?.column ?? order}', ${dartLit(f?.value ?? 1)})`}.run();`,
       go: `n, err := c.Data.From("${name}").Delete().${byKey ? "Key(1)" : `Eq("${f?.column ?? order}", ${goLit(f?.value ?? 1)})`}.Exec(ctx, nil)`,
     },
     explore: { method: "DELETE", path: keyPath },
@@ -256,8 +256,8 @@ export function tableExamples(
       title: "Upsert",
       code: {
         curl: `curl -X POST "${base}?on_conflict=${pk.join(",")}" ${hdr} \\\n  -d '${json(up)}'`,
-        ts: `await pgd.data.from("${name}").upsert(${json(up)}, { onConflict: ${json(pk)} });`,
-        dart: `await pgd.data.from('${name}').upsert(${dartLit(up)}, onConflict: ${dartLit(pk)}).run();`,
+        ts: `await xb.data.from("${name}").upsert(${json(up)}, { onConflict: ${json(pk)} });`,
+        dart: `await xb.data.from('${name}').upsert(${dartLit(up)}, onConflict: ${dartLit(pk)}).run();`,
         go: `n, err := c.Data.From("${name}").Upsert(${goLit(up)}, ${pk.map((k) => json(k)).join(", ")}).Exec(ctx, nil)`,
       },
       explore: {
@@ -297,8 +297,8 @@ export function functionExample(
     title: "Call",
     code: {
       curl: `curl -X POST "${url}/data/v1/rpc/${name}" ${hdr} \\\n  -d '${json(args)}'`,
-      ts: `const { data, error } = await pgd.data.rpc("${name}", ${json(args)});`,
-      dart: `final result = await pgd.data.rpc('${name}', ${dartLit(args)});`,
+      ts: `const { data, error } = await xb.data.rpc("${name}", ${json(args)});`,
+      dart: `final result = await xb.data.rpc('${name}', ${dartLit(args)});`,
       go: `err := c.Data.RPC(ctx, "${name}", ${goLit(args)}, &result, false)`,
     },
     explore: { method: "POST", path: `/data/v1/rpc/${name}`, body: json(args) },

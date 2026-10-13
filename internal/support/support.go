@@ -1,4 +1,4 @@
-// Package support is PGDock's ticket system (V3 §7.1): tickets opened from
+// Package support is Xenibase's ticket system (V3 §7.1): tickets opened from
 // the dashboard, by email to the support address, or by WhatsApp, threaded
 // into one inbox for the support console, with response targets by plan.
 package support
@@ -20,8 +20,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Channels (tickets.channel).
@@ -79,12 +79,12 @@ type WhatsApp interface {
 
 // Config sets the addresses and the clock.
 type Config struct {
-	// Address is the support inbox (PGDOCK_SUPPORT_EMAIL): replies come
+	// Address is the support inbox (XENIBASE_SUPPORT_EMAIL): replies come
 	// from and go back to it.
 	Address   string
 	PublicURL string
 	// InboundSecret authenticates the email provider's inbound webhook
-	// (PGDOCK_SUPPORT_INBOUND_SECRET).
+	// (XENIBASE_SUPPORT_INBOUND_SECRET).
 	InboundSecret string
 	Now           func() time.Time
 }
@@ -223,12 +223,12 @@ func (s *Service) acknowledge(ctx context.Context, t store.Ticket) {
 	s.sendEmail(ctx, t, body)
 }
 
-// threadID is the Message-ID PGDock gives its email on a ticket, which a
+// threadID is the Message-ID Xenibase gives its email on a ticket, which a
 // reply's In-Reply-To names.
 func (s *Service) threadID(t store.Ticket) string {
 	b := make([]byte, 6)
 	_, _ = rand.Read(b)
-	host := "pgdock"
+	host := "xenibase"
 	if at := strings.LastIndex(s.cfg.Address, "@"); at >= 0 {
 		host = s.cfg.Address[at+1:]
 	}
@@ -242,7 +242,7 @@ func (s *Service) sendEmail(ctx context.Context, t store.Ticket, body string) {
 		return
 	}
 	id := s.threadID(t)
-	h := map[string]string{"Message-ID": id, "X-PGDock-Event": "support"}
+	h := map[string]string{"Message-ID": id, "X-Xenibase-Event": "support"}
 	if s.cfg.Address != "" {
 		h["Reply-To"] = s.cfg.Address
 	}
@@ -348,7 +348,7 @@ func (s *Service) StaffReply(ctx context.Context, t store.Ticket, staffID uuid.U
 
 func (s *Service) ticketLink(t store.Ticket) string {
 	if t.OrgID == nil || s.cfg.PublicURL == "" {
-		return "PGDock support"
+		return "Xenibase support"
 	}
 	return "See the whole conversation: " + strings.TrimRight(s.cfg.PublicURL, "/") + "/org/support?ticket=" + t.ID.String()
 }

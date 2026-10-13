@@ -11,9 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Auth webhook events (V4 §4.7).
@@ -31,7 +31,7 @@ const (
 	hookKeep            = 14 * 24 * time.Hour
 )
 
-// AuthHook takes an event from pgdock-edge: after-sign-up and after-sign-in
+// AuthHook takes an event from xenibase-edge: after-sign-up and after-sign-in
 // events are queued and delivered with retries; before-sign-up (Wait) is
 // asked now and its answer returned.
 func (s *Service) AuthHook(ctx context.Context, h edgeapi.AuthHook) (edgeapi.HookDecision, error) {

@@ -8,11 +8,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/regions"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/regions"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestRegionEtcdMoveAll covers V4.1 §8.1's region page: the HA projects

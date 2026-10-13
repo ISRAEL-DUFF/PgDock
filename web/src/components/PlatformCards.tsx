@@ -87,7 +87,7 @@ export function MailSettingsForm({
           {(id) => <Input id={id} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />}
         </Field>
       </div>
-      <Field label="From address">{(id) => <Input id={id} required value={v.from} onChange={set("from")} placeholder="PGDock <pgdock@example.com>" />}</Field>
+      <Field label="From address">{(id) => <Input id={id} required value={v.from} onChange={set("from")} placeholder="Xenibase <xenibase@example.com>" />}</Field>
       <Field label="Send the test to">{(id) => <Input id={id} type="email" required value={v.test_to} onChange={set("test_to")} />}</Field>
       {err && <Alert>{err}</Alert>}
       {ok && <Alert tone="ok">Test sent and settings saved. Check the inbox.</Alert>}

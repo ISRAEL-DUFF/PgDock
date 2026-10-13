@@ -15,16 +15,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/agentsvc"
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/floatip"
-	"github.com/israel-duff/pgdock/internal/freetier"
-	"github.com/israel-duff/pgdock/internal/pooler"
-	"github.com/israel-duff/pgdock/internal/regions"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/waker"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/agentsvc"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/floatip"
+	"github.com/israel-duff/xenibase/internal/freetier"
+	"github.com/israel-duff/xenibase/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/regions"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/waker"
+	"github.com/israel-duff/xenibase/test/testenv"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -42,11 +42,11 @@ func TestChaosPoolerSplitBrain(t *testing.T) {
 	q := store.New(e.DB)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	if _, err := e.Regions.Save(ctx, regions.Input{ID: "ng-lagos", Name: "Lagos", Country: "NG", PoolerHost: "db.ng.pgdock.test"}); err != nil {
+	if _, err := e.Regions.Save(ctx, regions.Input{ID: "ng-lagos", Name: "Lagos", Country: "NG", PoolerHost: "db.ng.xenibase.test"}); err != nil {
 		t.Fatal(err)
 	}
-	sessionAddr := os.Getenv("PGDOCK_TEST_POOLER_SESSION_ADDR")
-	pooledAddr := os.Getenv("PGDOCK_TEST_POOLER_POOLED_ADDR")
+	sessionAddr := os.Getenv("XENIBASE_TEST_POOLER_SESSION_ADDR")
+	pooledAddr := os.Getenv("XENIBASE_TEST_POOLER_POOLED_ADDR")
 	port := func(addr string) int {
 		p, _ := strconv.Atoi(addr[strings.LastIndex(addr, ":")+1:])
 		return p
@@ -79,13 +79,13 @@ func TestChaosPoolerSplitBrain(t *testing.T) {
 		_, _ = e.DB.Exec(bg, `DELETE FROM regions WHERE id = 'ng-lagos'`)
 	})
 
-	pm, err := pooler.NewManager(t.TempDir(), 0o640, e.DB, nil, []pooler.User{{Name: "pgdock", Secret: "SCRAM-SHA-256$4096:x"}}, log)
+	pm, err := pooler.NewManager(t.TempDir(), 0o640, e.DB, nil, []pooler.User{{Name: "xenibase", Secret: "SCRAM-SHA-256$4096:x"}}, log)
 	if err != nil {
 		t.Fatal(err)
 	}
 	pm.SetHome("eu-central")
 	pm.SetHostDriver(d, pooler.HostAdminConfig{
-		User: "pgdock", Password: os.Getenv("PGDOCK_TEST_POOLER_ADMIN_PASSWORD"), SSLMode: "prefer",
+		User: "xenibase", Password: os.Getenv("XENIBASE_TEST_POOLER_ADMIN_PASSWORD"), SSLMode: "prefer",
 		SessionPort: port(sessionAddr), PooledPort: port(pooledAddr),
 	})
 	if err := pm.Sync(ctx); err != nil {
@@ -395,7 +395,7 @@ func TestChaosEtcdMemberLoss(t *testing.T) {
 		}
 	}
 
-	etcd := func(n gen.Node) string { return "pgdock-etcd-" + n.Id.String() }
+	etcd := func(n gen.Node) string { return "xenibase-etcd-" + n.Id.String() }
 	docker := func(args ...string) {
 		t.Helper()
 		if out, err := exec.Command("docker", args...).CombinedOutput(); err != nil {

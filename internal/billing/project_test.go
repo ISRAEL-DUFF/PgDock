@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
 // TestProjectMonth splits an allowance's overage between the projects by

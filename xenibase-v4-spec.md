@@ -1,6 +1,6 @@
-Markdown · pgdock-v4-spec.md
+Markdown · xenibase-v4-spec.md
 
-# PGDock — V4 Specification & Build Plan
+# Xenibase — V4 Specification & Build Plan
 
 *Builds on the V1–V3 specs and the Infrastructure Cost & Phasing doc. References like "V3 §2.1" point to those documents.*
 
@@ -8,7 +8,7 @@ Markdown · pgdock-v4-spec.md
 | --- | --- |
 | **Status** | Draft for review |
 | **Theme** | Backend services on top of the database platform: data API, auth, storage, realtime, read replicas |
-| **API strategy** | **PGDock's own APIs and SDKs.** Not Supabase-compatible. A migration helper imports users, files, and data from Supabase projects (§9). |
+| **API strategy** | **Xenibase's own APIs and SDKs.** Not Supabase-compatible. A migration helper imports users, files, and data from Supabase projects (§9). |
 | **Builds on** | V3: billing and usage rating, regions, WireGuard mesh, HA, free-tier pause/archive, provider interface |
 
 ---
@@ -17,7 +17,7 @@ Markdown · pgdock-v4-spec.md
 
 ### 1.1 What V4 is for
 
-V1–V3 made PGDock a reliable, billable managed Postgres platform. V4 lets a team build a whole app backend on it without writing a server:
+V1–V3 made Xenibase a reliable, billable managed Postgres platform. V4 lets a team build a whole app backend on it without writing a server:
 
 - Read and write data over HTTPS, safely, straight from a browser or mobile app (§3).
 - Sign users up and in, with the phone-first methods Nigerian apps need (§4).
@@ -43,7 +43,7 @@ Edge functions (sandboxed customer code), GraphQL, custom domains for the API, o
 ### 1.4 Principles
 
 - **Secure by default.** Client-facing access goes through row-level security. A table without RLS is not reachable with a client key unless the developer explicitly opts in (§3.6).
-- **Postgres is the source of truth.** Auth users, storage metadata, and realtime subscriptions are rows in the project's own database, governed by the same RLS policies. Nothing about a customer's app lives only in PGDock's metadata.
+- **Postgres is the source of truth.** Auth users, storage metadata, and realtime subscriptions are rows in the project's own database, governed by the same RLS policies. Nothing about a customer's app lives only in Xenibase's metadata.
 - **One request, one transaction.** Every data API call runs in a single transaction with the caller's role and claims set locally, so it works through the pooler in transaction mode.
 - **Multi-tenant services.** Each service runs once per region for all projects. A free project costs a few rows of config, not a set of processes.
 - **Metered from day one.** Every service emits usage records (V2 §10.9) that V3 billing rates.
@@ -55,13 +55,13 @@ Edge functions (sandboxed customer code), GraphQL, custom domains for the API, o
 
 ### 2.1 The edge service
 
-A new Go binary, **`pgdock-edge`**, built from the existing monorepo. It contains the gateway and all four services as modules; each can run in the same process (small regions) or as separate processes (scaling a hot module independently).
+A new Go binary, **`xenibase-edge`**, built from the existing monorepo. It contains the gateway and all four services as modules; each can run in the same process (small regions) or as separate processes (scaling a hot module independently).
 
 ```
-Client app ──HTTPS/WSS──▶ <ref>.api.pgdock.ng
+Client app ──HTTPS/WSS──▶ <ref>.api.xenibase.ng
                               │
                     ┌─────────▼──────────────────────────────────────────┐
-                    │ pgdock-edge (per region)                            │
+                    │ xenibase-edge (per region)                            │
                     │  Gateway: TLS, key check, CORS, rate limit, metering│
                     │   ├─ /data/v1      Data API        (§3)             │
                     │   ├─ /auth/v1      Auth            (§4)             │
@@ -74,18 +74,18 @@ Client app ──HTTPS/WSS──▶ <ref>.api.pgdock.ng
                 Project database (shared or dedicated)
 ```
 
-- **Hostname:** each project gets `https://<ref>.api.pgdock.ng`, where `<ref>` is a short random project reference (e.g. `k7f3m2q9`). Region is resolved from the ref; DNS uses a wildcard per region pointing at that region's edge.
-- **Placement:** `pgdock-edge` runs on the region's existing nodes at first (it's stateless). Dedicated edge nodes are added through capacity proposals (V3 §5.2) when traffic justifies it.
+- **Hostname:** each project gets `https://<ref>.api.xenibase.ng`, where `<ref>` is a short random project reference (e.g. `k7f3m2q9`). Region is resolved from the ref; DNS uses a wildcard per region pointing at that region's edge.
+- **Placement:** `xenibase-edge` runs on the region's existing nodes at first (it's stateless). Dedicated edge nodes are added through capacity proposals (V3 §5.2) when traffic justifies it.
 - **Database access:** through the edge pooler in transaction mode, over the mesh (V3 §2.1.1), using a per-project `<db>_edge` login role (§2.3).
 - **Configuration:** the edge keeps an in-memory cache of each project's settings (keys, JWT keys, CORS, rate limits, auth config, buckets). The control plane pushes changes over a streaming channel; the edge also reloads a project's config on a version mismatch. Cold lookups fall back to the metadata DB.
-- **TLS:** a wildcard certificate per region (`*.api.us.pgdock.ng`-style or `*.api.pgdock.ng` with region routing), obtained by DNS-01.
+- **TLS:** a wildcard certificate per region (`*.api.us.xenibase.ng`-style or `*.api.xenibase.ng` with region routing), obtained by DNS-01.
 
 ### 2.2 Project API keys
 
 | Key | Prefix | Where it's used | Database role |
 | --- | --- | --- | --- |
-| **Publishable key** | `pgd_pub_` | Browsers and mobile apps. Safe to embed. | `<db>_anon` until the user signs in, then `<db>_user` |
-| **Secret key** | `pgd_sec_` | Servers only. Bypasses RLS. | `<db>_service` |
+| **Publishable key** | `xb_pub_` | Browsers and mobile apps. Safe to embed. | `<db>_anon` until the user signs in, then `<db>_user` |
+| **Secret key** | `xb_sec_` | Servers only. Bypasses RLS. | `<db>_service` |
 
 - Keys are random, shown once (secret) or always visible (publishable), and stored hashed (SHA-256). Projects can have several of each, with names, for rotation without downtime.
 - The secret key is refused from browsers: requests with an `Origin` header and a secret key are rejected unless the project explicitly allows it. The dashboard and SDK docs warn about it.
@@ -97,7 +97,7 @@ V4 adds four roles per project database (created when backend services are enabl
 
 | Role | Purpose |
 | --- | --- |
-| `<db>_edge` | Login role used by `pgdock-edge`. `NOINHERIT`; can `SET ROLE` to the three below and nothing else. |
+| `<db>_edge` | Login role used by `xenibase-edge`. `NOINHERIT`; can `SET ROLE` to the three below and nothing else. |
 | `<db>_anon` | Unauthenticated client requests. |
 | `<db>_user` | Signed-in users. |
 | `<db>_service` | Secret-key requests. `BYPASSRLS`, still not a superuser. |
@@ -107,19 +107,19 @@ V4 adds four roles per project database (created when backend services are enabl
 ```sql
 BEGIN;
 SET LOCAL ROLE p_7f3k9x2m4q_user;
-SELECT set_config('pgd.claims', '{"sub":"…","role":"user","phone":"+234…"}', true);
+SELECT set_config('xb.claims', '{"sub":"…","role":"user","phone":"+234…"}', true);
 SET LOCAL statement_timeout = '8s';
 -- the generated query
 COMMIT;
 ```
 
-Helper functions in a `pgd_auth` schema (owned by `pgdock_admin`, `STABLE`, `SECURITY INVOKER`) read the claims for RLS policies:
+Helper functions in a `xb_auth` schema (owned by `xenibase_admin`, `STABLE`, `SECURITY INVOKER`) read the claims for RLS policies:
 
 ```sql
-pgd_auth.uid()     -- uuid of the signed-in user, or NULL
-pgd_auth.role()    -- 'anon' | 'user' | 'service'
-pgd_auth.claims()  -- full claims as jsonb
-pgd_auth.claim(text) -- one claim, e.g. pgd_auth.claim('org_id')
+xb_auth.uid()     -- uuid of the signed-in user, or NULL
+xb_auth.role()    -- 'anon' | 'user' | 'service'
+xb_auth.claims()  -- full claims as jsonb
+xb_auth.claim(text) -- one claim, e.g. xb_auth.claim('org_id')
 ```
 
 Example policy a developer writes:
@@ -128,8 +128,8 @@ Example policy a developer writes:
 ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
 CREATE POLICY own_todos ON todos
   FOR ALL TO p_7f3k9x2m4q_user
-  USING (owner_id = pgd_auth.uid())
-  WITH CHECK (owner_id = pgd_auth.uid());
+  USING (owner_id = xb_auth.uid())
+  WITH CHECK (owner_id = xb_auth.uid());
 ```
 
 The table editor (V2 §4) gains an **RLS policy helper** with templates ("owner only", "members of an org", "public read, owner write") that generate this SQL with a preview, and friendly role names (`anon`, `user`, `service`) shown instead of the opaque ones.
@@ -138,7 +138,7 @@ The table editor (V2 §4) gains an **RLS policy helper** with templates ("owner 
 
 Backend services are **per project and opt-in**: Project → Settings → Backend services → Enable. Enabling:
 
-1. Creates the roles in §2.3, the `pgd_auth`, `pgd_storage`, and `pgd_realtime` schemas, and their tables (§11.2).
+1. Creates the roles in §2.3, the `xb_auth`, `xb_storage`, and `xb_realtime` schemas, and their tables (§11.2).
 2. Generates the first publishable and secret keys and the project's JWT signing key (§4.4).
 3. Registers the project with the region's edge and creates its DNS name.
 4. Shows a quick-start with SDK snippets.
@@ -149,7 +149,7 @@ Disabling stops the edge from serving the project and revokes keys. The schemas 
 
 | Feature | Behaviour with backend services |
 | --- | --- |
-| Promotion / demotion / logical moves (V3 §2.3) | Roles and `pgd_*` schemas move with the database; the edge follows the pooler route, so the API URL doesn't change. |
+| Promotion / demotion / logical moves (V3 §2.3) | Roles and `xb_*` schemas move with the database; the edge follows the pooler route, so the API URL doesn't change. |
 | Branching (V2 §8) | Branches get their own ref, keys, and JWT key. Auth users are copied with the data (with the sensitive-data defaults, V2 §8.5); storage objects are **not** copied by default (metadata only, with an option to copy files). |
 | Free-tier pause (V3 §4.2) | API requests to a paused project return `503` with `Retry-After` and trigger a resume, like the Postgres waker. |
 | Suspension (V2 §10.8) | The edge refuses all requests for the org's projects. |
@@ -164,7 +164,7 @@ Disabling stops the edge from serving the project and revokes keys. The schemas 
 
 Automatic HTTPS endpoints for every table, view, and function in the schemas the project exposes (default: `public`). The edge introspects the schema, caches it per project, and refreshes it on DDL (an event trigger bumps a schema version that the edge watches) or on demand.
 
-Base path: `https://<ref>.api.pgdock.ng/data/v1`
+Base path: `https://<ref>.api.xenibase.ng/data/v1`
 
 ### 3.2 Reading
 
@@ -232,7 +232,7 @@ Stable, documented error codes mapped from Postgres error classes; HTTP status f
 
 ### 3.6 Exposure and safety
 
-- **Exposed schemas** are chosen per project (default `public`). `pgd_*` schemas are never exposed.
+- **Exposed schemas** are chosen per project (default `public`). `xb_*` schemas are never exposed.
 - **RLS gate:** for `anon` and `user` roles, a table without RLS enabled returns `403 rls_required` unless the developer marks it **public** in settings (with a warning). Views must be `security_invoker`; others are flagged.
 - **Security advisor** in the dashboard: tables without RLS, policies that allow everything, `SECURITY DEFINER` functions in exposed schemas, columns named like secrets (`password`, `token`) exposed to `anon`.
 - **Column privileges** are respected (`GRANT SELECT (col)`), so sensitive columns can be hidden per role.
@@ -241,7 +241,7 @@ Stable, documented error codes mapped from Postgres error classes; HTTP status f
 ### 3.7 Generated artefacts
 
 - **Per-project OpenAPI document** at `/data/v1/openapi.json` (secret key), regenerated with the schema.
-- **Type generation:** `pgdock gen types --lang ts|dart|go --project <p>` produces typed table and function definitions for the SDKs (§8).
+- **Type generation:** `xenibase gen types --lang ts|dart|go --project <p>` produces typed table and function definitions for the SDKs (§8).
 - **API docs page** in the dashboard per table, with request examples in each SDK.
 
 ### 3.8 Caching
@@ -260,7 +260,7 @@ Stable, documented error codes mapped from Postgres error classes; HTTP status f
 | **Magic link and email OTP** | 6-digit code or link, 10-minute validity |
 | **Phone OTP via SMS** | Nigerian numbers normalised to E.164 (`+234…`); SMS sent through a pluggable provider (§4.6) |
 | **Phone OTP via WhatsApp** | Through the WhatsApp Business Platform; often more reliable and cheaper than SMS for Nigerian users |
-| **OAuth** | Google, Apple, GitHub, Facebook, Microsoft at launch. Each project supplies its own client ID/secret (shared PGDock dev credentials allowed on Free for testing only) |
+| **OAuth** | Google, Apple, GitHub, Facebook, Microsoft at launch. Each project supplies its own client ID/secret (shared Xenibase dev credentials allowed on Free for testing only) |
 | **Anonymous sign-in** | Creates a user without credentials, upgradable later by linking a method |
 | **MFA** | TOTP and phone OTP as a second factor; per-project policy (optional, required for some users via a claim, or required for all) |
 
@@ -268,12 +268,12 @@ Users can link several identities (e.g. phone and Google) to one account.
 
 ### 4.2 Where users live
 
-Users are stored **in the project's own database**, in the `pgd_auth` schema (owned by `pgdock_admin`):
+Users are stored **in the project's own database**, in the `xb_auth` schema (owned by `xenibase_admin`):
 
-- `pgd_auth.users` — id, email, phone, confirmation timestamps, metadata (app and user), banned_until, created_at, last_sign_in_at.
-- `pgd_auth.identities`, `pgd_auth.sessions`, `pgd_auth.refresh_tokens`, `pgd_auth.mfa_factors`, `pgd_auth.one_time_codes`, `pgd_auth.audit_log`.
+- `xb_auth.users` — id, email, phone, confirmation timestamps, metadata (app and user), banned_until, created_at, last_sign_in_at.
+- `xb_auth.identities`, `xb_auth.sessions`, `xb_auth.refresh_tokens`, `xb_auth.mfa_factors`, `xb_auth.one_time_codes`, `xb_auth.audit_log`.
 
-Developers can reference `pgd_auth.users(id)` in foreign keys and read a safe view, `pgd_auth.user_profiles` (no secrets), from their own SQL. Password hashes, tokens, and factors are never readable by the `anon`, `user`, or `service` roles.
+Developers can reference `xb_auth.users(id)` in foreign keys and read a safe view, `xb_auth.user_profiles` (no secrets), from their own SQL. Password hashes, tokens, and factors are never readable by the `anon`, `user`, or `service` roles.
 
 Consequences: users move with the database on promotion, branching, and restore; exports include them; data residency covers them.
 
@@ -316,7 +316,7 @@ POST /auth/v1/admin/generate-link                  magic link / invite / recover
 ### 4.6 SMS and WhatsApp providers
 
 - Pluggable `MessageProvider` interface (same composable pattern as payments, V3 §3.4.1).
-- **Platform-provided:** PGDock holds accounts with one or two SMS providers that deliver well to Nigerian networks, plus a WhatsApp Business account, and **resells at cost plus margin**, metered per message (§12). Provider choice is an open question (§16).
+- **Platform-provided:** Xenibase holds accounts with one or two SMS providers that deliver well to Nigerian networks, plus a WhatsApp Business account, and **resells at cost plus margin**, metered per message (§12). Provider choice is an open question (§16).
 - **Bring your own:** projects can configure their own provider credentials (Twilio, Africa's Talking, Termii, or similar), paying the provider directly.
 - **Abuse controls:** per-number and per-IP rate limits, a daily send cap per project (from the plan), country allow-list (default: Nigeria only, others opt-in), and optional captcha on OTP requests. SMS pumping fraud is the main risk; caps and country limits are the defence.
 - DND (do-not-disturb) registered numbers: use the provider's transactional/DND route for OTPs, and document the behaviour.
@@ -330,7 +330,7 @@ Hooks let developers customise auth without running a server:
 | **Custom claims** | A Postgres function `(event jsonb) returns jsonb`, called when a token is issued | Add `org_id`, roles, plan to the JWT |
 | **Before sign-up** | Postgres function or signed HTTP webhook | Block domains, require invite codes |
 | **After sign-up / sign-in** | Signed HTTP webhook (reuses V2 webhook delivery, retries, and SSRF protection) | Create profile rows, notify CRM |
-| **Send message** | Signed HTTP webhook | Replace PGDock's email/SMS sending entirely |
+| **Send message** | Signed HTTP webhook | Replace Xenibase's email/SMS sending entirely |
 
 Postgres hooks run with a 2-second timeout as a dedicated `<db>_auth_hook` role with only the grants the developer gives it.
 
@@ -340,7 +340,7 @@ Postgres hooks run with a 2-second timeout as a dedicated `<db>_auth_hook` role 
 - Optional captcha (Cloudflare Turnstile) on sign-up, sign-in, and OTP requests.
 - Redirect URL allow-list for OAuth and magic links; exact matching by default, wildcards opt-in.
 - Leaked-password check (k-anonymity range lookup against a breached-password corpus) as an option.
-- Auth audit log in `pgd_auth.audit_log` and the dashboard (sign-ins, failures, MFA changes, admin actions).
+- Auth audit log in `xb_auth.audit_log` and the dashboard (sign-ins, failures, MFA changes, admin actions).
 - Bans and deletions take effect at next token refresh; "sign out everywhere" revokes refresh tokens immediately, and a short access-token lifetime bounds the window.
 
 ### 4.9 Dashboard
@@ -355,13 +355,13 @@ Project → Auth: users list (search by email, phone, id), user detail (identiti
 
 - **Buckets** per project: public or private, with a maximum file size and an allowed MIME-type list.
 - **Objects** are stored in the region's object store (R2 by default; the in-country store for data-residency projects, V3 §6.3) under `projects/<ref>/<bucket>/<path>`.
-- **Metadata lives in the project database** in `pgd_storage.buckets` and `pgd_storage.objects` (path, size, MIME type, checksum, owner, user metadata, timestamps).
-- **Access is governed by RLS on `pgd_storage.objects`.** Developers write policies like "users can read and write objects under `avatars/<their uid>/`", using helper functions:
+- **Metadata lives in the project database** in `xb_storage.buckets` and `xb_storage.objects` (path, size, MIME type, checksum, owner, user metadata, timestamps).
+- **Access is governed by RLS on `xb_storage.objects`.** Developers write policies like "users can read and write objects under `avatars/<their uid>/`", using helper functions:
 
 ```sql
-CREATE POLICY own_avatar ON pgd_storage.objects FOR ALL TO p_7f3k9x2m4q_user
-  USING (bucket = 'avatars' AND pgd_storage.folder(path, 1) = pgd_auth.uid()::text)
-  WITH CHECK (bucket = 'avatars' AND pgd_storage.folder(path, 1) = pgd_auth.uid()::text);
+CREATE POLICY own_avatar ON xb_storage.objects FOR ALL TO p_7f3k9x2m4q_user
+  USING (bucket = 'avatars' AND xb_storage.folder(path, 1) = xb_auth.uid()::text)
+  WITH CHECK (bucket = 'avatars' AND xb_storage.folder(path, 1) = xb_auth.uid()::text);
 ```
 
 The edge checks access by running the corresponding metadata query under the caller's role before touching the object store, so the same policy language covers data and files.
@@ -387,7 +387,7 @@ GET    /storage/v1/render/{bucket}/{path}?width=&height=&fit=&format=&quality=  
 - **Direct uploads** up to 50 MB go through the edge (streamed, checksummed, MIME sniffed and checked against the bucket's allow-list).
 - **Large uploads** (up to the plan limit, e.g. 5 GB) use **presigned multipart upload URLs** straight to the object store, so bytes don't pass through the edge; completion is confirmed through the API, which writes the metadata row in a transaction.
 - **Resumable:** multipart parts can be retried individually; uploads not completed within 24 hours are aborted and cleaned up.
-- Uploads respect RLS (`INSERT` policy on `pgd_storage.objects`) and the org's storage quota.
+- Uploads respect RLS (`INSERT` policy on `xb_storage.objects`) and the org's storage quota.
 
 ### 5.4 Downloads and CDN
 
@@ -413,7 +413,7 @@ GET    /storage/v1/render/{bucket}/{path}?width=&height=&fit=&format=&quality=  
 
 ### 6.1 Channels
 
-Clients open one WebSocket (`wss://<ref>.api.pgdock.ng/realtime/v1`) and join channels:
+Clients open one WebSocket (`wss://<ref>.api.xenibase.ng/realtime/v1`) and join channels:
 
 | Channel type | What it delivers |
 | --- | --- |
@@ -421,14 +421,14 @@ Clients open one WebSocket (`wss://<ref>.api.pgdock.ng/realtime/v1`) and join ch
 | **Broadcast** | Low-latency messages from client to clients on the same channel (chat, cursors, typing), optionally persisted |
 | **Presence** | Who is online on a channel, with per-client state, synced across clients |
 
-Channel authorisation: database-change channels check RLS (§6.3). Broadcast and presence channels are public by default or **private**, in which case joining is authorised by an RLS policy on `pgd_realtime.channel_access` (the developer writes "users can join `room:<id>` if they're a member").
+Channel authorisation: database-change channels check RLS (§6.3). Broadcast and presence channels are public by default or **private**, in which case joining is authorised by an RLS policy on `xb_realtime.channel_access` (the developer writes "users can join `room:<id>` if they're a member").
 
 ### 6.2 Change capture
 
 Realtime reuses V2's transactional outbox (V2 §9.1), extended:
 
-- Enabling realtime on a table installs the same `AFTER` row trigger (shared function, owned by `pgdock_admin`), writing to `pgd_realtime.outbox`.
-- `pgdock-edge` holds one `LISTEN` connection per active project (only while it has subscribers), plus polling as a fallback, and reads outbox rows in commit order.
+- Enabling realtime on a table installs the same `AFTER` row trigger (shared function, owned by `xenibase_admin`), writing to `xb_realtime.outbox`.
+- `xenibase-edge` holds one `LISTEN` connection per active project (only while it has subscribers), plus polling as a fallback, and reads outbox rows in commit order.
 - Because capture happens in the same transaction, rolled-back changes are never delivered.
 - **Why not logical decoding:** a replication slot per database doesn't scale on shared clusters (hundreds of databases, each slot holding WAL if a consumer stalls). The outbox has bounded, observable cost per table. Dedicated projects can opt into logical-decoding capture later (V5) for high-volume tables.
 
@@ -459,7 +459,7 @@ Limits keep this affordable: subscribers per channel, groups checked per change 
 
 - **Dedicated projects only.** Up to 2 replicas per project in V4 (more later).
 - A replica is a **streaming standby** (same mechanism as HA standbys, V3 §2.2), placed on another node, possibly another region (for read latency near users).
-- **Endpoints:** the pooler gets a read-only route `<db>_ro` (`postgresql://…@db.us.pgdock.ng:6543/<db>_ro`) that load-balances across healthy replicas. The data API routes `GET` requests to replicas when the request has `Read-Replica: allowed` or the project enables it by default for publishable-key reads.
+- **Endpoints:** the pooler gets a read-only route `<db>_ro` (`postgresql://…@db.us.xenibase.ng:6543/<db>_ro`) that load-balances across healthy replicas. The data API routes `GET` requests to replicas when the request has `Read-Replica: allowed` or the project enables it by default for publishable-key reads.
 - **Lag:** shown in the dashboard; replicas lagging more than a threshold (default 10 s) are removed from rotation until they catch up.
 - **HA interaction:** replicas follow the new primary after a failover (Patroni-managed). A replica can be promoted to a standalone project (detach) for analytics or migration.
 - **Billing:** each replica bills like a dedicated instance of its size.
@@ -472,32 +472,32 @@ Limits keep this affordable: subscribers per channel, groups checked per change 
 
 | SDK | Priority | Why |
 | --- | --- | --- |
-| **TypeScript/JavaScript** (`@pgdock/client`) | Launch | Web and React Native apps; most common client |
-| **Dart/Flutter** (`pgdock` on pub.dev) | Launch | Flutter is widely used by Nigerian mobile teams |
-| **Go** (`github.com/…/pgdock-go`) | Launch | Servers; same language as PGDock |
+| **TypeScript/JavaScript** (`@xenibase/client`) | Launch | Web and React Native apps; most common client |
+| **Dart/Flutter** (`xenibase` on pub.dev) | Launch | Flutter is widely used by Nigerian mobile teams |
+| **Go** (`github.com/…/xenibase-go`) | Launch | Servers; same language as Xenibase |
 | Kotlin, Swift, Python | V5 | As demand appears |
 
 All SDKs share one design: a client created from the project URL and publishable key; `client.data`, `client.auth`, `client.storage`, `client.realtime`; typed results from generated types (§3.7); automatic token refresh; consistent error types.
 
 ```ts
-const pgd = createClient("https://k7f3m2q9.api.pgdock.ng", "pgd_pub_…");
+const xb = createClient("https://k7f3m2q9.api.xenibase.ng", "xb_pub_…");
 
-await pgd.auth.signInWithOtp({ phone: "+2348012345678", channel: "whatsapp" });
-await pgd.auth.verifyOtp({ phone: "+2348012345678", code: "123456" });
+await xb.auth.signInWithOtp({ phone: "+2348012345678", channel: "whatsapp" });
+await xb.auth.verifyOtp({ phone: "+2348012345678", code: "123456" });
 
-const { data } = await pgd.data.from("todos")
+const { data } = await xb.data.from("todos")
   .select("id, title, done, list(name)")
   .where("done", "eq", false)
   .order("created_at", "desc")
   .limit(20);
 
-pgd.realtime.channel("todos").onChange({ table: "todos" }, (e) => refresh(e));
-await pgd.storage.bucket("avatars").upload(`${user.id}/me.jpg`, file);
+xb.realtime.channel("todos").onChange({ table: "todos" }, (e) => refresh(e));
+await xb.storage.bucket("avatars").upload(`${user.id}/me.jpg`, file);
 ```
 
 ### 8.2 CLI additions
 
-`pgdock gen types`, `pgdock keys list|create|revoke`, `pgdock auth users …`, `pgdock storage buckets|ls|cp|rm`, `pgdock policies list|lint`, `pgdock logs api --follow`.
+`xenibase gen types`, `xenibase keys list|create|revoke`, `xenibase auth users …`, `xenibase storage buckets|ls|cp|rm`, `xenibase policies list|lint`, `xenibase logs api --follow`.
 
 ### 8.3 Dashboard additions
 
@@ -509,10 +509,10 @@ API section per project: keys, URL, quick-start, per-table API docs, request exp
 
 Own APIs mean client code changes, but the **data, users, and files** move with tooling:
 
-- **Database:** V1 import (V1 §6.8), now with an option to keep `public` schema RLS policies and rewrite Supabase role names and helper calls to PGDock equivalents (`auth.uid()` → `pgd_auth.uid()`, `authenticated` → `<db>_user`, `anon` → `<db>_anon`), with a report of anything it couldn't rewrite.
+- **Database:** V1 import (V1 §6.8), now with an option to keep `public` schema RLS policies and rewrite Supabase role names and helper calls to Xenibase equivalents (`auth.uid()` → `xb_auth.uid()`, `authenticated` → `<db>_user`, `anon` → `<db>_anon`), with a report of anything it couldn't rewrite.
 - **Auth users:** imports users and identities from a Supabase project (via its database `auth` schema). Password hashes in bcrypt are accepted as-is and **transparently upgraded to argon2id** at each user's next sign-in. OAuth identities keep their provider IDs, so users sign in with Google etc. without re-linking. Sessions are not migrated; users sign in again once.
-- **Storage:** copies buckets and objects from a Supabase project (S3 API) into PGDock storage, preserving paths and metadata, and recreates storage policies in PGDock's helper-function form where they map cleanly.
-- **Client code guide:** a side-by-side mapping of common `supabase-js` calls to `@pgdock/client` calls.
+- **Storage:** copies buckets and objects from a Supabase project (S3 API) into Xenibase storage, preserving paths and metadata, and recreates storage policies in Xenibase's helper-function form where they map cleanly.
+- **Client code guide:** a side-by-side mapping of common `supabase-js` calls to `@xenibase/client` calls.
 
 ---
 
@@ -619,19 +619,19 @@ CREATE TABLE read_replicas (
 ### 11.2 Project database (created when services are enabled)
 
 ```sql
-CREATE SCHEMA pgd_auth AUTHORIZATION pgdock_admin;
+CREATE SCHEMA xb_auth AUTHORIZATION xenibase_admin;
   -- users, identities, sessions, refresh_tokens, mfa_factors, one_time_codes, audit_log
   -- view user_profiles; functions uid(), role(), claims(), claim(text)
 
-CREATE SCHEMA pgd_storage AUTHORIZATION pgdock_admin;
+CREATE SCHEMA xb_storage AUTHORIZATION xenibase_admin;
   -- buckets, objects (RLS enabled; developer policies apply), multipart_uploads
   -- functions folder(path, n), filename(path), extension(path)
 
-CREATE SCHEMA pgd_realtime AUTHORIZATION pgdock_admin;
+CREATE SCHEMA xb_realtime AUTHORIZATION xenibase_admin;
   -- outbox, channel_access (RLS enabled; developer policies apply), broadcast_history
 ```
 
-Grants: `anon`/`user` roles get `USAGE` on the helper functions and `SELECT/INSERT/UPDATE/DELETE` on `pgd_storage.objects` and `pgd_realtime.channel_access` subject to RLS; no access to auth tables except the `user_profiles` view (filtered to the caller). `service` reads `user_profiles` for all users. Schema migrations for these tables are versioned and applied by the control plane, like extensions.
+Grants: `anon`/`user` roles get `USAGE` on the helper functions and `SELECT/INSERT/UPDATE/DELETE` on `xb_storage.objects` and `xb_realtime.channel_access` subject to RLS; no access to auth tables except the `user_profiles` view (filtered to the caller). `service` reads `user_profiles` for all users. Schema migrations for these tables are versioned and applied by the control plane, like extensions.
 
 ---
 
@@ -666,7 +666,7 @@ Milestones continue from V3 (M17–M27). One engineer, roughly full time: about 
 
 ### M28 — Edge foundation (Weeks 1–2)
 
-`pgdock-edge` skeleton; per-region deployment; wildcard DNS and TLS; project refs; API keys; config cache and push channel; per-request transaction with role and claims; `pgd_auth` helper functions; enable/disable services operation; gateway rate limiting, CORS, request logs, and usage metering. **Done when:** a project with services enabled answers `GET /data/v1/health` at its own hostname, rejects keys from another project, and records request usage.
+`xenibase-edge` skeleton; per-region deployment; wildcard DNS and TLS; project refs; API keys; config cache and push channel; per-request transaction with role and claims; `xb_auth` helper functions; enable/disable services operation; gateway rate limiting, CORS, request logs, and usage metering. **Done when:** a project with services enabled answers `GET /data/v1/health` at its own hostname, rejects keys from another project, and records request usage.
 
 *(As built: the push channel is a signed long-poll feed with a full re-read every minute, and the edge never reads the metadata DB; the wildcard certificate comes from files an operator's DNS-01 client renews; user tokens are already verified. See `docs/decisions.md`, V4-M28, and `docs/backend-services.md`.)*
 
@@ -684,9 +684,9 @@ Insert, upsert, update/delete with required filters and `max_affected`, batch tr
 
 ### M31 — Auth core (Weeks 8–10)
 
-`pgd_auth` schema; email/password, magic link, email OTP; ES256 keys, JWKS, rotation; access and refresh tokens with rotation and reuse detection; sessions; rate limits and lockout; platform email with templates; custom SMTP; admin user API; auth dashboard (users, detail, ban, delete). **Done when:** sign-up, sign-in, refresh, sign-out-everywhere, and reuse detection pass their tests, and RLS policies using `pgd_auth.uid()` enforce per-user data.
+`xb_auth` schema; email/password, magic link, email OTP; ES256 keys, JWKS, rotation; access and refresh tokens with rotation and reuse detection; sessions; rate limits and lockout; platform email with templates; custom SMTP; admin user API; auth dashboard (users, detail, ban, delete). **Done when:** sign-up, sign-in, refresh, sign-out-everywhere, and reuse detection pass their tests, and RLS policies using `xb_auth.uid()` enforce per-user data.
 
-*(As built: pgdock-edge signs tokens with the active key it receives in the feed and sends auth emails through pgdock-server, which keeps SMTP credentials; rotation is a synchronous call, not an operation; a reused refresh token ends the whole session with no grace window. See `docs/decisions.md`, V4-M31.)*
+*(As built: xenibase-edge signs tokens with the active key it receives in the feed and sends auth emails through xenibase-server, which keeps SMTP credentials; rotation is a synchronous call, not an operation; a reused refresh token ends the whole session with no grace window. See `docs/decisions.md`, V4-M31.)*
 
 ### M32 — Auth: phone, OAuth, MFA, hooks (Weeks 11–13)
 
@@ -696,7 +696,7 @@ Message provider interface; platform SMS and WhatsApp OTP with caps, country all
 
 ### M33 — Storage (Weeks 14–16)
 
-`pgd_storage` schema and helpers; buckets; direct and multipart uploads with presigned URLs; downloads, signed URLs, public CDN; range requests; image transforms with caching; listing, move, copy, delete; reconciler; quotas and metering; storage dashboard. **Done when:** per-user avatar policies hold for upload, read, and delete; a 2 GB upload completes via multipart; transformed images are served from cache on the second request.
+`xb_storage` schema and helpers; buckets; direct and multipart uploads with presigned URLs; downloads, signed URLs, public CDN; range requests; image transforms with caching; listing, move, copy, delete; reconciler; quotas and metering; storage dashboard. **Done when:** per-user avatar policies hold for upload, read, and delete; a 2 GB upload completes via multipart; transformed images are served from cache on the second request.
 
 *(As built: files are in the region's backup storage target under version-keyed names, not `projects/<ref>/<bucket>/<path>`; transforms are pure Go (WebP and AVIF through WebAssembly) instead of libvips; signed URLs are checked by the edge, not the store; quotas reach the edge from a 5-minute sweep; branches carry file rows without their bytes. See `docs/decisions.md`, V4-M33, and `docs/backend-services.md`.)*
 
@@ -712,9 +712,9 @@ Replica creation on another node or region; pooler read-only route with health a
 
 ### M36 — SDKs, docs, migration helper (Weeks 21–22)
 
-`@pgdock/client`, Dart/Flutter, and Go SDKs with typed queries and auto-refresh; documentation site with guides (Next.js, React Native, Flutter); Supabase migration helper for schema/RLS rewrite, users (bcrypt upgrade), and storage; client code mapping guide. **Done when:** a real Supabase hobby project is migrated, including its users and files, and its users sign in on PGDock with their existing passwords.
+`@xenibase/client`, Dart/Flutter, and Go SDKs with typed queries and auto-refresh; documentation site with guides (Next.js, React Native, Flutter); Supabase migration helper for schema/RLS rewrite, users (bcrypt upgrade), and storage; client code mapping guide. **Done when:** a real Supabase hobby project is migrated, including its users and files, and its users sign in on Xenibase with their existing passwords.
 
-*(As built: the helper is three operations on a project with backend services after the V1 import (policies, users, storage), each re-runnable and reporting what it couldn't map; policies are rewritten in place and the import's `auth.*` shim is pointed at `pgd_auth` for function bodies; storage policies map only where every column has an equivalent. The SDKs share one shape and are tested live against the edge (`TestSDKs`); the docs site is generated from `docs/` by `cmd/docsite`. See `docs/decisions.md`, V4-M36.)*
+*(As built: the helper is three operations on a project with backend services after the V1 import (policies, users, storage), each re-runnable and reporting what it couldn't map; policies are rewritten in place and the import's `auth.*` shim is pointed at `xb_auth` for function bodies; storage policies map only where every column has an equivalent. The SDKs share one shape and are tested live against the edge (`TestSDKs`); the docs site is generated from `docs/` by `cmd/docsite`. See `docs/decisions.md`, V4-M36.)*
 
 ### M37 — Billing integration, hardening, GA (Weeks 23–24)
 
@@ -763,9 +763,9 @@ Edge functions (sandboxed runtime, deploy from CLI, secrets, logs); custom domai
 
 ## 17. Open Questions
 
-1. **SMS and WhatsApp providers.** Which providers should PGDock hold accounts with for Nigerian delivery (and as fallback)? This sets OTP cost and reliability. *Answered (M32): Termii for SMS (DND route) and Meta's WhatsApp Cloud API with an authentication template; projects may bring Termii, Africa's Talking or Twilio, or their own WhatsApp number.*
+1. **SMS and WhatsApp providers.** Which providers should Xenibase hold accounts with for Nigerian delivery (and as fallback)? This sets OTP cost and reliability. *Answered (M32): Termii for SMS (DND route) and Meta's WhatsApp Cloud API with an authentication template; projects may bring Termii, Africa's Talking or Twilio, or their own WhatsApp number.*
 2. **Dart/Flutter at launch.** Is Flutter common enough among your target customers to justify a launch SDK, or start with TypeScript and Go only?
 3. **Realtime in V4 or V5.** Realtime is the most expensive service to operate correctly. Keep it in V4 (as specced), or move it to V5 and ship V4 about 3 weeks sooner?
-4. **Hostname.** Is `<ref>.api.pgdock.ng` the domain you want customers' apps to call, or will the product name change before V4 ships?
-5. **Free plan and SMS.** Should Free projects get a small allowance of platform OTP messages (better onboarding, fraud risk), or BYO provider only (as specced)? *M32 keeps BYO only by default; an operator can allow Free projects with `PGDOCK_PHONE_AUTH_FREE`.*
+4. **Hostname.** Is `<ref>.api.xenibase.ng` the domain you want customers' apps to call, or will the product name change before V4 ships?
+5. **Free plan and SMS.** Should Free projects get a small allowance of platform OTP messages (better onboarding, fraud risk), or BYO provider only (as specced)? *M32 keeps BYO only by default; an operator can allow Free projects with `XENIBASE_PHONE_AUTH_FREE`.*
 6. **API caching.** Is edge caching of anonymous `GET` responses worth including in V4, or should it wait until customers ask?

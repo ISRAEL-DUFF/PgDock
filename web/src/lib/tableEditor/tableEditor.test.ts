@@ -235,9 +235,9 @@ describe("tabs and layout", () => {
     expect(closeTab([a], a, a)).toEqual({ tabs: [], next: null });
   });
   it("survives junk in storage", () => {
-    localStorage.setItem("pgdock.editor.tabs.p1", "{not json");
+    localStorage.setItem("xenibase.editor.tabs.p1", "{not json");
     expect(loadTabs("p1")).toEqual([]);
-    localStorage.setItem("pgdock.editor.tabs.p1", JSON.stringify([{ schema: "public" }, { schema: "public", table: "t" }]));
+    localStorage.setItem("xenibase.editor.tabs.p1", JSON.stringify([{ schema: "public" }, { schema: "public", table: "t" }]));
     expect(loadTabs("p1")).toEqual([{ schema: "public", table: "t" }]);
   });
   it("orders and moves columns", () => {

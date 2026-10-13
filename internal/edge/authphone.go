@@ -12,13 +12,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/messaging"
-	"github.com/israel-duff/pgdock/internal/projauth"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/messaging"
+	"github.com/israel-duff/xenibase/internal/projauth"
 )
 
 // Phone sign-in (V4 §4.1): codes by SMS or WhatsApp to numbers in the
-// project's allowed countries. pgdock-server applies the per-number and
+// project's allowed countries. xenibase-server applies the per-number and
 // daily caps when it queues a code.
 
 // phoneEvery is how often one number may be sent a code from here (the
@@ -74,7 +74,7 @@ func phoneOn(c *call) bool {
 	return true
 }
 
-// sendPhone asks pgdock-server to send code to phone by channel; its
+// sendPhone asks xenibase-server to send code to phone by channel; its
 // refusals come back as *apiErr, so the transaction that made the code
 // rolls back.
 func (e *Edge) sendPhone(ctx context.Context, p *project, channel, kind, phone string, code projauth.Code) error {

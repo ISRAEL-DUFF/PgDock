@@ -11,10 +11,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func (s *Server) billingSvc(w http.ResponseWriter) *billing.Service {

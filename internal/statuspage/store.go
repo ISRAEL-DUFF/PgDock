@@ -10,7 +10,7 @@ import (
 
 	_ "modernc.org/sqlite" // pure-Go SQLite: the status service has no C dependencies
 
-	"github.com/israel-duff/pgdock/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/statusapi"
 )
 
 // schema is the whole state. Times are Unix seconds (UTC). States in
@@ -301,7 +301,7 @@ func (s *store) updates(ctx context.Context, q querier, incident string) ([]stat
 	return out, rows.Err()
 }
 
-// errAutoIncident: pgdock-server may not overwrite an incident the status
+// errAutoIncident: xenibase-server may not overwrite an incident the status
 // service opened itself.
 var errAutoIncident = errors.New("this incident was opened by the status service and is managed by it")
 

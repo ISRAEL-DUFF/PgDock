@@ -1,6 +1,6 @@
 package api
 
-import "github.com/israel-duff/pgdock/internal/authz"
+import "github.com/israel-duff/xenibase/internal/authz"
 
 // scope says how a route's resource is found before authz.Can runs.
 type scope int
@@ -43,7 +43,7 @@ var routeRules = map[string]rule{
 	"GET /api/v1/pricing": {scope: scopePublic},
 	// Payment providers' webhooks, authenticated by their signatures.
 	"POST /api/v1/payments/webhooks/{provider}": {scope: scopePublic},
-	// pgdock-edge's feed (V4 §2.1): signed with the edge secret, checked in
+	// xenibase-edge's feed (V4 §2.1): signed with the edge secret, checked in
 	// the handler.
 	"GET /api/v1/edge/config":         {scope: scopePublic},
 	"POST /api/v1/edge/report":        {scope: scopePublic},

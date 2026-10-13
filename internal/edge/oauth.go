@@ -21,9 +21,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/jwtes"
-	"github.com/israel-duff/pgdock/internal/projauth"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/jwtes"
+	"github.com/israel-duff/xenibase/internal/projauth"
 )
 
 // OAuth sign-in (V4 §4.1) with the project's own app at Google, Apple,
@@ -173,10 +173,10 @@ func (e *Edge) oauthAuthorize(c *call, req *Request) {
 	state, verifier, nonce := randToken(32), randToken(48), randToken(16)
 	ctx := c.r.Context()
 	err := e.authTx(c, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `DELETE FROM pgd_auth.flow_state WHERE expires_at < now() - interval '1 hour'`); err != nil {
+		if _, err := tx.Exec(ctx, `DELETE FROM xb_auth.flow_state WHERE expires_at < now() - interval '1 hour'`); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO pgd_auth.flow_state (provider, state_hash, provider_verifier, nonce, code_challenge,
+		_, err := tx.Exec(ctx, `INSERT INTO xb_auth.flow_state (provider, state_hash, provider_verifier, nonce, code_challenge,
 			code_challenge_method, redirect_to, link_user_id, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 			name, sha256hex(state), verifier, nonce, challenge, method, redirect, link, time.Now().Add(flowTTL))
 		return err
@@ -256,7 +256,7 @@ func (e *Edge) callback(c *call) {
 	var found bool
 	err := e.withAuth(ctx, c.p, func(tx pgx.Tx) error {
 		// The state works once.
-		err := tx.QueryRow(ctx, `UPDATE pgd_auth.flow_state SET state_hash = 'used:' || id::text
+		err := tx.QueryRow(ctx, `UPDATE xb_auth.flow_state SET state_hash = 'used:' || id::text
 			WHERE state_hash = $1 AND expires_at > now() AND auth_code_hash IS NULL
 			RETURNING id, provider, provider_verifier, coalesce(nonce, ''), code_challenge, code_challenge_method, redirect_to, link_user_id`,
 			sha256hex(state)).Scan(&f.id, &f.provider, &f.verifier, &f.nonce, &f.challenge, &f.method, &f.redirectTo, &f.linkUser)
@@ -303,11 +303,11 @@ func (e *Edge) callback(c *call) {
 		}
 		if f.challenge == "" {
 			out, err = e.startSession(ctx, c, tx, u, f.provider)
-			_, derr := tx.Exec(ctx, `DELETE FROM pgd_auth.flow_state WHERE id = $1`, f.id)
+			_, derr := tx.Exec(ctx, `DELETE FROM xb_auth.flow_state WHERE id = $1`, f.id)
 			return errors.Join(err, derr)
 		}
 		authCode = randToken(32)
-		_, err = tx.Exec(ctx, `UPDATE pgd_auth.flow_state SET user_id = $2, auth_code_hash = $3, expires_at = $4 WHERE id = $1`,
+		_, err = tx.Exec(ctx, `UPDATE xb_auth.flow_state SET user_id = $2, auth_code_hash = $3, expires_at = $4 WHERE id = $1`,
 			f.id, u.ID, sha256hex(authCode), time.Now().Add(authCodeTTL))
 		return err
 	})
@@ -490,7 +490,7 @@ func (e *Edge) exchangePKCE(c *call) {
 	err := e.authTx(c, func(tx pgx.Tx) error {
 		var id, uid uuid.UUID
 		var provider, challenge, method string
-		err := tx.QueryRow(ctx, `DELETE FROM pgd_auth.flow_state WHERE auth_code_hash = $1 AND expires_at > now()
+		err := tx.QueryRow(ctx, `DELETE FROM xb_auth.flow_state WHERE auth_code_hash = $1 AND expires_at > now()
 			RETURNING id, provider, user_id, code_challenge, code_challenge_method`, sha256hex(in.AuthCode)).
 			Scan(&id, &provider, &uid, &challenge, &method)
 		if errors.Is(err, pgx.ErrNoRows) {

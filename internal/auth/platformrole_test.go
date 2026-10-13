@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/auth"
+	"github.com/israel-duff/xenibase/internal/auth"
 )
 
 // signUp creates a verified, enrolled ordinary account.
@@ -106,7 +106,7 @@ func TestOperatorRecovery(t *testing.T) {
 
 	// A reset link works once and signs the account in with the new password.
 	link, err := s.PasswordResetLink(ctx, erin)
-	if err != nil || !strings.HasPrefix(link, "https://pgdock.test/reset-password?token=") {
+	if err != nil || !strings.HasPrefix(link, "https://xenibase.test/reset-password?token=") {
 		t.Fatalf("link: %q %v", link, err)
 	}
 	const next = "a brand new passphrase"

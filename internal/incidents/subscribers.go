@@ -5,8 +5,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/statusapi"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // syncEvery is how often the managed subscribers are sent (V4.1 §7.1).
@@ -70,7 +70,7 @@ func (s *Service) Subscribers(ctx context.Context) (statusapi.ManagedSubscribers
 	return out, nil
 }
 
-// SyncSubscribers sends the managed subscribers to pgdock-status.
+// SyncSubscribers sends the managed subscribers to xenibase-status.
 func (s *Service) SyncSubscribers(ctx context.Context) error {
 	if s.client == nil {
 		return nil

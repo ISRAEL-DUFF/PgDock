@@ -22,8 +22,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 type backendProject struct {
@@ -33,11 +33,11 @@ type backendProject struct {
 }
 
 // TestBackendLoad is V4-M37's load test of backend services (V4 §13):
-// PGDOCK_LOAD_BACKEND_PROJECTS (1,000) projects with backend services on
-// the shared tier behind one edge, PGDOCK_LOAD_RPS (2,000) data API
-// requests a second spread over all of them for PGDOCK_LOAD_SECONDS (60),
+// XENIBASE_LOAD_BACKEND_PROJECTS (1,000) projects with backend services on
+// the shared tier behind one edge, XENIBASE_LOAD_RPS (2,000) data API
+// requests a second spread over all of them for XENIBASE_LOAD_SECONDS (60),
 // four reads to each write, then a burst of image transforms
-// (PGDOCK_LOAD_TRANSFORMS, 200 at once over 10 projects) with data
+// (XENIBASE_LOAD_TRANSFORMS, 200 at once over 10 projects) with data
 // requests still running. It writes tmp/load-report-backend.md.
 //
 // It fails if more than 0.1% of requests fail, fewer than 95% of the
@@ -45,18 +45,18 @@ type backendProject struct {
 // during the transform burst), or a transform fails or the burst takes
 // over a minute.
 //
-// With PGDOCK_LOAD_TARGET it runs against a real install instead (V4.1
+// With XENIBASE_LOAD_TARGET it runs against a real install instead (V4.1
 // §13; see remoteFromEnv and deploy/loadtest/README.md): projects are made
 // through its API as a platform admin and the load goes to its edge.
 func TestBackendLoad(t *testing.T) {
-	if os.Getenv("PGDOCK_TEST_LOAD") == "" {
-		t.Skip("set PGDOCK_TEST_LOAD=1 (make test-load)")
+	if os.Getenv("XENIBASE_TEST_LOAD") == "" {
+		t.Skip("set XENIBASE_TEST_LOAD=1 (make test-load)")
 	}
-	total := envInt("PGDOCK_LOAD_BACKEND_PROJECTS", 1000)
-	rps := envInt("PGDOCK_LOAD_RPS", 2000)
-	seconds := envInt("PGDOCK_LOAD_SECONDS", 60)
-	transforms := envInt("PGDOCK_LOAD_TRANSFORMS", 200)
-	parallel := envInt("PGDOCK_LOAD_PARALLEL", 8)
+	total := envInt("XENIBASE_LOAD_BACKEND_PROJECTS", 1000)
+	rps := envInt("XENIBASE_LOAD_RPS", 2000)
+	seconds := envInt("XENIBASE_LOAD_SECONDS", 60)
+	transforms := envInt("XENIBASE_LOAD_TRANSFORMS", 200)
+	parallel := envInt("XENIBASE_LOAD_PARALLEL", 8)
 	perOrg := 100
 	ctx := context.Background()
 	remote := remoteFromEnv(t)
@@ -353,9 +353,9 @@ func TestBackendLoad(t *testing.T) {
 		}
 	}()
 	d := time.Duration(seconds) * time.Second
-	// PGDOCK_LOAD_STEPS (e.g. "500,1000,1500") runs lower rates first,
+	// XENIBASE_LOAD_STEPS (e.g. "500,1000,1500") runs lower rates first,
 	// for where latency turns; the target rate is judged.
-	for _, f := range strings.Split(os.Getenv("PGDOCK_LOAD_STEPS"), ",") {
+	for _, f := range strings.Split(os.Getenv("XENIBASE_LOAD_STEPS"), ",") {
 		var step int
 		if _, err := fmt.Sscan(strings.TrimSpace(f), &step); err != nil || step <= 0 || step >= rps {
 			continue

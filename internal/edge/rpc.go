@@ -15,7 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/datacat"
+	"github.com/israel-duff/xenibase/internal/datacat"
 )
 
 // Functions (V4 §3.4): POST /data/v1/rpc/{function} with named arguments

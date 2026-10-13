@@ -26,7 +26,7 @@ type PoolerBundle struct {
 	Files      map[string][]byte `json:"files"`
 }
 
-// PoolerExpected tells a pooler host the newest generation pgdock-server
+// PoolerExpected tells a pooler host the newest generation xenibase-server
 // has rendered. A host serving an older one reports itself stale and
 // fails keepalived's check, so it can't take the floating IP.
 type PoolerExpected struct {

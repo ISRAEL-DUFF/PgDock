@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // supabaseFixture is a small Supabase app: profiles keyed by auth.users,
@@ -79,10 +79,10 @@ func sourceURL(t *testing.T, name string) string {
 }
 
 // TestImportSupabase imports a Supabase-shaped project and checks the app
-// keeps working against PGDock (the M3 done-when, against the
+// keeps working against Xenibase (the M3 done-when, against the
 // supabase/postgres image rather than a hosted project).
 func TestImportSupabase(t *testing.T) {
-	src := sourceURL(t, "PGDOCK_TEST_SRC_SUPABASE_URL")
+	src := sourceURL(t, "XENIBASE_TEST_SRC_SUPABASE_URL")
 	seed(t, src, supabaseFixture)
 	e := testenv.Start(t, testenv.Options{})
 	e.StartAgent()
@@ -148,7 +148,7 @@ func TestImportSupabase(t *testing.T) {
 	}
 	var id int64
 	var ref string
-	if err := app.QueryRow(ctx, `INSERT INTO todos (user_id, task) VALUES ('00000000-0000-0000-0000-000000000001', 'from PGDock') RETURNING id, ref::text`).Scan(&id, &ref); err != nil || id != 121 || len(ref) != 36 {
+	if err := app.QueryRow(ctx, `INSERT INTO todos (user_id, task) VALUES ('00000000-0000-0000-0000-000000000001', 'from Xenibase') RETURNING id, ref::text`).Scan(&id, &ref); err != nil || id != 121 || len(ref) != 36 {
 		t.Fatalf("insert: id %d ref %q %v", id, ref, err)
 	}
 	var touched bool
@@ -189,7 +189,7 @@ func TestImportSupabase(t *testing.T) {
 
 // TestImportPostgres15 imports two schemas from a plain Postgres 15.
 func TestImportPostgres15(t *testing.T) {
-	admin := sourceURL(t, "PGDOCK_TEST_SRC_PG15_URL")
+	admin := sourceURL(t, "XENIBASE_TEST_SRC_PG15_URL")
 	seed(t, admin, []string{
 		`DROP DATABASE IF EXISTS shop15 WITH (FORCE)`,
 		`CREATE DATABASE shop15`,

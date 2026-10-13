@@ -1,6 +1,6 @@
 # Billing
 
-PGDock prices in US dollars and collects in naira (V3 §3, changed in
+Xenibase prices in US dollars and collects in naira (V3 §3, changed in
 V4.1). Hosting costs are in dollars, so prices are too; an invoice is
 converted to naira when it is issued, at a rate frozen on it. This page
 covers price books, plans and proration, monthly invoices, the conversion,
@@ -30,7 +30,7 @@ its projects: billing members can't open or create projects and can't be
 added to one. Admins don't see billing, so only owners can give or take
 the billing role.
 
-Org → **Billing** (`/org/billing`), `pgdock billing …`, and
+Org → **Billing** (`/org/billing`), `xenibase billing …`, and
 `/api/v1/orgs/{org}/billing/…`.
 
 ## Plans and price books
@@ -66,9 +66,9 @@ Besides HA and synchronous replication (V4.1 §4):
 
 | Add-on | Where | Default price | Set in |
 | --- | --- | --- | --- |
-| 14-day point-in-time recovery | dedicated, Pro and Team | about $3.33 a month (`addons.pitr_14_hour`) | Backups → Recovery window, `pgdock pitr window <p> 14`, `PATCH /projects/{id}/instance` |
+| 14-day point-in-time recovery | dedicated, Pro and Team | about $3.33 a month (`addons.pitr_14_hour`) | Backups → Recovery window, `xenibase pitr window <p> 14`, `PATCH /projects/{id}/instance` |
 | 30-day point-in-time recovery | dedicated, Pro and Team | $8 a month (`addons.pitr_30_hour`) | as above, `30` |
-| Extended backup retention (30 daily, 12 weekly) | any project, Pro and Team | $1 a month (`addons.backup_retention_extended_hour`) | Backups → Backup retention, `pgdock backup retention <p> extended`, `PATCH /projects/{id}/settings` |
+| Extended backup retention (30 daily, 12 weekly) | any project, Pro and Team | $1 a month (`addons.backup_retention_extended_hour`) | Backups → Backup retention, `xenibase backup retention <p> extended`, `PATCH /projects/{id}/settings` |
 | Long backup retention (30 daily, 52 weekly) | any project, Pro and Team | $2 a month (`addons.backup_retention_long_hour`) | as above, `long` |
 | Region premium | dedicated projects in the region | none (`addons.region_premium_percent`, e.g. `{"ng-lagos": "25"}`) | the price book |
 
@@ -166,7 +166,7 @@ invoice with it:
 
 **The rate.** The provider quotes the dollar in naira from its own feed,
 or from a rate its desk sets, plus a spread. Both are the provider's to
-decide (see [Payments](payments.md#the-dollar-rate)); PGDock uses the
+decide (see [Payments](payments.md#the-dollar-rate)); Xenibase uses the
 effective rate it is given. It is asked for **fresh** when an invoice is
 issued and refuses one older than `fx_max_age_hours` (4 by default, in
 the billing settings): a provider that can't price the pair keeps
@@ -181,20 +181,20 @@ passed midnight on the 1st), drafts are re-rated with the full month and
 **issued**, unless the platform admin holds one (Admin → Billing →
 Invoices → Hold). Issuing:
 
-- numbers it `PGD-YYYY-NNNNNN`, sequential per year and never reused;
-- freezes the customer's business details and PGDock's (Admin → Billing →
+- numbers it `XB-YYYY-NNNNNN`, sequential per year and never reused;
+- freezes the customer's business details and Xenibase's (Admin → Billing →
   Settings) on it;
 - posts it to the ledger in the same database transaction;
 - emails the billing contacts (or, with none, the owners and billing
   members) with a link to it.
 
-Issued invoices are never edited. **Credit notes** (`PGD-CN-YYYY-NNNNNN`)
+Issued invoices are never edited. **Credit notes** (`XB-CN-YYYY-NNNNNN`)
 correct them: Admin → Billing → Invoices → an invoice → Credit note, an
 amount before VAT and a reason. VAT is credited at the invoice's rate, and
 an invoice's credits can't exceed its total.
 
 Invoices download as PDF from the Billing page, the admin console, and
-`pgdock billing invoice <number> --pdf file.pdf`.
+`xenibase billing invoice <number> --pdf file.pdf`.
 
 **Automatic issue is off by default.** Until payments are live (M21),
 drafts are generated for review and the admin issues them. Turn on
@@ -227,7 +227,7 @@ are emailed when the forecast reaches 50%, 80% and 100% of it, once each
 per month.
 
 **Spend cap:** when the forecast's usage charges (overage, dedicated,
-add-ons) reach the cap, PGDock pauses new billable resources until the
+add-ons) reach the cap, Xenibase pauses new billable resources until the
 cap is raised or the month ends:
 
 - new branches, dedicated instances (created, promoted or recovered
@@ -272,7 +272,7 @@ Admin → Billing → **Settings** (`/api/v1/admin/billing/settings`):
 
 - VAT rate (default 0.075) and WHT rate (default 0.05). They are
   configuration: confirm them with your accountant.
-- PGDock's legal name, address, TIN, VAT registration and billing email,
+- Xenibase's legal name, address, TIN, VAT registration and billing email,
   as invoices show them.
 - Automatic issue on the 1st.
 - `fx_max_age_hours`: how old the dollar's rate may be when an invoice is

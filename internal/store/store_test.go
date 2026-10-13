@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/store/storetest"
 )
 
 func TestMigrateIsIdempotent(t *testing.T) {

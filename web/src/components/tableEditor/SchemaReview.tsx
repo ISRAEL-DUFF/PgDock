@@ -10,7 +10,7 @@ const planSQL = (p: SchemaPlan) => p.statements.map((s) => s.sql.replace(/;?$/, 
 /**
  * Every schema change from the table editor stops here: the SQL it will
  * run, the risk notes, and Run / Copy SQL / Save as migration (V2 §4.3).
- * Studio applies changes straight away; this review is PGDock's safety
+ * Studio applies changes straight away; this review is Xenibase's safety
  * step and stays.
  */
 export function SchemaReview({

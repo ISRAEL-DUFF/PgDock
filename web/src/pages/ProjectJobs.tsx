@@ -311,7 +311,7 @@ function JobDetail({ p, j, secret, onSecretStored, onClose }: { p: Project; j: J
         {secret && (
           <Alert tone="ok" title={`Signing secret for ${j.name}`}>
             <div className="flex flex-col gap-2">
-              <span>Shown once: requests carry PGDock-Signature and PGDock-Job headers.</span>
+              <span>Shown once: requests carry Xenibase-Signature and Xenibase-Job headers.</span>
               <CopyField label="Secret" value={secret} secret />
               <Button className="self-start text-xs" onClick={onSecretStored}>
                 I&rsquo;ve stored it

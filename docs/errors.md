@@ -1,6 +1,6 @@
 # Error codes
 
-Every error from PGDock's APIs is JSON with a stable `code` and a message
+Every error from Xenibase's APIs is JSON with a stable `code` and a message
 for people:
 
 ```json
@@ -58,7 +58,7 @@ the SQL endpoint (`/projects/{id}/sql`) and table rows
 | `outbound_disabled` | 409 | conflict | no | The organisation's outbound traffic is off (an admin's decision). |
 | `capacity_pending_approval` | 409 | unavailable | later | Capacity is being added; the message says when to try again. |
 | `rate_limited` | 429 | rate | yes | Too many requests for the token (default 600 a minute) or the organisation's tokens (1,200). `Retry-After` is sent. |
-| `internal` | 500 | unavailable | once | A fault on PGDock's side; report it if it repeats. |
+| `internal` | 500 | unavailable | once | A fault on Xenibase's side; report it if it repeats. |
 | `project_resuming` | 503 | unavailable | yes | A Free project was paused for inactivity; this request woke it. `Retry-After: 10`. |
 | `project_restoring` | 503 | unavailable | yes | A Free project was archived; this request started restoring it (a minute or two). `Retry-After: 60`. |
 | `no_capacity` | 503 | unavailable | later | No room for a new project now. |

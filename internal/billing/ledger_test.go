@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store/storetest"
 )
 
 func newOrg(t *testing.T, db *pgxpool.Pool, slug string) uuid.UUID {

@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/statusapi"
 )
 
 const (
@@ -371,7 +371,7 @@ func (s *Service) DeliverMail(ctx context.Context) error {
 	cfg := s.cfg.SMTP.mail()
 	for _, m := range due {
 		sctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		err := mail.Send(sctx, cfg, mail.Message{To: []string{m.to}, Subject: m.subject, Body: m.body, Headers: map[string]string{"X-PGDock-Event": "status"}})
+		err := mail.Send(sctx, cfg, mail.Message{To: []string{m.to}, Subject: m.subject, Body: m.body, Headers: map[string]string{"X-Xenibase-Event": "status"}})
 		cancel()
 		if err == nil {
 			_, _ = s.st.db.ExecContext(ctx, `DELETE FROM outbox WHERE id = ?`, m.id)

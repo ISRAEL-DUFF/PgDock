@@ -3,7 +3,7 @@
 
 /* Theme tokens (docs/ui-redesign.md). Dark is the default; data-theme on
    <html> pins light or dark, and "system" follows the OS. Neutrals follow
-   Supabase Studio's greys; the accent is PGDock's purple. */
+   Supabase Studio's greys; the accent is Xenibase's purple. */
 :root,
 :root[data-theme="dark"] {
   --bg: #121212; /* the app */
@@ -144,7 +144,7 @@ select:focus-visible {
 }
 
 /* The table editor's grid (react-data-grid), in the theme's colours. */
-.rdg.pgdock-grid {
+.rdg.xenibase-grid {
   --rdg-background-color: var(--bg);
   --rdg-header-background-color: var(--surface);
   --rdg-header-draggable-background-color: var(--surface-3);
@@ -161,16 +161,16 @@ select:focus-visible {
   color-scheme: inherit;
   font-family: var(--font-mono);
 }
-.rdg.pgdock-grid [role="columnheader"] {
+.rdg.xenibase-grid [role="columnheader"] {
   font-family: var(--font-sans);
   font-weight: 400;
   padding-inline: 0;
 }
-.rdg.pgdock-grid [role="gridcell"] {
+.rdg.xenibase-grid [role="gridcell"] {
   padding-inline: 8px;
 }
 /* The row and header checkboxes: small enough to sit inside a 34px row. */
-.rdg.pgdock-grid input[type="checkbox"] {
+.rdg.xenibase-grid input[type="checkbox"] {
   appearance: none;
   inline-size: 14px;
   block-size: 14px;
@@ -180,24 +180,24 @@ select:focus-visible {
   background: var(--surface-2);
   cursor: pointer;
 }
-.rdg.pgdock-grid input[type="checkbox"]:hover {
+.rdg.xenibase-grid input[type="checkbox"]:hover {
   border-color: var(--accent);
 }
-.rdg.pgdock-grid input[type="checkbox"]:checked,
-.rdg.pgdock-grid input[type="checkbox"]:indeterminate {
+.rdg.xenibase-grid input[type="checkbox"]:checked,
+.rdg.xenibase-grid input[type="checkbox"]:indeterminate {
   border-color: var(--accent);
   background-color: var(--accent);
   background-repeat: no-repeat;
   background-position: center;
   background-size: 10px;
 }
-.rdg.pgdock-grid input[type="checkbox"]:checked {
+.rdg.xenibase-grid input[type="checkbox"]:checked {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3.2 3L13 4.5'/%3E%3C/svg%3E");
 }
-.rdg.pgdock-grid input[type="checkbox"]:indeterminate {
+.rdg.xenibase-grid input[type="checkbox"]:indeterminate {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' stroke='white' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M3.5 8h9'/%3E%3C/svg%3E");
 }
-.rdg.pgdock-grid input[type="checkbox"]:focus-visible {
+.rdg.xenibase-grid input[type="checkbox"]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }

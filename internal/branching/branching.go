@@ -17,14 +17,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/services"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/services"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Operation kinds.
@@ -535,7 +535,7 @@ func (s *Service) Sweep(ctx context.Context) error {
 		return errors.Join(append(errs, err)...)
 	}
 	for _, b := range soon {
-		body := fmt.Sprintf("Your branch %q of %s will be deleted at %s.\n\nTo keep it longer, extend it under %s/projects/%s/branches, or with `pgdock branch extend`.\nTo keep it for good, detach it from its parent.\n",
+		body := fmt.Sprintf("Your branch %q of %s will be deleted at %s.\n\nTo keep it longer, extend it under %s/projects/%s/branches, or with `xenibase branch extend`.\nTo keep it for good, detach it from its parent.\n",
 			b.Name, b.ParentName, b.ExpiresAt.UTC().Format("2006-01-02 15:04 MST"), s.cfg.PublicURL, b.ID)
 		err := s.mail.Send(ctx, mail.Message{To: []string{b.Email}, Subject: fmt.Sprintf("Branch %s expires in less than a day", b.Name), Body: body})
 		if err != nil && !errors.Is(err, mail.ErrNotConfigured) {

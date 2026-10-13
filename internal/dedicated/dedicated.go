@@ -20,15 +20,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/ha"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/walg"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/ha"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/walg"
 )
 
 // Secrets supplies backup storage and keys (the backup service).
@@ -69,7 +69,7 @@ type Config struct {
 	MoveWait MoveWait
 	// RequireAnnouncement: the maintenance window restarts an HA project
 	// only inside maintenance announced to it at least 72 hours before
-	// (V3.1 §4.3; PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT).
+	// (V3.1 §4.3; XENIBASE_MAINTENANCE_REQUIRE_ANNOUNCEMENT).
 	RequireAnnouncement bool
 	// ReplicaMaxLag is how far behind a read replica may fall before it
 	// leaves the pooler's read-only route (V4 §7; default 10 s).
@@ -362,7 +362,7 @@ func (s *Service) Ensure(ctx context.Context, op store.Operation, p store.Projec
 	// The superuser: generated, or for a restore the source's (it is in the
 	// restored data).
 	if len(inst.AdminSecret) == 0 {
-		secret := provision.AdminSecret{User: "pgdock_admin", Password: randomPassword()}
+		secret := provision.AdminSecret{User: "xenibase_admin", Password: randomPassword()}
 		if pitr != nil {
 			src, err := q.GetInstance(ctx, pitr.SourceInstance)
 			if err != nil {
@@ -425,7 +425,7 @@ func (s *Service) Ensure(ctx context.Context, op store.Operation, p store.Projec
 		return err
 	}
 	if res.Host == "" {
-		return jobs.Permanent(fmt.Errorf("agent on %s reports no address for the instance (set PGDOCK_AGENT_NETWORK or PGDOCK_AGENT_PUBLISH)", agent.Node.Name))
+		return jobs.Permanent(fmt.Errorf("agent on %s reports no address for the instance (set XENIBASE_AGENT_NETWORK or XENIBASE_AGENT_PUBLISH)", agent.Node.Name))
 	}
 	if err := s.recordRunning(ctx, inst, agent, res); err != nil {
 		return err
@@ -535,7 +535,7 @@ func (s *Service) adminConn(ctx context.Context, inst store.Instance, database s
 	}
 	cfg.User, cfg.Password, cfg.Database = secret.User, secret.Password, database
 	cfg.ConnectTimeout = 10 * time.Second
-	cfg.RuntimeParams["application_name"] = "pgdock-server"
+	cfg.RuntimeParams["application_name"] = "xenibase-server"
 	return pgx.ConnectConfig(ctx, cfg)
 }
 

@@ -84,8 +84,8 @@ func TestVerifyTOTP(t *testing.T) {
 	if _, ok := VerifyTOTP(secret, "000000", now); ok && code != "000000" {
 		t.Fatal("wrong code accepted")
 	}
-	uri := TOTPURI(secret, "me@example.com", "PGDock")
-	if !strings.HasPrefix(uri, "otpauth://totp/PGDock:me@example.com?") || !strings.Contains(uri, "secret="+secret) {
+	uri := TOTPURI(secret, "me@example.com", "Xenibase")
+	if !strings.HasPrefix(uri, "otpauth://totp/Xenibase:me@example.com?") || !strings.Contains(uri, "secret="+secret) {
 		t.Fatalf("uri %q", uri)
 	}
 }

@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/statusapi"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // outageWindow is how far back a payment provider's last automatic charge

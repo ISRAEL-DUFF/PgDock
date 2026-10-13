@@ -9,11 +9,11 @@ import (
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/projauth"
-	"github.com/israel-duff/pgdock/internal/services"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/projauth"
+	"github.com/israel-duff/xenibase/internal/services"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Project → Auth (V4 §4.9): a project's app users, its auth settings,

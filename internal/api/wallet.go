@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/billing"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/billing"
 )
 
 func toAPIQuote(q billing.FXQuote) gen.FXQuote {

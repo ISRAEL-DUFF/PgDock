@@ -13,14 +13,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/services"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/services"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Backend services (V4 §2): the dashboard's management endpoints, and the
-// signed feed pgdock-edge follows.
+// signed feed xenibase-edge follows.
 
 func (s *Server) requireServices(w http.ResponseWriter) bool {
 	if s.services == nil {
@@ -364,7 +364,7 @@ func (s *Server) ListAPIRequestLogs(w http.ResponseWriter, r *http.Request, id g
 	}
 }
 
-// ---- pgdock-edge's feed ------------------------------------------------------
+// ---- xenibase-edge's feed ------------------------------------------------------
 
 // edgeAuth reads the body and checks the edge signature.
 func (s *Server) edgeAuth(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
@@ -569,7 +569,7 @@ func intPtr32(v *int32) *int {
 }
 
 // GetServicesCatalog implements GET /api/v1/projects/{id}/services/catalog:
-// the API docs' source (V4.1 §9.2) and `pgdock policies list`.
+// the API docs' source (V4.1 §9.2) and `xenibase policies list`.
 func (s *Server) GetServicesCatalog(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
 	if !s.requireServices(w) {
 		return

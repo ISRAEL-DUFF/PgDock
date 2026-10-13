@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // issuedProInvoice puts org on Pro from 1 October and issues October's
@@ -178,7 +178,7 @@ func TestManualPaymentAndRefund(t *testing.T) {
 }
 
 // A refund of money that paid an invoice reopens the invoice, when asked.
-// Money in a wallet isn't PGDock's to refund.
+// Money in a wallet isn't Xenibase's to refund.
 func TestRefundReopensInvoices(t *testing.T) {
 	s, db, clk, _ := newService(t)
 	ctx := context.Background()

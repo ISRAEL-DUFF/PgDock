@@ -1,7 +1,7 @@
-import { PgdockError, type Result, fail, ok } from "./errors.js";
+import { XenibaseError, type Result, fail, ok } from "./errors.js";
 import { json, send, type Transport } from "./http.js";
 
-// ---- Types from `pgdock gen types --lang ts` ----------------------------------
+// ---- Types from `xenibase gen types --lang ts` ----------------------------------
 
 /** A table's generated types. */
 export interface GenericTable {
@@ -135,12 +135,12 @@ export type ListResult<Row> =
       count: number | null;
       nextCursor: string | null;
     }
-  | { data: null; error: PgdockError; count: null; nextCursor: null };
+  | { data: null; error: XenibaseError; count: null; nextCursor: null };
 
 /** Written rows (none with returning: "minimal"). */
 export type WriteResult<Row> =
   | { data: Row[]; error: null; affected: number }
-  | { data: null; error: PgdockError; affected: null };
+  | { data: null; error: XenibaseError; affected: null };
 
 interface Page<Row> {
   data: Row[];
@@ -367,7 +367,7 @@ export class SelectQuery<Row>
     opts: { debounceMs?: number } = {},
   ): () => void {
     if (!this.ctx.watch)
-      throw new PgdockError(
+      throw new XenibaseError(
         0,
         "realtime_unavailable",
         "live() needs realtime (a WebSocket)",
@@ -461,7 +461,7 @@ export class WriteQuery<Row>
     if (!this.simple()) {
       return {
         data: null,
-        error: new PgdockError(
+        error: new XenibaseError(
           0,
           "invalid_filter",
           "updates and deletes take where() and or() groups of conditions; use data.batch for more",

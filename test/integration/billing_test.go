@@ -13,10 +13,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/tenancy"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/tenancy"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestBillingAccountsAndRoles covers who sees billing (V3 §3.2), plan
@@ -260,23 +260,23 @@ func TestBillingAccountsAndRoles(t *testing.T) {
 	}
 	if code := e.Do("PUT", "/api/v1/admin/billing/settings", map[string]any{
 		"vat_rate": "0.075", "wht_rate": "0.05", "auto_issue": true,
-		"seller": map[string]string{"legal_name": "PGDock Ltd", "address": "Lagos", "tin": "999", "vat_number": "VAT-1", "email": "billing@pgdock.test"},
+		"seller": map[string]string{"legal_name": "Xenibase Ltd", "address": "Lagos", "tin": "999", "vat_number": "VAT-1", "email": "billing@xenibase.test"},
 	}, nil); code != http.StatusOK {
 		t.Fatalf("billing settings: %d", code)
 	}
 	if code := e.Do("PUT", "/api/v1/admin/billing/settings", map[string]any{
-		"vat_rate": "7.5", "wht_rate": "0.05", "auto_issue": true, "seller": map[string]string{"legal_name": "PGDock Ltd"},
+		"vat_rate": "7.5", "wht_rate": "0.05", "auto_issue": true, "seller": map[string]string{"legal_name": "Xenibase Ltd"},
 	}, nil); code != http.StatusBadRequest {
 		t.Errorf("a VAT rate of 7.5 (750%%): %d", code)
 	}
 }
 
-// TestCLIBilling drives billing from the pgdock binary with an admin token.
+// TestCLIBilling drives billing from the xenibase binary with an admin token.
 func TestCLIBilling(t *testing.T) {
 	e := testenv.Start(t, testenv.Options{})
 	bin := buildCLI(t)
 	token := e.CreateToken(map[string]any{"name": "finance", "org_id": e.OrgID, "scopes": []string{"read", "write", "admin"}})
-	env := []string{"PGDOCK_SERVER=" + e.URL, "PGDOCK_TOKEN=" + token, "PGDOCK_CONFIG_DIR=" + t.TempDir()}
+	env := []string{"XENIBASE_SERVER=" + e.URL, "XENIBASE_TOKEN=" + token, "XENIBASE_CONFIG_DIR=" + t.TempDir()}
 
 	if r := runCLI(t, bin, env, "billing", "show"); r.code != 0 || !strings.Contains(r.stdout, "Plan: Free (monthly)") {
 		t.Fatalf("billing show: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)

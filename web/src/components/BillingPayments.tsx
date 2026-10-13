@@ -47,7 +47,7 @@ export function StandingBanner({ a }: { a: BillingAccount }) {
     return (
       <Alert tone="warn" title="The wallet couldn't pay an invoice">
         There wasn&apos;t enough in the wallet. Top it up by bank transfer to
-        the account below; PGDock pays the invoice as soon as the money
+        the account below; Xenibase pays the invoice as soon as the money
         arrives.
       </Alert>
     );
@@ -83,7 +83,7 @@ function BankAccount({ wallet }: { wallet: Wallet }) {
   );
 }
 
-/** Agreeing to, or withdrawing, PGDock debiting the wallet for invoices. */
+/** Agreeing to, or withdrawing, Xenibase debiting the wallet for invoices. */
 function DebitConsentBlock({
   org,
   wallet,
@@ -118,7 +118,7 @@ function DebitConsentBlock({
       {consent?.current ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span>
-            Automatic debits are on since {formatDate(consent.at)}. PGDock pays
+            Automatic debits are on since {formatDate(consent.at)}. Xenibase pays
             invoices from the wallet when they are issued and whenever it is
             topped up.
           </span>
@@ -142,7 +142,7 @@ function DebitConsentBlock({
           <div className="font-medium">
             {consent
               ? "The debit terms changed: please agree again"
-              : "Let PGDock pay invoices from the wallet"}
+              : "Let Xenibase pay invoices from the wallet"}
           </div>
           <div
             className="max-h-40 overflow-auto whitespace-pre-line rounded-md bg-surface-2 p-2 text-[12px] text-muted"
@@ -168,7 +168,7 @@ function DebitConsentBlock({
                 run(() => api.allowDebits(org, wallet.terms_version))
               }
             >
-              Allow PGDock to debit the wallet
+              Allow Xenibase to debit the wallet
             </Button>
           </div>
         </>
@@ -243,7 +243,7 @@ function WalletSetupForm({
       }}
     >
       <p className="text-muted">
-        Your wallet holds the money PGDock bills against. You top it up by bank
+        Your wallet holds the money Xenibase bills against. You top it up by bank
         transfer to a bank account made for your organisation, and invoices are
         paid from it. Opening one takes a moment.
       </p>
@@ -274,7 +274,7 @@ function WalletSetupForm({
         </Field>
         <Field
           label="A director's BVN"
-          hint="Required by the wallet provider to open the account. It is passed to them and never stored by PGDock."
+          hint="Required by the wallet provider to open the account. It is passed to them and never stored by Xenibase."
         >
           {(id) => (
             <Input
@@ -330,7 +330,7 @@ export function WalletPanel({
     body = (
       <p className="text-muted" data-testid="wallet-unavailable">
         Wallets aren&apos;t configured on this platform, so invoices are paid
-        outside PGDock.
+        outside Xenibase.
       </p>
     );
   else if (!w.wallet_id)
@@ -371,7 +371,7 @@ export function WalletPanel({
         {w.balance_error && (
           <Alert tone="warn">
             The live balance couldn&apos;t be read ({w.balance_error}). Showing
-            PGDock&apos;s own record of it.
+            Xenibase&apos;s own record of it.
           </Alert>
         )}
         <BankAccount wallet={w} />
@@ -390,7 +390,7 @@ export function WalletPanel({
     <Panel
       title="Wallet"
       testId="wallet"
-      description="The money PGDock bills against. Fund it by bank transfer."
+      description="The money Xenibase bills against. Fund it by bank transfer."
     >
       {body}
     </Panel>
@@ -489,7 +489,7 @@ export function InvoicePay({ org, inv }: { org: string; inv: Invoice }) {
             </Button>
           </div>
           <p className="text-[12px] text-muted">
-            Or top up the wallet by bank transfer on the Billing page: PGDock
+            Or top up the wallet by bank transfer on the Billing page: Xenibase
             pays the invoice as soon as the money arrives.
           </p>
           {result && (

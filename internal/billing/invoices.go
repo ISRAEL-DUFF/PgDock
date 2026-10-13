@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Invoice statuses.
@@ -176,7 +176,7 @@ type BillTo struct {
 	VATRegistered bool    `json:"vat_registered"`
 }
 
-// FormatNumber is an invoice number: PGD-2027-000123 (V3 §3.6).
+// FormatNumber is an invoice number: XB-2027-000123 (V3 §3.6).
 func FormatNumber(prefix string, year, n int) string {
 	return fmt.Sprintf("%s-%d-%06d", prefix, year, n)
 }
@@ -230,7 +230,7 @@ func (s *Service) Issue(ctx context.Context, invoiceID uuid.UUID, by *uuid.UUID)
 		if err != nil {
 			return err
 		}
-		number := FormatNumber("PGD", now.Year(), int(n))
+		number := FormatNumber("XB", now.Year(), int(n))
 		billTo, _ := json.Marshal(BillTo{OrgName: o.Name, LegalName: a.LegalName, Address: a.Address, TIN: a.Tin, VATRegistered: a.VatRegistered})
 		seller, _ := json.Marshal(set.Seller)
 		due := now.AddDate(0, 0, int(a.PaymentTermsDays))
@@ -359,8 +359,8 @@ func (s *Service) mailInvoice(ctx context.Context, inv store.Invoice) {
 	}
 	fmt.Fprintf(&b, "\nView and download it: %s/org/billing?org=%s&invoice=%s\n", s.publicURL, inv.OrgID, inv.ID)
 	if err := s.mail.Send(ctx, mail.Message{
-		To: to, Subject: fmt.Sprintf("PGDock invoice %s for %s", *inv.Number, month), Body: b.String(),
-		Headers: map[string]string{"X-PGDock-Event": "billing.invoice"},
+		To: to, Subject: fmt.Sprintf("Xenibase invoice %s for %s", *inv.Number, month), Body: b.String(),
+		Headers: map[string]string{"X-Xenibase-Event": "billing.invoice"},
 	}); err != nil {
 		s.log.Warn("invoice email", "invoice", *inv.Number, "err", err)
 	}
@@ -429,7 +429,7 @@ func (s *Service) CreditNote(ctx context.Context, invoiceID uuid.UUID, amount in
 			return err
 		}
 		cn, err = q.InsertCreditNote(ctx, store.InsertCreditNoteParams{
-			InvoiceID: inv.ID, OrgID: inv.OrgID, Number: FormatNumber("PGD-CN", now.Year(), int(n)),
+			InvoiceID: inv.ID, OrgID: inv.OrgID, Number: FormatNumber("XB-CN", now.Year(), int(n)),
 			AmountMinor: amount, VatMinor: vat, Reason: reason, IssuedBy: by,
 		})
 		if err != nil {

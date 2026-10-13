@@ -37,7 +37,7 @@ export function ProjectLogsPage() {
   return (
     <Page
       title="Logs"
-      description="Everything PGDock has done to this project: provisioning, backups, restores, settings and moves, with each step's log."
+      description="Everything Xenibase has done to this project: provisioning, backups, restores, settings and moves, with each step's log."
       actions={
         <Select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
           {STATUSES.map((s) => (

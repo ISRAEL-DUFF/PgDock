@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestLegalDocuments is M23's legal done-when: the SLA and DPA are public

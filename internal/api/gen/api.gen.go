@@ -2281,7 +2281,7 @@ const (
 	Amount            ReconciliationDifferencesKind = "amount"
 	Fee               ReconciliationDifferencesKind = "fee"
 	MissingAtProvider ReconciliationDifferencesKind = "missing_at_provider"
-	MissingInPgdock   ReconciliationDifferencesKind = "missing_in_pgdock"
+	MissingInXenibase ReconciliationDifferencesKind = "missing_in_xenibase"
 )
 
 // Valid indicates whether the value is a known member of the ReconciliationDifferencesKind enum.
@@ -2293,7 +2293,7 @@ func (e ReconciliationDifferencesKind) Valid() bool {
 		return true
 	case MissingAtProvider:
 		return true
-	case MissingInPgdock:
+	case MissingInXenibase:
 		return true
 	default:
 		return false
@@ -4411,7 +4411,7 @@ type AuthConfig struct {
 	// HookRole The role Postgres hooks run as; grant it what they read.
 	HookRole *string `json:"hook_role,omitempty"`
 
-	// HookSecret Signs webhook hooks (PGDock-Signature); set once a hook URL is.
+	// HookSecret Signs webhook hooks (Xenibase-Signature); set once a hook URL is.
 	HookSecret         *string `json:"hook_secret,omitempty"`
 	MonthlyActiveUsers int64   `json:"monthly_active_users"`
 
@@ -4615,7 +4615,7 @@ type AuthSettings struct {
 	PhoneDailyCap *int      `json:"phone_daily_cap,omitempty"`
 	RedirectUrls  *[]string `json:"redirect_urls,omitempty"`
 
-	// SendMessageUrl A webhook that sends the project's emails and codes instead of PGDock.
+	// SendMessageUrl A webhook that sends the project's emails and codes instead of Xenibase.
 	SendMessageUrl           *string `json:"send_message_url,omitempty"`
 	SessionInactivitySeconds *int    `json:"session_inactivity_seconds,omitempty"`
 	SessionMaxSeconds        *int    `json:"session_max_seconds,omitempty"`
@@ -4745,7 +4745,7 @@ type BackendServices struct {
 	// ExposedSchemas The schemas the data API serves (default public).
 	ExposedSchemas []string `json:"exposed_schemas"`
 
-	// FeedConfigured pgdock-server has an edge secret, so a pgdock-edge can serve the project.
+	// FeedConfigured xenibase-server has an edge secret, so a xenibase-edge can serve the project.
 	FeedConfigured bool     `json:"feed_configured"`
 	Keys           []ApiKey `json:"keys"`
 
@@ -4964,7 +4964,7 @@ type BillingAccount struct {
 	Tin           *string            `json:"tin,omitempty"`
 	VatRegistered bool               `json:"vat_registered"`
 
-	// WalletMinor In the organisation's wallet, by PGDock's books (kobo).
+	// WalletMinor In the organisation's wallet, by Xenibase's books (kobo).
 	WalletMinor   *int64     `json:"wallet_minor,omitempty"`
 	ZeroBalanceAt *time.Time `json:"zero_balance_at,omitempty"`
 }
@@ -5323,7 +5323,7 @@ type ConnectionInfo struct {
 type CostSettings struct {
 	Currency string `json:"currency"`
 
-	// EdgeSharePercent The share of shared nodes' cost moved to the edge category, where pgdock-edge runs on them (0 to 100, default 0).
+	// EdgeSharePercent The share of shared nodes' cost moved to the edge category, where xenibase-edge runs on them (0 to 100, default 0).
 	EdgeSharePercent          *float32   `json:"edge_share_percent,omitempty"`
 	EgressGbMinor             float32    `json:"egress_gb_minor"`
 	FloatingIpMonthlyMinor    int64      `json:"floating_ip_monthly_minor"`
@@ -5348,7 +5348,7 @@ type CreateIncidentRequest struct {
 	Region     *string          `json:"region,omitempty"`
 	Severity   IncidentSeverity `json:"severity"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 	Title  string         `json:"title"`
 }
@@ -5369,11 +5369,11 @@ type CreateNodeRequest struct {
 	// Region The region the node is in (default the home region). A pooler host serves that region's projects.
 	Region *string `json:"region,omitempty"`
 
-	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
+	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs xenibase-edge only, its cost split by backend services' use (V4.1 §11).
 	Role CreateNodeRequestRole `json:"role"`
 }
 
-// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
+// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs xenibase-edge only, its cost split by backend services' use (V4.1 §11).
 type CreateNodeRequestRole string
 
 // CreateOrgRequest defines model for CreateOrgRequest.
@@ -5433,7 +5433,7 @@ type CreatedApiKey struct {
 
 // CreatedToken defines model for CreatedToken.
 type CreatedToken struct {
-	// Secret The token itself (`pgd_…`), shown only once.
+	// Secret The token itself (`xb_…`), shown only once.
 	Secret string   `json:"secret"`
 	Token  APIToken `json:"token"`
 }
@@ -5454,7 +5454,7 @@ type DBSession struct {
 	InTransactionMs int64 `json:"in_transaction_ms"`
 	Pid             int   `json:"pid"`
 
-	// Platform One of PGDock's own sessions.
+	// Platform One of Xenibase's own sessions.
 	Platform  bool   `json:"platform"`
 	Query     string `json:"query"`
 	Role      string `json:"role"`
@@ -5704,7 +5704,7 @@ type DeviceRequest struct {
 
 // DeviceStartRequest defines model for DeviceStartRequest.
 type DeviceStartRequest struct {
-	// ClientName Shown on the approval page, e.g. "pgdock CLI on laptop".
+	// ClientName Shown on the approval page, e.g. "xenibase CLI on laptop".
 	ClientName *string `json:"client_name,omitempty"`
 
 	// Scopes The most the CLI wants; the user may narrow them. Default read and write.
@@ -5904,7 +5904,7 @@ type FXQuote struct {
 	// Example: 34.25
 	MarketRate Decimal `json:"market_rate"`
 
-	// QuotedAt When PGDock asked.
+	// QuotedAt When Xenibase asked.
 	QuotedAt  time.Time `json:"quoted_at"`
 	Sources   *[]string `json:"sources,omitempty"`
 	SpreadBps int       `json:"spread_bps"`
@@ -6114,7 +6114,7 @@ type Incident struct {
 	Severity   IncidentSeverity `json:"severity"`
 	StartedAt  time.Time        `json:"started_at"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status    IncidentStatus   `json:"status"`
 	Title     string           `json:"title"`
 	UpdatedAt time.Time        `json:"updated_at"`
@@ -6133,7 +6133,7 @@ type IncidentList struct {
 // IncidentSeverity defines model for IncidentSeverity.
 type IncidentSeverity string
 
-// IncidentStatus draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+// IncidentStatus draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 type IncidentStatus string
 
 // IncidentUpdate defines model for IncidentUpdate.
@@ -6145,7 +6145,7 @@ type IncidentUpdate struct {
 	// PostedBy The poster's email.
 	PostedBy *string `json:"posted_by,omitempty"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 }
 
@@ -6153,7 +6153,7 @@ type IncidentUpdate struct {
 type IncidentUpdateRequest struct {
 	Body string `json:"body"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 }
 
@@ -6802,7 +6802,7 @@ type MaintenanceAnnouncement struct {
 	AnnouncedAt *time.Time `json:"announced_at,omitempty"`
 	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
 
-	// Draft Proposed by PGDock and not announced yet; confirm or discard it.
+	// Draft Proposed by Xenibase and not announced yet; confirm or discard it.
 	Draft   *bool `json:"draft,omitempty"`
 	Emailed *int  `json:"emailed,omitempty"`
 
@@ -6810,7 +6810,7 @@ type MaintenanceAnnouncement struct {
 	ExcludedFrom *time.Time `json:"excluded_from,omitempty"`
 	Incident     Incident   `json:"incident"`
 
-	// ProposedFor What PGDock proposed it for (minor_upgrade).
+	// ProposedFor What Xenibase proposed it for (minor_upgrade).
 	ProposedFor    *string              `json:"proposed_for,omitempty"`
 	ScheduledEnd   *time.Time           `json:"scheduled_end,omitempty"`
 	ScheduledStart *time.Time           `json:"scheduled_start,omitempty"`
@@ -7007,7 +7007,7 @@ type Node struct {
 	// FailureDomain What fails with this node (a rack, a host, a power feed), as the admin recorded it. Null when not recorded.
 	FailureDomain *string `json:"failure_domain,omitempty"`
 
-	// FailureDomainLabel The node's failure domain as PGDock judges it (the recorded one, its placement group, or the node alone).
+	// FailureDomainLabel The node's failure domain as Xenibase judges it (the recorded one, its placement group, or the node alone).
 	FailureDomainLabel *string            `json:"failure_domain_label,omitempty"`
 	Id                 openapi_types.UUID `json:"id"`
 
@@ -7192,7 +7192,7 @@ type OrgIncident struct {
 	Severity     IncidentSeverity `json:"severity"`
 	StartedAt    time.Time        `json:"started_at"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 	Title  string         `json:"title"`
 
@@ -7387,7 +7387,7 @@ type PersonalCredentialsInfoAccess string
 type PgVersionInfo struct {
 	DeprecatedAt *time.Time `json:"deprecated_at,omitempty"`
 
-	// Installed The server has an image for it (PGDOCK_PG_VERSIONS).
+	// Installed The server has an image for it (XENIBASE_PG_VERSIONS).
 	Installed bool   `json:"installed"`
 	Major     int    `json:"major"`
 	Notes     string `json:"notes"`
@@ -7809,7 +7809,7 @@ type ProjectBackupStorage struct {
 	Target            ProjectStorageChoice `json:"target"`
 }
 
-// ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
+// ProjectCredentials Shown once. Xenibase keeps only the SCRAM verifier.
 type ProjectCredentials struct {
 	// Api A branch's own backend services API (V4.1 §9.5), when its parent has them: a new ref and keys, shown once. The parent's keys and tokens don't work on it.
 	Api        *BranchApi     `json:"api,omitempty"`
@@ -8129,9 +8129,9 @@ type Reconciliation struct {
 	Differences []struct {
 		Kind          ReconciliationDifferencesKind `json:"kind"`
 		Note          *string                       `json:"note,omitempty"`
-		PgdockMinor   int64                         `json:"pgdock_minor"`
 		ProviderMinor int64                         `json:"provider_minor"`
 		ProviderRef   string                        `json:"provider_ref"`
+		XenibaseMinor int64                         `json:"xenibase_minor"`
 	} `json:"differences"`
 	Error      *string   `json:"error,omitempty"`
 	FeesMinor  int64     `json:"fees_minor"`
@@ -8333,7 +8333,7 @@ type RestoreRequestMode string
 
 // RestoreResponse defines model for RestoreResponse.
 type RestoreResponse struct {
-	// Credentials Shown once. PGDock keeps only the SCRAM verifier.
+	// Credentials Shown once. Xenibase keeps only the SCRAM verifier.
 	Credentials *ProjectCredentials `json:"credentials,omitempty"`
 	Operation   Operation           `json:"operation"`
 }
@@ -9718,7 +9718,7 @@ type Wallet struct {
 	BalanceMinor *int64        `json:"balance_minor,omitempty"`
 	Consent      *DebitConsent `json:"consent,omitempty"`
 
-	// LedgerMinor What PGDock's books say the wallet holds.
+	// LedgerMinor What Xenibase's books say the wallet holds.
 	LedgerMinor int64 `json:"ledger_minor"`
 
 	// OwedMinor Outstanding on issued invoices.
@@ -11232,7 +11232,7 @@ type ServerInterface interface {
 	// CancelMaintenance Cancel an announced maintenance window
 	// (DELETE /api/v1/admin/maintenance/announcements/{incident_id})
 	CancelMaintenance(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID)
-	// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+	// ConfirmMaintenanceDraft Announce a maintenance draft Xenibase proposed
 	// (POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm)
 	ConfirmMaintenanceDraft(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID)
 	// DiscardMaintenanceDraft Discard a maintenance draft; the work it was for keeps waiting
@@ -11427,7 +11427,7 @@ type ServerInterface interface {
 	// AdminOutstandingWht Deducted WHT awaiting its credit note, oldest first (format=csv exports all WHT receivable for tax filing)
 	// (GET /api/v1/admin/wht)
 	AdminOutstandingWht(w http.ResponseWriter, r *http.Request, params AdminOutstandingWhtParams)
-	// RegisterAgent Agent registration (called by pgdock-agent, not the UI)
+	// RegisterAgent Agent registration (called by xenibase-agent, not the UI)
 	// (POST /api/v1/agent/register)
 	RegisterAgent(w http.ResponseWriter, r *http.Request)
 	// ListAlerts Alerts, firing first
@@ -11487,22 +11487,22 @@ type ServerInterface interface {
 	// CreateDevOperation Enqueue a dummy operation (development only)
 	// (POST /api/v1/dev/operations)
 	CreateDevOperation(w http.ResponseWriter, r *http.Request)
-	// EdgeAuthHook pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+	// EdgeAuthHook xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 	// (POST /api/v1/edge/auth-hook)
 	EdgeAuthHook(w http.ResponseWriter, r *http.Request)
-	// EdgeAuthMessage pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+	// EdgeAuthMessage xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 	// (POST /api/v1/edge/auth-message)
 	EdgeAuthMessage(w http.ResponseWriter, r *http.Request)
-	// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
+	// EdgeConfig xenibase-edge's configuration feed (signed with the edge secret; internal)
 	// (GET /api/v1/edge/config)
 	EdgeConfig(w http.ResponseWriter, r *http.Request, params EdgeConfigParams)
-	// EdgeReport pgdock-edge's usage and request logs (signed; internal)
+	// EdgeReport xenibase-edge's usage and request logs (signed; internal)
 	// (POST /api/v1/edge/report)
 	EdgeReport(w http.ResponseWriter, r *http.Request)
-	// EdgeStorageEvent pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+	// EdgeStorageEvent xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 	// (POST /api/v1/edge/storage-event)
 	EdgeStorageEvent(w http.ResponseWriter, r *http.Request)
-	// EdgeWake pgdock-edge asks for a paused project to resume (signed; internal)
+	// EdgeWake xenibase-edge asks for a paused project to resume (signed; internal)
 	// (POST /api/v1/edge/wake)
 	EdgeWake(w http.ResponseWriter, r *http.Request)
 	// CreateImport Import an existing database into a new project
@@ -11646,7 +11646,7 @@ type ServerInterface interface {
 	// WithdrawDebitTerms Stop automatic debits (invoices are then paid by hand)
 	// (DELETE /api/v1/orgs/{org}/billing/debit-consent)
 	WithdrawDebitTerms(w http.ResponseWriter, r *http.Request, org OrgID)
-	// AcceptDebitTerms Agree to PGDock debiting the wallet for invoices
+	// AcceptDebitTerms Agree to Xenibase debiting the wallet for invoices
 	// (POST /api/v1/orgs/{org}/billing/debit-consent)
 	AcceptDebitTerms(w http.ResponseWriter, r *http.Request, org OrgID)
 	// EstimateOrgCost What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions)
@@ -12075,7 +12075,7 @@ type ServerInterface interface {
 	// PreviewSchemaChange Turn a schema change into DDL, risk notes, and a reverse
 	// (POST /api/v1/projects/{id}/schema/preview)
 	PreviewSchemaChange(w http.ResponseWriter, r *http.Request, id ProjectID)
-	// DisableBackendServices Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+	// DisableBackendServices Turn backend services off (keys revoked; the xb_* schemas and their data stay)
 	// (DELETE /api/v1/projects/{id}/services)
 	DisableBackendServices(w http.ResponseWriter, r *http.Request, id ProjectID)
 	// GetBackendServices The project's backend services (V4 §2.4) - URL, keys, settings
@@ -12567,7 +12567,7 @@ func (_ Unimplemented) CancelMaintenance(w http.ResponseWriter, r *http.Request,
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+// ConfirmMaintenanceDraft Announce a maintenance draft Xenibase proposed
 // (POST /api/v1/admin/maintenance/announcements/{incident_id}/confirm)
 func (_ Unimplemented) ConfirmMaintenanceDraft(w http.ResponseWriter, r *http.Request, incidentId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -12957,7 +12957,7 @@ func (_ Unimplemented) AdminOutstandingWht(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// RegisterAgent Agent registration (called by pgdock-agent, not the UI)
+// RegisterAgent Agent registration (called by xenibase-agent, not the UI)
 // (POST /api/v1/agent/register)
 func (_ Unimplemented) RegisterAgent(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -13077,37 +13077,37 @@ func (_ Unimplemented) CreateDevOperation(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// EdgeAuthHook pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+// EdgeAuthHook xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 // (POST /api/v1/edge/auth-hook)
 func (_ Unimplemented) EdgeAuthHook(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// EdgeAuthMessage pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+// EdgeAuthMessage xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 // (POST /api/v1/edge/auth-message)
 func (_ Unimplemented) EdgeAuthMessage(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
+// EdgeConfig xenibase-edge's configuration feed (signed with the edge secret; internal)
 // (GET /api/v1/edge/config)
 func (_ Unimplemented) EdgeConfig(w http.ResponseWriter, r *http.Request, params EdgeConfigParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// EdgeReport pgdock-edge's usage and request logs (signed; internal)
+// EdgeReport xenibase-edge's usage and request logs (signed; internal)
 // (POST /api/v1/edge/report)
 func (_ Unimplemented) EdgeReport(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// EdgeStorageEvent pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+// EdgeStorageEvent xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 // (POST /api/v1/edge/storage-event)
 func (_ Unimplemented) EdgeStorageEvent(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// EdgeWake pgdock-edge asks for a paused project to resume (signed; internal)
+// EdgeWake xenibase-edge asks for a paused project to resume (signed; internal)
 // (POST /api/v1/edge/wake)
 func (_ Unimplemented) EdgeWake(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -13395,7 +13395,7 @@ func (_ Unimplemented) WithdrawDebitTerms(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// AcceptDebitTerms Agree to PGDock debiting the wallet for invoices
+// AcceptDebitTerms Agree to Xenibase debiting the wallet for invoices
 // (POST /api/v1/orgs/{org}/billing/debit-consent)
 func (_ Unimplemented) AcceptDebitTerms(w http.ResponseWriter, r *http.Request, org OrgID) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -14253,7 +14253,7 @@ func (_ Unimplemented) PreviewSchemaChange(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// DisableBackendServices Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+// DisableBackendServices Turn backend services off (keys revoked; the xb_* schemas and their data stay)
 // (DELETE /api/v1/projects/{id}/services)
 func (_ Unimplemented) DisableBackendServices(w http.ResponseWriter, r *http.Request, id ProjectID) {
 	w.WriteHeader(http.StatusNotImplemented)

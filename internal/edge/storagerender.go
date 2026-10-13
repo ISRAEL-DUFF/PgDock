@@ -23,13 +23,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	xdraw "golang.org/x/image/draw"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/files"
-	"github.com/israel-duff/pgdock/internal/storage"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/files"
+	"github.com/israel-duff/xenibase/internal/storage"
 )
 
 // Image transforms (V4 §5.5): resize, crop and convert on request, in pure
-// Go (WebP and AVIF through their WebAssembly builds, so pgdock-edge stays
+// Go (WebP and AVIF through their WebAssembly builds, so xenibase-edge stays
 // one static binary). Results are kept in the object store next to the
 // source version, so a repeated request is served without rendering.
 

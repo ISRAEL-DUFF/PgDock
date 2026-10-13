@@ -18,13 +18,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/orgs"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/orgs"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/store/storetest"
 )
 
 func allRoutes(t *testing.T) []string {
@@ -314,7 +314,7 @@ func (w *matrixWorld) call(t *testing.T, actor, method, path string) (int, strin
 	req.Header.Set(csrfHeader, strings.Repeat("c", 40))
 	rec := httptest.NewRecorder()
 	w.authzHandler.ServeHTTP(rec, req)
-	return rec.Code, rec.Header().Get("X-PGDock-Authz")
+	return rec.Code, rec.Header().Get("X-Xenibase-Authz")
 }
 
 // TestPermissionMatrix checks every route for every kind of actor against

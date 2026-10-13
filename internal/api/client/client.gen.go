@@ -2285,7 +2285,7 @@ const (
 	Amount            ReconciliationDifferencesKind = "amount"
 	Fee               ReconciliationDifferencesKind = "fee"
 	MissingAtProvider ReconciliationDifferencesKind = "missing_at_provider"
-	MissingInPgdock   ReconciliationDifferencesKind = "missing_in_pgdock"
+	MissingInXenibase ReconciliationDifferencesKind = "missing_in_xenibase"
 )
 
 // Valid indicates whether the value is a known member of the ReconciliationDifferencesKind enum.
@@ -2297,7 +2297,7 @@ func (e ReconciliationDifferencesKind) Valid() bool {
 		return true
 	case MissingAtProvider:
 		return true
-	case MissingInPgdock:
+	case MissingInXenibase:
 		return true
 	default:
 		return false
@@ -4415,7 +4415,7 @@ type AuthConfig struct {
 	// HookRole The role Postgres hooks run as; grant it what they read.
 	HookRole *string `json:"hook_role,omitempty"`
 
-	// HookSecret Signs webhook hooks (PGDock-Signature); set once a hook URL is.
+	// HookSecret Signs webhook hooks (Xenibase-Signature); set once a hook URL is.
 	HookSecret         *string `json:"hook_secret,omitempty"`
 	MonthlyActiveUsers int64   `json:"monthly_active_users"`
 
@@ -4619,7 +4619,7 @@ type AuthSettings struct {
 	PhoneDailyCap *int      `json:"phone_daily_cap,omitempty"`
 	RedirectUrls  *[]string `json:"redirect_urls,omitempty"`
 
-	// SendMessageUrl A webhook that sends the project's emails and codes instead of PGDock.
+	// SendMessageUrl A webhook that sends the project's emails and codes instead of Xenibase.
 	SendMessageUrl           *string `json:"send_message_url,omitempty"`
 	SessionInactivitySeconds *int    `json:"session_inactivity_seconds,omitempty"`
 	SessionMaxSeconds        *int    `json:"session_max_seconds,omitempty"`
@@ -4749,7 +4749,7 @@ type BackendServices struct {
 	// ExposedSchemas The schemas the data API serves (default public).
 	ExposedSchemas []string `json:"exposed_schemas"`
 
-	// FeedConfigured pgdock-server has an edge secret, so a pgdock-edge can serve the project.
+	// FeedConfigured xenibase-server has an edge secret, so a xenibase-edge can serve the project.
 	FeedConfigured bool     `json:"feed_configured"`
 	Keys           []ApiKey `json:"keys"`
 
@@ -4968,7 +4968,7 @@ type BillingAccount struct {
 	Tin           *string            `json:"tin,omitempty"`
 	VatRegistered bool               `json:"vat_registered"`
 
-	// WalletMinor In the organisation's wallet, by PGDock's books (kobo).
+	// WalletMinor In the organisation's wallet, by Xenibase's books (kobo).
 	WalletMinor   *int64     `json:"wallet_minor,omitempty"`
 	ZeroBalanceAt *time.Time `json:"zero_balance_at,omitempty"`
 }
@@ -5327,7 +5327,7 @@ type ConnectionInfo struct {
 type CostSettings struct {
 	Currency string `json:"currency"`
 
-	// EdgeSharePercent The share of shared nodes' cost moved to the edge category, where pgdock-edge runs on them (0 to 100, default 0).
+	// EdgeSharePercent The share of shared nodes' cost moved to the edge category, where xenibase-edge runs on them (0 to 100, default 0).
 	EdgeSharePercent          *float32   `json:"edge_share_percent,omitempty"`
 	EgressGbMinor             float32    `json:"egress_gb_minor"`
 	FloatingIpMonthlyMinor    int64      `json:"floating_ip_monthly_minor"`
@@ -5352,7 +5352,7 @@ type CreateIncidentRequest struct {
 	Region     *string          `json:"region,omitempty"`
 	Severity   IncidentSeverity `json:"severity"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 	Title  string         `json:"title"`
 }
@@ -5373,11 +5373,11 @@ type CreateNodeRequest struct {
 	// Region The region the node is in (default the home region). A pooler host serves that region's projects.
 	Region *string `json:"region,omitempty"`
 
-	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
+	// Role pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs xenibase-edge only, its cost split by backend services' use (V4.1 §11).
 	Role CreateNodeRequestRole `json:"role"`
 }
 
-// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs pgdock-edge only, its cost split by backend services' use (V4.1 §11).
+// CreateNodeRequestRole pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs xenibase-edge only, its cost split by backend services' use (V4.1 §11).
 type CreateNodeRequestRole string
 
 // CreateOrgRequest defines model for CreateOrgRequest.
@@ -5437,7 +5437,7 @@ type CreatedApiKey struct {
 
 // CreatedToken defines model for CreatedToken.
 type CreatedToken struct {
-	// Secret The token itself (`pgd_…`), shown only once.
+	// Secret The token itself (`xb_…`), shown only once.
 	Secret string   `json:"secret"`
 	Token  APIToken `json:"token"`
 }
@@ -5458,7 +5458,7 @@ type DBSession struct {
 	InTransactionMs int64 `json:"in_transaction_ms"`
 	Pid             int   `json:"pid"`
 
-	// Platform One of PGDock's own sessions.
+	// Platform One of Xenibase's own sessions.
 	Platform  bool   `json:"platform"`
 	Query     string `json:"query"`
 	Role      string `json:"role"`
@@ -5708,7 +5708,7 @@ type DeviceRequest struct {
 
 // DeviceStartRequest defines model for DeviceStartRequest.
 type DeviceStartRequest struct {
-	// ClientName Shown on the approval page, e.g. "pgdock CLI on laptop".
+	// ClientName Shown on the approval page, e.g. "xenibase CLI on laptop".
 	ClientName *string `json:"client_name,omitempty"`
 
 	// Scopes The most the CLI wants; the user may narrow them. Default read and write.
@@ -5908,7 +5908,7 @@ type FXQuote struct {
 	// Example: 34.25
 	MarketRate Decimal `json:"market_rate"`
 
-	// QuotedAt When PGDock asked.
+	// QuotedAt When Xenibase asked.
 	QuotedAt  time.Time `json:"quoted_at"`
 	Sources   *[]string `json:"sources,omitempty"`
 	SpreadBps int       `json:"spread_bps"`
@@ -6118,7 +6118,7 @@ type Incident struct {
 	Severity   IncidentSeverity `json:"severity"`
 	StartedAt  time.Time        `json:"started_at"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status    IncidentStatus   `json:"status"`
 	Title     string           `json:"title"`
 	UpdatedAt time.Time        `json:"updated_at"`
@@ -6137,7 +6137,7 @@ type IncidentList struct {
 // IncidentSeverity defines model for IncidentSeverity.
 type IncidentSeverity string
 
-// IncidentStatus draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+// IncidentStatus draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 type IncidentStatus string
 
 // IncidentUpdate defines model for IncidentUpdate.
@@ -6149,7 +6149,7 @@ type IncidentUpdate struct {
 	// PostedBy The poster's email.
 	PostedBy *string `json:"posted_by,omitempty"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 }
 
@@ -6157,7 +6157,7 @@ type IncidentUpdate struct {
 type IncidentUpdateRequest struct {
 	Body string `json:"body"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 }
 
@@ -6806,7 +6806,7 @@ type MaintenanceAnnouncement struct {
 	AnnouncedAt *time.Time `json:"announced_at,omitempty"`
 	CancelledAt *time.Time `json:"cancelled_at,omitempty"`
 
-	// Draft Proposed by PGDock and not announced yet; confirm or discard it.
+	// Draft Proposed by Xenibase and not announced yet; confirm or discard it.
 	Draft   *bool `json:"draft,omitempty"`
 	Emailed *int  `json:"emailed,omitempty"`
 
@@ -6814,7 +6814,7 @@ type MaintenanceAnnouncement struct {
 	ExcludedFrom *time.Time `json:"excluded_from,omitempty"`
 	Incident     Incident   `json:"incident"`
 
-	// ProposedFor What PGDock proposed it for (minor_upgrade).
+	// ProposedFor What Xenibase proposed it for (minor_upgrade).
 	ProposedFor    *string              `json:"proposed_for,omitempty"`
 	ScheduledEnd   *time.Time           `json:"scheduled_end,omitempty"`
 	ScheduledStart *time.Time           `json:"scheduled_start,omitempty"`
@@ -7011,7 +7011,7 @@ type Node struct {
 	// FailureDomain What fails with this node (a rack, a host, a power feed), as the admin recorded it. Null when not recorded.
 	FailureDomain *string `json:"failure_domain,omitempty"`
 
-	// FailureDomainLabel The node's failure domain as PGDock judges it (the recorded one, its placement group, or the node alone).
+	// FailureDomainLabel The node's failure domain as Xenibase judges it (the recorded one, its placement group, or the node alone).
 	FailureDomainLabel *string            `json:"failure_domain_label,omitempty"`
 	Id                 openapi_types.UUID `json:"id"`
 
@@ -7196,7 +7196,7 @@ type OrgIncident struct {
 	Severity     IncidentSeverity `json:"severity"`
 	StartedAt    time.Time        `json:"started_at"`
 
-	// Status draft is a maintenance announcement PGDock proposed and the admin hasn't confirmed.
+	// Status draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
 	Status IncidentStatus `json:"status"`
 	Title  string         `json:"title"`
 
@@ -7391,7 +7391,7 @@ type PersonalCredentialsInfoAccess string
 type PgVersionInfo struct {
 	DeprecatedAt *time.Time `json:"deprecated_at,omitempty"`
 
-	// Installed The server has an image for it (PGDOCK_PG_VERSIONS).
+	// Installed The server has an image for it (XENIBASE_PG_VERSIONS).
 	Installed bool   `json:"installed"`
 	Major     int    `json:"major"`
 	Notes     string `json:"notes"`
@@ -7813,7 +7813,7 @@ type ProjectBackupStorage struct {
 	Target            ProjectStorageChoice `json:"target"`
 }
 
-// ProjectCredentials Shown once. PGDock keeps only the SCRAM verifier.
+// ProjectCredentials Shown once. Xenibase keeps only the SCRAM verifier.
 type ProjectCredentials struct {
 	// Api A branch's own backend services API (V4.1 §9.5), when its parent has them: a new ref and keys, shown once. The parent's keys and tokens don't work on it.
 	Api        *BranchApi     `json:"api,omitempty"`
@@ -8133,9 +8133,9 @@ type Reconciliation struct {
 	Differences []struct {
 		Kind          ReconciliationDifferencesKind `json:"kind"`
 		Note          *string                       `json:"note,omitempty"`
-		PgdockMinor   int64                         `json:"pgdock_minor"`
 		ProviderMinor int64                         `json:"provider_minor"`
 		ProviderRef   string                        `json:"provider_ref"`
+		XenibaseMinor int64                         `json:"xenibase_minor"`
 	} `json:"differences"`
 	Error      *string   `json:"error,omitempty"`
 	FeesMinor  int64     `json:"fees_minor"`
@@ -8337,7 +8337,7 @@ type RestoreRequestMode string
 
 // RestoreResponse defines model for RestoreResponse.
 type RestoreResponse struct {
-	// Credentials Shown once. PGDock keeps only the SCRAM verifier.
+	// Credentials Shown once. Xenibase keeps only the SCRAM verifier.
 	Credentials *ProjectCredentials `json:"credentials,omitempty"`
 	Operation   Operation           `json:"operation"`
 }
@@ -9722,7 +9722,7 @@ type Wallet struct {
 	BalanceMinor *int64        `json:"balance_minor,omitempty"`
 	Consent      *DebitConsent `json:"consent,omitempty"`
 
-	// LedgerMinor What PGDock's books say the wallet holds.
+	// LedgerMinor What Xenibase's books say the wallet holds.
 	LedgerMinor int64 `json:"ledger_minor"`
 
 	// OwedMinor Outstanding on issued invoices.
@@ -11565,7 +11565,7 @@ type ClientInterface interface {
 	// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
 	CancelMaintenance(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+	// ConfirmMaintenanceDraft Announce a maintenance draft Xenibase proposed
 	//
 	// Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
 	//
@@ -12222,10 +12222,10 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/admin/wht (the `AdminOutstandingWht` operationId).
 	AdminOutstandingWht(ctx context.Context, params *AdminOutstandingWhtParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RegisterAgentWithBody Agent registration (called by pgdock-agent, not the UI)
+	// RegisterAgentWithBody Agent registration (called by xenibase-agent, not the UI)
 	//
 	// Exchanges a one-time registration token and a CSR for a client
-	// certificate signed by the PGDock agent CA. Needs no session; the
+	// certificate signed by the Xenibase agent CA. Needs no session; the
 	// token authenticates. Rate limited per address.
 	//
 	// Takes any type of body and a specified content type.
@@ -12233,10 +12233,10 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/agent/register (the `RegisterAgent` operationId).
 	RegisterAgentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RegisterAgent Agent registration (called by pgdock-agent, not the UI)
+	// RegisterAgent Agent registration (called by xenibase-agent, not the UI)
 	//
 	// Exchanges a one-time registration token and a CSR for a client
-	// certificate signed by the PGDock agent CA. Needs no session; the
+	// certificate signed by the Xenibase agent CA. Needs no session; the
 	// token authenticates. Rate limited per address.
 	//
 	// Takes a body of the `application/json` content type.
@@ -12489,7 +12489,7 @@ type ClientInterface interface {
 
 	// CreateDevOperationWithBody Enqueue a dummy operation (development only)
 	//
-	// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+	// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 	// otherwise returns 404. Enqueues a `noop` operation for exercising
 	// the queue end to end.
 	//
@@ -12500,7 +12500,7 @@ type ClientInterface interface {
 
 	// CreateDevOperation Enqueue a dummy operation (development only)
 	//
-	// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+	// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 	// otherwise returns 404. Enqueues a `noop` operation for exercising
 	// the queue end to end.
 	//
@@ -12509,75 +12509,75 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/dev/operations (the `CreateDevOperation` operationId).
 	CreateDevOperation(ctx context.Context, body CreateDevOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeAuthHookWithBody pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+	// EdgeAuthHookWithBody xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
 	EdgeAuthHookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeAuthHook pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+	// EdgeAuthHook xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
 	EdgeAuthHook(ctx context.Context, body EdgeAuthHookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeAuthMessageWithBody pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+	// EdgeAuthMessageWithBody xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
 	EdgeAuthMessageWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeAuthMessage pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+	// EdgeAuthMessage xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
 	EdgeAuthMessage(ctx context.Context, body EdgeAuthMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
+	// EdgeConfig xenibase-edge's configuration feed (signed with the edge secret; internal)
 	//
 	// Corresponds with GET /api/v1/edge/config (the `EdgeConfig` operationId).
 	EdgeConfig(ctx context.Context, params *EdgeConfigParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeReportWithBody pgdock-edge's usage and request logs (signed; internal)
+	// EdgeReportWithBody xenibase-edge's usage and request logs (signed; internal)
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
 	EdgeReportWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeReport pgdock-edge's usage and request logs (signed; internal)
+	// EdgeReport xenibase-edge's usage and request logs (signed; internal)
 	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
 	EdgeReport(ctx context.Context, body EdgeReportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeStorageEventWithBody pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+	// EdgeStorageEventWithBody xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
 	EdgeStorageEventWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeStorageEvent pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+	// EdgeStorageEvent xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
 	EdgeStorageEvent(ctx context.Context, body EdgeStorageEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeWakeWithBody pgdock-edge asks for a paused project to resume (signed; internal)
+	// EdgeWakeWithBody xenibase-edge asks for a paused project to resume (signed; internal)
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/edge/wake (the `EdgeWake` operationId).
 	EdgeWakeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EdgeWake pgdock-edge asks for a paused project to resume (signed; internal)
+	// EdgeWake xenibase-edge asks for a paused project to resume (signed; internal)
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -13033,14 +13033,14 @@ type ClientInterface interface {
 	// Corresponds with DELETE /api/v1/orgs/{org}/billing/debit-consent (the `WithdrawDebitTerms` operationId).
 	WithdrawDebitTerms(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// AcceptDebitTermsWithBody Agree to PGDock debiting the wallet for invoices
+	// AcceptDebitTermsWithBody Agree to Xenibase debiting the wallet for invoices
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
 	AcceptDebitTermsWithBody(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// AcceptDebitTerms Agree to PGDock debiting the wallet for invoices
+	// AcceptDebitTerms Agree to Xenibase debiting the wallet for invoices
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -13129,7 +13129,7 @@ type ClientInterface interface {
 
 	// CreateOrgWalletWithBody Open the organisation's wallet and its bank account
 	//
-	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -13138,7 +13138,7 @@ type ClientInterface interface {
 
 	// CreateOrgWallet Open the organisation's wallet and its bank account
 	//
-	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -13422,7 +13422,7 @@ type ClientInterface interface {
 	// CreateProjectWithBody Create a shared-tier project
 	//
 	// Records the project and queues a `create` operation. The response
-	// carries the password and full connection URLs exactly once; PGDock
+	// carries the password and full connection URLs exactly once; Xenibase
 	// stores only the SCRAM verifier. The URLs work once the operation
 	// succeeds (stream it to follow progress).
 	//
@@ -13434,7 +13434,7 @@ type ClientInterface interface {
 	// CreateProject Create a shared-tier project
 	//
 	// Records the project and queues a `create` operation. The response
-	// carries the password and full connection URLs exactly once; PGDock
+	// carries the password and full connection URLs exactly once; Xenibase
 	// stores only the SCRAM verifier. The URLs work once the operation
 	// succeeds (stream it to follow progress).
 	//
@@ -14119,7 +14119,7 @@ type ClientInterface interface {
 	//
 	// For a project with backend services on, after its database was
 	// imported from Supabase. `policies` rewrites the imported policies
-	// and column defaults to the project's request roles and pgd_auth
+	// and column defaults to the project's request roles and xb_auth
 	// helpers; `users` copies auth.users and auth.identities from the
 	// Supabase database, keeping ids and bcrypt password hashes (upgraded
 	// to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -14137,7 +14137,7 @@ type ClientInterface interface {
 	//
 	// For a project with backend services on, after its database was
 	// imported from Supabase. `policies` rewrites the imported policies
-	// and column defaults to the project's request roles and pgd_auth
+	// and column defaults to the project's request roles and xb_auth
 	// helpers; `users` copies auth.users and auth.identities from the
 	// Supabase database, keeping ids and bcrypt password hashes (upgraded
 	// to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -14501,7 +14501,7 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/schema/preview (the `PreviewSchemaChange` operationId).
 	PreviewSchemaChange(ctx context.Context, id ProjectID, body PreviewSchemaChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DisableBackendServices Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+	// DisableBackendServices Turn backend services off (keys revoked; the xb_* schemas and their data stay)
 	//
 	// Corresponds with DELETE /api/v1/projects/{id}/services (the `DisableBackendServices` operationId).
 	DisableBackendServices(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -14575,7 +14575,7 @@ type ClientInterface interface {
 
 	// ListAPIRequestLogs The API's request logs (7 days), newest first; with after, newer ones oldest first
 	//
-	// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
+	// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`xenibase logs api --follow`). next is the cursor for the next call.
 	//
 	// Corresponds with GET /api/v1/projects/{id}/services/logs (the `ListAPIRequestLogs` operationId).
 	ListAPIRequestLogs(ctx context.Context, id ProjectID, params *ListAPIRequestLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -14994,7 +14994,7 @@ type ClientInterface interface {
 	//
 	// Whether first-run setup is needed, who is signed in, and the CSRF
 	// token to send as `X-CSRF-Token` on every mutating request (also set
-	// as the `pgdock_csrf` cookie).
+	// as the `xenibase_csrf` cookie).
 	//
 	// Corresponds with GET /api/v1/session (the `GetSession` operationId).
 	GetSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -15135,7 +15135,7 @@ type ClientInterface interface {
 	// BeginSetupWithBody First-run setup, step 1 - owner account and TOTP enrolment
 	//
 	// Only before any operator exists. `setup_code` is printed in the
-	// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+	// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 	// created until `/setup/complete` proves a code.
 	//
 	// Takes any type of body and a specified content type.
@@ -15146,7 +15146,7 @@ type ClientInterface interface {
 	// BeginSetup First-run setup, step 1 - owner account and TOTP enrolment
 	//
 	// Only before any operator exists. `setup_code` is printed in the
-	// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+	// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 	// created until `/setup/complete` proves a code.
 	//
 	// Takes a body of the `application/json` content type.
@@ -15192,8 +15192,8 @@ type ClientInterface interface {
 
 	// SupportInboundEmailWithBody An email to the support address, from the email provider's inbound webhook
 	//
-	// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-	// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+	// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+	// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 	// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 	//
 	// Takes any type of body and a specified content type.
@@ -15203,8 +15203,8 @@ type ClientInterface interface {
 
 	// SupportInboundEmail An email to the support address, from the email provider's inbound webhook
 	//
-	// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-	// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+	// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+	// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 	// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 	//
 	// Takes a body of the `application/json` content type.
@@ -15285,7 +15285,7 @@ type ClientInterface interface {
 	// GetPrometheusMetrics Prometheus exposition of the latest metrics
 	//
 	// Needs a signed-in operator, or `Authorization: Bearer <token>` with
-	// PGDOCK_METRICS_TOKEN.
+	// XENIBASE_METRICS_TOKEN.
 	//
 	// Corresponds with GET /metrics (the `GetPrometheusMetrics` operationId).
 	GetPrometheusMetrics(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -16321,7 +16321,7 @@ func (c *Client) CancelMaintenance(ctx context.Context, incidentId openapi_types
 	return c.Client.Do(req)
 }
 
-// ConfirmMaintenanceDraft Announce a maintenance draft PGDock proposed
+// ConfirmMaintenanceDraft Announce a maintenance draft Xenibase proposed
 //
 // Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
 //
@@ -17928,10 +17928,10 @@ func (c *Client) AdminOutstandingWht(ctx context.Context, params *AdminOutstandi
 	return c.Client.Do(req)
 }
 
-// RegisterAgentWithBody Agent registration (called by pgdock-agent, not the UI)
+// RegisterAgentWithBody Agent registration (called by xenibase-agent, not the UI)
 //
 // Exchanges a one-time registration token and a CSR for a client
-// certificate signed by the PGDock agent CA. Needs no session; the
+// certificate signed by the Xenibase agent CA. Needs no session; the
 // token authenticates. Rate limited per address.
 //
 // Takes any type of body and a specified content type.
@@ -17949,10 +17949,10 @@ func (c *Client) RegisterAgentWithBody(ctx context.Context, contentType string, 
 	return c.Client.Do(req)
 }
 
-// RegisterAgent Agent registration (called by pgdock-agent, not the UI)
+// RegisterAgent Agent registration (called by xenibase-agent, not the UI)
 //
 // Exchanges a one-time registration token and a CSR for a client
-// certificate signed by the PGDock agent CA. Needs no session; the
+// certificate signed by the Xenibase agent CA. Needs no session; the
 // token authenticates. Rate limited per address.
 //
 // Takes a body of the `application/json` content type.
@@ -18515,7 +18515,7 @@ func (c *Client) RestoreBackup(ctx context.Context, id BackupID, body RestoreBac
 
 // CreateDevOperationWithBody Enqueue a dummy operation (development only)
 //
-// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 // otherwise returns 404. Enqueues a `noop` operation for exercising
 // the queue end to end.
 //
@@ -18536,7 +18536,7 @@ func (c *Client) CreateDevOperationWithBody(ctx context.Context, contentType str
 
 // CreateDevOperation Enqueue a dummy operation (development only)
 //
-// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 // otherwise returns 404. Enqueues a `noop` operation for exercising
 // the queue end to end.
 //
@@ -18555,7 +18555,7 @@ func (c *Client) CreateDevOperation(ctx context.Context, body CreateDevOperation
 	return c.Client.Do(req)
 }
 
-// EdgeAuthHookWithBody pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+// EdgeAuthHookWithBody xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 //
 // Takes any type of body and a specified content type.
 //
@@ -18572,7 +18572,7 @@ func (c *Client) EdgeAuthHookWithBody(ctx context.Context, contentType string, b
 	return c.Client.Do(req)
 }
 
-// EdgeAuthHook pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+// EdgeAuthHook xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 //
 // Takes a body of the `application/json` content type.
 //
@@ -18589,7 +18589,7 @@ func (c *Client) EdgeAuthHook(ctx context.Context, body EdgeAuthHookJSONRequestB
 	return c.Client.Do(req)
 }
 
-// EdgeAuthMessageWithBody pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+// EdgeAuthMessageWithBody xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 //
 // Takes any type of body and a specified content type.
 //
@@ -18606,7 +18606,7 @@ func (c *Client) EdgeAuthMessageWithBody(ctx context.Context, contentType string
 	return c.Client.Do(req)
 }
 
-// EdgeAuthMessage pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+// EdgeAuthMessage xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 //
 // Takes a body of the `application/json` content type.
 //
@@ -18623,7 +18623,7 @@ func (c *Client) EdgeAuthMessage(ctx context.Context, body EdgeAuthMessageJSONRe
 	return c.Client.Do(req)
 }
 
-// EdgeConfig pgdock-edge's configuration feed (signed with the edge secret; internal)
+// EdgeConfig xenibase-edge's configuration feed (signed with the edge secret; internal)
 //
 // Corresponds with GET /api/v1/edge/config (the `EdgeConfig` operationId).
 func (c *Client) EdgeConfig(ctx context.Context, params *EdgeConfigParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -18638,7 +18638,7 @@ func (c *Client) EdgeConfig(ctx context.Context, params *EdgeConfigParams, reqEd
 	return c.Client.Do(req)
 }
 
-// EdgeReportWithBody pgdock-edge's usage and request logs (signed; internal)
+// EdgeReportWithBody xenibase-edge's usage and request logs (signed; internal)
 //
 // Takes any type of body and a specified content type.
 //
@@ -18655,7 +18655,7 @@ func (c *Client) EdgeReportWithBody(ctx context.Context, contentType string, bod
 	return c.Client.Do(req)
 }
 
-// EdgeReport pgdock-edge's usage and request logs (signed; internal)
+// EdgeReport xenibase-edge's usage and request logs (signed; internal)
 //
 // Takes a body of the `application/json` content type.
 //
@@ -18672,7 +18672,7 @@ func (c *Client) EdgeReport(ctx context.Context, body EdgeReportJSONRequestBody,
 	return c.Client.Do(req)
 }
 
-// EdgeStorageEventWithBody pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+// EdgeStorageEventWithBody xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 //
 // Takes any type of body and a specified content type.
 //
@@ -18689,7 +18689,7 @@ func (c *Client) EdgeStorageEventWithBody(ctx context.Context, contentType strin
 	return c.Client.Do(req)
 }
 
-// EdgeStorageEvent pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+// EdgeStorageEvent xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 //
 // Takes a body of the `application/json` content type.
 //
@@ -18706,7 +18706,7 @@ func (c *Client) EdgeStorageEvent(ctx context.Context, body EdgeStorageEventJSON
 	return c.Client.Do(req)
 }
 
-// EdgeWakeWithBody pgdock-edge asks for a paused project to resume (signed; internal)
+// EdgeWakeWithBody xenibase-edge asks for a paused project to resume (signed; internal)
 //
 // Takes any type of body and a specified content type.
 //
@@ -18723,7 +18723,7 @@ func (c *Client) EdgeWakeWithBody(ctx context.Context, contentType string, body 
 	return c.Client.Do(req)
 }
 
-// EdgeWake pgdock-edge asks for a paused project to resume (signed; internal)
+// EdgeWake xenibase-edge asks for a paused project to resume (signed; internal)
 //
 // Takes a body of the `application/json` content type.
 //
@@ -19859,7 +19859,7 @@ func (c *Client) WithdrawDebitTerms(ctx context.Context, org OrgID, reqEditors .
 	return c.Client.Do(req)
 }
 
-// AcceptDebitTermsWithBody Agree to PGDock debiting the wallet for invoices
+// AcceptDebitTermsWithBody Agree to Xenibase debiting the wallet for invoices
 //
 // Takes any type of body and a specified content type.
 //
@@ -19876,7 +19876,7 @@ func (c *Client) AcceptDebitTermsWithBody(ctx context.Context, org OrgID, conten
 	return c.Client.Do(req)
 }
 
-// AcceptDebitTerms Agree to PGDock debiting the wallet for invoices
+// AcceptDebitTerms Agree to Xenibase debiting the wallet for invoices
 //
 // Takes a body of the `application/json` content type.
 //
@@ -20115,7 +20115,7 @@ func (c *Client) GetOrgWallet(ctx context.Context, org OrgID, reqEditors ...Requ
 
 // CreateOrgWalletWithBody Open the organisation's wallet and its bank account
 //
-// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
 //
 // Takes any type of body and a specified content type.
 //
@@ -20134,7 +20134,7 @@ func (c *Client) CreateOrgWalletWithBody(ctx context.Context, org OrgID, content
 
 // CreateOrgWallet Open the organisation's wallet and its bank account
 //
-// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -20868,7 +20868,7 @@ func (c *Client) ListProjects(ctx context.Context, params *ListProjectsParams, r
 // CreateProjectWithBody Create a shared-tier project
 //
 // Records the project and queues a `create` operation. The response
-// carries the password and full connection URLs exactly once; PGDock
+// carries the password and full connection URLs exactly once; Xenibase
 // stores only the SCRAM verifier. The URLs work once the operation
 // succeeds (stream it to follow progress).
 //
@@ -20890,7 +20890,7 @@ func (c *Client) CreateProjectWithBody(ctx context.Context, contentType string, 
 // CreateProject Create a shared-tier project
 //
 // Records the project and queues a `create` operation. The response
-// carries the password and full connection URLs exactly once; PGDock
+// carries the password and full connection URLs exactly once; Xenibase
 // stores only the SCRAM verifier. The URLs work once the operation
 // succeeds (stream it to follow progress).
 //
@@ -22465,7 +22465,7 @@ func (c *Client) GetProjectMetrics(ctx context.Context, id ProjectID, params *Ge
 //
 // For a project with backend services on, after its database was
 // imported from Supabase. `policies` rewrites the imported policies
-// and column defaults to the project's request roles and pgd_auth
+// and column defaults to the project's request roles and xb_auth
 // helpers; `users` copies auth.users and auth.identities from the
 // Supabase database, keeping ids and bcrypt password hashes (upgraded
 // to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -22493,7 +22493,7 @@ func (c *Client) MigrateSupabaseWithBody(ctx context.Context, id ProjectID, cont
 //
 // For a project with backend services on, after its database was
 // imported from Supabase. `policies` rewrites the imported policies
-// and column defaults to the project's request roles and pgd_auth
+// and column defaults to the project's request roles and xb_auth
 // helpers; `users` copies auth.users and auth.identities from the
 // Supabase database, keeping ids and bcrypt password hashes (upgraded
 // to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -23287,7 +23287,7 @@ func (c *Client) PreviewSchemaChange(ctx context.Context, id ProjectID, body Pre
 	return c.Client.Do(req)
 }
 
-// DisableBackendServices Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+// DisableBackendServices Turn backend services off (keys revoked; the xb_* schemas and their data stay)
 //
 // Corresponds with DELETE /api/v1/projects/{id}/services (the `DisableBackendServices` operationId).
 func (c *Client) DisableBackendServices(ctx context.Context, id ProjectID, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -23481,7 +23481,7 @@ func (c *Client) RevokeAPIKey(ctx context.Context, id ProjectID, keyId openapi_t
 
 // ListAPIRequestLogs The API's request logs (7 days), newest first; with after, newer ones oldest first
 //
-// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
+// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`xenibase logs api --follow`). next is the cursor for the next call.
 //
 // Corresponds with GET /api/v1/projects/{id}/services/logs (the `ListAPIRequestLogs` operationId).
 func (c *Client) ListAPIRequestLogs(ctx context.Context, id ProjectID, params *ListAPIRequestLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -24370,7 +24370,7 @@ func (c *Client) RunIsolationChecks(ctx context.Context, reqEditors ...RequestEd
 //
 // Whether first-run setup is needed, who is signed in, and the CSRF
 // token to send as `X-CSRF-Token` on every mutating request (also set
-// as the `pgdock_csrf` cookie).
+// as the `xenibase_csrf` cookie).
 //
 // Corresponds with GET /api/v1/session (the `GetSession` operationId).
 func (c *Client) GetSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -24711,7 +24711,7 @@ func (c *Client) TestStorageSettings(ctx context.Context, body TestStorageSettin
 // BeginSetupWithBody First-run setup, step 1 - owner account and TOTP enrolment
 //
 // Only before any operator exists. `setup_code` is printed in the
-// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 // created until `/setup/complete` proves a code.
 //
 // Takes any type of body and a specified content type.
@@ -24732,7 +24732,7 @@ func (c *Client) BeginSetupWithBody(ctx context.Context, contentType string, bod
 // BeginSetup First-run setup, step 1 - owner account and TOTP enrolment
 //
 // Only before any operator exists. `setup_code` is printed in the
-// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 // created until `/setup/complete` proves a code.
 //
 // Takes a body of the `application/json` content type.
@@ -24828,8 +24828,8 @@ func (c *Client) TestStorageTarget(ctx context.Context, params *TestStorageTarge
 
 // SupportInboundEmailWithBody An email to the support address, from the email provider's inbound webhook
 //
-// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 // inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 //
 // Takes any type of body and a specified content type.
@@ -24849,8 +24849,8 @@ func (c *Client) SupportInboundEmailWithBody(ctx context.Context, contentType st
 
 // SupportInboundEmail An email to the support address, from the email provider's inbound webhook
 //
-// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 // inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 //
 // Takes a body of the `application/json` content type.
@@ -25041,7 +25041,7 @@ func (c *Client) GetHealthz(ctx context.Context, reqEditors ...RequestEditorFn) 
 // GetPrometheusMetrics Prometheus exposition of the latest metrics
 //
 // Needs a signed-in operator, or `Authorization: Bearer <token>` with
-// PGDOCK_METRICS_TOKEN.
+// XENIBASE_METRICS_TOKEN.
 //
 // Corresponds with GET /metrics (the `GetPrometheusMetrics` operationId).
 func (c *Client) GetPrometheusMetrics(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -42842,7 +42842,7 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /api/v1/admin/maintenance/announcements/{incident_id} (the `CancelMaintenance` operationId).
 	CancelMaintenanceWithResponse(ctx context.Context, incidentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelMaintenanceResponse, error)
 
-	// ConfirmMaintenanceDraftWithResponse Announce a maintenance draft PGDock proposed
+	// ConfirmMaintenanceDraftWithResponse Announce a maintenance draft Xenibase proposed
 	//
 	// Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
 	//
@@ -43569,10 +43569,10 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/admin/wht (the `AdminOutstandingWht` operationId).
 	AdminOutstandingWhtWithResponse(ctx context.Context, params *AdminOutstandingWhtParams, reqEditors ...RequestEditorFn) (*AdminOutstandingWhtResponse, error)
 
-	// RegisterAgentWithBodyWithResponse Agent registration (called by pgdock-agent, not the UI)
+	// RegisterAgentWithBodyWithResponse Agent registration (called by xenibase-agent, not the UI)
 	//
 	// Exchanges a one-time registration token and a CSR for a client
-	// certificate signed by the PGDock agent CA. Needs no session; the
+	// certificate signed by the Xenibase agent CA. Needs no session; the
 	// token authenticates. Rate limited per address.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -43580,10 +43580,10 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/agent/register (the `RegisterAgent` operationId).
 	RegisterAgentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterAgentResponse, error)
 
-	// RegisterAgentWithResponse Agent registration (called by pgdock-agent, not the UI)
+	// RegisterAgentWithResponse Agent registration (called by xenibase-agent, not the UI)
 	//
 	// Exchanges a one-time registration token and a CSR for a client
-	// certificate signed by the PGDock agent CA. Needs no session; the
+	// certificate signed by the Xenibase agent CA. Needs no session; the
 	// token authenticates. Rate limited per address.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -43848,7 +43848,7 @@ type ClientWithResponsesInterface interface {
 
 	// CreateDevOperationWithBodyWithResponse Enqueue a dummy operation (development only)
 	//
-	// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+	// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 	// otherwise returns 404. Enqueues a `noop` operation for exercising
 	// the queue end to end.
 	//
@@ -43859,7 +43859,7 @@ type ClientWithResponsesInterface interface {
 
 	// CreateDevOperationWithResponse Enqueue a dummy operation (development only)
 	//
-	// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+	// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 	// otherwise returns 404. Enqueues a `noop` operation for exercising
 	// the queue end to end.
 	//
@@ -43868,77 +43868,77 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/dev/operations (the `CreateDevOperation` operationId).
 	CreateDevOperationWithResponse(ctx context.Context, body CreateDevOperationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDevOperationResponse, error)
 
-	// EdgeAuthHookWithBodyWithResponse pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+	// EdgeAuthHookWithBodyWithResponse xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
 	EdgeAuthHookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeAuthHookResponse, error)
 
-	// EdgeAuthHookWithResponse pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+	// EdgeAuthHookWithResponse xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/auth-hook (the `EdgeAuthHook` operationId).
 	EdgeAuthHookWithResponse(ctx context.Context, body EdgeAuthHookJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeAuthHookResponse, error)
 
-	// EdgeAuthMessageWithBodyWithResponse pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+	// EdgeAuthMessageWithBodyWithResponse xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
 	EdgeAuthMessageWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeAuthMessageResponse, error)
 
-	// EdgeAuthMessageWithResponse pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+	// EdgeAuthMessageWithResponse xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/auth-message (the `EdgeAuthMessage` operationId).
 	EdgeAuthMessageWithResponse(ctx context.Context, body EdgeAuthMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeAuthMessageResponse, error)
 
-	// EdgeConfigWithResponse pgdock-edge's configuration feed (signed with the edge secret; internal)
+	// EdgeConfigWithResponse xenibase-edge's configuration feed (signed with the edge secret; internal)
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /api/v1/edge/config (the `EdgeConfig` operationId).
 	EdgeConfigWithResponse(ctx context.Context, params *EdgeConfigParams, reqEditors ...RequestEditorFn) (*EdgeConfigResponse, error)
 
-	// EdgeReportWithBodyWithResponse pgdock-edge's usage and request logs (signed; internal)
+	// EdgeReportWithBodyWithResponse xenibase-edge's usage and request logs (signed; internal)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
 	EdgeReportWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeReportResponse, error)
 
-	// EdgeReportWithResponse pgdock-edge's usage and request logs (signed; internal)
+	// EdgeReportWithResponse xenibase-edge's usage and request logs (signed; internal)
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/report (the `EdgeReport` operationId).
 	EdgeReportWithResponse(ctx context.Context, body EdgeReportJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeReportResponse, error)
 
-	// EdgeStorageEventWithBodyWithResponse pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+	// EdgeStorageEventWithBodyWithResponse xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
 	EdgeStorageEventWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeStorageEventResponse, error)
 
-	// EdgeStorageEventWithResponse pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+	// EdgeStorageEventWithResponse xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/storage-event (the `EdgeStorageEvent` operationId).
 	EdgeStorageEventWithResponse(ctx context.Context, body EdgeStorageEventJSONRequestBody, reqEditors ...RequestEditorFn) (*EdgeStorageEventResponse, error)
 
-	// EdgeWakeWithBodyWithResponse pgdock-edge asks for a paused project to resume (signed; internal)
+	// EdgeWakeWithBodyWithResponse xenibase-edge asks for a paused project to resume (signed; internal)
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/edge/wake (the `EdgeWake` operationId).
 	EdgeWakeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EdgeWakeResponse, error)
 
-	// EdgeWakeWithResponse pgdock-edge asks for a paused project to resume (signed; internal)
+	// EdgeWakeWithResponse xenibase-edge asks for a paused project to resume (signed; internal)
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -44448,14 +44448,14 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /api/v1/orgs/{org}/billing/debit-consent (the `WithdrawDebitTerms` operationId).
 	WithdrawDebitTermsWithResponse(ctx context.Context, org OrgID, reqEditors ...RequestEditorFn) (*WithdrawDebitTermsResponse, error)
 
-	// AcceptDebitTermsWithBodyWithResponse Agree to PGDock debiting the wallet for invoices
+	// AcceptDebitTermsWithBodyWithResponse Agree to Xenibase debiting the wallet for invoices
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/orgs/{org}/billing/debit-consent (the `AcceptDebitTerms` operationId).
 	AcceptDebitTermsWithBodyWithResponse(ctx context.Context, org OrgID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AcceptDebitTermsResponse, error)
 
-	// AcceptDebitTermsWithResponse Agree to PGDock debiting the wallet for invoices
+	// AcceptDebitTermsWithResponse Agree to Xenibase debiting the wallet for invoices
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -44562,7 +44562,7 @@ type ClientWithResponsesInterface interface {
 
 	// CreateOrgWalletWithBodyWithResponse Open the organisation's wallet and its bank account
 	//
-	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -44571,7 +44571,7 @@ type ClientWithResponsesInterface interface {
 
 	// CreateOrgWalletWithResponse Open the organisation's wallet and its bank account
 	//
-	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+	// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -44907,7 +44907,7 @@ type ClientWithResponsesInterface interface {
 	// CreateProjectWithBodyWithResponse Create a shared-tier project
 	//
 	// Records the project and queues a `create` operation. The response
-	// carries the password and full connection URLs exactly once; PGDock
+	// carries the password and full connection URLs exactly once; Xenibase
 	// stores only the SCRAM verifier. The URLs work once the operation
 	// succeeds (stream it to follow progress).
 	//
@@ -44919,7 +44919,7 @@ type ClientWithResponsesInterface interface {
 	// CreateProjectWithResponse Create a shared-tier project
 	//
 	// Records the project and queues a `create` operation. The response
-	// carries the password and full connection URLs exactly once; PGDock
+	// carries the password and full connection URLs exactly once; Xenibase
 	// stores only the SCRAM verifier. The URLs work once the operation
 	// succeeds (stream it to follow progress).
 	//
@@ -45686,7 +45686,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// For a project with backend services on, after its database was
 	// imported from Supabase. `policies` rewrites the imported policies
-	// and column defaults to the project's request roles and pgd_auth
+	// and column defaults to the project's request roles and xb_auth
 	// helpers; `users` copies auth.users and auth.identities from the
 	// Supabase database, keeping ids and bcrypt password hashes (upgraded
 	// to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -45704,7 +45704,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// For a project with backend services on, after its database was
 	// imported from Supabase. `policies` rewrites the imported policies
-	// and column defaults to the project's request roles and pgd_auth
+	// and column defaults to the project's request roles and xb_auth
 	// helpers; `users` copies auth.users and auth.identities from the
 	// Supabase database, keeping ids and bcrypt password hashes (upgraded
 	// to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -46092,7 +46092,7 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/projects/{id}/schema/preview (the `PreviewSchemaChange` operationId).
 	PreviewSchemaChangeWithResponse(ctx context.Context, id ProjectID, body PreviewSchemaChangeJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewSchemaChangeResponse, error)
 
-	// DisableBackendServicesWithResponse Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+	// DisableBackendServicesWithResponse Turn backend services off (keys revoked; the xb_* schemas and their data stay)
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -46178,7 +46178,7 @@ type ClientWithResponsesInterface interface {
 
 	// ListAPIRequestLogsWithResponse The API's request logs (7 days), newest first; with after, newer ones oldest first
 	//
-	// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
+	// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`xenibase logs api --follow`). next is the cursor for the next call.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -46635,7 +46635,7 @@ type ClientWithResponsesInterface interface {
 	//
 	// Whether first-run setup is needed, who is signed in, and the CSRF
 	// token to send as `X-CSRF-Token` on every mutating request (also set
-	// as the `pgdock_csrf` cookie).
+	// as the `xenibase_csrf` cookie).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -46792,7 +46792,7 @@ type ClientWithResponsesInterface interface {
 	// BeginSetupWithBodyWithResponse First-run setup, step 1 - owner account and TOTP enrolment
 	//
 	// Only before any operator exists. `setup_code` is printed in the
-	// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+	// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 	// created until `/setup/complete` proves a code.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -46803,7 +46803,7 @@ type ClientWithResponsesInterface interface {
 	// BeginSetupWithResponse First-run setup, step 1 - owner account and TOTP enrolment
 	//
 	// Only before any operator exists. `setup_code` is printed in the
-	// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+	// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 	// created until `/setup/complete` proves a code.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -46849,8 +46849,8 @@ type ClientWithResponsesInterface interface {
 
 	// SupportInboundEmailWithBodyWithResponse An email to the support address, from the email provider's inbound webhook
 	//
-	// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-	// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+	// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+	// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 	// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -46860,8 +46860,8 @@ type ClientWithResponsesInterface interface {
 
 	// SupportInboundEmailWithResponse An email to the support address, from the email provider's inbound webhook
 	//
-	// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-	// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+	// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+	// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 	// inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -46954,7 +46954,7 @@ type ClientWithResponsesInterface interface {
 	// GetPrometheusMetricsWithResponse Prometheus exposition of the latest metrics
 	//
 	// Needs a signed-in operator, or `Authorization: Bearer <token>` with
-	// PGDOCK_METRICS_TOKEN.
+	// XENIBASE_METRICS_TOKEN.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -66555,7 +66555,7 @@ func (c *ClientWithResponses) CancelMaintenanceWithResponse(ctx context.Context,
 	return ParseCancelMaintenanceResponse(rsp)
 }
 
-// ConfirmMaintenanceDraftWithResponse Announce a maintenance draft PGDock proposed
+// ConfirmMaintenanceDraftWithResponse Announce a maintenance draft Xenibase proposed
 //
 // Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
 //
@@ -67852,10 +67852,10 @@ func (c *ClientWithResponses) AdminOutstandingWhtWithResponse(ctx context.Contex
 	return ParseAdminOutstandingWhtResponse(rsp)
 }
 
-// RegisterAgentWithBodyWithResponse Agent registration (called by pgdock-agent, not the UI)
+// RegisterAgentWithBodyWithResponse Agent registration (called by xenibase-agent, not the UI)
 //
 // Exchanges a one-time registration token and a CSR for a client
-// certificate signed by the PGDock agent CA. Needs no session; the
+// certificate signed by the Xenibase agent CA. Needs no session; the
 // token authenticates. Rate limited per address.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -67869,10 +67869,10 @@ func (c *ClientWithResponses) RegisterAgentWithBodyWithResponse(ctx context.Cont
 	return ParseRegisterAgentResponse(rsp)
 }
 
-// RegisterAgentWithResponse Agent registration (called by pgdock-agent, not the UI)
+// RegisterAgentWithResponse Agent registration (called by xenibase-agent, not the UI)
 //
 // Exchanges a one-time registration token and a CSR for a client
-// certificate signed by the PGDock agent CA. Needs no session; the
+// certificate signed by the Xenibase agent CA. Needs no session; the
 // token authenticates. Rate limited per address.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -68323,7 +68323,7 @@ func (c *ClientWithResponses) RestoreBackupWithResponse(ctx context.Context, id 
 
 // CreateDevOperationWithBodyWithResponse Enqueue a dummy operation (development only)
 //
-// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 // otherwise returns 404. Enqueues a `noop` operation for exercising
 // the queue end to end.
 //
@@ -68340,7 +68340,7 @@ func (c *ClientWithResponses) CreateDevOperationWithBodyWithResponse(ctx context
 
 // CreateDevOperationWithResponse Enqueue a dummy operation (development only)
 //
-// Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+// Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
 // otherwise returns 404. Enqueues a `noop` operation for exercising
 // the queue end to end.
 //
@@ -68355,7 +68355,7 @@ func (c *ClientWithResponses) CreateDevOperationWithResponse(ctx context.Context
 	return ParseCreateDevOperationResponse(rsp)
 }
 
-// EdgeAuthHookWithBodyWithResponse pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+// EdgeAuthHookWithBodyWithResponse xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68368,7 +68368,7 @@ func (c *ClientWithResponses) EdgeAuthHookWithBodyWithResponse(ctx context.Conte
 	return ParseEdgeAuthHookResponse(rsp)
 }
 
-// EdgeAuthHookWithResponse pgdock-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
+// EdgeAuthHookWithResponse xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal)
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68381,7 +68381,7 @@ func (c *ClientWithResponses) EdgeAuthHookWithResponse(ctx context.Context, body
 	return ParseEdgeAuthHookResponse(rsp)
 }
 
-// EdgeAuthMessageWithBodyWithResponse pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+// EdgeAuthMessageWithBodyWithResponse xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68394,7 +68394,7 @@ func (c *ClientWithResponses) EdgeAuthMessageWithBodyWithResponse(ctx context.Co
 	return ParseEdgeAuthMessageResponse(rsp)
 }
 
-// EdgeAuthMessageWithResponse pgdock-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
+// EdgeAuthMessageWithResponse xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal)
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68407,7 +68407,7 @@ func (c *ClientWithResponses) EdgeAuthMessageWithResponse(ctx context.Context, b
 	return ParseEdgeAuthMessageResponse(rsp)
 }
 
-// EdgeConfigWithResponse pgdock-edge's configuration feed (signed with the edge secret; internal)
+// EdgeConfigWithResponse xenibase-edge's configuration feed (signed with the edge secret; internal)
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -68420,7 +68420,7 @@ func (c *ClientWithResponses) EdgeConfigWithResponse(ctx context.Context, params
 	return ParseEdgeConfigResponse(rsp)
 }
 
-// EdgeReportWithBodyWithResponse pgdock-edge's usage and request logs (signed; internal)
+// EdgeReportWithBodyWithResponse xenibase-edge's usage and request logs (signed; internal)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68433,7 +68433,7 @@ func (c *ClientWithResponses) EdgeReportWithBodyWithResponse(ctx context.Context
 	return ParseEdgeReportResponse(rsp)
 }
 
-// EdgeReportWithResponse pgdock-edge's usage and request logs (signed; internal)
+// EdgeReportWithResponse xenibase-edge's usage and request logs (signed; internal)
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68446,7 +68446,7 @@ func (c *ClientWithResponses) EdgeReportWithResponse(ctx context.Context, body E
 	return ParseEdgeReportResponse(rsp)
 }
 
-// EdgeStorageEventWithBodyWithResponse pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+// EdgeStorageEventWithBodyWithResponse xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68459,7 +68459,7 @@ func (c *ClientWithResponses) EdgeStorageEventWithBodyWithResponse(ctx context.C
 	return ParseEdgeStorageEventResponse(rsp)
 }
 
-// EdgeStorageEventWithResponse pgdock-edge reports a storage change to act on, such as a bucket made private (signed; internal)
+// EdgeStorageEventWithResponse xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal)
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68472,7 +68472,7 @@ func (c *ClientWithResponses) EdgeStorageEventWithResponse(ctx context.Context, 
 	return ParseEdgeStorageEventResponse(rsp)
 }
 
-// EdgeWakeWithBodyWithResponse pgdock-edge asks for a paused project to resume (signed; internal)
+// EdgeWakeWithBodyWithResponse xenibase-edge asks for a paused project to resume (signed; internal)
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -68485,7 +68485,7 @@ func (c *ClientWithResponses) EdgeWakeWithBodyWithResponse(ctx context.Context, 
 	return ParseEdgeWakeResponse(rsp)
 }
 
-// EdgeWakeWithResponse pgdock-edge asks for a paused project to resume (signed; internal)
+// EdgeWakeWithResponse xenibase-edge asks for a paused project to resume (signed; internal)
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -69403,7 +69403,7 @@ func (c *ClientWithResponses) WithdrawDebitTermsWithResponse(ctx context.Context
 	return ParseWithdrawDebitTermsResponse(rsp)
 }
 
-// AcceptDebitTermsWithBodyWithResponse Agree to PGDock debiting the wallet for invoices
+// AcceptDebitTermsWithBodyWithResponse Agree to Xenibase debiting the wallet for invoices
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -69416,7 +69416,7 @@ func (c *ClientWithResponses) AcceptDebitTermsWithBodyWithResponse(ctx context.C
 	return ParseAcceptDebitTermsResponse(rsp)
 }
 
-// AcceptDebitTermsWithResponse Agree to PGDock debiting the wallet for invoices
+// AcceptDebitTermsWithResponse Agree to Xenibase debiting the wallet for invoices
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -69613,7 +69613,7 @@ func (c *ClientWithResponses) GetOrgWalletWithResponse(ctx context.Context, org 
 
 // CreateOrgWalletWithBodyWithResponse Open the organisation's wallet and its bank account
 //
-// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -69628,7 +69628,7 @@ func (c *ClientWithResponses) CreateOrgWalletWithBodyWithResponse(ctx context.Co
 
 // CreateOrgWalletWithResponse Open the organisation's wallet and its bank account
 //
-// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; PGDock doesn't keep it.
+// A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -70234,7 +70234,7 @@ func (c *ClientWithResponses) ListProjectsWithResponse(ctx context.Context, para
 // CreateProjectWithBodyWithResponse Create a shared-tier project
 //
 // Records the project and queues a `create` operation. The response
-// carries the password and full connection URLs exactly once; PGDock
+// carries the password and full connection URLs exactly once; Xenibase
 // stores only the SCRAM verifier. The URLs work once the operation
 // succeeds (stream it to follow progress).
 //
@@ -70252,7 +70252,7 @@ func (c *ClientWithResponses) CreateProjectWithBodyWithResponse(ctx context.Cont
 // CreateProjectWithResponse Create a shared-tier project
 //
 // Records the project and queues a `create` operation. The response
-// carries the password and full connection URLs exactly once; PGDock
+// carries the password and full connection URLs exactly once; Xenibase
 // stores only the SCRAM verifier. The URLs work once the operation
 // succeeds (stream it to follow progress).
 //
@@ -71553,7 +71553,7 @@ func (c *ClientWithResponses) GetProjectMetricsWithResponse(ctx context.Context,
 //
 // For a project with backend services on, after its database was
 // imported from Supabase. `policies` rewrites the imported policies
-// and column defaults to the project's request roles and pgd_auth
+// and column defaults to the project's request roles and xb_auth
 // helpers; `users` copies auth.users and auth.identities from the
 // Supabase database, keeping ids and bcrypt password hashes (upgraded
 // to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -71577,7 +71577,7 @@ func (c *ClientWithResponses) MigrateSupabaseWithBodyWithResponse(ctx context.Co
 //
 // For a project with backend services on, after its database was
 // imported from Supabase. `policies` rewrites the imported policies
-// and column defaults to the project's request roles and pgd_auth
+// and column defaults to the project's request roles and xb_auth
 // helpers; `users` copies auth.users and auth.identities from the
 // Supabase database, keeping ids and bcrypt password hashes (upgraded
 // to argon2id at each user's next sign-in); `storage` copies buckets,
@@ -72223,7 +72223,7 @@ func (c *ClientWithResponses) PreviewSchemaChangeWithResponse(ctx context.Contex
 	return ParsePreviewSchemaChangeResponse(rsp)
 }
 
-// DisableBackendServicesWithResponse Turn backend services off (keys revoked; the pgd_* schemas and their data stay)
+// DisableBackendServicesWithResponse Turn backend services off (keys revoked; the xb_* schemas and their data stay)
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -72381,7 +72381,7 @@ func (c *ClientWithResponses) RevokeAPIKeyWithResponse(ctx context.Context, id P
 
 // ListAPIRequestLogsWithResponse The API's request logs (7 days), newest first; with after, newer ones oldest first
 //
-// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`pgdock logs api --follow`). next is the cursor for the next call.
+// With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`xenibase logs api --follow`). next is the cursor for the next call.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -73120,7 +73120,7 @@ func (c *ClientWithResponses) RunIsolationChecksWithResponse(ctx context.Context
 //
 // Whether first-run setup is needed, who is signed in, and the CSRF
 // token to send as `X-CSRF-Token` on every mutating request (also set
-// as the `pgdock_csrf` cookie).
+// as the `xenibase_csrf` cookie).
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -73397,7 +73397,7 @@ func (c *ClientWithResponses) TestStorageSettingsWithResponse(ctx context.Contex
 // BeginSetupWithBodyWithResponse First-run setup, step 1 - owner account and TOTP enrolment
 //
 // Only before any operator exists. `setup_code` is printed in the
-// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 // created until `/setup/complete` proves a code.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -73414,7 +73414,7 @@ func (c *ClientWithResponses) BeginSetupWithBodyWithResponse(ctx context.Context
 // BeginSetupWithResponse First-run setup, step 1 - owner account and TOTP enrolment
 //
 // Only before any operator exists. `setup_code` is printed in the
-// pgdock-server log. Returns the TOTP secret to enrol; nothing is
+// xenibase-server log. Returns the TOTP secret to enrol; nothing is
 // created until `/setup/complete` proves a code.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -73490,8 +73490,8 @@ func (c *ClientWithResponses) TestStorageTargetWithResponse(ctx context.Context,
 
 // SupportInboundEmailWithBodyWithResponse An email to the support address, from the email provider's inbound webhook
 //
-// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 // inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -73507,8 +73507,8 @@ func (c *ClientWithResponses) SupportInboundEmailWithBodyWithResponse(ctx contex
 
 // SupportInboundEmailWithResponse An email to the support address, from the email provider's inbound webhook
 //
-// Authenticated with PGDOCK_SUPPORT_INBOUND_SECRET, as the basic-auth
-// password (https://inbound:SECRET@…) or an X-PGDock-Inbound-Secret header. Takes this API's own fields or Postmark's
+// Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+// password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
 // inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
@@ -73667,7 +73667,7 @@ func (c *ClientWithResponses) GetHealthzWithResponse(ctx context.Context, reqEdi
 // GetPrometheusMetricsWithResponse Prometheus exposition of the latest metrics
 //
 // Needs a signed-in operator, or `Authorization: Bearer <token>` with
-// PGDOCK_METRICS_TOKEN.
+// XENIBASE_METRICS_TOKEN.
 //
 // Returns a wrapper object for the known response body format(s).
 //

@@ -2,7 +2,7 @@ import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
 import { api, type Org } from "../api/client";
 
-const key = "pgdock.org";
+const key = "xenibase.org";
 const listeners = new Set<() => void>();
 
 function stored(): string | null {

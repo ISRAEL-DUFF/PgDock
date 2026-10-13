@@ -446,7 +446,7 @@ function CostSettingsPanel({
           </Field>
           <Field
             label="Edges' share of shared nodes (%)"
-            hint="Where pgdock-edge runs on the shared nodes, this much of their cost is the edges', split by each organisation's requests and realtime minutes."
+            hint="Where xenibase-edge runs on the shared nodes, this much of their cost is the edges', split by each organisation's requests and realtime minutes."
           >
             {(id) => (
               <Input

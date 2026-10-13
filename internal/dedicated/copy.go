@@ -8,11 +8,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/logical"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/logical"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // copyKeepingOwners copies p's database from its instance to the same
@@ -24,8 +24,8 @@ import (
 // generated columns, index expressions), and must not run as the
 // superuser. Its extensions, which only the superuser can create and
 // comment on, are created on the target first and left out of the dump.
-// PGDock's own webhook schema (superuser-owned, V2 §9.1) is copied first,
-// as the superuser: it holds only PGDock's objects and queued events.
+// Xenibase's own webhook schema (superuser-owned, V2 §9.1) is copied first,
+// as the superuser: it holds only Xenibase's objects and queued events.
 //
 // schemaOnly copies the definitions without rows: a logical move's
 // subscription copies the data.
@@ -39,13 +39,13 @@ func (s *Service) copyKeepingOwners(ctx context.Context, agent *nodes.Agent, p s
 		return 0, err
 	}
 	var hooks bool
-	if err := src.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'pgdock')`).Scan(&hooks); err != nil {
+	if err := src.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'xenibase')`).Scan(&hooks); err != nil {
 		return 0, err
 	}
 	// Backend services' schemas (V4 §11.2), superuser-owned like the
 	// webhook schema, and copied with it; their grants name the project's
 	// request roles, which the target needs first.
-	rowsS, err := src.Query(ctx, `SELECT nspname FROM pg_namespace WHERE nspname IN ('pgd_auth', 'pgd_storage', 'pgd_realtime') ORDER BY nspname`)
+	rowsS, err := src.Query(ctx, `SELECT nspname FROM pg_namespace WHERE nspname IN ('xb_auth', 'xb_storage', 'xb_realtime') ORDER BY nspname`)
 	if err != nil {
 		return 0, err
 	}
@@ -60,7 +60,7 @@ func (s *Service) copyKeepingOwners(ctx context.Context, agent *nodes.Agent, p s
 	}
 	platform := svcSchemas
 	if hooks {
-		platform = append([]string{"pgdock"}, platform...)
+		platform = append([]string{"xenibase"}, platform...)
 	}
 	rows, err := src.Query(ctx, `SELECT extname, n.nspname FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
 		WHERE extname <> 'plpgsql' ORDER BY extname`)
@@ -117,15 +117,15 @@ func (s *Service) copyKeepingOwners(ctx context.Context, agent *nodes.Agent, p s
 	}
 	err = s.projects.WithRestoreLogin(ctx, target, p.DbName, p.OwnerRole, owners, func(c agentapi.PGConn) error {
 		if hooks {
-			// The tables' webhook triggers name PGDock's function; the login
+			// The tables' webhook triggers name Xenibase's function; the login
 			// may for this copy only (dropping it revokes this).
 			login := provision.Ident(c.User)
-			if _, err := dst.Exec(ctx, "GRANT USAGE ON SCHEMA pgdock TO "+login+"; GRANT EXECUTE ON FUNCTION pgdock.webhook_enqueue() TO "+login); err != nil {
+			if _, err := dst.Exec(ctx, "GRANT USAGE ON SCHEMA xenibase TO "+login+"; GRANT EXECUTE ON FUNCTION xenibase.webhook_enqueue() TO "+login); err != nil {
 				return fmt.Errorf("webhook schema: %w", err)
 			}
 		}
 		res, err := agent.Copy(ctx, agentapi.CopyRequest{
-			Source: from, Dump: agentapi.DumpOptions{ExcludeSchemas: append([]string{"pgdock", logical.Schema}, svcSchemas...), ExcludeExtensions: names, SchemaOnly: schemaOnly},
+			Source: from, Dump: agentapi.DumpOptions{ExcludeSchemas: append([]string{"xenibase", logical.Schema}, svcSchemas...), ExcludeExtensions: names, SchemaOnly: schemaOnly},
 			Target: c, Restore: agentapi.RestoreOptions{KeepOwners: true},
 		})
 		took += time.Duration(res.DurationMS) * time.Millisecond

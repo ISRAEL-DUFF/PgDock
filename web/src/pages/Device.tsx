@@ -14,7 +14,7 @@ export function DevicePage() {
   if (!code) {
     return (
       <>
-        <PageHeading title="Log in the pgdock CLI" />
+        <PageHeading title="Log in the xenibase CLI" />
         <Panel className="max-w-md">
           <form
             className="flex flex-col gap-3"
@@ -54,7 +54,7 @@ function Approve({ code }: { code: string }) {
   if (done) {
     return (
       <>
-        <PageHeading title="Log in the pgdock CLI" />
+        <PageHeading title="Log in the xenibase CLI" />
         <Panel className="max-w-lg">
           <p className="text-sm" data-testid={`device-${done}`}>
             {done === "approved" ? "Approved. Return to your terminal: the CLI is logged in." : "Denied. The CLI was not logged in."}
@@ -68,9 +68,9 @@ function Approve({ code }: { code: string }) {
     const gone = req.error instanceof ApiRequestError && req.error.status === 404;
     return (
       <>
-        <PageHeading title="Log in the pgdock CLI" />
+        <PageHeading title="Log in the xenibase CLI" />
         <Alert>
-          {gone ? `No pending login with the code ${code}. It may have expired (codes last 10 minutes): run pgdock login again.` : errorMessage(req.error)}
+          {gone ? `No pending login with the code ${code}. It may have expired (codes last 10 minutes): run xenibase login again.` : errorMessage(req.error)}
         </Alert>
       </>
     );
@@ -95,8 +95,8 @@ function Approve({ code }: { code: string }) {
   return (
     <>
       <PageHeading
-        title="Log in the pgdock CLI"
-        description={`Code ${r.user_code}, requested by “${r.client_name || "pgdock CLI"}”. Expires ${formatDate(r.expires_at)}.`}
+        title="Log in the xenibase CLI"
+        description={`Code ${r.user_code}, requested by “${r.client_name || "xenibase CLI"}”. Expires ${formatDate(r.expires_at)}.`}
       />
       <Panel className="max-w-lg">
         <form className="flex flex-col gap-4" onSubmit={(e) => void decide(true, e)}>

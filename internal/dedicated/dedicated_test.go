@@ -11,14 +11,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/agentca"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/dedicated"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/xenibase/internal/agentca"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/store/storetest"
 )
 
 var quiet = slog.New(slog.NewTextHandler(io.Discard, nil))

@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/alerts"
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/pooler"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/alerts"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // hook records webhook deliveries and checks their signatures.
@@ -30,7 +30,7 @@ type hook struct {
 
 func (h *hook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	body, _ := io.ReadAll(r.Body)
-	sig := r.Header.Get("X-PGDock-Signature")
+	sig := r.Header.Get("X-Xenibase-Signature")
 	ts := ""
 	for _, part := range strings.Split(sig, ",") {
 		if v, ok := strings.CutPrefix(part, "t="); ok {
@@ -52,8 +52,8 @@ func (h *hook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(body, &p); err != nil {
 		h.t.Errorf("payload: %v", err)
 	}
-	if r.Header.Get("X-PGDock-Event") != p.Event {
-		h.t.Errorf("event header %q, body %q", r.Header.Get("X-PGDock-Event"), p.Event)
+	if r.Header.Get("X-Xenibase-Event") != p.Event {
+		h.t.Errorf("event header %q, body %q", r.Header.Get("X-Xenibase-Event"), p.Event)
 	}
 	h.mu.Lock()
 	h.got = append(h.got, p)
@@ -81,7 +81,7 @@ func events(ps []alerts.Payload) map[string]string {
 // webhook (signed) and by email, and resolves when the condition clears;
 // failed deliveries retry.
 func TestAlerts(t *testing.T) {
-	ghost, err := pooler.NewAdmin("ghost", "127.0.0.1:1", "pgdock", "x", "disable")
+	ghost, err := pooler.NewAdmin("ghost", "127.0.0.1:1", "xenibase", "x", "disable")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,8 +100,8 @@ func TestAlerts(t *testing.T) {
 	for _, bad := range []map[string]any{
 		{"webhook_url": "ftp://nope"},
 		{"smtp": map[string]any{"host": host, "port": port, "from": "not an address", "to": []string{"ops@example.com"}}},
-		{"smtp": map[string]any{"host": host, "port": port, "from": "pgdock@example.com", "to": []string{}}},
-		{"smtp": map[string]any{"host": host, "port": port, "from": "pgdock@example.com", "to": []string{"ops@example.com"}, "tls": "ssl3"}},
+		{"smtp": map[string]any{"host": host, "port": port, "from": "xenibase@example.com", "to": []string{}}},
+		{"smtp": map[string]any{"host": host, "port": port, "from": "xenibase@example.com", "to": []string{"ops@example.com"}, "tls": "ssl3"}},
 	} {
 		if code := e.Do("PUT", "/api/v1/settings/alerts", bad, nil); code != http.StatusBadRequest {
 			t.Errorf("settings %v: %d", bad, code)
@@ -111,7 +111,7 @@ func TestAlerts(t *testing.T) {
 	if code := e.Do("PUT", "/api/v1/settings/alerts", map[string]any{
 		"webhook_url": srv.URL + "/hook", "webhook_secret": h.secret,
 		"smtp": map[string]any{"host": host, "port": port, "tls": "none", "username": "mailer", "password": "smtp-pass",
-			"from": "PGDock <pgdock@example.com>", "to": []string{"ops@example.com", "oncall@example.com"}},
+			"from": "Xenibase <xenibase@example.com>", "to": []string{"ops@example.com", "oncall@example.com"}},
 	}, &st); code != http.StatusOK || !st.HasWebhookSecret || st.Smtp == nil || !st.Smtp.HasPassword {
 		t.Fatalf("save: %d %+v", code, st)
 	}
@@ -137,8 +137,8 @@ func TestAlerts(t *testing.T) {
 	if got := h.take(); len(got) != 1 || got[0].Event != alerts.EventTest {
 		t.Fatalf("test webhook: %+v", got)
 	}
-	if m := mail.Mail(); len(m) != 1 || !strings.Contains(m[0].Data, "Subject: [PGDock] Test alert") ||
-		len(m[0].To) != 2 || m[0].From != "pgdock@example.com" || m[0].Auth != "|mailer|smtp-pass" {
+	if m := mail.Mail(); len(m) != 1 || !strings.Contains(m[0].Data, "Subject: [Xenibase] Test alert") ||
+		len(m[0].To) != 2 || m[0].From != "xenibase@example.com" || m[0].Auth != "|mailer|smtp-pass" {
 		t.Fatalf("test mail: %+v", m)
 	}
 
@@ -193,7 +193,7 @@ func TestAlerts(t *testing.T) {
 	}
 	var crit bool
 	for _, m := range mail.Mail() {
-		if strings.Contains(m.Data, "Subject: [PGDock] CRITICAL: The ghost pooler at 127.0.0.1:1 is down") {
+		if strings.Contains(m.Data, "Subject: [Xenibase] CRITICAL: The ghost pooler at 127.0.0.1:1 is down") {
 			crit = true
 		}
 	}

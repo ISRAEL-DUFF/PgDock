@@ -129,11 +129,11 @@ func TestParseKey(t *testing.T) {
 
 func TestDerive(t *testing.T) {
 	k1, k2 := mustKey(t), mustKey(t)
-	a := mustRing(t, k1).Derive("salt:pgdock", 16)
-	if len(a) != 16 || !bytes.Equal(a, mustRing(t, k1).Derive("salt:pgdock", 16)) {
+	a := mustRing(t, k1).Derive("salt:xenibase", 16)
+	if len(a) != 16 || !bytes.Equal(a, mustRing(t, k1).Derive("salt:xenibase", 16)) {
 		t.Fatal("derive is not deterministic")
 	}
-	if bytes.Equal(a, mustRing(t, k1).Derive("salt:other", 16)) || bytes.Equal(a, mustRing(t, k2).Derive("salt:pgdock", 16)) {
+	if bytes.Equal(a, mustRing(t, k1).Derive("salt:other", 16)) || bytes.Equal(a, mustRing(t, k2).Derive("salt:xenibase", 16)) {
 		t.Fatal("derive does not depend on label and key")
 	}
 }

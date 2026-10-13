@@ -9,9 +9,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // ListOrgIncidents implements GET /api/v1/orgs/{org}/incidents: the open

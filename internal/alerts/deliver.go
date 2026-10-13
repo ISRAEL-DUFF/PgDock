@@ -19,8 +19,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/version"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/version"
 )
 
 // Event types.
@@ -32,12 +32,12 @@ const (
 
 // Payload is the webhook body.
 type Payload struct {
-	Event  string       `json:"event"`
-	Alert  AlertPayload `json:"alert"`
-	PGDock struct {
+	Event    string       `json:"event"`
+	Alert    AlertPayload `json:"alert"`
+	Xenibase struct {
 		Version string `json:"version"`
 		URL     string `json:"url,omitempty"`
-	} `json:"pgdock"`
+	} `json:"xenibase"`
 }
 
 // AlertPayload describes the alert in a notification.
@@ -70,9 +70,9 @@ func (s *Service) payload(event string, a store.Alert) Payload {
 	if len(p.Alert.Detail) == 0 {
 		p.Alert.Detail = json.RawMessage(`{}`)
 	}
-	p.PGDock.Version = version.Get().Version
+	p.Xenibase.Version = version.Get().Version
 	if s.cfg.PublicURL != "" {
-		p.PGDock.URL = s.cfg.PublicURL
+		p.Xenibase.URL = s.cfg.PublicURL
 		p.Alert.URL = s.cfg.PublicURL + "/alerts"
 	}
 	return p
@@ -94,7 +94,7 @@ func (s *Service) deliver(ctx context.Context, c channels, p Payload) error {
 	return errors.Join(errs...)
 }
 
-// Sign returns the X-PGDock-Signature header for body at t:
+// Sign returns the X-Xenibase-Signature header for body at t:
 // "t=<unix>,v1=<hex HMAC-SHA256 of "<unix>.<body>">", as receivers verify it.
 func Sign(secret string, t time.Time, body []byte) string {
 	ts := strconv.FormatInt(t.Unix(), 10)
@@ -116,10 +116,10 @@ func (s *Service) sendWebhook(ctx context.Context, c channels, p Payload) error 
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "pgdock/"+version.Get().Version)
-	req.Header.Set("X-PGDock-Event", p.Event)
+	req.Header.Set("User-Agent", "xenibase/"+version.Get().Version)
+	req.Header.Set("X-Xenibase-Event", p.Event)
 	if c.webhookSecret != "" {
-		req.Header.Set("X-PGDock-Signature", Sign(c.webhookSecret, time.Now(), body))
+		req.Header.Set("X-Xenibase-Signature", Sign(c.webhookSecret, time.Now(), body))
 	}
 	res, err := s.http.Do(req)
 	if err != nil {
@@ -136,11 +136,11 @@ func (s *Service) sendWebhook(ctx context.Context, c channels, p Payload) error 
 func subject(p Payload) string {
 	switch p.Event {
 	case EventResolved:
-		return "[PGDock] Resolved: " + p.Alert.Summary
+		return "[Xenibase] Resolved: " + p.Alert.Summary
 	case EventTest:
-		return "[PGDock] Test alert"
+		return "[Xenibase] Test alert"
 	}
-	return fmt.Sprintf("[PGDock] %s: %s", strings.ToUpper(p.Alert.Severity), p.Alert.Summary)
+	return fmt.Sprintf("[Xenibase] %s: %s", strings.ToUpper(p.Alert.Severity), p.Alert.Summary)
 }
 
 // message renders the email (RFC 5322, CRLF line endings).
@@ -161,14 +161,14 @@ func message(cfg smtpConfig, p Payload, now time.Time) []byte {
 	hdr("MIME-Version", "1.0")
 	hdr("Content-Type", "text/plain; charset=utf-8")
 	hdr("Content-Transfer-Encoding", "8bit")
-	hdr("X-PGDock-Event", p.Event)
+	hdr("X-Xenibase-Event", p.Event)
 	b.WriteString("\r\n")
 	lines := []string{p.Alert.Summary, ""}
 	switch p.Event {
 	case EventResolved:
 		lines = append(lines, "This alert is resolved.")
 	case EventTest:
-		lines = append(lines, "This is a test from PGDock's alert settings. Alerts will arrive like this.")
+		lines = append(lines, "This is a test from Xenibase's alert settings. Alerts will arrive like this.")
 	default:
 		lines = append(lines, "Severity: "+p.Alert.Severity)
 	}

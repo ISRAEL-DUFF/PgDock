@@ -23,7 +23,7 @@ and audited:
 | A leaked API token | Revoke it (the org's owners can, under Organisation → Tokens, or the user). |
 | A leaked app password | Project → Settings → **Rotate password**. |
 | A compromised node | Stop its agent; move its projects off with promotion, demotion or restores if it can't be trusted again. |
-| The master key or backup key exposed | Rotate the master key (`pgdock-server -rotate-master-key`); generate a new backup key (new backups use it; old ones still need the old key, so keep it until they expire). |
+| The master key or backup key exposed | Rotate the master key (`xenibase-server -rotate-master-key`); generate a new backup key (new backups use it; old ones still need the old key, so keep it until they expire). |
 
 Take a backup or a disk snapshot of anything you'll need to investigate
 before changing it further.

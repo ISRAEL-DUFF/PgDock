@@ -1,8 +1,8 @@
-// Package edgeapi is the contract between pgdock-server and pgdock-edge
+// Package edgeapi is the contract between xenibase-server and xenibase-edge
 // (V4 §2.1): the configuration feed the edge keeps its per-project cache
 // from, and the reports it sends back (usage, request logs, keys in use,
 // projects to wake). Every request is signed with the shared edge secret
-// (the PGDock-Signature scheme over the method, path and body), so only an
+// (the Xenibase-Signature scheme over the method, path and body), so only an
 // edge can read project configuration, which includes the edge login's
 // password.
 package edgeapi
@@ -23,11 +23,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/signature"
-	"github.com/israel-duff/pgdock/internal/storage"
+	"github.com/israel-duff/xenibase/internal/signature"
+	"github.com/israel-duff/xenibase/internal/storage"
 )
 
-// Paths on pgdock-server.
+// Paths on xenibase-server.
 const (
 	PathConfig = "/api/v1/edge/config"
 	PathReport = "/api/v1/edge/report"
@@ -37,7 +37,7 @@ const (
 	// PathAuthHook delivers an auth event to the project's webhooks, or
 	// asks its before-sign-up webhook (V4 §4.7).
 	PathAuthHook = "/api/v1/edge/auth-hook"
-	// PathStorageEvent tells pgdock-server about a storage change it acts
+	// PathStorageEvent tells xenibase-server about a storage change it acts
 	// on (V4 §5.4).
 	PathStorageEvent = "/api/v1/edge/storage-event"
 )
@@ -124,7 +124,7 @@ type Project struct {
 	HookRole string `json:"hook_role,omitempty"`
 	// Logins are the request roles' and the hook role's passwords: the
 	// edge connects as each directly, never switching to one from its own
-	// login (which alone reads pgd_auth).
+	// login (which alone reads xb_auth).
 	Logins      map[string]string `json:"logins,omitempty"`
 	Keys        []Key             `json:"keys,omitempty"`
 	CORSOrigins []string          `json:"cors_origins,omitempty"`
@@ -303,7 +303,7 @@ const (
 	PhoneMFA    = "phone_mfa"    // a second factor
 )
 
-// AuthMessage asks pgdock-server to send one auth message for a project:
+// AuthMessage asks xenibase-server to send one auth message for a project:
 // an email, or a code by SMS or WhatsApp.
 type AuthMessage struct {
 	Ref     string `json:"ref"`
@@ -371,7 +371,7 @@ type Log struct {
 type Report struct {
 	BatchID  string      `json:"batch_id"`
 	Edge     string      `json:"edge"`
-	Region   string      `json:"region,omitempty"` // the edge's PGDOCK_EDGE_REGION
+	Region   string      `json:"region,omitempty"` // the edge's XENIBASE_EDGE_REGION
 	At       time.Time   `json:"at"`
 	Usage    []Usage     `json:"usage,omitempty"`
 	Logs     []Log       `json:"logs,omitempty"`
@@ -388,9 +388,9 @@ type Wake struct {
 	Ref string `json:"ref"`
 }
 
-// Client is pgdock-edge's side.
+// Client is xenibase-edge's side.
 type Client struct {
-	URL    string // pgdock-server's base URL
+	URL    string // xenibase-server's base URL
 	Secret string
 	HTTP   *http.Client
 }
@@ -462,7 +462,7 @@ func (c *Client) Report(ctx context.Context, r Report) error {
 	return c.do(ctx, http.MethodPost, PathReport, r, nil)
 }
 
-// StatusError is pgdock-server answering with a non-2xx status.
+// StatusError is xenibase-server answering with a non-2xx status.
 type StatusError struct {
 	Status       int
 	Method, Path string
@@ -470,7 +470,7 @@ type StatusError struct {
 }
 
 func (e *StatusError) Error() string {
-	return fmt.Sprintf("pgdock-server %s %s: %d: %s", e.Method, e.Path, e.Status, e.Body)
+	return fmt.Sprintf("xenibase-server %s %s: %d: %s", e.Method, e.Path, e.Status, e.Body)
 }
 
 // SendAuthMessage queues an auth email or code; a *StatusError with 429
@@ -511,7 +511,7 @@ const (
 	EventBucketPrivate = "bucket_private"
 )
 
-// StorageEvent is a storage change for pgdock-server.
+// StorageEvent is a storage change for xenibase-server.
 type StorageEvent struct {
 	Ref    string `json:"ref"`
 	Event  string `json:"event"`

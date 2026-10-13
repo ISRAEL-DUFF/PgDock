@@ -19,14 +19,14 @@ Then, in the SQL editor:
 ```sql
 CREATE TABLE notes (
   id bigserial PRIMARY KEY,
-  owner_id uuid NOT NULL DEFAULT pgd_auth.uid() REFERENCES pgd_auth.users (id) ON DELETE CASCADE,
+  owner_id uuid NOT NULL DEFAULT xb_auth.uid() REFERENCES xb_auth.users (id) ON DELETE CASCADE,
   body text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY own ON notes FOR ALL TO "<db>_user"
-  USING (owner_id = pgd_auth.uid()) WITH CHECK (owner_id = pgd_auth.uid());
-SELECT pgd_realtime.enable('notes');
+  USING (owner_id = xb_auth.uid()) WITH CHECK (owner_id = xb_auth.uid());
+SELECT xb_realtime.enable('notes');
 ```
 
 `<db>_user` is your project's user role. Project → API shows its name.
@@ -36,13 +36,13 @@ the redirect URLs.
 
 ## 2. Install
 
-    npm install @pgdock/client
-    pgdock gen types --lang ts --project my-app > lib/database.types.ts
+    npm install @xenibase/client
+    xenibase gen types --lang ts --project my-app > lib/database.types.ts
 
 `.env.local`:
 
-    NEXT_PUBLIC_PGDOCK_URL=https://k7f3m2q9.api.pgdock.ng
-    NEXT_PUBLIC_PGDOCK_KEY=pgd_pub_…
+    NEXT_PUBLIC_XENIBASE_URL=https://k7f3m2q9.api.xenibase.ng
+    NEXT_PUBLIC_XENIBASE_KEY=xb_pub_…
 
 ## 3. Clients
 
@@ -51,31 +51,31 @@ by itself. The server needs the user's access token too, so the browser
 copies it into a cookie whenever it changes.
 
 ```ts
-// lib/pgdock-browser.ts
+// lib/xenibase-browser.ts
 "use client";
-import { createClient } from "@pgdock/client";
+import { createClient } from "@xenibase/client";
 import type { Database } from "./database.types";
 
-export const pgd = createClient<Database>(process.env.NEXT_PUBLIC_PGDOCK_URL!, process.env.NEXT_PUBLIC_PGDOCK_KEY!);
+export const xb = createClient<Database>(process.env.NEXT_PUBLIC_XENIBASE_URL!, process.env.NEXT_PUBLIC_XENIBASE_KEY!);
 
-pgd.auth.onAuthStateChange((_event, session) => {
+xb.auth.onAuthStateChange((_event, session) => {
   document.cookie = session
-    ? `pgd-access=${session.access_token}; path=/; max-age=${session.expires_in}; samesite=lax; secure`
-    : "pgd-access=; path=/; max-age=0";
+    ? `xb-access=${session.access_token}; path=/; max-age=${session.expires_in}; samesite=lax; secure`
+    : "xb-access=; path=/; max-age=0";
 });
 ```
 
 ```ts
-// lib/pgdock-server.ts
-import { createClient } from "@pgdock/client";
+// lib/xenibase-server.ts
+import { createClient } from "@xenibase/client";
 import { cookies } from "next/headers";
 import type { Database } from "./database.types";
 
 /** A client acting as the signed-in user of this request (or anon). */
 export async function serverClient() {
   const jar = await cookies();
-  return createClient<Database>(process.env.NEXT_PUBLIC_PGDOCK_URL!, process.env.NEXT_PUBLIC_PGDOCK_KEY!, {
-    accessToken: () => jar.get("pgd-access")?.value,
+  return createClient<Database>(process.env.NEXT_PUBLIC_XENIBASE_URL!, process.env.NEXT_PUBLIC_XENIBASE_KEY!, {
+    accessToken: () => jar.get("xb-access")?.value,
   });
 }
 ```
@@ -93,7 +93,7 @@ does that, and so does any JOSE library.
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { pgd } from "@/lib/pgdock-browser";
+import { xb } from "@/lib/xenibase-browser";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -103,11 +103,11 @@ export default function Login() {
   const router = useRouter();
 
   async function send() {
-    const { error } = await pgd.auth.signInWithOtp({ email });
+    const { error } = await xb.auth.signInWithOtp({ email });
     error ? setError(error.message) : setSent(true);
   }
   async function verify() {
-    const { error } = await pgd.auth.verifyOtp({ type: "email", email, token: code });
+    const { error } = await xb.auth.verifyOtp({ type: "email", email, token: code });
     if (error) return setError(error.message);
     router.push("/");
     router.refresh();
@@ -132,13 +132,13 @@ export default function Login() {
 ```tsx
 // app/page.tsx
 import { redirect } from "next/navigation";
-import { serverClient } from "@/lib/pgdock-server";
+import { serverClient } from "@/lib/xenibase-server";
 import { Notes } from "./notes";
 
 export default async function Home() {
-  const pgd = await serverClient();
-  const { data, error } = await pgd.data.from("notes").select("id, body").order("created_at", "desc");
-  if (error?.status === 401 || (await pgd.data.health()).data?.role !== "user") redirect("/login");
+  const xb = await serverClient();
+  const { data, error } = await xb.data.from("notes").select("id, body").order("created_at", "desc");
+  if (error?.status === 401 || (await xb.data.health()).data?.role !== "user") redirect("/login");
   return <Notes initial={data ?? []} />;
 }
 ```
@@ -147,7 +147,7 @@ export default async function Home() {
 // app/notes.tsx
 "use client";
 import { useEffect, useState } from "react";
-import { pgd } from "@/lib/pgdock-browser";
+import { xb } from "@/lib/xenibase-browser";
 import type { Tables } from "@/lib/database.types";
 
 type Note = Pick<Tables<"notes">, "id" | "body">;
@@ -155,11 +155,11 @@ type Note = Pick<Tables<"notes">, "id" | "body">;
 export function Notes({ initial }: { initial: Note[] }) {
   const [notes, setNotes] = useState(initial);
   const [body, setBody] = useState("");
-  useEffect(() => pgd.data.from("notes").select("id, body").order("created_at", "desc").live(({ data }) => data && setNotes(data)), []);
+  useEffect(() => xb.data.from("notes").select("id, body").order("created_at", "desc").live(({ data }) => data && setNotes(data)), []);
 
   return (
     <>
-      <form action={async () => { await pgd.data.from("notes").insert({ body }); setBody(""); }}>
+      <form action={async () => { await xb.data.from("notes").insert({ body }); setBody(""); }}>
         <input value={body} onChange={(e) => setBody(e.target.value)} />
         <button>Add</button>
       </form>
@@ -171,7 +171,7 @@ export function Notes({ initial }: { initial: Note[] }) {
 
 How the pieces fit:
 
-- The insert leaves out `owner_id`. Its default, `pgd_auth.uid()`, fills
+- The insert leaves out `owner_id`. Its default, `xb_auth.uid()`, fills
   it in, and the policy's `WITH CHECK` makes sure nobody writes rows for
   someone else.
 - `live()` refetches whenever the table changes, the server asks for a
@@ -182,7 +182,7 @@ How the pieces fit:
 ## 6. Sign out
 
 ```tsx
-<button onClick={async () => { await pgd.auth.signOut(); location.assign("/login"); }}>Sign out</button>
+<button onClick={async () => { await xb.auth.signOut(); location.assign("/login"); }}>Sign out</button>
 ```
 
 ## OAuth
@@ -190,7 +190,7 @@ How the pieces fit:
 Instead of the code form, you can sign in with a provider:
 
 1. Turn the provider on in Authentication → Providers.
-2. Call `pgd.auth.signInWithOAuth({ provider: "google", redirectTo: location.origin + "/" })`.
+2. Call `xb.auth.signInWithOAuth({ provider: "google", redirectTo: location.origin + "/" })`.
 3. The client finishes the PKCE exchange itself when the user comes back
    with `?code=`.
 

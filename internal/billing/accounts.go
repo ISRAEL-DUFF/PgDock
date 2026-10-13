@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Account returns orgID's billing account, creating it on the current
@@ -575,7 +575,7 @@ func (s *Service) switchMode(ctx context.Context, tx pgx.Tx, cur store.BillingAc
 // Standing is an org's money position, for the Billing page.
 type Standing struct {
 	CreditMinor  int64 // on the credit balance (prepaid funds, overpayments)
-	WalletMinor  int64 // in the org's wallet, by PGDock's books
+	WalletMinor  int64 // in the org's wallet, by Xenibase's books
 	OwedMinor    int64 // outstanding on issued invoices
 	OverdueSince *time.Time
 }

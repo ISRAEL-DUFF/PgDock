@@ -10,9 +10,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/cloud"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/cloud"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // KindProvision creates a server for a proposal and waits for it to join:
@@ -32,9 +32,9 @@ func opProposal(op store.Operation) (uuid.UUID, error) {
 	return p.ProposalID, nil
 }
 
-// labels mark the servers PGDock created.
+// labels mark the servers Xenibase created.
 func labels(name, region string) map[string]string {
-	return map[string]string{"pgdock": "node", "pgdock-node": name, "pgdock-region": region}
+	return map[string]string{"xenibase": "node", "xenibase-node": name, "xenibase-region": region}
 }
 
 func (s *Service) runProvision(ctx context.Context, op store.Operation, log *jobs.StepLogger) error {
@@ -66,7 +66,7 @@ func (s *Service) runProvision(ctx context.Context, op store.Operation, log *job
 
 	// 2. The server, unless an earlier attempt created it.
 	if node.ProviderServerID == nil {
-		existing, err := s.provider.ListServers(ctx, cloud.Filter{Labels: map[string]string{"pgdock-node": node.Name}})
+		existing, err := s.provider.ListServers(ctx, cloud.Filter{Labels: map[string]string{"xenibase-node": node.Name}})
 		if err != nil {
 			return err
 		}
@@ -82,9 +82,9 @@ func (s *Service) runProvision(ctx context.Context, op store.Operation, log *job
 			b := s.cfg.Bootstrap
 			b.NodeName, b.Token = node.Name, token
 			if p.Tier == TierEdge {
-				// pgdock-edge runs beside the agent (V4.1 §11).
+				// xenibase-edge runs beside the agent (V4.1 §11).
 				if s.cfg.Edge == nil {
-					return jobs.Permanent(errors.New("edge nodes need PGDOCK_CLOUD_EDGE_IMAGE and PGDOCK_EDGE_SECRET on pgdock-server; add the server by hand and mark the proposal done"))
+					return jobs.Permanent(errors.New("edge nodes need XENIBASE_CLOUD_EDGE_IMAGE and XENIBASE_EDGE_SECRET on xenibase-server; add the server by hand and mark the proposal done"))
 				}
 				e := *s.cfg.Edge
 				e.Region = p.Region
@@ -189,7 +189,7 @@ func (s *Service) proposalNode(ctx context.Context, id uuid.UUID) (node store.No
 			node, err = q.GetNode(ctx, *p.NodeID)
 			return err
 		}
-		prefix := "pgd-" + p.Region + "-"
+		prefix := "xb-" + p.Region + "-"
 		n, err := q.NextNodeNumber(ctx, prefix)
 		if err != nil {
 			return err
@@ -310,20 +310,20 @@ func (s *Service) failProvision(ctx context.Context, op store.Operation, log *jo
 }
 
 // placementGroup is the spread group a new server in region goes into
-// (V3.1 §2.3): pgdock-<region>, then pgdock-<region>-2 and on as each
+// (V3.1 §2.3): xenibase-<region>, then xenibase-<region>-2 and on as each
 // fills (a spread group holds 10 servers). Only servers within one group
 // are known to be on different hosts, so groups are filled in order. The
-// legacy PGDOCK_HETZNER_PLACEMENT_GROUP_ID stays the home region's group.
+// legacy XENIBASE_HETZNER_PLACEMENT_GROUP_ID stays the home region's group.
 func (s *Service) placementGroup(ctx context.Context, region string) (string, error) {
 	if s.cfg.PlacementGroup != "" && region == s.cfg.Region {
 		return s.cfg.PlacementGroup, nil
 	}
 	for i := 1; i <= 50; i++ {
-		name := "pgdock-" + region
+		name := "xenibase-" + region
 		if i > 1 {
 			name = fmt.Sprintf("%s-%d", name, i)
 		}
-		g, err := s.provider.EnsurePlacementGroup(ctx, name, map[string]string{"pgdock-region": region})
+		g, err := s.provider.EnsurePlacementGroup(ctx, name, map[string]string{"xenibase-region": region})
 		if errors.Is(err, cloud.ErrManual) {
 			return "", nil
 		}

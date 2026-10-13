@@ -34,7 +34,7 @@ func SCRAMVerifier(password string) (string, error) {
 }
 
 // SCRAMVerifierWithSalt is SCRAMVerifier with a caller-chosen salt and
-// iteration count. Passwords must be ASCII; PGDock only hashes passwords it
+// iteration count. Passwords must be ASCII; Xenibase only hashes passwords it
 // generates, so SASLprep normalization is not needed.
 func SCRAMVerifierWithSalt(password string, salt []byte, iterations int) (string, error) {
 	for i := 0; i < len(password); i++ {

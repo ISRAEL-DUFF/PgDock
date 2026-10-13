@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
 // Plans (V3 §3.1).
@@ -278,7 +278,7 @@ func DefaultPrices() Prices {
 }
 
 // DefaultPricesNGN is the first price book of platforms that price in naira:
-// the numbers PGDock launched with. Prices are in kobo.
+// the numbers Xenibase launched with. Prices are in kobo.
 func DefaultPricesNGN() Prices {
 	m := func(kv ...string) map[string]Dec {
 		out := map[string]Dec{}

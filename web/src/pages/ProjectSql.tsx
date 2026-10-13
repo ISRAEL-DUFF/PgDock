@@ -12,8 +12,8 @@ import type { Template } from "../lib/sqlEditor/templates";
 import { useProject } from "./ProjectOverview";
 import { keyLabel } from "../lib/shortcuts";
 
-const SPLIT_KEY = "pgdock.sql.split";
-const tabsKey = (p: string) => `pgdock.sql.tabs.${p}`;
+const SPLIT_KEY = "xenibase.sql.split";
+const tabsKey = (p: string) => `xenibase.sql.tabs.${p}`;
 
 function readJSON<T>(key: string, fallback: T): T {
   try {

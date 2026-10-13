@@ -142,7 +142,7 @@ class RealtimeChannel {
         if (p['message'] == 'resync') {
           _resync();
         } else if (p['status'] == 'error') {
-          _status?.call('CHANNEL_ERROR', PgdockException(0, 'realtime_error', '${p['message']}'));
+          _status?.call('CHANNEL_ERROR', XenibaseException(0, 'realtime_error', '${p['message']}'));
         }
       case 'phx_close':
         joined = false;
@@ -236,7 +236,7 @@ class RealtimeClient {
         if (p['status'] == 'ok') {
           c.complete((p['response'] as Map?)?.cast<String, dynamic>());
         } else {
-          c.completeError(PgdockException(0, 'realtime_error', '${(p['response'] as Map?)?['reason'] ?? p['response']}'));
+          c.completeError(XenibaseException(0, 'realtime_error', '${(p['response'] as Map?)?['reason'] ?? p['response']}'));
         }
       }
       return;
@@ -251,7 +251,7 @@ class RealtimeClient {
   Future<Map<String, dynamic>?> _push(String topic, String event, Object payload, String? joinRef, {bool wait = true, String? ref}) {
     final r = ref ?? _nextRef();
     final m = {'topic': topic, 'event': event, 'payload': payload, 'ref': r, 'join_ref': joinRef};
-    if (_ws == null) return Future.error(const PgdockException(0, 'not_connected', 'realtime is not connected'));
+    if (_ws == null) return Future.error(const XenibaseException(0, 'not_connected', 'realtime is not connected'));
     if (!wait) {
       _send(m);
       return Future.value(null);
@@ -261,7 +261,7 @@ class RealtimeClient {
     _send(m);
     return c.future.timeout(const Duration(seconds: 15), onTimeout: () {
       _pending.remove(r);
-      throw PgdockException(0, 'timeout', '$event on $topic got no reply');
+      throw XenibaseException(0, 'timeout', '$event on $topic got no reply');
     });
   }
 
@@ -279,7 +279,7 @@ class RealtimeClient {
     _sub = null;
     _ws = null;
     for (final c in _pending.values) {
-      if (!c.isCompleted) c.completeError(const PgdockException(0, 'connection_lost', 'the connection closed'));
+      if (!c.isCompleted) c.completeError(const XenibaseException(0, 'connection_lost', 'the connection closed'));
     }
     _pending.clear();
     for (final ch in _channels) {

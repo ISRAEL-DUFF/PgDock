@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/agentapi"
 )
 
 // pgEnv passes a connection to pg_dump/pg_restore through libpq environment
@@ -27,7 +27,7 @@ func pgEnv(c agentapi.PGConn) []string {
 		"PGUSER=" + c.User,
 		"PGPASSWORD=" + c.Password,
 		"PGDATABASE=" + c.Database,
-		"PGAPPNAME=pgdock-agent",
+		"PGAPPNAME=xenibase-agent",
 		"PGCONNECT_TIMEOUT=15",
 	}
 	mode := c.SSLMode

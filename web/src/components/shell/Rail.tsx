@@ -5,8 +5,8 @@ import { cx } from "../ui";
 import { GO_KEYS } from "../../lib/shortcuts";
 import { isActive, type RailItem } from "./nav";
 
-const PIN_KEY = "pgdock.rail.pinned";
-const SIDEBAR_KEY = "pgdock.sidebar.collapsed";
+const PIN_KEY = "xenibase.rail.pinned";
+const SIDEBAR_KEY = "xenibase.sidebar.collapsed";
 
 function stored(key: string): boolean {
   try {

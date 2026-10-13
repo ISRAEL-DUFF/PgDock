@@ -1,7 +1,7 @@
 -- +goose Up
 -- Wallet billing: prices are in US dollars and an invoice is converted to
 -- naira when it is issued, at a rate frozen on it; an organisation's wallet
--- (at the wallet provider) is debited for it under a consent PGDock records.
+-- (at the wallet provider) is debited for it under a consent Xenibase records.
 
 -- What an invoice was priced at, in cents, and the naira conversion. The
 -- *_minor columns stay in kobo: it is the money that moves, so the ledger,
@@ -17,7 +17,7 @@ ALTER TABLE invoice_lines
   ADD COLUMN usd_amount_minor bigint;
 
 -- The org's agreement to be debited from its wallet for invoices. NULL means
--- no consent: PGDock sends an invoice to pay instead of debiting.
+-- no consent: Xenibase sends an invoice to pay instead of debiting.
 ALTER TABLE billing_accounts
   ADD COLUMN debit_consent_at    timestamptz,
   ADD COLUMN debit_consent_by    uuid REFERENCES users(id),

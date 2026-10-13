@@ -24,31 +24,31 @@ die() { echo "FAIL: $*" >&2; exit 1; }
 head_commit=$(git -C "$repo" rev-parse HEAD)
 git clone -q "$repo" "$work"
 cd "$work"
-git config user.email test@pgdock.test && git config user.name test
+git config user.email test@xenibase.test && git config user.name test
 git checkout -q "$from"
 
 # Test-only images for the overlay (Pebble, fake S3); the bundle builds the rest.
 # shellcheck disable=SC2086
-docker build ${PGDOCK_BUILD_FLAGS:-} -q -t pgdock-pebble:local -f "$repo/test/e2e/bundle/Dockerfile.pebble" "$repo/test/e2e/bundle" >/dev/null
+docker build ${XENIBASE_BUILD_FLAGS:-} -q -t xenibase-pebble:local -f "$repo/test/e2e/bundle/Dockerfile.pebble" "$repo/test/e2e/bundle" >/dev/null
 # shellcheck disable=SC2086
-docker build ${PGDOCK_BUILD_FLAGS:-} -q -t pgdock-fakes3:local -f "$repo/test/e2e/bundle/Dockerfile.fakes3" "$repo" >/dev/null
+docker build ${XENIBASE_BUILD_FLAGS:-} -q -t xenibase-fakes3:local -f "$repo/test/e2e/bundle/Dockerfile.fakes3" "$repo" >/dev/null
 
-export PGDOCK_UI_DOMAIN=pgdock.test PGDOCK_ACME_EMAIL=ops@pgdock.test PGDOCK_PUBLIC_IPS=127.0.0.1
-export COMPOSE_PROJECT_NAME=pgdock-upgrade COMPOSE_FILE=compose.yaml:../../test/e2e/bundle/compose.e2e.yaml
-export PGDOCK_NETWORK=pgdock-upgrade PGDOCK_DB_SESSION_PORT=25432 PGDOCK_DB_POOLED_PORT=26543
+export XENIBASE_UI_DOMAIN=xenibase.test XENIBASE_ACME_EMAIL=ops@xenibase.test XENIBASE_PUBLIC_IPS=127.0.0.1
+export COMPOSE_PROJECT_NAME=xenibase-upgrade COMPOSE_FILE=compose.yaml:../../test/e2e/bundle/compose.e2e.yaml
+export XENIBASE_NETWORK=xenibase-upgrade XENIBASE_DB_SESSION_PORT=25432 XENIBASE_DB_POOLED_PORT=26543
 export SHARED_PG_SHARED_BUFFERS=128MB SHARED_PG_EFFECTIVE_CACHE_SIZE=512MB
 export UPGRADE_WAIT=240 UPGRADE_POLL=5 UPGRADE_MIN_FREE_GB=1
 
 cd "$work/deploy/compose"
 step "install $from"
 ./install.sh
-sv() { docker compose exec -T pgdock-server pgdock-server -version | awk '{print $2}'; }
-schema() { docker compose exec -T metadata-db psql -U pgdock -d pgdock -Atc "select max(version_id) from goose_db_version" | tr -d '[:space:]'; }
+sv() { docker compose exec -T xenibase-server xenibase-server -version | awk '{print $2}'; }
+schema() { docker compose exec -T metadata-db psql -U xenibase -d xenibase -Atc "select max(version_id) from goose_db_version" | tr -d '[:space:]'; }
 old_version=$(sv); old_schema=$(schema)
 echo "installed: $old_version, schema $old_schema"
 # Something in the database that must survive a failed upgrade and a good one.
-docker compose exec -T metadata-db psql -U pgdock -d pgdock -Atc "create table upgrade_canary (note text); insert into upgrade_canary values ('before')" >/dev/null
-canary() { docker compose exec -T metadata-db psql -U pgdock -d pgdock -Atc "select string_agg(note, ',') from upgrade_canary" | tr -d '[:space:]'; }
+docker compose exec -T metadata-db psql -U xenibase -d xenibase -Atc "create table upgrade_canary (note text); insert into upgrade_canary values ('before')" >/dev/null
+canary() { docker compose exec -T metadata-db psql -U xenibase -d xenibase -Atc "select string_agg(note, ',') from upgrade_canary" | tr -d '[:space:]'; }
 
 # --- a release whose migration is broken --------------------------------------
 step "a release with a broken migration is rolled back"
@@ -62,7 +62,7 @@ git checkout -q "$from"
 cd deploy/compose
 # The older release has no upgrade.sh yet: run this commit's, as the first real deploy does.
 upgrade="$repo/deploy/compose/upgrade.sh"
-set +e; PGDOCK_DIR=$PWD sh "$upgrade" v9.9.9-broken --yes; rc=$?; set -e
+set +e; XENIBASE_DIR=$PWD sh "$upgrade" v9.9.9-broken --yes; rc=$?; set -e
 [ "$rc" = 2 ] || die "a broken upgrade should exit 2 (rolled back), got $rc"
 [ "$(sv)" = "$old_version" ] || die "after the rollback the server is $(sv), want $old_version"
 [ "$(schema)" = "$old_schema" ] || die "after the rollback the schema is $(schema), want $old_schema"
@@ -75,8 +75,8 @@ step "upgrade to this commit"
 cd "$work"
 git tag v9.9.9-test "$head_commit"
 cd deploy/compose
-docker compose exec -T metadata-db psql -U pgdock -d pgdock -Atc "insert into upgrade_canary values ('between')" >/dev/null
-PGDOCK_DIR=$PWD sh "$upgrade" v9.9.9-test --yes
+docker compose exec -T metadata-db psql -U xenibase -d xenibase -Atc "insert into upgrade_canary values ('between')" >/dev/null
+XENIBASE_DIR=$PWD sh "$upgrade" v9.9.9-test --yes
 [ "$(sv)" = v9.9.9-test ] || die "the server reports '$(sv)', want v9.9.9-test (the bundle must build with its version)"
 want_schema=$(ls "$work"/internal/store/migrations/*.sql | sed -E 's#.*/0*([0-9]+)_.*#\1#' | sort -n | tail -1)
 [ "$(schema)" = "$want_schema" ] || die "the schema is $(schema), want $want_schema"

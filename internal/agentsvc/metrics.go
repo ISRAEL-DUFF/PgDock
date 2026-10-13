@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/agentapi"
 )
 
 // hostMetrics reads load, memory, and disk usage from /proc and statfs.

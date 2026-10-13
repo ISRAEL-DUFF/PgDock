@@ -132,7 +132,7 @@ func (q *Queries) GetBackupKey(ctx context.Context, id uuid.UUID) (BackupKey, er
 
 const getDefaultStorageTarget = `-- name: GetDefaultStorageTarget :one
 
-SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region FROM storage_targets WHERE is_default AND org_id IS NULL AND deleted_at IS NULL
+SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, xenibase_region FROM storage_targets WHERE is_default AND org_id IS NULL AND deleted_at IS NULL
 `
 
 // Storage targets (V2 s6): platform targets have no org_id; org targets
@@ -156,13 +156,13 @@ func (q *Queries) GetDefaultStorageTarget(ctx context.Context) (StorageTarget, e
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.DeletedAt,
-		&i.PgdockRegion,
+		&i.XenibaseRegion,
 	)
 	return i, err
 }
 
 const getOrgStorageTarget = `-- name: GetOrgStorageTarget :one
-SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region FROM storage_targets WHERE id = $1 AND org_id = $2::uuid AND deleted_at IS NULL
+SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, xenibase_region FROM storage_targets WHERE id = $1 AND org_id = $2::uuid AND deleted_at IS NULL
 `
 
 type GetOrgStorageTargetParams struct {
@@ -188,13 +188,13 @@ func (q *Queries) GetOrgStorageTarget(ctx context.Context, arg GetOrgStorageTarg
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.DeletedAt,
-		&i.PgdockRegion,
+		&i.XenibaseRegion,
 	)
 	return i, err
 }
 
 const getPlatformStorageTarget = `-- name: GetPlatformStorageTarget :one
-SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region FROM storage_targets WHERE id = $1 AND org_id IS NULL AND deleted_at IS NULL
+SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, xenibase_region FROM storage_targets WHERE id = $1 AND org_id IS NULL AND deleted_at IS NULL
 `
 
 func (q *Queries) GetPlatformStorageTarget(ctx context.Context, id uuid.UUID) (StorageTarget, error) {
@@ -215,7 +215,7 @@ func (q *Queries) GetPlatformStorageTarget(ctx context.Context, id uuid.UUID) (S
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.DeletedAt,
-		&i.PgdockRegion,
+		&i.XenibaseRegion,
 	)
 	return i, err
 }
@@ -277,7 +277,7 @@ func (q *Queries) GetProjectForUpdate(ctx context.Context, id uuid.UUID) (Projec
 }
 
 const getStorageTarget = `-- name: GetStorageTarget :one
-SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region FROM storage_targets WHERE id = $1
+SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, xenibase_region FROM storage_targets WHERE id = $1
 `
 
 // tenant: system - backup workers resolve a project's or a backup's target by id (an org_id-free lookup the caller already scoped).
@@ -299,7 +299,7 @@ func (q *Queries) GetStorageTarget(ctx context.Context, id uuid.UUID) (StorageTa
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.DeletedAt,
-		&i.PgdockRegion,
+		&i.XenibaseRegion,
 	)
 	return i, err
 }
@@ -345,7 +345,7 @@ func (q *Queries) InsertBackupKey(ctx context.Context, arg InsertBackupKeyParams
 const insertStorageTarget = `-- name: InsertStorageTarget :one
 INSERT INTO storage_targets (id, org_id, name, endpoint, bucket, prefix, region, path_style, credentials, is_default, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region
+RETURNING id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, xenibase_region
 `
 
 type InsertStorageTargetParams struct {
@@ -392,7 +392,7 @@ func (q *Queries) InsertStorageTarget(ctx context.Context, arg InsertStorageTarg
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.DeletedAt,
-		&i.PgdockRegion,
+		&i.XenibaseRegion,
 	)
 	return i, err
 }
@@ -414,7 +414,7 @@ func (q *Queries) InstanceArchivingTo(ctx context.Context, arg InstanceArchiving
 }
 
 const listOrgStorageTargets = `-- name: ListOrgStorageTargets :many
-SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region FROM storage_targets WHERE org_id = $1::uuid AND deleted_at IS NULL ORDER BY name
+SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, xenibase_region FROM storage_targets WHERE org_id = $1::uuid AND deleted_at IS NULL ORDER BY name
 `
 
 func (q *Queries) ListOrgStorageTargets(ctx context.Context, orgID uuid.UUID) ([]StorageTarget, error) {
@@ -441,7 +441,7 @@ func (q *Queries) ListOrgStorageTargets(ctx context.Context, orgID uuid.UUID) ([
 			&i.CreatedBy,
 			&i.UpdatedAt,
 			&i.DeletedAt,
-			&i.PgdockRegion,
+			&i.XenibaseRegion,
 		); err != nil {
 			return nil, err
 		}
@@ -454,7 +454,7 @@ func (q *Queries) ListOrgStorageTargets(ctx context.Context, orgID uuid.UUID) ([
 }
 
 const listPlatformStorageTargets = `-- name: ListPlatformStorageTargets :many
-SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region FROM storage_targets WHERE org_id IS NULL AND deleted_at IS NULL ORDER BY is_default DESC, name
+SELECT id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, xenibase_region FROM storage_targets WHERE org_id IS NULL AND deleted_at IS NULL ORDER BY is_default DESC, name
 `
 
 func (q *Queries) ListPlatformStorageTargets(ctx context.Context) ([]StorageTarget, error) {
@@ -481,7 +481,7 @@ func (q *Queries) ListPlatformStorageTargets(ctx context.Context) ([]StorageTarg
 			&i.CreatedBy,
 			&i.UpdatedAt,
 			&i.DeletedAt,
-			&i.PgdockRegion,
+			&i.XenibaseRegion,
 		); err != nil {
 			return nil, err
 		}
@@ -656,7 +656,7 @@ UPDATE storage_targets
 SET name = $1, endpoint = $2, bucket = $3, prefix = $4, region = $5,
     path_style = $6, credentials = $7, updated_at = now()
 WHERE id = $8 AND deleted_at IS NULL
-RETURNING id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, pgdock_region
+RETURNING id, name, endpoint, bucket, prefix, credentials, is_default, created_at, org_id, region, path_style, created_by, updated_at, deleted_at, xenibase_region
 `
 
 type UpdateStorageTargetParams struct {
@@ -698,7 +698,7 @@ func (q *Queries) UpdateStorageTarget(ctx context.Context, arg UpdateStorageTarg
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.DeletedAt,
-		&i.PgdockRegion,
+		&i.XenibaseRegion,
 	)
 	return i, err
 }

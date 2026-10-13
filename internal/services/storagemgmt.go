@@ -20,13 +20,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/israel-duff/pgdock/internal/files"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/files"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // The dashboard's storage (V4 §5): buckets and files, managed as the
-// platform (no policies apply), through the same rules as pgdock-edge.
+// platform (no policies apply), through the same rules as xenibase-edge.
 
 // DashboardUploadMax is the largest file the dashboard uploads; bigger ones
 // go through the API's multipart uploads.
@@ -149,12 +149,12 @@ func (s *Service) Storage(ctx context.Context, projectID uuid.UUID) (StorageOver
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return out, err
 	}
-	if err := sc.conn.QueryRow(ctx, `SELECT bytes, objects FROM pgd_storage.usage`).Scan(&out.Bytes, &out.Objects); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	if err := sc.conn.QueryRow(ctx, `SELECT bytes, objects FROM xb_storage.usage`).Scan(&out.Bytes, &out.Objects); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return out, err
 	}
 	rows, err := sc.conn.Query(ctx, `SELECT b.id, b.public, b.file_size_limit, b.allowed_mime_types, b.cache_seconds, b.created_at, b.updated_at,
 		count(o.id), coalesce(sum(o.size), 0)::bigint
-		FROM pgd_storage.buckets b LEFT JOIN pgd_storage.objects o ON o.bucket = b.id GROUP BY b.id ORDER BY b.id`)
+		FROM xb_storage.buckets b LEFT JOIN xb_storage.objects o ON o.bucket = b.id GROUP BY b.id ORDER BY b.id`)
 	if err != nil {
 		return out, err
 	}
@@ -209,8 +209,8 @@ func (in BucketInput) check() error {
 func (s *Service) bucketInfo(ctx context.Context, conn *pgx.Conn, id string) (Bucket, error) {
 	var b Bucket
 	err := conn.QueryRow(ctx, `SELECT b.id, b.public, b.file_size_limit, b.allowed_mime_types, b.cache_seconds, b.created_at, b.updated_at,
-		(SELECT count(*) FROM pgd_storage.objects o WHERE o.bucket = b.id), (SELECT coalesce(sum(size), 0)::bigint FROM pgd_storage.objects o WHERE o.bucket = b.id)
-		FROM pgd_storage.buckets b WHERE b.id = $1`, id).Scan(&b.ID, &b.Public, &b.FileSizeLimit, &b.AllowedMIMETypes, &b.CacheSeconds,
+		(SELECT count(*) FROM xb_storage.objects o WHERE o.bucket = b.id), (SELECT coalesce(sum(size), 0)::bigint FROM xb_storage.objects o WHERE o.bucket = b.id)
+		FROM xb_storage.buckets b WHERE b.id = $1`, id).Scan(&b.ID, &b.Public, &b.FileSizeLimit, &b.AllowedMIMETypes, &b.CacheSeconds,
 		&b.CreatedAt, &b.UpdatedAt, &b.Objects, &b.Bytes)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return b, fmt.Errorf("%w: no bucket %s", ErrNotFound, id)
@@ -242,7 +242,7 @@ func (s *Service) CreateBucket(ctx context.Context, projectID uuid.UUID, id stri
 	if in.AllowedMIMETypes != nil && len(*in.AllowedMIMETypes) > 0 {
 		mimes = *in.AllowedMIMETypes
 	}
-	_, err = sc.conn.Exec(ctx, `INSERT INTO pgd_storage.buckets (id, public, file_size_limit, allowed_mime_types, cache_seconds) VALUES ($1, $2, $3, $4, $5)`,
+	_, err = sc.conn.Exec(ctx, `INSERT INTO xb_storage.buckets (id, public, file_size_limit, allowed_mime_types, cache_seconds) VALUES ($1, $2, $3, $4, $5)`,
 		id, in.Public != nil && *in.Public, in.FileSizeLimit, mimes, cache)
 	var pe *pgconn.PgError
 	if errors.As(err, &pe) && pe.Code == "23505" {
@@ -288,7 +288,7 @@ func (s *Service) UpdateBucket(ctx context.Context, projectID uuid.UUID, id stri
 	if in.CacheSeconds != nil {
 		cache = *in.CacheSeconds
 	}
-	if _, err := sc.conn.Exec(ctx, `UPDATE pgd_storage.buckets SET public = $2, file_size_limit = $3, allowed_mime_types = $4, cache_seconds = $5,
+	if _, err := sc.conn.Exec(ctx, `UPDATE xb_storage.buckets SET public = $2, file_size_limit = $3, allowed_mime_types = $4, cache_seconds = $5,
 		updated_at = now() WHERE id = $1`, id, public, limit, mimes, cache); err != nil {
 		return Bucket{}, err
 	}
@@ -308,11 +308,11 @@ func (s *Service) DeleteBucket(ctx context.Context, projectID uuid.UUID, id stri
 	}
 	defer sc.close()
 	if empty {
-		if _, err := sc.conn.Exec(ctx, `DELETE FROM pgd_storage.objects WHERE bucket = $1`, id); err != nil {
+		if _, err := sc.conn.Exec(ctx, `DELETE FROM xb_storage.objects WHERE bucket = $1`, id); err != nil {
 			return err
 		}
 	}
-	tag, err := sc.conn.Exec(ctx, `DELETE FROM pgd_storage.buckets WHERE id = $1`, id)
+	tag, err := sc.conn.Exec(ctx, `DELETE FROM xb_storage.buckets WHERE id = $1`, id)
 	var pe *pgconn.PgError
 	if errors.As(err, &pe) && pe.Code == "23503" {
 		return fmt.Errorf("%w: the bucket still has files; empty it first", ErrConflict)
@@ -434,7 +434,7 @@ func (s *Service) UploadFile(ctx context.Context, projectID uuid.UUID, bucket, p
 	defer tmp.close()
 	if q := sc.svc.StorageQuotaBytes; q != nil {
 		var used int64
-		if err := sc.conn.QueryRow(ctx, `SELECT coalesce((SELECT bytes FROM pgd_storage.usage), 0)`).Scan(&used); err != nil {
+		if err := sc.conn.QueryRow(ctx, `SELECT coalesce((SELECT bytes FROM xb_storage.usage), 0)`).Scan(&used); err != nil {
 			return nil, err
 		}
 		if used+n > *q {
@@ -474,7 +474,7 @@ func (s *Service) OpenFile(ctx context.Context, projectID uuid.UUID, bucket, pat
 		return nil, nil, err
 	}
 	defer sc.close()
-	o, err := scanFile(sc.conn.QueryRow(ctx, `SELECT `+files.ObjectCols+` FROM pgd_storage.objects WHERE bucket = $1 AND path = $2`, bucket, path))
+	o, err := scanFile(sc.conn.QueryRow(ctx, `SELECT `+files.ObjectCols+` FROM xb_storage.objects WHERE bucket = $1 AND path = $2`, bucket, path))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil, fmt.Errorf("%w: no such file", ErrNotFound)
 	}
@@ -505,7 +505,7 @@ func (s *Service) DeleteFiles(ctx context.Context, projectID uuid.UUID, bucket s
 	var n int64
 	// A folder's path takes everything under it.
 	for _, p := range paths {
-		tag, err := sc.conn.Exec(ctx, `DELETE FROM pgd_storage.objects WHERE bucket = $1 AND (path = $2 OR path LIKE $3 ESCAPE '\')`,
+		tag, err := sc.conn.Exec(ctx, `DELETE FROM xb_storage.objects WHERE bucket = $1 AND (path = $2 OR path LIKE $3 ESCAPE '\')`,
 			bucket, strings.TrimSuffix(p, "/"), files.LikePrefix(strings.TrimSuffix(p, "/")+"/"))
 		if err != nil {
 			return n, err
@@ -527,7 +527,7 @@ func (s *Service) SignFile(ctx context.Context, projectID uuid.UUID, bucket, pat
 	}
 	defer sc.close()
 	var exists bool
-	if err := sc.conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pgd_storage.objects WHERE bucket = $1 AND path = $2)`, bucket, path).Scan(&exists); err != nil {
+	if err := sc.conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM xb_storage.objects WHERE bucket = $1 AND path = $2)`, bucket, path).Scan(&exists); err != nil {
 		return "", time.Time{}, err
 	}
 	if !exists {
@@ -550,7 +550,7 @@ func (s spooled) close() { _ = s.f.Close() }
 // spoolTemp writes up to limit bytes of r to a temporary file (removed on
 // close) and returns it rewound, with its size.
 func spoolTemp(r io.Reader, limit int64) (spooled, int64, error) {
-	f, err := os.CreateTemp("", "pgdock-file-*")
+	f, err := os.CreateTemp("", "xenibase-file-*")
 	if err != nil {
 		return spooled{}, 0, err
 	}

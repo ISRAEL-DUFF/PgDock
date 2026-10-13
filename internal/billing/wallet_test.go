@@ -13,9 +13,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/billing/iswallet"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/billing/iswallet"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 type walletWorld struct {
@@ -42,7 +42,7 @@ func newWalletWorld(t *testing.T) *walletWorld {
 	srv := httptest.NewServer(w.fake)
 	t.Cleanup(srv.Close)
 	p := iswallet.New(iswallet.Config{BaseURL: srv.URL, APIKey: "isw-key", WebhookSecret: "isw-secret-0123456789", Now: clk.Now})
-	s.SetWallets(p, "pgdock:test")
+	s.SetWallets(p, "xenibase:test")
 	hook := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		ev, err := p.ParseWebhook(r.Context(), r)
 		if err != nil {
@@ -163,7 +163,7 @@ func TestWalletDepositThenDebitOnIssue(t *testing.T) {
 		t.Fatalf("the wallet holds %d, want %d", bal, credited)
 	}
 	if got := w.held(t, org, billing.AccWalletBalance); got != credited {
-		t.Fatalf("PGDock's books hold %d for the wallet, want %d", got, credited)
+		t.Fatalf("Xenibase's books hold %d for the wallet, want %d", got, credited)
 	}
 	view, err := w.s.Wallet(ctx, org)
 	if err != nil || view.Balance == nil || view.Balance.Available != credited || view.Account == nil || view.Consent == nil || !view.Consent.Current {
@@ -204,9 +204,9 @@ func TestWalletDepositThenDebitOnIssue(t *testing.T) {
 	if paid.PaidMinor != paid.TotalMinor {
 		t.Fatalf("paid %d of %d", paid.PaidMinor, paid.TotalMinor)
 	}
-	// The money moved: out of the customer's wallet into PGDock's.
+	// The money moved: out of the customer's wallet into Xenibase's.
 	if got := w.fake.OperatingBalance(); got != paid.TotalMinor {
-		t.Fatalf("PGDock's wallet got %d, want %d", got, paid.TotalMinor)
+		t.Fatalf("Xenibase's wallet got %d, want %d", got, paid.TotalMinor)
 	}
 	if got, want := w.fake.WalletBalance(wid), int64(credited)-paid.TotalMinor; got != want {
 		t.Fatalf("the customer's wallet holds %d, want %d", got, want)
@@ -322,7 +322,7 @@ func TestWalletDebitWithLostResponseIsNotRepeated(t *testing.T) {
 	// The first call posted but its answer was lost; the key said so, and no
 	// second debit was made.
 	if got := w.fake.OperatingBalance(); got != paid.TotalMinor {
-		t.Fatalf("PGDock's wallet got %d for one invoice of %d", got, paid.TotalMinor)
+		t.Fatalf("Xenibase's wallet got %d for one invoice of %d", got, paid.TotalMinor)
 	}
 	var transfers int
 	for _, tx := range w.fake.Ledger() {
@@ -424,11 +424,11 @@ func TestWalletReconciliationFindsAndRepairsAMissedDeposit(t *testing.T) {
 	var found bool
 	for _, r := range rs {
 		for _, d := range r.Differences {
-			found = found || d.Kind == "wallet_balance" || d.Kind == "missing_in_pgdock"
+			found = found || d.Kind == "wallet_balance" || d.Kind == "missing_in_xenibase"
 		}
 	}
 	if !found {
-		t.Fatalf("a deposit PGDock never heard of wasn't flagged: %+v", rs)
+		t.Fatalf("a deposit Xenibase never heard of wasn't flagged: %+v", rs)
 	}
 	// The hourly re-query posts it, and the books agree again.
 	if n, err := w.s.Requery(ctx, from, to); err != nil || n != 1 {

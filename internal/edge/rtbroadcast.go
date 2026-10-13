@@ -18,7 +18,7 @@ import (
 // through this process directly and through the project's other edge
 // processes with NOTIFY on the project's database (§6.5), sent only while
 // another process has said hello on it. Larger messages than a NOTIFY
-// takes go through pgd_realtime.relay.
+// takes go through xb_realtime.relay.
 
 const (
 	// rtNotifyMax is the largest NOTIFY payload sent as is (Postgres takes
@@ -107,7 +107,7 @@ func (h *rtHub) broadcastFrom(ctx context.Context, ch *rtChannel, m rtMsg) {
 		return
 	}
 	if ch.private && !ch.writeBroadcast {
-		ch.c.replyError(m, "not allowed to send on this private channel: no INSERT policy on pgd_realtime.channel_access lets this user")
+		ch.c.replyError(m, "not allowed to send on this private channel: no INSERT policy on xb_realtime.channel_access lets this user")
 		return
 	}
 	h.fanOut(ch.topic, ch.private, m.Payload, ch)
@@ -155,7 +155,7 @@ func (h *rtHub) persist(ctx context.Context, topic, event string, payload json.R
 	if len(payload) == 0 {
 		payload = json.RawMessage(`{}`)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO pgd_realtime.broadcast_history (topic, event, payload, sender) VALUES ($1, $2, $3, $4)`,
+	if _, err := pool.Exec(ctx, `INSERT INTO xb_realtime.broadcast_history (topic, event, payload, sender) VALUES ($1, $2, $3, $4)`,
 		name, event, string(payload), sender); err != nil {
 		h.e.cfg.Log.Warn("realtime history", "ref", h.ref, "err", err)
 	}
@@ -170,7 +170,7 @@ func (h *rtHub) persisted(ctx context.Context, p *project) map[string]bool {
 	}
 	out := map[string]bool{}
 	if pool, err := h.e.dbPool(ctx, p); err == nil {
-		if rows, err := pool.Query(ctx, `SELECT topic FROM pgd_realtime.persisted_topics`); err == nil {
+		if rows, err := pool.Query(ctx, `SELECT topic FROM xb_realtime.persisted_topics`); err == nil {
 			for rows.Next() {
 				var t string
 				if rows.Scan(&t) == nil {
@@ -332,7 +332,7 @@ func (h *rtHub) relayOut(ctx context.Context, m relayMsg) {
 	defer cancel()
 	if len(b) > rtNotifyMax {
 		var id int64
-		if err := pool.QueryRow(nctx, `INSERT INTO pgd_realtime.relay (body) VALUES ($1) RETURNING id`, string(b)).Scan(&id); err != nil {
+		if err := pool.QueryRow(nctx, `INSERT INTO xb_realtime.relay (body) VALUES ($1) RETURNING id`, string(b)).Scan(&id); err != nil {
 			h.e.cfg.Log.Warn("realtime relay", "ref", h.ref, "err", err)
 			return
 		}
@@ -351,7 +351,7 @@ func (h *rtHub) relayIn(ctx context.Context, q querier, payload string) {
 	}
 	if m.Kind == "ref" {
 		var body string
-		if err := q.QueryRow(ctx, `SELECT body FROM pgd_realtime.relay WHERE id = $1`, m.Relay).Scan(&body); err != nil {
+		if err := q.QueryRow(ctx, `SELECT body FROM xb_realtime.relay WHERE id = $1`, m.Relay).Scan(&body); err != nil {
 			return
 		}
 		if json.Unmarshal([]byte(body), &m) != nil || m.Node == h.e.node() {
@@ -596,7 +596,7 @@ func (e *Edge) history(c *call, req Request, name string) {
 	if q.Get("private") == "true" {
 		ch := &rtChannel{topic: rtTopicPrefix + name, private: true}
 		if err := e.channelAccess(c.r.Context(), c.p, req, ch); err != nil || !ch.readBroadcast {
-			c.fail(http.StatusForbidden, "not_allowed", "no policy on pgd_realtime.channel_access lets this caller read the topic")
+			c.fail(http.StatusForbidden, "not_allowed", "no policy on xb_realtime.channel_access lets this caller read the topic")
 			return
 		}
 	}
@@ -610,7 +610,7 @@ func (e *Edge) history(c *call, req Request, name string) {
 		e.dbError(c, err)
 		return
 	}
-	rows, err := pool.Query(c.r.Context(), `SELECT id, event, payload, sender, at FROM pgd_realtime.broadcast_history
+	rows, err := pool.Query(c.r.Context(), `SELECT id, event, payload, sender, at FROM xb_realtime.broadcast_history
 		WHERE topic = $1 AND id > $2 ORDER BY id LIMIT $3`, name, after, limit)
 	if err != nil {
 		e.dbError(c, err)

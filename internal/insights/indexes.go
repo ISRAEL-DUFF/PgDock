@@ -12,9 +12,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/schemaedit"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/schemaedit"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Thresholds for the table heuristics (V3 §8).
@@ -41,7 +41,7 @@ type IndexReport struct {
 	StatsSince *time.Time
 }
 
-// Suggestion is an index PGDock suggests.
+// Suggestion is an index Xenibase suggests.
 type Suggestion struct {
 	Schema, Table string
 	Columns       []string
@@ -405,15 +405,15 @@ func unindexedFKs(ctx context.Context, conn *pgx.Conn) ([]fkCols, error) {
 }
 
 func savepointExplain(ctx context.Context, conn *pgx.Conn, stmt string, generic bool) (planResult, error) {
-	if _, err := conn.Exec(ctx, "SAVEPOINT pgdock_explain"); err != nil {
+	if _, err := conn.Exec(ctx, "SAVEPOINT xenibase_explain"); err != nil {
 		return planResult{}, err
 	}
 	plan, err := explain(ctx, conn, stmt, generic, true)
 	if err != nil {
-		_, _ = conn.Exec(ctx, "ROLLBACK TO SAVEPOINT pgdock_explain")
+		_, _ = conn.Exec(ctx, "ROLLBACK TO SAVEPOINT xenibase_explain")
 		return plan, err
 	}
-	_, err = conn.Exec(ctx, "RELEASE SAVEPOINT pgdock_explain")
+	_, err = conn.Exec(ctx, "RELEASE SAVEPOINT xenibase_explain")
 	return plan, err
 }
 

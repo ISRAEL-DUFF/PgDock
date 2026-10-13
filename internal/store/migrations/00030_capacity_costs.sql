@@ -3,7 +3,7 @@
 
 -- Where a node came from and what it costs (§5.1, §5.4). provider is
 -- 'manual' for machines registered by hand (the install's own node, colo
--- servers) and 'hetzner' for servers PGDock created. region groups nodes
+-- servers) and 'hetzner' for servers Xenibase created. region groups nodes
 -- until M25's region model: one name per installation by default.
 -- lifecycle: 'provisioning' while a created server's agent hasn't joined,
 -- 'draining' while its projects are being moved off (nothing new is
@@ -21,7 +21,7 @@ ALTER TABLE nodes
   ADD COLUMN keep                boolean NOT NULL DEFAULT false;
 CREATE INDEX nodes_region ON nodes (region) WHERE status <> 'removed';
 
--- Capacity proposals (§5.2): a threshold tripped, so PGDock proposes a
+-- Capacity proposals (§5.2): a threshold tripped, so Xenibase proposes a
 -- server. Within the monthly infrastructure budget it is applied by
 -- itself; above it, it waits for the platform admin.
 CREATE TABLE capacity_proposals (
@@ -50,7 +50,7 @@ CREATE TABLE capacity_proposals (
 CREATE UNIQUE INDEX capacity_proposals_open ON capacity_proposals (region, tier)
   WHERE status IN ('pending', 'approved', 'provisioning');
 
--- Rebalancing and drains (§5.3): the moves PGDock proposes, batched. A
+-- Rebalancing and drains (§5.3): the moves Xenibase proposes, batched. A
 -- drain's moves are approved when the drain starts; a rebalance batch
 -- waits for the admin unless automatic rebalancing is on.
 CREATE TABLE rebalance_moves (

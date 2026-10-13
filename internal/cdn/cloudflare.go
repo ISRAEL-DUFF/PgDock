@@ -1,4 +1,4 @@
-// Package cdn purges cached URLs from the CDN in front of pgdock-edge
+// Package cdn purges cached URLs from the CDN in front of xenibase-edge
 // (V4 §5.4): a public bucket made private leaves the cache at once instead
 // of after its max-age.
 package cdn

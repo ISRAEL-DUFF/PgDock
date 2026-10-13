@@ -12,10 +12,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestCLIPolicies is V4.1-M8's CLI done-when (V4.1 §9.4): `policies
@@ -44,10 +44,10 @@ func TestCLIPolicies(t *testing.T) {
 	for _, stmt := range []string{
 		`CREATE TYPE mood AS ENUM ('happy', 'sad')`,
 		`CREATE TABLE lists (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, title text NOT NULL)`,
-		`CREATE TABLE todos (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, list_id bigint REFERENCES lists, owner uuid NOT NULL DEFAULT pgd_auth.uid(),
+		`CREATE TABLE todos (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, list_id bigint REFERENCES lists, owner uuid NOT NULL DEFAULT xb_auth.uid(),
 			body text NOT NULL, mood mood, done boolean NOT NULL DEFAULT false)`,
 		`ALTER TABLE todos ENABLE ROW LEVEL SECURITY`,
-		`CREATE POLICY own_rows ON todos TO ` + store.UserRole(p.DbName) + ` USING (owner = pgd_auth.uid()) WITH CHECK (owner = pgd_auth.uid())`,
+		`CREATE POLICY own_rows ON todos TO ` + store.UserRole(p.DbName) + ` USING (owner = xb_auth.uid()) WITH CHECK (owner = xb_auth.uid())`,
 		`CREATE TABLE notes (id int PRIMARY KEY, body text)`,
 	} {
 		if _, err := app.Exec(ctx, stmt); err != nil {
@@ -99,7 +99,7 @@ func TestCLIPolicies(t *testing.T) {
 
 	bin := buildCLI(t)
 	token := e.CreateToken(map[string]any{"name": "ci", "org_id": e.OrgID, "scopes": []string{"read", "write"}})
-	env := []string{"PGDOCK_SERVER=" + e.URL, "PGDOCK_TOKEN=" + token, "PGDOCK_CONFIG_DIR=" + t.TempDir()}
+	env := []string{"XENIBASE_SERVER=" + e.URL, "XENIBASE_TOKEN=" + token, "XENIBASE_CONFIG_DIR=" + t.TempDir()}
 
 	if r := runCLI(t, bin, env, "policies", "list", "lint-me", "--table", "todos"); r.code != 0 ||
 		!strings.Contains(r.stdout, "own_rows") || !strings.Contains(r.stdout, "user") || !strings.Contains(r.stdout, "uid()") {

@@ -3,7 +3,7 @@
 -- preview (new projects only when asked for), supported, deprecated (a
 -- retirement date at least 180 days out, owners notified) or retired (no
 -- new projects; existing ones keep running, unsupported). Majors the
--- server is configured with (PGDOCK_PG_VERSIONS) are added as supported
+-- server is configured with (XENIBASE_PG_VERSIONS) are added as supported
 -- when it starts.
 CREATE TABLE pg_versions (
   major          int PRIMARY KEY,

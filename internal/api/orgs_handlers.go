@@ -8,10 +8,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/orgs"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/orgs"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func (s *Server) genOrg(r *http.Request, o store.Organization, role string, members, projects int) (gen.Org, error) {

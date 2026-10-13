@@ -35,7 +35,7 @@ type FXQuote struct {
 	FetchedAt time.Time `json:"fetched_at"` // when the provider last priced the pair
 	Sources   []string  `json:"sources,omitempty"`
 	Derived   bool      `json:"derived,omitempty"`
-	// QuotedAt is when PGDock asked.
+	// QuotedAt is when Xenibase asked.
 	QuotedAt time.Time `json:"quoted_at"`
 }
 

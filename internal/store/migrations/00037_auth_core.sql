@@ -1,6 +1,6 @@
 -- +goose Up
 -- Auth core (V4 §4, M31). Users live in each project's database
--- (pgd_auth, applied by the control plane); the platform keeps a project's
+-- (xb_auth, applied by the control plane); the platform keeps a project's
 -- auth settings, the auth emails waiting to go out, what was sent, and
 -- who was active each month.
 
@@ -11,11 +11,11 @@ CREATE TABLE project_auth_config (
   templates     jsonb NOT NULL DEFAULT '{}',   -- per-kind subject and body overrides
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
--- pgdock-edge carries the settings: a change reaches it through the feed.
+-- xenibase-edge carries the settings: a change reaches it through the feed.
 CREATE TRIGGER project_auth_config_touch AFTER INSERT OR UPDATE OR DELETE ON project_auth_config
   FOR EACH ROW EXECUTE FUNCTION project_services_touch();
 
--- Auth emails queued by pgdock-edge, sent by pgdock-server: through the
+-- Auth emails queued by xenibase-edge, sent by xenibase-server: through the
 -- project's SMTP, or the platform's at a low hourly rate. The message
 -- (with its code or link) is sealed and dropped once sent.
 CREATE TABLE auth_email_outbox (

@@ -19,13 +19,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/faildomain"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/faildomain"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Operation kinds: bootstrap a region's cluster on three nodes, and
@@ -142,7 +142,7 @@ func (s *Service) Setup(ctx context.Context, nodeIDs []uuid.UUID, by *uuid.UUID)
 		}
 		var err error
 		op, err = jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: KindEtcdSetup, CreatedBy: by,
-			Params: setupParams{Region: region, Nodes: nodeIDs, Token: "pgdock-" + hex.EncodeToString(b)}})
+			Params: setupParams{Region: region, Nodes: nodeIDs, Token: "xenibase-" + hex.EncodeToString(b)}})
 		return err
 	})
 	return op, err

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // TestCreditNoteBeyondWhatIsOwed is from the M27 billing audit: a credit

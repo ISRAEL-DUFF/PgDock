@@ -1,5 +1,5 @@
 // Command docsite builds the documentation site from docs/ (see
-// internal/docsite): pgdock-docsite -src docs -out dist/docs. It fails
+// internal/docsite): xenibase-docsite -src docs -out dist/docs. It fails
 // when a link between pages is broken.
 package main
 
@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/israel-duff/pgdock/internal/docsite"
+	"github.com/israel-duff/xenibase/internal/docsite"
 )
 
 func main() {

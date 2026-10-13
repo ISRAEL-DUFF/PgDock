@@ -1,6 +1,6 @@
 name: Deploy
 
-# Upgrades a PGDock control server to a release tag with deploy/compose/upgrade.sh
+# Upgrades a Xenibase control server to a release tag with deploy/compose/upgrade.sh
 # over SSH (docs/deploying.md). Run it by hand from the Actions tab. It refuses a
 # tag whose CI isn't green, waits for a reviewer to approve the "production"
 # environment, and the server rolls itself back if the new version doesn't

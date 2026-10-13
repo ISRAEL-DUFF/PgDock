@@ -8,7 +8,7 @@ import (
 
 // ProviderISwallet is the wallet provider: each organisation has a wallet
 // there that holds its money, funded by bank transfer into a virtual
-// account; PGDock debits it (a transfer to PGDock's operating wallet) for
+// account; Xenibase debits it (a transfer to Xenibase's operating wallet) for
 // invoices, in naira, converted from the dollar prices at the provider's rate.
 const ProviderISwallet = "iswallet"
 
@@ -21,9 +21,9 @@ type Wallet struct {
 }
 
 // WalletRequest creates a wallet. The provider needs a director's BVN
-// before it issues a virtual account (PGDock forwards it and doesn't keep it).
+// before it issues a virtual account (Xenibase forwards it and doesn't keep it).
 type WalletRequest struct {
-	// OwnerRef is ours and unique at the provider: pgdock:<environment>:org:<id>.
+	// OwnerRef is ours and unique at the provider: xenibase:<environment>:org:<id>.
 	OwnerRef       string
 	Name           string
 	Email          string
@@ -83,7 +83,7 @@ type WalletProvider interface {
 	PaymentProvider
 	CreateWallet(ctx context.Context, r WalletRequest) (Wallet, error)
 	Balance(ctx context.Context, walletID string) (WalletBalance, error)
-	// OperatingWallet is the wallet PGDock's own money is in.
+	// OperatingWallet is the wallet Xenibase's own money is in.
 	OperatingWallet(ctx context.Context) (string, error)
 	Transfer(ctx context.Context, r TransferRequest) (TransferResult, error)
 	// Request looks up what happened to a call made under key; ErrRequestNotFound

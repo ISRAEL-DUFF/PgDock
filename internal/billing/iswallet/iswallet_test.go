@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/billing"
+	"github.com/israel-duff/xenibase/internal/billing"
 )
 
 func hookRequest(c *Client, body string) *http.Request {

@@ -10,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/regions"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/regions"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestEtcdPerRegionAndReplace is V3.1-M2's done-when, with a writer on
@@ -91,8 +91,8 @@ func TestEtcdPerRegionAndReplace(t *testing.T) {
 	// 1. The EU cluster goes (its link is cut, as it were): failsafe keeps
 	// the primary writing.
 	for _, n := range ns[:3] {
-		_ = exec.Command("docker", "rm", "-f", "pgdock-etcd-"+n.Id.String()).Run()
-		_ = exec.Command("docker", "volume", "rm", "-f", "pgdock-etcd-"+n.Id.String()).Run()
+		_ = exec.Command("docker", "rm", "-f", "xenibase-etcd-"+n.Id.String()).Run()
+		_ = exec.Command("docker", "volume", "rm", "-f", "xenibase-etcd-"+n.Id.String()).Run()
 	}
 	if _, err := e.DB.Exec(ctx, `DELETE FROM etcd_members WHERE region = 'eu-central'`); err != nil {
 		t.Fatal(err)
@@ -147,8 +147,8 @@ func TestEtcdPerRegionAndReplace(t *testing.T) {
 
 	// 4. A member is destroyed, container and data; Replace onto node-b.
 	victim := ns[2]
-	_ = exec.Command("docker", "rm", "-f", "pgdock-etcd-"+victim.Id.String()).Run()
-	_ = exec.Command("docker", "volume", "rm", "-f", "pgdock-etcd-"+victim.Id.String()).Run()
+	_ = exec.Command("docker", "rm", "-f", "xenibase-etcd-"+victim.Id.String()).Run()
+	_ = exec.Command("docker", "volume", "rm", "-f", "xenibase-etcd-"+victim.Id.String()).Run()
 	// As an operator would: once the cluster shows the member down and
 	// the other two healthy (a new etcd leader may take a moment).
 	var ec gen.EtcdCluster
@@ -216,8 +216,8 @@ func TestEtcdPerRegionAndReplace(t *testing.T) {
 	}
 	if op := e.WaitOperation(*dr.EtcdReplacement); op.Status != gen.OperationStatusSucceeded {
 		for _, n := range []gen.Node{ns[0], ns[1], ns[3]} {
-			out, _ := exec.Command("docker", "exec", "pgdock-etcd-"+n.Id.String(), "/usr/local/bin/etcdctl", "--endpoints=https://127.0.0.1:2379",
-				"--cacert=/etc/pgdock-etcd/ca.pem", "--cert=/etc/pgdock-etcd/member.pem", "--key=/etc/pgdock-etcd/member-key.pem", "--insecure-skip-tls-verify",
+			out, _ := exec.Command("docker", "exec", "xenibase-etcd-"+n.Id.String(), "/usr/local/bin/etcdctl", "--endpoints=https://127.0.0.1:2379",
+				"--cacert=/etc/xenibase-etcd/ca.pem", "--cert=/etc/xenibase-etcd/member.pem", "--key=/etc/xenibase-etcd/member-key.pem", "--insecure-skip-tls-verify",
 				"endpoint", "status", "--cluster", "-w", "table").CombinedOutput()
 			t.Logf("%s:\n%s", n.Name, out)
 		}

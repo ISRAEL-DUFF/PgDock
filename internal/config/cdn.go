@@ -5,9 +5,9 @@ import (
 	"strings"
 )
 
-// CDN is the CDN in front of pgdock-edge, purged when a public bucket goes
-// private (V4 §5.4): Cloudflare's zone (PGDOCK_CDN_CLOUDFLARE_ZONE_ID) and
-// an API token with Cache Purge permission (PGDOCK_CDN_CLOUDFLARE_TOKEN, or
+// CDN is the CDN in front of xenibase-edge, purged when a public bucket goes
+// private (V4 §5.4): Cloudflare's zone (XENIBASE_CDN_CLOUDFLARE_ZONE_ID) and
+// an API token with Cache Purge permission (XENIBASE_CDN_CLOUDFLARE_TOKEN, or
 // _FILE). Unset, nothing is purged and cached files expire on their own.
 type CDN struct {
 	CloudflareZoneID string
@@ -18,15 +18,15 @@ type CDN struct {
 func (c CDN) On() bool { return c.CloudflareZoneID != "" }
 
 func loadCDN(getenv func(string) string, readFile func(string) ([]byte, error), cfg *Config) []error {
-	c := CDN{CloudflareZoneID: strings.TrimSpace(getenv("PGDOCK_CDN_CLOUDFLARE_ZONE_ID"))}
+	c := CDN{CloudflareZoneID: strings.TrimSpace(getenv("XENIBASE_CDN_CLOUDFLARE_ZONE_ID"))}
 	var errs []error
-	tok, err := secretFrom(getenv, readFile, "PGDOCK_CDN_CLOUDFLARE_TOKEN")
+	tok, err := secretFrom(getenv, readFile, "XENIBASE_CDN_CLOUDFLARE_TOKEN")
 	if err != nil {
 		errs = append(errs, err)
 	}
 	c.CloudflareToken = tok
 	if (c.CloudflareZoneID == "") != (c.CloudflareToken == "") {
-		errs = append(errs, errors.New("PGDOCK_CDN_CLOUDFLARE_ZONE_ID and PGDOCK_CDN_CLOUDFLARE_TOKEN go together"))
+		errs = append(errs, errors.New("XENIBASE_CDN_CLOUDFLARE_ZONE_ID and XENIBASE_CDN_CLOUDFLARE_TOKEN go together"))
 	}
 	cfg.CDN = c
 	return errs

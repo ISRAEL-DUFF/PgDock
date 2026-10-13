@@ -29,7 +29,7 @@ type Target struct {
 	Endpoint  string `json:"endpoint"` // e.g. https://<account>.r2.cloudflarestorage.com
 	Region    string `json:"region"`   // "auto" for R2
 	Bucket    string `json:"bucket"`
-	Prefix    string `json:"prefix"` // optional key prefix, e.g. "pgdock/"
+	Prefix    string `json:"prefix"` // optional key prefix, e.g. "xenibase/"
 	AccessKey string `json:"access_key"`
 	SecretKey string `json:"secret_key"`
 	// PathStyle addresses the bucket in the path (MinIO, most self-hosted).
@@ -207,8 +207,8 @@ func (c *Client) LiveTest(ctx context.Context) ([]TestStep, bool) {
 	defer cancel()
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
-	key := "pgdock-write-test/" + hex.EncodeToString(b)
-	payload := []byte("pgdock storage test " + hex.EncodeToString(b))
+	key := "xenibase-write-test/" + hex.EncodeToString(b)
+	payload := []byte("xenibase storage test " + hex.EncodeToString(b))
 
 	var steps []TestStep
 	run := func(name string, f func() error) bool {

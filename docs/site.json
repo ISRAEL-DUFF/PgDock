@@ -1,6 +1,6 @@
 {
-  "title": "PGDock",
-  "repo": "https://github.com/ISRAEL-DUFF/PgDock/blob/main",
+  "title": "Xenibase",
+  "repo": "https://github.com/ISRAEL-DUFF/Xenibase/blob/main",
   "sections": [
     {"title": "Get started", "pages": ["index.md", "user-guide.md", "cli.md"]},
     {"title": "Build apps", "pages": ["backend-services.md", "errors.md", "integrations/README.md", "sdk/javascript.md", "sdk/go.md", "sdk/dart.md"]},

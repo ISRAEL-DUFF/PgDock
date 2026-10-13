@@ -14,8 +14,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // The V2 failure injections (V2 §14 M16): the quota enforcer stopped
@@ -177,7 +177,7 @@ func TestFailureDeliveryWorkerKilled(t *testing.T) {
 			return
 		}
 		mu.Lock()
-		got = append(got, r.Header.Get("PGDock-Event-Id")+" "+string(body))
+		got = append(got, r.Header.Get("Xenibase-Event-Id")+" "+string(body))
 		mu.Unlock()
 	}))
 	defer rc.Close()
@@ -197,7 +197,7 @@ func TestFailureDeliveryWorkerKilled(t *testing.T) {
 	var queued int
 	admin := e.SharedAdmin(c.Project.DbName)
 	defer admin.Close(ctx)
-	if err := admin.QueryRow(ctx, `SELECT count(*) FROM pgdock.webhook_outbox`).Scan(&queued); err != nil || queued != 5 {
+	if err := admin.QueryRow(ctx, `SELECT count(*) FROM xenibase.webhook_outbox`).Scan(&queued); err != nil || queued != 5 {
 		t.Fatalf("queued after the kill: %d %v", queued, err)
 	}
 	e.StartAutomation()

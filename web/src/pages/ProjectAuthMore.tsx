@@ -179,7 +179,7 @@ export function PhoneTab({
         <Stat
           label="Spend this month"
           value={money(spend, ph?.currency)}
-          hint="Billed per message sent through PGDock's providers."
+          hint="Billed per message sent through Xenibase's providers."
           testId="auth-phone-spend"
         />
       </div>
@@ -198,7 +198,7 @@ export function PhoneTab({
               cfg.sms
                 ? `Through your ${cfg.sms.provider} account.`
                 : ph?.platform_sms
-                  ? "Through PGDock's SMS (the DND route reaches do-not-disturb numbers)."
+                  ? "Through Xenibase's SMS (the DND route reaches do-not-disturb numbers)."
                   : "This install has no SMS provider: add your own below."
             }
           />
@@ -211,7 +211,7 @@ export function PhoneTab({
               cfg.whatsapp
                 ? "Through your WhatsApp Business number."
                 : ph?.platform_whatsapp
-                  ? "Through PGDock's WhatsApp Business number."
+                  ? "Through Xenibase's WhatsApp Business number."
                   : "This install has no WhatsApp sender: add your own below."
             }
           />
@@ -355,8 +355,8 @@ function ProviderPanel({
         title={channel === "sms" ? "Your SMS provider" : "Your WhatsApp sender"}
         description={
           cur
-            ? "Codes go through your own account; PGDock doesn't bill for them."
-            : "Optional: bring your own account instead of PGDock's (required for Free projects where the platform's isn't offered)."
+            ? "Codes go through your own account; Xenibase doesn't bill for them."
+            : "Optional: bring your own account instead of Xenibase's (required for Free projects where the platform's isn't offered)."
         }
       >
         <FormRow label="Provider">
@@ -391,7 +391,7 @@ function ProviderPanel({
             {err && <Alert>{err}</Alert>}
             {cur && (
               <Button type="button" onClick={clear} disabled={busy}>
-                Use PGDock's
+                Use Xenibase's
               </Button>
             )}
             <Button type="submit" variant="primary" busy={busy}>
@@ -796,7 +796,7 @@ export function HooksTab({
         </Panel>
         <Panel
           title="Webhooks"
-          description="Signed with the hook secret (PGDock-Signature, as database webhooks), retried with backoff, and checked against the organisation's outbound rules."
+          description="Signed with the hook secret (Xenibase-Signature, as database webhooks), retried with backoff, and checked against the organisation's outbound rules."
         >
           {url(
             "Before sign-up URL",
@@ -820,7 +820,7 @@ export function HooksTab({
             "Send message URL",
             send,
             setSend,
-            "Receives every email and code (with the text) instead of PGDock sending them.",
+            "Receives every email and code (with the text) instead of Xenibase sending them.",
           )}
           {cfg.hook_secret && (
             <KeyValues

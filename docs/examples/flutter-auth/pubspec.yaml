@@ -1,5 +1,5 @@
-name: pgdock_auth_sample
-description: Sign in with a WhatsApp code or Google against a PGDock project, then read rows that row-level security scopes to the user's org.
+name: xenibase_auth_sample
+description: Sign in with a WhatsApp code or Google against a Xenibase project, then read rows that row-level security scopes to the user's org.
 publish_to: none
 version: 1.0.0
 

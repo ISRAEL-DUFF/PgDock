@@ -188,7 +188,7 @@ type EdgeAuthConfigsRow struct {
 	ProvidersEnc []byte
 }
 
-// tenant: system - pgdock-edge's configuration feed: auth settings.
+// tenant: system - xenibase-edge's configuration feed: auth settings.
 func (q *Queries) EdgeAuthConfigs(ctx context.Context, projectIds []uuid.UUID) ([]EdgeAuthConfigsRow, error) {
 	rows, err := q.db.Query(ctx, edgeAuthConfigs, projectIds)
 	if err != nil {
@@ -221,7 +221,7 @@ type EdgeSigningKeysRow struct {
 	PrivateEnc []byte
 }
 
-// tenant: system - pgdock-edge's configuration feed: the active signing keys.
+// tenant: system - xenibase-edge's configuration feed: the active signing keys.
 func (q *Queries) EdgeSigningKeys(ctx context.Context, projectIds []uuid.UUID) ([]EdgeSigningKeysRow, error) {
 	rows, err := q.db.Query(ctx, edgeSigningKeys, projectIds)
 	if err != nil {
@@ -277,7 +277,7 @@ type InsertActiveUserParams struct {
 	UserID    uuid.UUID
 }
 
-// tenant: system - pgdock-edge's report, for projects it serves.
+// tenant: system - xenibase-edge's report, for projects it serves.
 func (q *Queries) InsertActiveUser(ctx context.Context, arg InsertActiveUserParams) (int64, error) {
 	result, err := q.db.Exec(ctx, insertActiveUser, arg.ProjectID, arg.Month, arg.UserID)
 	if err != nil {
@@ -322,7 +322,7 @@ type InsertAuthHookParams struct {
 	Payload   json.RawMessage
 }
 
-// tenant: system - a hook event pgdock-edge sent, for the project it named.
+// tenant: system - a hook event xenibase-edge sent, for the project it named.
 func (q *Queries) InsertAuthHook(ctx context.Context, arg InsertAuthHookParams) error {
 	_, err := q.db.Exec(ctx, insertAuthHook,
 		arg.ID,
@@ -349,7 +349,7 @@ type InsertAuthMessageParams struct {
 	Country       *string
 }
 
-// tenant: system - a message pgdock-edge asked for, for the project it named.
+// tenant: system - a message xenibase-edge asked for, for the project it named.
 func (q *Queries) InsertAuthMessage(ctx context.Context, arg InsertAuthMessageParams) error {
 	_, err := q.db.Exec(ctx, insertAuthMessage,
 		arg.ID,

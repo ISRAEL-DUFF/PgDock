@@ -26,7 +26,7 @@ var keyEpoch = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 // rather than storing a second secret, means the backup key alone restores
 // every backup, logical or physical.
 func PGPKey(backupKey []byte) (string, error) {
-	return deriveKey(backupKey, "pgdock wal-g openpgp v1", "PGDock WAL-G", "wal-g@pgdock.invalid")
+	return deriveKey(backupKey, "xenibase wal-g openpgp v1", "Xenibase WAL-G", "wal-g@xenibase.invalid")
 }
 
 // ProjectPGPKey derives a project's OpenPGP backup key (armored, private)
@@ -35,7 +35,7 @@ func PGPKey(backupKey []byte) (string, error) {
 // backups and WAL with it, so the downloaded key alone restores them with
 // standard tools (gpg, pg_restore, wal-g).
 func ProjectPGPKey(secret []byte) (string, error) {
-	return deriveKey(secret, "pgdock project backup openpgp v1", "PGDock project backup", "backups@pgdock.invalid")
+	return deriveKey(secret, "xenibase project backup openpgp v1", "Xenibase project backup", "backups@xenibase.invalid")
 }
 
 func deriveKey(secret []byte, info, name, email string) (string, error) {

@@ -17,12 +17,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/jwtes"
-	"github.com/israel-duff/pgdock/internal/services"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/jwtes"
+	"github.com/israel-duff/xenibase/internal/services"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // authSession is a token response.
@@ -123,7 +123,7 @@ func (m *mailbox) next(t *testing.T, addr string) (code, link string) {
 
 // TestAuthCore is V4-M31's done-when (V4 §4): sign-up, sign-in, refresh,
 // sign-out-everywhere and reuse detection pass, and RLS policies using
-// pgd_auth.uid() enforce per-user data for users who signed up through the
+// xb_auth.uid() enforce per-user data for users who signed up through the
 // API. Around it: email confirmation by code and by link, magic links,
 // recovery, lockout, the admin API, bans and deletion, the JWKS endpoint,
 // signing-key rotation, monthly active users, the dashboard's user API,
@@ -168,19 +168,19 @@ func TestAuthCore(t *testing.T) {
 	defer app.Close(ctx)
 	userRole := store.UserRole(p.DbName)
 	for _, stmt := range []string{
-		`CREATE TABLE todos (id bigserial PRIMARY KEY, owner_id uuid NOT NULL DEFAULT pgd_auth.uid() REFERENCES pgd_auth.users (id) ON DELETE CASCADE,
+		`CREATE TABLE todos (id bigserial PRIMARY KEY, owner_id uuid NOT NULL DEFAULT xb_auth.uid() REFERENCES xb_auth.users (id) ON DELETE CASCADE,
 		   title text NOT NULL)`,
 		`ALTER TABLE todos ENABLE ROW LEVEL SECURITY`,
-		fmt.Sprintf(`CREATE POLICY own ON todos FOR ALL TO %q USING (owner_id = pgd_auth.uid()) WITH CHECK (owner_id = pgd_auth.uid())`, userRole),
-		`CREATE VIEW my_profile WITH (security_invoker = true) AS SELECT id, email FROM pgd_auth.user_profiles`,
+		fmt.Sprintf(`CREATE POLICY own ON todos FOR ALL TO %q USING (owner_id = xb_auth.uid()) WITH CHECK (owner_id = xb_auth.uid())`, userRole),
+		`CREATE VIEW my_profile WITH (security_invoker = true) AS SELECT id, email FROM xb_auth.user_profiles`,
 	} {
 		if _, err := app.Exec(ctx, stmt); err != nil {
 			t.Fatalf("%s: %v", stmt, err)
 		}
 	}
 	// The owner can't read the auth tables themselves.
-	if _, err := app.Exec(ctx, `SELECT encrypted_password FROM pgd_auth.users`); err == nil {
-		t.Fatal("the owner read pgd_auth.users")
+	if _, err := app.Exec(ctx, `SELECT encrypted_password FROM xb_auth.users`); err == nil {
+		t.Fatal("the owner read xb_auth.users")
 	}
 
 	ed := e.StartEdge()
@@ -269,7 +269,7 @@ func TestAuthCore(t *testing.T) {
 		t.Fatalf("an unknown user: %d %s", r.Code, r.Body)
 	}
 
-	// ---- The done-when's RLS: per-user data through pgd_auth.uid() ---------------
+	// ---- The done-when's RLS: per-user data through xb_auth.uid() ---------------
 	aliceAPI := apiClient{t: t, ed: ed, ref: ref, key: pub, token: aliceSession.AccessToken}
 	bobAPI := apiClient{t: t, ed: ed, ref: ref, key: pub, token: bobToken}
 	anonAPI := apiClient{t: t, ed: ed, ref: ref, key: pub}

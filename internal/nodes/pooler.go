@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // PoolerDriver reaches pooler hosts' agents for the pooler manager and the

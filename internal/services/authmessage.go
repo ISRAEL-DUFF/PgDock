@@ -14,15 +14,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/messaging"
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/messaging"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
-// Auth messages (V4 §4.5, §4.6): pgdock-edge asks, pgdock-server renders
+// Auth messages (V4 §4.5, §4.6): xenibase-edge asks, xenibase-server renders
 // and queues; a worker sends emails through the project's SMTP or the
 // platform's, and SMS and WhatsApp codes through the project's own
 // provider or the platform's (Termii, the WhatsApp Cloud API) under the
@@ -55,7 +55,7 @@ const (
 )
 
 // PlatformPhone are the platform's SMS and WhatsApp providers and what a
-// message costs PGDock (V4 §12: resold at cost plus margin).
+// message costs Xenibase (V4 §12: resold at cost plus margin).
 type PlatformPhone struct {
 	SMS, WhatsApp     messaging.Provider
 	SMSCostMinor      int64
@@ -79,7 +79,7 @@ func recipientHash(projectID uuid.UUID, to string) string {
 	return hex.EncodeToString(h[:])
 }
 
-// QueueAuthMessage renders and queues a message pgdock-edge asked for.
+// QueueAuthMessage renders and queues a message xenibase-edge asked for.
 func (s *Service) QueueAuthMessage(ctx context.Context, m edgeapi.AuthMessage) error {
 	svc, err := store.New(s.db).ProjectServicesByRef(ctx, m.Ref)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && !svc.Enabled) {
@@ -234,7 +234,7 @@ func (s *Service) queuePhone(ctx context.Context, projectID uuid.UUID, m edgeapi
 			}
 			if today >= int64(daily) {
 				alerts = append(alerts, alertMsg{"phone_daily_cap", fmt.Sprintf(
-					"Your project's SMS and WhatsApp codes reached their daily cap (%d in 24 hours), so PGDock stopped sending them. "+
+					"Your project's SMS and WhatsApp codes reached their daily cap (%d in 24 hours), so Xenibase stopped sending them. "+
 						"If this wasn't your users, someone may be pumping codes to numbers they profit from: check Authentication → Phone, "+
 						"limit the countries, turn on captcha, and raise the cap only if the traffic is yours.", daily)})
 				return &LimitError{Limit: "daily"}
@@ -325,7 +325,7 @@ func (s *Service) alert(ctx context.Context, projectID uuid.UUID, kind, body str
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), sendTimeout)
 		defer cancel()
-		if err := s.Mail.Send(ctx, mail.Message{To: addrs, Subject: "[PGDock] Unusual SMS and WhatsApp codes for " + p.Name, Body: body}); err != nil {
+		if err := s.Mail.Send(ctx, mail.Message{To: addrs, Subject: "[Xenibase] Unusual SMS and WhatsApp codes for " + p.Name, Body: body}); err != nil {
 			s.log.Warn("auth alert email", "err", err)
 		}
 	}()
@@ -477,7 +477,7 @@ func (s *Service) sendOne(ctx context.Context, d store.AuthMessageOutbox) (sendR
 		return res, nil
 	}
 	msg := mail.Message{To: []string{m.To}, Subject: m.Subject, Body: m.Body,
-		Headers: map[string]string{"X-PGDock-Event": "auth." + d.Kind, "Auto-Submitted": "auto-generated"}}
+		Headers: map[string]string{"X-Xenibase-Event": "auth." + d.Kind, "Auto-Submitted": "auto-generated"}}
 	if d.Via == "project" {
 		res.provider = "smtp"
 		if prov.SMTP == nil {

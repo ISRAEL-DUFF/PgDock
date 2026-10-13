@@ -96,6 +96,6 @@ var (
 	ErrUnavailable = errors.New("payment provider unavailable")
 	// ErrUnauthenticated is a webhook that fails its signature check.
 	ErrUnauthenticated = errors.New("webhook authentication failed")
-	// ErrIgnoredEvent is a webhook PGDock doesn't act on.
+	// ErrIgnoredEvent is a webhook Xenibase doesn't act on.
 	ErrIgnoredEvent = errors.New("event not handled")
 )

@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // phoneProject is a project with backend services and SMS sign-in.
@@ -203,7 +203,7 @@ func TestSMSProviderOutage(t *testing.T) {
 }
 
 // TestEdgeCrashMidUpload is V4-M37's edge failure injection (V4 §13): a
-// pgdock-edge process killed (SIGKILL) while a file streams through it
+// xenibase-edge process killed (SIGKILL) while a file streams through it
 // leaves no object row and, after the storage sweep, no stored bytes; the
 // client sees the connection drop; another edge serves the same upload
 // when retried, and the file reads back whole.
@@ -231,7 +231,7 @@ func TestEdgeCrashMidUpload(t *testing.T) {
 	})
 
 	const size = 8 << 20
-	content := bytes.Repeat([]byte("pgdock-crash-test-"), size/18+1)[:size]
+	content := bytes.Repeat([]byte("xenibase-crash-test-"), size/18+1)[:size]
 	pr, pw := io.Pipe()
 	req, _ := http.NewRequest(http.MethodPost, victim.URL+"/storage/v1/object/uploads/big.bin", pr)
 	req.Host = sp.ref + "." + testenv.EdgeDomain
@@ -265,7 +265,7 @@ func TestEdgeCrashMidUpload(t *testing.T) {
 	adm := sp.adminConn(t)
 	defer adm.Close(ctx)
 	var rows int
-	if err := adm.QueryRow(ctx, `SELECT count(*) FROM pgd_storage.objects WHERE bucket = 'uploads'`).Scan(&rows); err != nil {
+	if err := adm.QueryRow(ctx, `SELECT count(*) FROM xb_storage.objects WHERE bucket = 'uploads'`).Scan(&rows); err != nil {
 		t.Fatal(err)
 	}
 	if rows != 0 {

@@ -1,4 +1,4 @@
-# PGDock — V3 Specification & Build Plan
+# Xenibase — V3 Specification & Build Plan
 
 *Builds on the V1 and V2 specs. References like "V2 §10.4" point to those documents.*
 
@@ -17,7 +17,7 @@
 
 > **Managed Postgres you can pay for in naira — no dollar card limits, no FX surprises on your bill, and the option to keep your data in Nigeria.**
 
-Nigerian teams on Supabase, Neon, or AWS pay in dollars on cards with international spending caps, see their bills move with the exchange rate, and have no in-country hosting option. PGDock V3 solves those three problems for that market.
+Nigerian teams on Supabase, Neon, or AWS pay in dollars on cards with international spending caps, see their bills move with the exchange rate, and have no in-country hosting option. Xenibase V3 solves those three problems for that market.
 
 ### 1.2 What V3 adds
 
@@ -41,7 +41,7 @@ Backend services (auth, auto-generated REST, storage, realtime, edge functions) 
 - **Money is a ledger, not a column.** Every charge, payment, credit, and tax deduction is an immutable ledger entry in kobo (integer). Balances are derived, never edited. Every external payment event is processed idempotently.
 - **Naira first, FX-aware.** Prices are in naira, but costs are in euros and dollars. Repricing is a configuration change with customer notice, never a deploy.
 - **Usage drives everything.** V2's usage records are the single source for rating, invoices, cost attribution, and margin reporting.
-- **Status lives elsewhere.** The status page and its alerting run on infrastructure separate from PGDock, so an outage can't take down the page announcing it.
+- **Status lives elsewhere.** The status page and its alerting run on infrastructure separate from Xenibase, so an outage can't take down the page announcing it.
 
 ---
 
@@ -53,7 +53,7 @@ The edge pooler was the last single point of failure in V1 and V2.
 
 - **Two pooler hosts per region** (on different physical hosts, enforced with a Hetzner placement group), each running both PgBouncer processes (`:5432` session, `:6543` transaction).
 - A **floating IP** (Hetzner Floating IP) points at the active host. `keepalived` on both hosts health-checks local PgBouncer and moves the IP on failure; the control plane also checks health externally and can move the IP through the Hetzner API if `keepalived` is split.
-- **Config sync:** `pgdock-server` writes pooler config to both hosts on every change (route, auth file) and verifies both hashes match. A host with a stale config refuses to take the floating IP.
+- **Config sync:** `xenibase-server` writes pooler config to both hosts on every change (route, auth file) and verifies both hashes match. A host with a stale config refuses to take the floating IP.
 - **TLS certificates** are distributed to both hosts.
 - On failover, clients reconnect (existing connections drop). Failover target: **under 10 seconds**.
 
@@ -65,7 +65,7 @@ The edge pooler was the last single point of failure in V1 and V2.
 | --- | --- |
 | Replication | Asynchronous by default (data-loss window of seconds at most). **Synchronous** optional per project (no committed data lost on failover, at the cost of write latency). |
 | Failover | Patroni promotes the standby when the primary fails its leader lease. Target: **under 60 seconds** from failure to accepting writes. |
-| Routing | `pgdock-server` watches each Patroni cluster's leader through its REST API and rewrites that project's pooler route to the new primary, with `PAUSE`/`RESUME` around the switch. Clients keep the same URL. |
+| Routing | `xenibase-server` watches each Patroni cluster's leader through its REST API and rewrites that project's pooler route to the new primary, with `PAUSE`/`RESUME` around the switch. Clients keep the same URL. |
 | Fencing | Patroni's watchdog plus the leader lease prevent two primaries. The old primary rejoins as a standby with `pg_rewind`. |
 | Backups | WAL-G runs from the current primary; Patroni callbacks move the archive role on failover. |
 | Manual switchover | Planned switchover from the UI/CLI for maintenance, with a few seconds of paused writes and no data loss. |
@@ -90,7 +90,7 @@ V1 and V2 move projects with dump/restore and a write freeze. V3 adds a **logica
 **Preconditions and fallbacks**
 
 - Tables without a primary key get `REPLICA IDENTITY FULL` for the move (slower for updates); the preflight lists them.
-- **DDL isn't replicated.** During a move, PGDock installs an event trigger on the source that blocks DDL with a clear error, and the UI shows the move in progress.
+- **DDL isn't replicated.** During a move, Xenibase installs an event trigger on the source that blocks DDL with a clear error, and the UI shows the move in progress.
 - Large objects (`lo_*`) aren't replicated; projects using them fall back to dump/restore.
 - Any precondition failure, or a failed cutover check, falls back to the V1 dump/restore path or aborts with the source untouched.
 
@@ -112,7 +112,7 @@ V1 and V2 move projects with dump/restore and a write freeze. V3 adds a **logica
 ### 2.6 Status page and incidents
 
 - A **public status page** listing components per region: control plane & dashboard, edge pooler, shared tier, dedicated instances, backups, webhooks & jobs, billing.
-- **Hosted separately** from PGDock: either a hosted status service or a tiny static site on a different provider, updated by an external health checker that probes from outside PGDock's network.
+- **Hosted separately** from Xenibase: either a hosted status service or a tiny static site on a different provider, updated by an external health checker that probes from outside Xenibase's network.
 - **Incidents:** created automatically when probes fail for a sustained period, or manually by the platform admin. Updates are posted from the admin console and pushed to the status page.
 - **Subscriptions:** anyone can subscribe by email; paying orgs are subscribed automatically for components they use.
 - **Uptime history:** 90 days per component, using the same measurements as the SLA.
@@ -216,7 +216,7 @@ Each business event posts a balanced set of entries (debits equal credits):
 
 #### 3.4.1 Payment provider interface
 
-PGDock never talks to a payment provider directly from billing logic. Each provider sits behind one interface, so channels can be added, swapped, or failed over without touching rating, invoicing, or the ledger. (This mirrors the composable provider pattern used in iSpend.)
+Xenibase never talks to a payment provider directly from billing logic. Each provider sits behind one interface, so channels can be added, swapped, or failed over without touching rating, invoicing, or the ledger. (This mirrors the composable provider pattern used in iSpend.)
 
 ```go
 type PaymentProvider interface {
@@ -244,12 +244,12 @@ Every provider event is normalised into one internal event shape (`payment.succe
 | Wallet payments ("Pay with iSpend") | iSpend | — |
 | Prepaid top-ups | Customer's choice: card (Flutterwave), transfer (iSpend VA), or iSpend wallet | — |
 
-If the primary virtual-account provider is unavailable when an org needs an account, PGDock issues one from the fallback; an org can hold accounts from both, and transfers into either settle the same way.
+If the primary virtual-account provider is unavailable when an org needs an account, Xenibase issues one from the fallback; an org can hold accounts from both, and transfers into either settle the same way.
 
 #### 3.4.2 Cards via Flutterwave
 
-- The first card payment happens on Flutterwave's hosted checkout (card details never touch PGDock), with 3-D Secure/OTP handled there.
-- A successful charge returns a **card token**. PGDock stores the token encrypted (plus brand, last four digits, expiry for display) and uses Flutterwave's **tokenised charge** for each later invoice and auto top-up.
+- The first card payment happens on Flutterwave's hosted checkout (card details never touch Xenibase), with 3-D Secure/OTP handled there.
+- A successful charge returns a **card token**. Xenibase stores the token encrypted (plus brand, last four digits, expiry for display) and uses Flutterwave's **tokenised charge** for each later invoice and auto top-up.
 - An org can save several cards and choose a default. Expiring cards trigger reminder emails 30 and 7 days before expiry.
 - Card payments are also available as a one-off option on any invoice, for customers who don't want a saved card.
 
@@ -257,27 +257,27 @@ If the primary virtual-account provider is unavailable when an org needs an acco
 
 - Each paying org gets a **permanent virtual account (NUBAN)** issued through iSpend. Any transfer into it is attributed to that org through iSpend's webhook.
 - Incoming transfers settle the oldest open invoice (postpaid) or top up the credit balance (prepaid). Overpayments become credit. Transfers short by exactly the expected WHT follow §3.7.
-- If iSpend can't issue an account (outage, or before its licensing and banking arrangements are live), PGDock issues a Flutterwave virtual account instead. Both kinds behave identically in the dashboard.
+- If iSpend can't issue an account (outage, or before its licensing and banking arrangements are live), Xenibase issues a Flutterwave virtual account instead. Both kinds behave identically in the dashboard.
 
 #### 3.4.4 Wallet payments via iSpend
 
 For customers who hold an iSpend wallet:
 
-- **Pay with iSpend** on any invoice or top-up: the customer approves the debit in iSpend, and PGDock receives the confirmation by webhook.
-- **Recurring mandate (optional):** the customer authorises PGDock to debit their iSpend wallet for invoices up to a monthly limit they set. Revoking the mandate in iSpend sends a `mandate.revoked` event, and PGDock asks for another payment method.
-- Wallet payments settle instantly into PGDock's iSpend merchant wallet, avoiding card failure rates and bank transfer delays.
+- **Pay with iSpend** on any invoice or top-up: the customer approves the debit in iSpend, and Xenibase receives the confirmation by webhook.
+- **Recurring mandate (optional):** the customer authorises Xenibase to debit their iSpend wallet for invoices up to a monthly limit they set. Revoking the mandate in iSpend sends a `mandate.revoked` event, and Xenibase asks for another payment method.
+- Wallet payments settle instantly into Xenibase's iSpend merchant wallet, avoiding card failure rates and bank transfer delays.
 
 #### 3.4.5 Stablecoin top-ups via iSpend (optional, off by default)
 
-Because iSpend handles crypto as first-class money, PGDock can accept **USDT top-ups of the prepaid credit balance** through iSpend:
+Because iSpend handles crypto as first-class money, Xenibase can accept **USDT top-ups of the prepaid credit balance** through iSpend:
 
-- The naira credit amount is **fixed at the rate iSpend quotes at receipt** and recorded with the quote reference. PGDock's ledger only ever holds naira; any conversion happens inside iSpend.
+- The naira credit amount is **fixed at the rate iSpend quotes at receipt** and recorded with the quote reference. Xenibase's ledger only ever holds naira; any conversion happens inside iSpend.
 - Invoices are never priced in crypto, and this path is prepaid-only.
 - Kept behind a platform setting, off by default, until the regulatory position for accepting crypto-funded payments is confirmed with legal advice.
 
-#### 3.4.6 The iSpend contract PGDock needs
+#### 3.4.6 The iSpend contract Xenibase needs
 
-iSpend is built in-house, so V3 defines the merchant capabilities PGDock depends on. These become requirements for iSpend's merchant API:
+iSpend is built in-house, so V3 defines the merchant capabilities Xenibase depends on. These become requirements for iSpend's merchant API:
 
 | Capability | Endpoint / event |
 | --- | --- |
@@ -292,7 +292,7 @@ iSpend is built in-house, so V3 defines the merchant capabilities PGDock depends
 | Webhooks: `transfer.received`, `payment.succeeded`, `payment.failed`, `mandate.revoked`, `refund.completed` | Signed with HMAC-SHA256 over the raw body, with a timestamp header for replay protection |
 | Sandbox environment | Separate keys and base URL, with simulated transfers |
 
-PGDock should be iSpend's **first merchant integration**, which makes it a useful design partner for iSpend's merchant API as well as a payment channel for PGDock.
+Xenibase should be iSpend's **first merchant integration**, which makes it a useful design partner for iSpend's merchant API as well as a payment channel for Xenibase.
 
 #### 3.4.7 Manual payments (platform admin)
 
@@ -301,7 +301,7 @@ For transfers to the company's ordinary bank account, cheques, or negotiated arr
 #### 3.4.8 Webhook handling and reliability
 
 - **Authentication per provider:** Flutterwave webhooks are checked against the configured secret hash in the `verif-hash` header; iSpend webhooks by HMAC signature and timestamp (§3.4.6).
-- **Re-verification:** before anything is posted to the ledger, PGDock calls the provider's verify endpoint for the transaction and checks amount, currency (NGN), and reference. Webhook bodies are never trusted on their own.
+- **Re-verification:** before anything is posted to the ledger, Xenibase calls the provider's verify endpoint for the transaction and checks amount, currency (NGN), and reference. Webhook bodies are never trusted on their own.
 - **Idempotency:** events are keyed by provider and provider event/transaction ID; duplicates are no-ops.
 - **Missed events:** a job re-queries each provider's recent transactions every hour and the full previous day nightly, posting anything not yet seen.
 - **Provider outage:** charges against an unavailable provider are retried with backoff and don't count as customer payment failures for dunning purposes; the billing banner offers the other available channels.
@@ -334,8 +334,8 @@ For transfers to the company's ordinary bank account, cheques, or negotiated arr
 
 **Invoices**
 
-- Sequential numbering per year (`PGD-2027-000123`), never reused.
-- Show the org's business details and TIN, PGDock's company details, TIN, and VAT registration, line items, subtotal, **VAT** (currently 7.5%; the rate is configuration, confirm with your accountant), and total in naira.
+- Sequential numbering per year (`XB-2027-000123`), never reused.
+- Show the org's business details and TIN, Xenibase's company details, TIN, and VAT registration, line items, subtotal, **VAT** (currently 7.5%; the rate is configuration, confirm with your accountant), and total in naira.
 - Generated as **PDF** and HTML, emailed to billing contacts, and available in the dashboard.
 - **Credit notes** for corrections and refunds; issued invoices are never edited.
 - **Receipts** for each payment.
@@ -347,7 +347,7 @@ For transfers to the company's ordinary bank account, cheques, or negotiated arr
 Nigerian corporate customers often deduct withholding tax from service invoices and pay the rest, later providing a WHT credit note.
 
 - Orgs flagged as WHT-deducting show the **expected WHT amount** on each invoice (the rate is configuration; confirm the applicable rate with your accountant).
-- When a transfer arrives for **invoice total minus WHT**, PGDock matches it to the invoice, posts the WHT amount to `wht_receivable`, and marks the invoice **paid (WHT pending evidence)**.
+- When a transfer arrives for **invoice total minus WHT**, Xenibase matches it to the invoice, posts the WHT amount to `wht_receivable`, and marks the invoice **paid (WHT pending evidence)**.
 - The customer uploads the **credit note** in the dashboard (or the admin attaches it). The WHT entry becomes evidenced.
 - The admin console lists **outstanding WHT credit notes** by age, for follow-up, and exports WHT receivable for tax filing.
 - Payments short by an amount that doesn't match the expected WHT are treated as partial payments, not WHT.
@@ -381,7 +381,7 @@ Paying the outstanding amount at any point reverses the restrictions automatical
 ### 3.10 Spend controls
 
 - **Budget alerts:** an org sets a monthly budget; alerts at 50%, 80%, and 100% of forecast spend.
-- **Hard spend cap (optional):** when projected overage charges would exceed the cap, PGDock stops creating new billable resources and throttles metered features (webhook deliveries queue, job runs pause, new branches blocked). It **never deletes data or disconnects databases** because of a cap; storage over plan follows V2's storage locks.
+- **Hard spend cap (optional):** when projected overage charges would exceed the cap, Xenibase stops creating new billable resources and throttles metered features (webhook deliveries queue, job runs pause, new branches blocked). It **never deletes data or disconnects databases** because of a cap; storage over plan follows V2's storage locks.
 - **Cost estimate** before every billable action: promoting, enabling HA, resizing, adding disk.
 - **Current-month forecast** on the Billing page, updated hourly.
 
@@ -427,14 +427,14 @@ type Provider interface {
 ```
 
 - **Hetzner Cloud** is the first implementation.
-- A **manual** provider covers machines PGDock can't create through an API (colocated servers in Lagos, §6.2): the admin registers them, and PGDock treats them as a fixed pool.
+- A **manual** provider covers machines Xenibase can't create through an API (colocated servers in Lagos, §6.2): the admin registers them, and Xenibase treats them as a fixed pool.
 - New servers boot with **cloud-init** that installs the agent, hardens SSH, joins the private network, and registers with a one-time token (V1 agent registration, now automatic).
 - Other providers (including a future in-house VPS platform) can be added behind the same interface.
 
 ### 5.2 Automatic capacity
 
 - **Thresholds per region and tier:** e.g. add a shared node when projected disk use exceeds 70% within 14 days, or a dedicated host when free capacity can't fit the largest size.
-- When a threshold trips, PGDock creates a **capacity proposal** (server type, region, monthly cost). Proposals within the platform's **monthly infrastructure budget** are applied automatically; above it, they wait for admin approval.
+- When a threshold trips, Xenibase creates a **capacity proposal** (server type, region, monthly cost). Proposals within the platform's **monthly infrastructure budget** are applied automatically; above it, they wait for admin approval.
 - New dedicated instances are placed on hosts with free capacity; if none fit, a host is provisioned first (adding a few minutes to creation, shown to the user).
 
 ### 5.3 Draining and rebalancing
@@ -456,7 +456,7 @@ type Provider interface {
 ### 6.1 Region model
 
 - A **region** groups nodes, pooler hosts, a storage target, and a status-page component: e.g. `eu-central` (Hetzner) and `ng-lagos`.
-- Each region has its **own pooler pair** and hostname (`db.eu.pgdock.ng`, `db.ng.pgdock.ng`), because connections should terminate in the same region as the database.
+- Each region has its **own pooler pair** and hostname (`db.eu.xenibase.ng`, `db.ng.xenibase.ng`), because connections should terminate in the same region as the database.
 - **Projects choose a region at creation.** Moving a project between regions is a zero-downtime move (§2.3) that changes the connection hostname; the old hostname keeps routing for 30 days through a cross-region pooler forward.
 - The control plane stays in one place; only data-path components live in each region.
 
@@ -464,10 +464,10 @@ type Provider interface {
 
 **Infrastructure options** (choose one before M24):
 
-- **Colocation** of PGDock-owned servers in a Lagos data centre, registered through the manual provider.
+- **Colocation** of Xenibase-owned servers in a Lagos data centre, registered through the manual provider.
 - **A local cloud or VPS provider** with an API, added as a provider implementation.
 
-**Minimum requirements:** redundant power and cooling, at least two upstream carriers, enough public IPv4 addresses, private networking between hosts, out-of-band management for colocated servers, and in-country S3-compatible object storage (a provider's, or MinIO on separate PGDock hosts with erasure coding).
+**Minimum requirements:** redundant power and cooling, at least two upstream carriers, enough public IPv4 addresses, private networking between hosts, out-of-band management for colocated servers, and in-country S3-compatible object storage (a provider's, or MinIO on separate Xenibase hosts with erasure coding).
 
 **What's offered at launch:** dedicated instances (with HA), in-country backups, and branches of Lagos projects (placed in Lagos). A Lagos shared tier can follow if demand justifies it.
 
@@ -482,7 +482,7 @@ A per-project **"data must stay in Nigeria"** setting, available for Lagos proje
 - Moving the project out of Lagos requires turning the setting off (owner only, step-up reauth, audited).
 - Exports (V2 §10.10) are still allowed, since the customer controls where their own export goes.
 
-Whether a specific customer's regulator requires in-country hosting is the customer's determination; PGDock provides the controls and documents what they guarantee.
+Whether a specific customer's regulator requires in-country hosting is the customer's determination; Xenibase provides the controls and documents what they guarantee.
 
 ---
 
@@ -513,7 +513,7 @@ Versioned, with recorded acceptance (V2 §10.10):
 
 - Terms of service, including pricing review and repricing notice.
 - **SLA** (§2.7).
-- **Data processing agreement**, with PGDock as processor and the customer as controller; sub-processors listed (Hetzner, Cloudflare, Flutterwave, iSpend, email provider, Lagos provider).
+- **Data processing agreement**, with Xenibase as processor and the customer as controller; sub-processors listed (Hetzner, Cloudflare, Flutterwave, iSpend, email provider, Lagos provider).
 - Privacy notice.
 - Acceptable use policy.
 - An optional **order form** for Team customers with negotiated terms.
@@ -522,7 +522,7 @@ The company issuing invoices must be registered, with a TIN and VAT registration
 
 ### 7.4 Open signup
 
-With Free tier economics controlled by pause and archive, signup moves from invite-only to **open**, with Turnstile, per-IP limits, verified email, mandatory TOTP, and one Free org per user (V2 §3.1). A marketing site and pricing page live outside the PGDock binary and link into signup.
+With Free tier economics controlled by pause and archive, signup moves from invite-only to **open**, with Turnstile, per-IP limits, verified email, mandatory TOTP, and one Free org per user (V2 §3.1). A marketing site and pricing page live outside the Xenibase binary and link into signup.
 
 ---
 
@@ -530,11 +530,11 @@ With Free tier economics controlled by pause and archive, signup moves from invi
 
 Available on Pro, Team, and dedicated projects.
 
-- **Collection:** `pg_stat_statements` is enabled cluster-wide on shared clusters and on every dedicated instance. Every 5 minutes, the control plane snapshots it (as `pgdock_admin`, which can read all rows) and stores **deltas per query per project**, filtered by database ID. Tenants never query the view directly on shared clusters.
+- **Collection:** `pg_stat_statements` is enabled cluster-wide on shared clusters and on every dedicated instance. Every 5 minutes, the control plane snapshots it (as `xenibase_admin`, which can read all rows) and stores **deltas per query per project**, filtered by database ID. Tenants never query the view directly on shared clusters.
 - **Top queries:** by total time, mean time, calls, and rows, over 1h/24h/7d/30d, with normalised query text.
 - **Query detail:** time-series of calls and latency; **EXPLAIN** (without `ANALYZE`) run as the project role from a captured example, with the plan shown as a tree.
 - **Slow-query log:** statements over a threshold (`log_min_duration_statement` on dedicated; derived from the reaper and snapshots on shared).
-- **Index suggestions:** heuristics from `pg_stat_user_tables` (large tables with heavy sequential scans), foreign keys without indexes, and filter columns in top queries. Where the `hypopg` extension is available, PGDock tests a hypothetical index and shows the estimated plan improvement. Suggestions come with the `CREATE INDEX CONCURRENTLY` statement and a "Save as migration" option (V2 §4.3).
+- **Index suggestions:** heuristics from `pg_stat_user_tables` (large tables with heavy sequential scans), foreign keys without indexes, and filter columns in top queries. Where the `hypopg` extension is available, Xenibase tests a hypothetical index and shows the estimated plan improvement. Suggestions come with the `CREATE INDEX CONCURRENTLY` statement and a "Save as migration" option (V2 §4.3).
 - **Unused and duplicate indexes**, with their size.
 - **Table bloat estimates** and the reclaim-space action (V2 §10.4).
 - **Lock and wait view:** current blocking chains for the project.
@@ -548,7 +548,7 @@ Available on Pro, Team, and dedicated projects.
 CREATE TABLE regions (
   id            text PRIMARY KEY,               -- 'eu-central', 'ng-lagos'
   name          text NOT NULL,
-  pooler_host   text NOT NULL,                  -- db.eu.pgdock.ng
+  pooler_host   text NOT NULL,                  -- db.eu.xenibase.ng
   provider      text NOT NULL,                  -- hetzner | manual | …
   storage_target_id uuid REFERENCES storage_targets(id),
   copy_target_id    uuid REFERENCES storage_targets(id),  -- cross-region copies (§2.5)
@@ -908,9 +908,9 @@ Billing audit (ledger invariants, rounding, VAT/WHT edge cases reviewed with the
 | **Logical move edge cases** | Data mismatch after move | Preflight checks, DDL blocking, sequence sync with margin, row-count verification, 48-hour rollback window, dump/restore fallback. |
 | **Free tier abuse or cost** | Infrastructure cost without revenue | One Free org per user, Turnstile and IP limits, hard limits, pause at 7 days, archive at 90, free-tier cost tracked in the dashboard. |
 | **Payment provider outage** | Can't collect money | Provider interface with two providers; virtual accounts fall back from iSpend to Flutterwave; provider outages never count as customer payment failures; manual payments; hourly re-query. |
-| **iSpend readiness** | PGDock's launch waits on iSpend's merchant API, licensing, or banking partnership | Flutterwave covers cards and virtual accounts on its own, so PGDock can launch with Flutterwave only and switch iSpend on as primary when ready; the contract in §3.4.6 is agreed early so both teams build to it. |
-| **Related-party arrangement** | Both PGDock and iSpend sit in your group; the intercompany terms matter for tax and audit | A written merchant agreement between the two entities on standard, arm's-length terms; fees recorded like any other provider. |
-| **Crypto-funded payments** | Regulatory uncertainty | Stablecoin top-ups off by default, conversion inside iSpend, PGDock ledger holds naira only; enable only after legal advice. |
+| **iSpend readiness** | Xenibase's launch waits on iSpend's merchant API, licensing, or banking partnership | Flutterwave covers cards and virtual accounts on its own, so Xenibase can launch with Flutterwave only and switch iSpend on as primary when ready; the contract in §3.4.6 is agreed early so both teams build to it. |
+| **Related-party arrangement** | Both Xenibase and iSpend sit in your group; the intercompany terms matter for tax and audit | A written merchant agreement between the two entities on standard, arm's-length terms; fees recorded like any other provider. |
+| **Crypto-funded payments** | Regulatory uncertainty | Stablecoin top-ups off by default, conversion inside iSpend, Xenibase ledger holds naira only; enable only after legal advice. |
 | **Lagos infrastructure reliability** | Outages in the premium region | Minimum requirements in §6.2, HA required for SLA, in-country backups, honest SLA scope, start with dedicated only. |
 | **SLA exposure** | Credits and reputation | SLA limited to HA dedicated, measured externally, credits capped at 50%, maintenance excluded with notice. |
 | **Support load** | Slow responses, churn | Published response targets by plan, support console with org context, status page reduces duplicate tickets, docs. |
@@ -924,7 +924,7 @@ Billing audit (ledger invariants, rounding, VAT/WHT edge cases reviewed with the
 2. **Prepaid as default?** Should new paid orgs start on prepaid credits (lower collection risk, familiar to Nigerian customers) with postpaid available on request, or the reverse?
 3. **Team plan.** Is a third plan needed at launch, or should it start with Free, Pro, and dedicated instances, adding Team once there are customers asking for it?
 4. **Support channels.** Is WhatsApp support something you're prepared to staff from launch, or should it start as email only?
-5. **Billing engine.** Build the rating and invoicing in-house as specced (it fits the existing usage records and ledger approach), or evaluate an open-source billing engine such as Lago for rating and invoices while keeping the ledger in PGDock?
-6. **Company entity.** Which entity issues invoices and holds the Flutterwave account and the iSpend merchant account: a PGDock company under your holdco, or the holdco itself?
-7. **iSpend timeline.** Will iSpend's merchant API, virtual accounts, and mandates be in production by PGDock's paid launch (around week 13)? If not, launch on Flutterwave only and switch iSpend on afterwards?
+5. **Billing engine.** Build the rating and invoicing in-house as specced (it fits the existing usage records and ledger approach), or evaluate an open-source billing engine such as Lago for rating and invoices while keeping the ledger in Xenibase?
+6. **Company entity.** Which entity issues invoices and holds the Flutterwave account and the iSpend merchant account: a Xenibase company under your holdco, or the holdco itself?
+7. **iSpend timeline.** Will iSpend's merchant API, virtual accounts, and mandates be in production by Xenibase's paid launch (around week 13)? If not, launch on Flutterwave only and switch iSpend on afterwards?
 8. **Stablecoin top-ups.** Do you want this path at launch (subject to legal advice), or later?

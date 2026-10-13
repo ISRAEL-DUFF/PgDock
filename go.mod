@@ -1,4 +1,4 @@
-module github.com/israel-duff/pgdock
+module github.com/israel-duff/xenibase
 
 go 1.26.9
 

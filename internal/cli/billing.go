@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
 // naira formats kobo: 1500000 → "NGN 15,000.00".
@@ -258,7 +258,7 @@ func (a *App) billingPay(args []string) error {
 		case ch.Unavailable:
 			fmt.Fprintf(w, "The wallet provider didn't answer%s. Nothing is lost; try again shortly.\n", msg)
 		default:
-			fmt.Fprintf(w, "Not paid%s. Top the wallet up with `pgdock billing transfer`'s account.\n", msg)
+			fmt.Fprintf(w, "Not paid%s. Top the wallet up with `xenibase billing transfer`'s account.\n", msg)
 		}
 	})
 }

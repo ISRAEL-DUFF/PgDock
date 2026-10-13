@@ -25,9 +25,9 @@ func ClientDBName(p Project) string {
 func ProbeRole(db string) string { return db + "_sla" }
 
 // Backend services' roles in the project whose database is db (V4 §2.3).
-// Each is a login of its own: pgdock-edge connects as anon, user or
+// Each is a login of its own: xenibase-edge connects as anon, user or
 // service for a request and as the auth hook role for a hook, and as the
-// edge login only for auth, so tenant SQL never runs where pgd_auth is
+// edge login only for auth, so tenant SQL never runs where xb_auth is
 // readable and can't switch to another role.
 func EdgeRole(db string) string    { return db + "_edge" }
 func AnonRole(db string) string    { return db + "_anon" }

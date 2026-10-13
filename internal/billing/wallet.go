@@ -13,17 +13,17 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // DebitTermsVersion is the version of the terms an organisation accepts to
-// let PGDock debit its wallet. Change it when the wording changes: orgs
+// let Xenibase debit its wallet. Change it when the wording changes: orgs
 // that accepted an older one are asked again.
 const DebitTermsVersion = "2026-10"
 
 // DebitTerms is what an org owner agrees to; the UI shows it next to the
 // button, and the version is stored with the consent.
-const DebitTerms = "PGDock may debit this organisation's wallet for each invoice when it is issued, for the amount " +
+const DebitTerms = "Xenibase may debit this organisation's wallet for each invoice when it is issued, for the amount " +
 	"in naira shown on the invoice, converted from the dollar price at the rate on it, and for what remains owing " +
 	"whenever the wallet is topped up. Debits can be switched off at any time; invoices are then paid by hand."
 
@@ -83,7 +83,7 @@ func (s *Service) EnsureWallet(ctx context.Context, orgID uuid.UUID, in WalletSe
 		OwnerRef: ref, Name: in.BusinessName, Email: in.Email, Phone: in.Phone, BVN: in.BVN, TIN: in.TIN, CACNumber: in.CACNumber,
 		// A new key per call: a corrected BVN is a different request, and a
 		// lost answer is recovered by the owner reference being unique (409).
-		Tier: "TIER_2", IdempotencyKey: newReference("pgdw-wallet"),
+		Tier: "TIER_2", IdempotencyKey: newReference("xbw-wallet"),
 	})
 	if err != nil {
 		return "", err
@@ -161,7 +161,7 @@ type WalletView struct {
 	// Balance is read from the provider; BalanceError says why it couldn't be.
 	Balance      *WalletBalance
 	BalanceError string
-	// Ledger is what PGDock's books say the wallet holds.
+	// Ledger is what Xenibase's books say the wallet holds.
 	Ledger  int64
 	Account *store.VirtualAccount
 	Consent *Consent
@@ -345,7 +345,7 @@ func (s *Service) chargeInvoiceFromWallet(ctx context.Context, inv store.Invoice
 		s.deferWalletCharge(ctx, inv, owed, !explicit, err)
 		return WalletCharge{Unavailable: true, Message: err.Error()}, nil
 	}
-	ref := newReference("pgdw")
+	ref := newReference("xbw")
 	intent, err := q.InsertPaymentIntent(ctx, store.InsertPaymentIntentParams{
 		OrgID: inv.OrgID, Reference: ref, Provider: ProviderISwallet, Channel: ChannelWallet, Purpose: PurposeInvoice,
 		InvoiceID: &inv.ID, AmountMinor: owed, Automatic: !explicit,
@@ -358,7 +358,7 @@ func (s *Service) chargeInvoiceFromWallet(ctx context.Context, inv store.Invoice
 		return WalletCharge{}, err
 	}
 	tr, err := s.wallets.Transfer(ctx, TransferRequest{
-		From: wid, To: op, AmountMinor: owed, IdempotencyKey: ref, Narration: "PGDock " + deref(inv.Number),
+		From: wid, To: op, AmountMinor: owed, IdempotencyKey: ref, Narration: "Xenibase " + deref(inv.Number),
 	})
 	switch {
 	case errors.Is(err, ErrInsufficientFunds), errors.Is(err, ErrWalletInactive), errors.Is(err, ErrWalletLimit):
@@ -396,7 +396,7 @@ func (s *Service) declineWalletCharge(ctx context.Context, inv store.Invoice, ow
 			return
 		}
 	}
-	ref := newReference("pgdw")
+	ref := newReference("xbw")
 	if _, err := q.InsertPaymentIntent(ctx, store.InsertPaymentIntentParams{
 		OrgID: inv.OrgID, Reference: ref, Provider: ProviderISwallet, Channel: ChannelWallet, Purpose: PurposeInvoice,
 		InvoiceID: &inv.ID, AmountMinor: owed, Automatic: automatic,
@@ -410,7 +410,7 @@ func (s *Service) declineWalletCharge(ctx context.Context, inv store.Invoice, ow
 // dunning run tries the invoice again (it isn't the customer's failure).
 func (s *Service) deferWalletCharge(ctx context.Context, inv store.Invoice, owed int64, automatic bool, cause error) {
 	q := store.New(s.db)
-	ref := newReference("pgdw")
+	ref := newReference("xbw")
 	if _, err := q.InsertPaymentIntent(ctx, store.InsertPaymentIntentParams{
 		OrgID: inv.OrgID, Reference: ref, Provider: ProviderISwallet, Channel: ChannelWallet, Purpose: PurposeInvoice,
 		InvoiceID: &inv.ID, AmountMinor: owed, Automatic: automatic,
@@ -497,7 +497,7 @@ func (s *Service) settleWalletDebit(ctx context.Context, intent store.PaymentInt
 		return err
 	}
 	s.afterPayment(ctx, intent.OrgID)
-	s.notifyOrg(ctx, intent.OrgID, "billing.receipt", fmt.Sprintf("PGDock: %s paid from your wallet", deref(inv.Number)),
+	s.notifyOrg(ctx, intent.OrgID, "billing.receipt", fmt.Sprintf("Xenibase: %s paid from your wallet", deref(inv.Number)),
 		fmt.Sprintf("%s was debited from %s's wallet for invoice %s.\n\nThe receipt: %s/org/billing?org=%s\n",
 			Naira(amount), s.orgName(ctx, intent.OrgID), deref(inv.Number), s.publicURL, intent.OrgID))
 	return nil

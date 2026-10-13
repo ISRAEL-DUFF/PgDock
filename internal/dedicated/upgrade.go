@@ -10,10 +10,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/logical"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/logical"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // KindUpgrade moves a project to a newer Postgres major by a logical move
@@ -158,7 +158,7 @@ func (s *Service) UpgradePreflight(ctx context.Context, p store.Project, to int)
 		}
 		add(CheckDeprecated, CheckWarning, "%s", strings.Join(msgs, "; "))
 	} else {
-		add(CheckDeprecated, CheckOK, "nothing in the schema uses what Postgres %d removed (that PGDock knows of)", to)
+		add(CheckDeprecated, CheckOK, "nothing in the schema uses what Postgres %d removed (that Xenibase knows of)", to)
 	}
 
 	if len(plan.Blocked()) == 0 {
@@ -208,7 +208,7 @@ func (s *Service) scratchTrial(ctx context.Context, p store.Project, src *pgx.Co
 		}
 		_ = q.MarkInstanceDeleted(c, id)
 	}()
-	secret := provision.AdminSecret{User: "pgdock_admin", Password: randomPassword()}
+	secret := provision.AdminSecret{User: "xenibase_admin", Password: randomPassword()}
 	sealed, err := provision.SealInstanceSecret(s.keyring, id, secret)
 	if err != nil {
 		return nil, err
@@ -242,7 +242,7 @@ func (s *Service) scratchTrial(ctx context.Context, p store.Project, src *pgx.Co
 // shared cluster of the new version) as a short-lived non-superuser login,
 // and returns what failed. The database and login are dropped after.
 func (s *Service) schemaTrial(ctx context.Context, p store.Project, src *pgx.Conn, target uuid.UUID) ([]string, error) {
-	scratch := "pgdock_check_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
+	scratch := "xenibase_check_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
 	admin, err := s.projects.AdminConn(ctx, target, "postgres")
 	if err != nil {
 		return nil, err
@@ -296,7 +296,7 @@ func (s *Service) schemaTrial(ctx context.Context, p store.Project, src *pgx.Con
 		return nil, err
 	}
 	res, err := agent.Copy(ctx, agentapi.CopyRequest{
-		Source: from, Dump: agentapi.DumpOptions{ExcludeSchemas: []string{"pgdock", logical.Schema, "pgd_auth", "pgd_storage", "pgd_realtime"}, ExcludeExtensions: exts, SchemaOnly: true, NoOwner: true, NoACL: true},
+		Source: from, Dump: agentapi.DumpOptions{ExcludeSchemas: []string{"xenibase", logical.Schema, "xb_auth", "xb_storage", "xb_realtime"}, ExcludeExtensions: exts, SchemaOnly: true, NoOwner: true, NoACL: true},
 		Target: to, Restore: agentapi.RestoreOptions{Role: scratch, AllowErrors: true},
 	})
 	if err != nil {

@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 var (
@@ -103,7 +103,7 @@ func (s *Service) Suspend(ctx context.Context, orgID uuid.UUID, reason string) e
 		return err
 	}
 	err = s.setOrgLogins(ctx, orgID)
-	s.mailOwners(ctx, orgID, fmt.Sprintf("[PGDock] %s is suspended", o.Name), fmt.Sprintf(
+	s.mailOwners(ctx, orgID, fmt.Sprintf("[Xenibase] %s is suspended", o.Name), fmt.Sprintf(
 		"The platform admin suspended %s.\n\nReason: %s\n\nIts databases are offline and its data is kept. Members can still sign in to see this notice.\n\n%s",
 		o.Name, reason, s.link("/projects")))
 	return err
@@ -131,7 +131,7 @@ func (s *Service) Reinstate(ctx context.Context, orgID uuid.UUID) error {
 	if o.Status == OrgDeleting {
 		what = "no longer being deleted"
 	}
-	s.mailOwners(ctx, orgID, fmt.Sprintf("[PGDock] %s is %s", o.Name, what), fmt.Sprintf(
+	s.mailOwners(ctx, orgID, fmt.Sprintf("[Xenibase] %s is %s", o.Name, what), fmt.Sprintf(
 		"%s is %s: its databases accept connections again.\n\n%s", o.Name, what, s.link("/projects")))
 	return err
 }
@@ -176,7 +176,7 @@ func (s *Service) StartBreakGlass(ctx context.Context, orgID, adminID uuid.UUID,
 	if err != nil {
 		return bg, err
 	}
-	s.mailOwners(ctx, orgID, fmt.Sprintf("[PGDock] Break-glass access to %s", o.Name), fmt.Sprintf(
+	s.mailOwners(ctx, orgID, fmt.Sprintf("[Xenibase] Break-glass access to %s", o.Name), fmt.Sprintf(
 		"The platform admin (%s) opened break-glass access to %s until %s UTC.\n\nReason: %s\n\nThey can act as an org admin until then; everything they do is in the org's audit log, flagged as break-glass. Any owner can end the session early:\n%s",
 		adminEmail, o.Name, expires.UTC().Format("2006-01-02 15:04"), reason, s.link("/org/audit")))
 	return bg, nil
@@ -235,7 +235,7 @@ func (s *Service) RequestOrgDeletion(ctx context.Context, orgID uuid.UUID, confi
 		return time.Time{}, fmt.Errorf("%w: the organisation is %s", ErrConflict, o.Status)
 	}
 	err = s.setOrgLogins(ctx, orgID)
-	s.mailOwners(ctx, orgID, fmt.Sprintf("[PGDock] %s will be deleted on %s", o.Name, after.UTC().Format("2006-01-02")), fmt.Sprintf(
+	s.mailOwners(ctx, orgID, fmt.Sprintf("[Xenibase] %s will be deleted on %s", o.Name, after.UTC().Format("2006-01-02")), fmt.Sprintf(
 		"%s and its %d project(s) will be deleted on %s UTC. Each project gets a final backup, kept for 30 days.\n\nUntil then any owner can cancel:\n%s",
 		o.Name, len(ps), after.UTC().Format("2006-01-02 15:04"), s.link("/org/settings")))
 	return after, err

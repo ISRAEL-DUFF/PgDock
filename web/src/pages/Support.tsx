@@ -82,7 +82,7 @@ function Thread({ messages }: { messages: TicketMessage[] }) {
     <ol className="flex flex-col gap-3" data-testid="ticket-thread">
       {messages.map((m) =>
         m.direction === "note" && m.author === "system" ? (
-          // PGDock's own record of an email it sent (kept to thread replies).
+          // Xenibase's own record of an email it sent (kept to thread replies).
           <li
             key={m.id}
             className="text-center text-[11px] text-muted"

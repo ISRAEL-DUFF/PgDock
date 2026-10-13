@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // inboundEmail posts an email to the support inbox as the email provider
@@ -107,7 +107,7 @@ func TestSupportTickets(t *testing.T) {
 	}
 	reply := map[string]any{
 		"from": testenv.OwnerEmail, "subject": "Re: [" + tk.Ref + "] Slow queries", "message_id": "<r1@customer.example>",
-		"in_reply_to": replyTo, "text": "SELECT * FROM orders WHERE status = 'open'\n\nOn Mon, PGDock wrote:\n> Could you send the slowest query?",
+		"in_reply_to": replyTo, "text": "SELECT * FROM orders WHERE status = 'open'\n\nOn Mon, Xenibase wrote:\n> Could you send the slowest query?",
 	}
 	for range 2 { // a redelivery threads once
 		if code := inboundEmail(t, e, e.SupportInboundSecret, reply); code != http.StatusOK {
@@ -136,7 +136,7 @@ func TestSupportTickets(t *testing.T) {
 		t.Error("first response not recorded")
 	}
 
-	// A new email from someone PGDock doesn't know: a ticket with no org.
+	// A new email from someone Xenibase doesn't know: a ticket with no org.
 	if code := inboundEmail(t, e, e.SupportInboundSecret, map[string]any{
 		"From": "Ada <ada@stranger.example>", "Subject": "Pricing question", "TextBody": "Do you invoice in dollars?", "MessageID": "s1@stranger.example",
 	}); code != http.StatusOK {

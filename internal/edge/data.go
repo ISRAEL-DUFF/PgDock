@@ -541,7 +541,7 @@ func (e *Edge) read(c *call, req Request, name string, q Query, one bool) {
 // countExact counts the filtered rows under a short timeout; on timeout
 // the count is nil (V4 §3.2 "Exact counts are capped by a timeout").
 func countExact(ctx context.Context, tx pgx.Tx, stmt statement) (*int64, error) {
-	if _, err := tx.Exec(ctx, "SAVEPOINT pgd_count"); err != nil {
+	if _, err := tx.Exec(ctx, "SAVEPOINT xb_count"); err != nil {
 		return nil, err
 	}
 	if _, err := tx.Exec(ctx, "SELECT set_config('statement_timeout', $1, true)", strconv.FormatInt(countTimeout.Milliseconds(), 10)); err != nil {
@@ -551,7 +551,7 @@ func countExact(ctx context.Context, tx pgx.Tx, stmt statement) (*int64, error) 
 	err := tx.QueryRow(ctx, stmt.CountSQL, stmt.CountArgs...).Scan(&n)
 	var pe *pgconn.PgError
 	if errors.As(err, &pe) && pe.Code == "57014" {
-		if _, err := tx.Exec(ctx, "ROLLBACK TO SAVEPOINT pgd_count"); err != nil {
+		if _, err := tx.Exec(ctx, "ROLLBACK TO SAVEPOINT xb_count"); err != nil {
 			return nil, err
 		}
 		return nil, nil

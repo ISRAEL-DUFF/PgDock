@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/rotate"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/rotate"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestMasterKeyRotation covers spec §7.3: every stored secret is
@@ -21,7 +21,7 @@ func TestMasterKeyRotation(t *testing.T) {
 	e.ConfigureBackups()
 	if code := e.Do("PUT", "/api/v1/settings/alerts", map[string]any{
 		"webhook_url": "https://hooks.example.com/x", "webhook_secret": "hook-secret",
-		"smtp": map[string]any{"host": "smtp.example.com", "from": "pgdock@example.com", "to": []string{"ops@example.com"}, "password": "smtp-secret"},
+		"smtp": map[string]any{"host": "smtp.example.com", "from": "xenibase@example.com", "to": []string{"ops@example.com"}, "password": "smtp-secret"},
 	}, nil); code != http.StatusOK {
 		t.Fatalf("alerts: %d", code)
 	}
@@ -29,7 +29,7 @@ func TestMasterKeyRotation(t *testing.T) {
 	host, port, _ := strings.Cut(e.SMTP.Addr, ":")
 	portN, _ := strconv.Atoi(port)
 	if code := e.Do("PUT", "/api/v1/admin/settings/mail", map[string]any{
-		"host": host, "port": portN, "tls": "none", "from": "pgdock@pgdock.test", "username": "u", "password": "smtp-secret",
+		"host": host, "port": portN, "tls": "none", "from": "xenibase@xenibase.test", "username": "u", "password": "smtp-secret",
 		"test_to": "owner@example.com",
 	}, nil); code != http.StatusOK {
 		t.Fatalf("mail settings: %d", code)

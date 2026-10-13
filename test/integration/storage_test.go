@@ -26,12 +26,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/edge"
-	"github.com/israel-duff/pgdock/internal/services"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/edge"
+	"github.com/israel-duff/xenibase/internal/services"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // files calls a project's /storage/v1 with raw bodies.
@@ -126,7 +126,7 @@ func newStorageProject(t *testing.T, name string, onDisk bool) *storageProject {
 			t.Fatal(err)
 		}
 		t.Cleanup(d.Close)
-		e.SaveStorage(d.Target("pgdock-test"))
+		e.SaveStorage(d.Target("xenibase-test"))
 	} else {
 		e.ConfigureBackups()
 	}
@@ -175,9 +175,9 @@ func newStorageProject(t *testing.T, name string, onDisk bool) *storageProject {
 	// The owner's policy (V4 §5.1): users read and write their own avatars.
 	app := e.MustConnect(creds.Connection.PooledUrl)
 	defer app.Close(ctx)
-	if _, err := app.Exec(ctx, fmt.Sprintf(`CREATE POLICY own_avatar ON pgd_storage.objects FOR ALL TO %q
-		USING (bucket = 'avatars' AND pgd_storage.folder(path, 1) = pgd_auth.uid()::text)
-		WITH CHECK (bucket = 'avatars' AND pgd_storage.folder(path, 1) = pgd_auth.uid()::text)`, store.UserRole(p.DbName))); err != nil {
+	if _, err := app.Exec(ctx, fmt.Sprintf(`CREATE POLICY own_avatar ON xb_storage.objects FOR ALL TO %q
+		USING (bucket = 'avatars' AND xb_storage.folder(path, 1) = xb_auth.uid()::text)
+		WITH CHECK (bucket = 'avatars' AND xb_storage.folder(path, 1) = xb_auth.uid()::text)`, store.UserRole(p.DbName))); err != nil {
 		t.Fatalf("policy: %v", err)
 	}
 	return sp
@@ -448,13 +448,13 @@ func TestStorage(t *testing.T) {
 	ctx := context.Background()
 	admConn := sp.adminConn(t)
 	defer admConn.Close(ctx)
-	if _, err := admConn.Exec(ctx, `ALTER TABLE pgd_storage.objects DISABLE ROW LEVEL SECURITY`); err != nil {
+	if _, err := admConn.Exec(ctx, `ALTER TABLE xb_storage.objects DISABLE ROW LEVEL SECURITY`); err != nil {
 		t.Fatal(err)
 	}
 	if r := anon.do("GET", "/storage/v1/list/avatars", nil, alice); r.Code != 403 || r.Error.Code != "rls_required" {
 		t.Fatalf("no row-level security: %s", r)
 	}
-	if _, err := admConn.Exec(ctx, `ALTER TABLE pgd_storage.objects ENABLE ROW LEVEL SECURITY`); err != nil {
+	if _, err := admConn.Exec(ctx, `ALTER TABLE xb_storage.objects ENABLE ROW LEVEL SECURITY`); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -472,7 +472,7 @@ func (sp *storageProject) adminConn(t *testing.T) *pgx.Conn {
 // objectKeys are the project's object versions in the fake store.
 func objectKeys(t *testing.T, sp *storageProject) []string {
 	t.Helper()
-	keys, err := sp.e.S3.Objects("pgdock-test")
+	keys, err := sp.e.S3.Objects("xenibase-test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -486,12 +486,12 @@ func objectKeys(t *testing.T, sp *storageProject) []string {
 }
 
 // TestStorageLargeUpload is the rest of V4-M33's done-when: a 2 GB file
-// (PGDOCK_TEST_LARGE_UPLOAD_MB to change it) uploads in parts straight to
+// (XENIBASE_TEST_LARGE_UPLOAD_MB to change it) uploads in parts straight to
 // the object store with presigned URLs, one part retried, and reads back
 // whole.
 func TestStorageLargeUpload(t *testing.T) {
 	mb := 2048
-	if v, err := strconv.Atoi(os.Getenv("PGDOCK_TEST_LARGE_UPLOAD_MB")); err == nil && v > 0 {
+	if v, err := strconv.Atoi(os.Getenv("XENIBASE_TEST_LARGE_UPLOAD_MB")); err == nil && v > 0 {
 		mb = v
 	}
 	sp := newStorageProject(t, "big-files", true)
@@ -502,9 +502,9 @@ func TestStorageLargeUpload(t *testing.T) {
 	ctx := context.Background()
 	adm := sp.adminConn(t)
 	defer adm.Close(ctx)
-	if _, err := adm.Exec(ctx, fmt.Sprintf(`CREATE POLICY own_videos ON pgd_storage.objects FOR ALL TO %q
-		USING (bucket = 'videos' AND pgd_storage.folder(path, 1) = pgd_auth.uid()::text)
-		WITH CHECK (bucket = 'videos' AND pgd_storage.folder(path, 1) = pgd_auth.uid()::text)`, store.UserRole(sp.db))); err != nil {
+	if _, err := adm.Exec(ctx, fmt.Sprintf(`CREATE POLICY own_videos ON xb_storage.objects FOR ALL TO %q
+		USING (bucket = 'videos' AND xb_storage.folder(path, 1) = xb_auth.uid()::text)
+		WITH CHECK (bucket = 'videos' AND xb_storage.folder(path, 1) = xb_auth.uid()::text)`, store.UserRole(sp.db))); err != nil {
 		t.Fatal(err)
 	}
 	size := int64(mb) << 20
@@ -530,7 +530,7 @@ func TestStorageLargeUpload(t *testing.T) {
 		t.Fatalf("start: %s", r)
 	}
 	// The bytes: a deterministic stream, hashed as it goes.
-	seed := sha256.Sum256([]byte("pgdock large upload"))
+	seed := sha256.Sum256([]byte("xenibase large upload"))
 	gen := func(part int, n int64) io.Reader { return &prng{seed: seed, part: part, left: n} }
 	whole := sha256.New()
 	put := func(u string, body io.Reader, n int64) int {
@@ -691,7 +691,7 @@ func TestStorageSweep(t *testing.T) {
 	// ---- The CLI ---------------------------------------------------------------
 	bin := buildCLI(t)
 	token := e.CreateToken(map[string]any{"name": "files", "org_id": e.OrgID, "scopes": []string{"read", "write"}})
-	env := []string{"PGDOCK_SERVER=" + e.URL, "PGDOCK_TOKEN=" + token, "PGDOCK_CONFIG_DIR=" + t.TempDir()}
+	env := []string{"XENIBASE_SERVER=" + e.URL, "XENIBASE_TOKEN=" + token, "XENIBASE_CONFIG_DIR=" + t.TempDir()}
 	dir := t.TempDir()
 	local := filepath.Join(dir, "notes.txt")
 	if err := os.WriteFile(local, []byte("from the cli"), 0o600); err != nil {
@@ -779,7 +779,7 @@ func TestStorageSweep(t *testing.T) {
 	before := len(objectKeys(t, sp))
 	adm := sp.adminConn(t)
 	defer adm.Close(ctx)
-	if _, err := adm.Exec(ctx, `DELETE FROM pgd_storage.objects WHERE bucket = 'docs' AND path = 'guides/start.txt'`); err != nil {
+	if _, err := adm.Exec(ctx, `DELETE FROM xb_storage.objects WHERE bucket = 'docs' AND path = 'guides/start.txt'`); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.Services.StorageSweep(ctx); err != nil {
@@ -790,19 +790,19 @@ func TestStorageSweep(t *testing.T) {
 	}
 
 	// ---- The reconciler: orphans go, missing bytes are reported ----------------------
-	fc, err := storage.New(e.S3.Target("pgdock-test"))
+	fc, err := storage.New(e.S3.Target("xenibase-test"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	orphan := "pgdock/" + services.FilesPrefix(sp.ref) + "objects/" + uuid.NewString()
+	orphan := "xenibase/" + services.FilesPrefix(sp.ref) + "objects/" + uuid.NewString()
 	if _, err := fc.Put(ctx, orphan, strings.NewReader("orphan"), 6, "text/plain"); err != nil {
 		t.Fatal(err)
 	}
 	var logoVersion uuid.UUID
-	if err := adm.QueryRow(ctx, `SELECT version FROM pgd_storage.objects WHERE path = 'logo.png'`).Scan(&logoVersion); err != nil {
+	if err := adm.QueryRow(ctx, `SELECT version FROM xb_storage.objects WHERE path = 'logo.png'`).Scan(&logoVersion); err != nil {
 		t.Fatal(err)
 	}
-	if err := fc.Delete(ctx, "pgdock/"+services.FilesPrefix(sp.ref)+"objects/"+logoVersion.String()); err != nil {
+	if err := fc.Delete(ctx, "xenibase/"+services.FilesPrefix(sp.ref)+"objects/"+logoVersion.String()); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.Services.ReconcileStorageNow(ctx, sp.pid); err != nil {

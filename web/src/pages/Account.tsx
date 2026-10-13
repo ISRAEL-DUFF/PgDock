@@ -46,7 +46,7 @@ function InvitationsCard() {
         {q.data.items.map((i) => (
           <div key={i.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
             <span>
-              <strong>{i.org_name ?? "PGDock"}</strong> — {i.role}
+              <strong>{i.org_name ?? "Xenibase"}</strong> — {i.role}
               {i.projects.length > 0 && `, ${i.projects.length} project${i.projects.length === 1 ? "" : "s"}`}, from {i.invited_by}
             </span>
             <Button

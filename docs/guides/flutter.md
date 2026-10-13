@@ -12,13 +12,13 @@ version of the sign-in part.
 
 ## Install
 
-    flutter pub add pgdock flutter_secure_storage flutter_web_auth_2
-    pgdock gen types --lang dart --project my-app -o lib/database_types.dart
+    flutter pub add xenibase flutter_secure_storage flutter_web_auth_2
+    xenibase gen types --lang dart --project my-app -o lib/database_types.dart
 
 ```dart
-// lib/pgdock.dart
+// lib/xenibase.dart
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:pgdock/pgdock.dart';
+import 'package:xenibase/xenibase.dart';
 
 class SecureSessionStorage implements SessionStorage {
   final _s = const FlutterSecureStorage();
@@ -30,19 +30,19 @@ class SecureSessionStorage implements SessionStorage {
   Future<void> delete(String key) => _s.delete(key: key);
 }
 
-final pgd = PgdockClient('https://k7f3m2q9.api.pgdock.ng', 'pgd_pub_…', sessionStorage: SecureSessionStorage());
+final xb = XenibaseClient('https://k7f3m2q9.api.xenibase.ng', 'xb_pub_…', sessionStorage: SecureSessionStorage());
 ```
 
 ## Sign in with a WhatsApp code
 
 ```dart
-Future<void> sendCode(String phone) => pgd.auth.signInWithOtp(phone: phone, channel: 'whatsapp');
+Future<void> sendCode(String phone) => xb.auth.signInWithOtp(phone: phone, channel: 'whatsapp');
 
 Future<String?> verify(String phone, String code) async {
   try {
-    await pgd.auth.verifyOtp(type: 'whatsapp', phone: phone, token: code);
+    await xb.auth.verifyOtp(type: 'whatsapp', phone: phone, token: code);
     return null;
-  } on PgdockException catch (e) {
+  } on XenibaseException catch (e) {
     return e.code == 'otp_expired' ? 'That code has expired' : e.message;
   }
 }
@@ -55,7 +55,7 @@ class Root extends StatelessWidget {
   const Root({super.key});
   @override
   Widget build(BuildContext context) => StreamBuilder(
-        stream: pgd.auth.onAuthStateChange,
+        stream: xb.auth.onAuthStateChange,
         builder: (context, snap) {
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           final (_, session) = snap.data!;
@@ -84,7 +84,7 @@ class _NotesPageState extends State<NotesPage> {
   @override
   void initState() {
     super.initState();
-    stop = pgd.data.from('notes').select().order('created_at', descending: true).live<Note>(
+    stop = xb.data.from('notes').select().order('created_at', descending: true).live<Note>(
           (page, error) => setState(() => notes = page?.rows ?? notes),
           fromJson: Note.fromJson,
         );
@@ -101,7 +101,7 @@ class _NotesPageState extends State<NotesPage> {
 }
 ```
 
-Turn realtime on for the table (`SELECT pgd_realtime.enable('notes')`).
+Turn realtime on for the table (`SELECT xb_realtime.enable('notes')`).
 After a dropped connection, the client reconnects and refetches the list.
 
 ## Google
@@ -111,18 +111,18 @@ import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 
 Future<void> signInWithGoogle() async {
   const redirect = 'com.example.app://auth-callback'; // allowed under Authentication → URL configuration
-  final (:url, :verifier) = pgd.auth.oauthUrl('google', redirect);
+  final (:url, :verifier) = xb.auth.oauthUrl('google', redirect);
   final result = await FlutterWebAuth2.authenticate(url: url.toString(), callbackUrlScheme: 'com.example.app');
   final code = Uri.parse(result).queryParameters['code'];
-  if (code != null) await pgd.auth.exchangeCode(code, verifier);
+  if (code != null) await xb.auth.exchangeCode(code, verifier);
 }
 ```
 
 ## Files
 
 ```dart
-final uid = pgd.auth.currentSession!.userId;
-await pgd.storage.bucket('avatars').upload('$uid/me.jpg', await file.readAsBytes(), contentType: 'image/jpeg', upsert: true);
-final url = await pgd.storage.bucket('avatars').signedUrl('$uid/me.jpg');
+final uid = xb.auth.currentSession!.userId;
+await xb.storage.bucket('avatars').upload('$uid/me.jpg', await file.readAsBytes(), contentType: 'image/jpeg', upsert: true);
+final url = await xb.storage.bucket('avatars').signedUrl('$uid/me.jpg');
 Image.network(url.toString());
 ```

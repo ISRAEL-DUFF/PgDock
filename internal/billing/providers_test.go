@@ -12,9 +12,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/billing/iswallet"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/billing/iswallet"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // payWorld is a walletWorld whose service counts in naira, like the older
@@ -36,7 +36,7 @@ func newPayWorld(t *testing.T) *payWorld {
 	srv := httptest.NewServer(ww.fake)
 	t.Cleanup(srv.Close)
 	p := iswallet.New(iswallet.Config{BaseURL: srv.URL, APIKey: "isw-key", WebhookSecret: "isw-secret-0123456789", Now: clk.Now})
-	s.SetWallets(p, "pgdock:test")
+	s.SetWallets(p, "xenibase:test")
 	hook := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		ev, err := p.ParseWebhook(r.Context(), r)
 		if err != nil {
@@ -69,12 +69,12 @@ func (w *payWorld) window() (from, to time.Time) {
 	return w.clk.Now().Add(-time.Hour), w.clk.Now().Add(time.Hour)
 }
 
-// stray opens a wallet and bank account at the provider that PGDock has no
+// stray opens a wallet and bank account at the provider that Xenibase has no
 // record of, and returns the account number.
 func (w *payWorld) stray(t *testing.T) string {
 	t.Helper()
 	ctx := context.Background()
-	wl, err := w.prov.CreateWallet(ctx, billing.WalletRequest{OwnerRef: "pgdock:test:org:" + uuid.NewString(), Name: "Stray Ltd", Email: "a@stray.example",
+	wl, err := w.prov.CreateWallet(ctx, billing.WalletRequest{OwnerRef: "xenibase:test:org:" + uuid.NewString(), Name: "Stray Ltd", Email: "a@stray.example",
 		BVN: "22222222222", Tier: "TIER_2", IdempotencyKey: uuid.NewString()})
 	if err != nil {
 		t.Fatal(err)
@@ -130,7 +130,7 @@ func TestDepositsAreHeldAndDuplicatesAreNoOps(t *testing.T) {
 	mustCheck(t, w.db)
 }
 
-// Money paid into an account PGDock doesn't know is kept apart until the
+// Money paid into an account Xenibase doesn't know is kept apart until the
 // platform admin says whose it is.
 func TestUnmatchedDepositIsAttributedByHand(t *testing.T) {
 	w := newPayWorld(t)

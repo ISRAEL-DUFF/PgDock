@@ -8,18 +8,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // probePrefix names the throwaway tenants of the isolation check. Real
 // databases end in _xxxx (a 4-character suffix), so these 8-character
 // ones never collide with a project.
-const probePrefix = "pgdock_isocheck_"
+const probePrefix = "xenibase_isocheck_"
 
 // ProbeName matches a probe's database or role name.
-var ProbeName = regexp.MustCompile(`^pgdock_isocheck_[a-z0-9]{8}(_owner)?$`)
+var ProbeName = regexp.MustCompile(`^xenibase_isocheck_[a-z0-9]{8}(_owner)?$`)
 
 // NewProbe provisions a throwaway tenant on a shared instance exactly as a
 // project's role and database are (spec §7.1 isolation check), without a
@@ -74,7 +74,7 @@ func (s *Service) DropProbes(ctx context.Context, instanceID uuid.UUID) error {
 		return err
 	}
 	defer conn.Close(context.Background())
-	rows, err := conn.Query(ctx, `SELECT datname FROM pg_database WHERE datname LIKE 'pgdock\_isocheck\_%'`)
+	rows, err := conn.Query(ctx, `SELECT datname FROM pg_database WHERE datname LIKE 'xenibase\_isocheck\_%'`)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (s *Service) DropProbes(ctx context.Context, instanceID uuid.UUID) error {
 			return err
 		}
 	}
-	rows, err = conn.Query(ctx, `SELECT rolname FROM pg_roles WHERE rolname LIKE 'pgdock\_isocheck\_%'`)
+	rows, err = conn.Query(ctx, `SELECT rolname FROM pg_roles WHERE rolname LIKE 'xenibase\_isocheck\_%'`)
 	if err != nil {
 		return err
 	}

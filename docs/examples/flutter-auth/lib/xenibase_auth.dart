@@ -1,4 +1,4 @@
-// A small client for a PGDock project's auth and data APIs (V4 §4.3).
+// A small client for a Xenibase project's auth and data APIs (V4 §4.3).
 import 'dart:convert';
 import 'dart:math';
 
@@ -25,10 +25,10 @@ class AuthError implements Exception {
   String toString() => message;
 }
 
-class PgDock {
+class Xenibase {
   /// [url] is the project's API (https://<ref>.<domain>); [publishableKey]
   /// is the project's publishable key.
-  PgDock(this.url, this.publishableKey);
+  Xenibase(this.url, this.publishableKey);
   final String url;
   final String publishableKey;
   Session? session;

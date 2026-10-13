@@ -1,7 +1,7 @@
 # Backend services runbook
 
 What to do when part of backend services (V4) misbehaves. Each entry says
-how it shows, what PGDock already does on its own, and what is left to
+how it shows, what Xenibase already does on its own, and what is left to
 you. How the pieces work is in [backend services](backend-services.md);
 the incident process is in [incidents](incidents.md). Every failure below
 has a test that injects it (named in each entry).
@@ -14,7 +14,7 @@ Checks used throughout:
 - **Edges are reporting:** each edge sends usage and request logs every
   few seconds. In the metadata database:
   `SELECT edge, max(received_at) FROM edge_reports GROUP BY edge ORDER BY 2;`
-  An edge more than a minute behind isn't reaching pgdock-server.
+  An edge more than a minute behind isn't reaching xenibase-server.
 - **A project's requests:** Project → API → Logs (7 days), or
   `GET /api/v1/projects/{id}/services/logs`; every error carries a
   `request_id` that is also in the edge's own log.
@@ -42,23 +42,23 @@ CPUs).
 
 *Tested by:* `TestEdgeCrashMidUpload`, `TestRealtimeNodeLoss`.
 
-## pgdock-server is down or unreachable from the edges
+## xenibase-server is down or unreachable from the edges
 
 *Shows as:* the edges' logs say `edge configuration feed` with an error;
 the dashboard is down; the edges keep serving.
 
 *On its own:* each edge keeps serving from the configuration it has and
 holds its reports to send later. Changes made meanwhile (revoked keys,
-new origins) don't reach the edges until pgdock-server is back. Auth
-emails and SMS codes are queued by pgdock-server, so sign-up and
+new origins) don't reach the edges until xenibase-server is back. Auth
+emails and SMS codes are queued by xenibase-server, so sign-up and
 code sign-in wait.
 
-*You:* bring pgdock-server back (its own runbook:
+*You:* bring xenibase-server back (its own runbook:
 [operations](operations.md), [disaster recovery](disaster-recovery.md)).
 **Don't restart edges while it is down:** an edge starts with no
 configuration and answers `503 starting` until it can read the feed.
 If a key must be revoked during the outage, the edges must be restarted
-once pgdock-server is back anyway; there is no offline revocation.
+once xenibase-server is back anyway; there is no offline revocation.
 
 ## A project's database can't be reached
 
@@ -74,7 +74,7 @@ slots are reserved`, the shared node is out of connections; see
 
 ## SMS provider outage
 
-*Shows as:* pgdock-server logs `platform SMS provider failed; trying the
+*Shows as:* xenibase-server logs `platform SMS provider failed; trying the
 next` with the provider's error; `message_sends` records which provider
 sent each code (`SELECT provider, status, count(*) FROM message_sends
 WHERE created_at > now() - interval '1 hour' GROUP BY 1, 2`).
@@ -89,9 +89,9 @@ fallback that costs more shows on invoices. Password, OAuth and email
 sign-in carry on.
 
 *You:* if only one provider is configured, add the other
-(`PGDOCK_AFRICASTALKING_*` or `PGDOCK_TERMII_*`, [backend
+(`XENIBASE_AFRICASTALKING_*` or `XENIBASE_TERMII_*`, [backend
 services](backend-services.md#platform-sms-and-whatsapp-operators)) and
-restart pgdock-server. For a long outage of both, post a status page
+restart xenibase-server. For a long outage of both, post a status page
 notice and suggest WhatsApp codes to projects that offer them. Check the
 provider's balance first: an empty account fails like an outage.
 
@@ -131,7 +131,7 @@ unreachable: the edge retries its `LISTEN` connection with backoff (up to
 missed meanwhile are refetched rather than lost. A subscriber past the
 change rate gets `resync` too.
 
-*You:* check the region's session pooler (`PGDOCK_EDGE_SESSION_ADDR`)
+*You:* check the region's session pooler (`XENIBASE_EDGE_SESSION_ADDR`)
 and the project's database.
 
 ## Image transforms overload an edge
@@ -161,21 +161,21 @@ platform.
 ## A key leaked
 
 - **A project's secret key:** the project creates a new one, deploys it,
-  and revokes the old one (Project → Settings → API, or `pgdock keys
-  create` and `pgdock keys revoke`). Edges refuse a revoked key within a
+  and revokes the old one (Project → Settings → API, or `xenibase keys
+  create` and `xenibase keys revoke`). Edges refuse a revoked key within a
   second or two.
-- **A project's token signing key:** `pgdock auth rotate-key <project>`
+- **A project's token signing key:** `xenibase auth rotate-key <project>`
   signs new tokens with a new key; tokens signed with the old key keep
   working until they expire unless the old key is revoked too, which signs
   everyone out.
-- **`PGDOCK_EDGE_SECRET`:** whoever has it can read every project's edge
+- **`XENIBASE_EDGE_SECRET`:** whoever has it can read every project's edge
   configuration from the feed, database logins and signing keys
-  included. Set a new value on pgdock-server and every edge and restart
+  included. Set a new value on xenibase-server and every edge and restart
   them together. The database logins' passwords are derived from
-  pgdock-server's keyring, so they don't change with the secret: if the
+  xenibase-server's keyring, so they don't change with the secret: if the
   feed may have been read, treat it as a security incident
   ([incidents](incidents.md)) and rotate the projects' signing keys
-  (`pgdock auth rotate-key`) and keys.
+  (`xenibase auth rotate-key`) and keys.
 
 ## Capacity
 
@@ -204,8 +204,8 @@ people.
 | Gate | Engineering part | Result recorded in | Status (2026-10-09) |
 | --- | --- | --- | --- |
 | 20 GB move (M18) | `make test-move`; `.github/workflows/move-20gb.yml` on a runner with ≥ 80 GB | [moves](moves.md#checking-the-20-gb-target) | Not run at 20 GB; 1 GB passes in CI |
-| 1,000 projects at 2,000 requests/s (V4 §13) | `TestBackendLoad` with `PGDOCK_LOAD_TARGET`; the six-server rig in `deploy/loadtest/` | [load test](load-test.md#v4-backend-services-load-test) | Run in the development container only (300 projects on one node; see its findings) |
-| Wallet provider sandbox (M21) | `make test-payments-sandbox` (a check of the iswallet client; needs `PGDOCK_TEST_SANDBOX=1` and `PGDOCK_ISWALLET_*`); the steps in [payments](payments.md#sandbox-rehearsal) | [payments](payments.md#sandbox-rehearsal) | Not run: needs sandbox keys |
+| 1,000 projects at 2,000 requests/s (V4 §13) | `TestBackendLoad` with `XENIBASE_LOAD_TARGET`; the six-server rig in `deploy/loadtest/` | [load test](load-test.md#v4-backend-services-load-test) | Run in the development container only (300 projects on one node; see its findings) |
+| Wallet provider sandbox (M21) | `make test-payments-sandbox` (a check of the iswallet client; needs `XENIBASE_TEST_SANDBOX=1` and `XENIBASE_ISWALLET_*`); the steps in [payments](payments.md#sandbox-rehearsal) | [payments](payments.md#sandbox-rehearsal) | Not run: needs sandbox keys |
 | Floating-IP failover (M17) | `scripts/rehearse-pooler-failover.sh` | [edge poolers](edge-poolers.md#tested-and-not-yet) | Not run on Hetzner; 3.1 s measured against a paused dev Postgres |
 | Accountant's answers (M27) | — | [billing audit](billing-audit.md#for-the-accountant) | Pending |
 | Lagos failure domains (V3.1) | The region launch checks refuse to open a region whose etcd isn't in three domains | [Lagos launch](lagos-launch.md) | Waiting on the facility to confirm racks or feeds |

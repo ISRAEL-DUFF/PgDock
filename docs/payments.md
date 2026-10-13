@@ -1,9 +1,9 @@
 # Payments
 
-How PGDock takes money (V4.1): every organisation has a **wallet** at the
+How Xenibase takes money (V4.1): every organisation has a **wallet** at the
 wallet provider (iswallet). It holds the organisation's naira, it is
 funded by bank transfer into the organisation's own account number, and
-PGDock **debits it for each invoice**. Manual payments recorded by the
+Xenibase **debits it for each invoice**. Manual payments recorded by the
 platform admin remain for anything outside it. This page also covers
 withholding tax, dunning and reconciliation. The prices and invoices the
 wallet pays are in [Billing](billing.md); the contract with the provider
@@ -14,26 +14,26 @@ customer's bank ──transfer──▶ the org's account number ──▶ the o
                                                                 │
                       invoice issued (dollars ▶ naira at the rate)
                                                                 ▼
-                                     PGDock's operating wallet ◀─ debit
+                                     Xenibase's operating wallet ◀─ debit
 ```
 
 ## Setting up the wallet provider
 
 The wallet provider is off until it is configured. Without it, a new
-platform prices in naira and organisations pay by transfer to PGDock's own
+platform prices in naira and organisations pay by transfer to Xenibase's own
 bank account, which the platform admin records by hand.
 
 | Variable | |
 | --- | --- |
-| `PGDOCK_ISWALLET_BASE_URL` | The provider's API (sandbox or live). |
-| `PGDOCK_ISWALLET_API_KEY` (or `_FILE`) | PGDock's API key. It can move money between any two of PGDock's wallets: treat it as a payment credential. |
-| `PGDOCK_ISWALLET_WEBHOOK_SECRET` (or `_FILE`) | The signing secret of the webhook subscription, at least 16 characters. It is shown once, when the subscription is made. |
-| `PGDOCK_ISWALLET_OWNER_PREFIX` | Required. Wallet owner references are unique across everyone who uses the provider, so each installation needs its own prefix: `pgdock:prod`, `pgdock:staging`. A rebuilt development database under an old prefix finds its old wallets. |
-| `PGDOCK_ISWALLET_CLIENT_ID` | Optional: PGDock's client id, if the key doesn't imply it. |
+| `XENIBASE_ISWALLET_BASE_URL` | The provider's API (sandbox or live). |
+| `XENIBASE_ISWALLET_API_KEY` (or `_FILE`) | Xenibase's API key. It can move money between any two of Xenibase's wallets: treat it as a payment credential. |
+| `XENIBASE_ISWALLET_WEBHOOK_SECRET` (or `_FILE`) | The signing secret of the webhook subscription, at least 16 characters. It is shown once, when the subscription is made. |
+| `XENIBASE_ISWALLET_OWNER_PREFIX` | Required. Wallet owner references are unique across everyone who uses the provider, so each installation needs its own prefix: `xenibase:prod`, `xenibase:staging`. A rebuilt development database under an old prefix finds its old wallets. |
+| `XENIBASE_ISWALLET_CLIENT_ID` | Optional: Xenibase's client id, if the key doesn't imply it. |
 
 Subscribe the provider's webhooks to
-`https://<your PGDock>/api/v1/payments/webhooks/iswallet` for
-`wallet.credit.posted` (a deposit). That is the only event PGDock acts on:
+`https://<your Xenibase>/api/v1/payments/webhooks/iswallet` for
+`wallet.credit.posted` (a deposit). That is the only event Xenibase acts on:
 it books its own debits as it makes them.
 
 **Testing without the sandbox.** The test suite and the local demo run
@@ -46,11 +46,11 @@ wallet and go stale, which is how the failure cases are tested.
 
 ## Sandbox rehearsal
 
-Before the paid launch, run PGDock against the provider's sandbox. Ask the
+Before the paid launch, run Xenibase against the provider's sandbox. Ask the
 provider to provision yours (it returns your keys once, a funded operating
-wallet and some customer wallets); use a distinct `PGDOCK_ISWALLET_OWNER_PREFIX`,
+wallet and some customer wallets); use a distinct `XENIBASE_ISWALLET_OWNER_PREFIX`,
 because the sandbox is not routinely reset and owner references are unique
-across tenants. Point the sandbox webhook at a staging PGDock reachable from
+across tenants. Point the sandbox webhook at a staging Xenibase reachable from
 the internet (a tunnel is enough). The sandbox can simulate a bank transfer
 into a virtual account (`POST /v1/sandbox/simulate/deposit`) and a clawed
 back credit; it can't simulate a failed debit (use too little money, or
@@ -60,7 +60,7 @@ connection with a proxy).
 | Step | Expect |
 | --- | --- |
 | Open a wallet for an organisation (Billing → Wallet) with a director's BVN | The wallet and its bank account appear; nothing of the BVN is stored |
-| Simulate a transfer of ₦100,000 into the account | The wallet shows the amount net of the 1.4% fee; a receipt is emailed; PGDock's books and the provider agree |
+| Simulate a transfer of ₦100,000 into the account | The wallet shows the amount net of the 1.4% fee; a receipt is emailed; Xenibase's books and the provider agree |
 | Agree to debits, issue an invoice | The wallet is debited the invoice's naira total once; the invoice is paid and shows its rate |
 | Issue another with less in the wallet than owed | Nothing is debited; the organisation is emailed; a transfer then pays it |
 | Press **Pay from wallet** on an organisation that hasn't agreed | That invoice is paid |
@@ -83,7 +83,7 @@ differences below; the paid launch waits on a run with none.
 
 **Opening it.** Org → Billing → Wallet. The owner gives the business name,
 an email and **a director's BVN**, which the provider needs before it
-issues the organisation's bank account. PGDock forwards the BVN and keeps
+issues the organisation's bank account. Xenibase forwards the BVN and keeps
 nothing of it (it isn't logged or audited). The wallet is opened at KYC
 tier 2; its limits are the provider's (see
 [the wallet provider](iswallet.md#limits)). Opening it twice changes
@@ -91,7 +91,7 @@ nothing: the owner reference is unique, and the provider returns the wallet
 it already has.
 
 **Topping it up.** The organisation transfers naira to the account number
-shown on its Billing page (`pgdock billing transfer`). The account is its
+shown on its Billing page (`xenibase billing transfer`). The account is its
 alone and permanent. A few things to know, and to tell customers:
 
 - the provider's **collection fee (1.4%, at most ₦2,000) comes off** the
@@ -104,51 +104,51 @@ alone and permanent. A few things to know, and to tell customers:
   matters for withdrawals.
 
 **Balance.** The page reads the balance from the provider, and shows what
-PGDock's books say next to it. They are the same money: the nightly
+Xenibase's books say next to it. They are the same money: the nightly
 reconciliation compares them (below).
 
 ## Debit consent
 
-The provider has no customer approval step: PGDock's key can debit any
-wallet it made. So the consent is PGDock's to record and to honour. Org →
+The provider has no customer approval step: Xenibase's key can debit any
+wallet it made. So the consent is Xenibase's to record and to honour. Org →
 Billing asks an owner to agree to:
 
-> PGDock may debit this organisation's wallet for each invoice when it is
+> Xenibase may debit this organisation's wallet for each invoice when it is
 > issued, for the amount in naira shown on the invoice, converted from the
 > dollar price at the rate on it, and for what remains owing whenever the
 > wallet is topped up. Debits can be switched off at any time; invoices
 > are then paid by hand.
 
-PGDock stores who agreed, when, and which version of the wording
+Xenibase stores who agreed, when, and which version of the wording
 (`DebitTermsVersion`; changing the wording asks every owner again).
-Without consent PGDock never debits automatically. The owner can still pay
+Without consent Xenibase never debits automatically. The owner can still pay
 one invoice from the wallet by pressing **Pay from wallet** on it, which
 needs no standing consent, and can turn automatic debits off again at any
-time. If a customer disputes a charge, PGDock's own record of the consent
-is what answers it: the provider's records show only that PGDock's key
+time. If a customer disputes a charge, Xenibase's own record of the consent
+is what answers it: the provider's records show only that Xenibase's key
 moved the money.
 
 ## How an invoice is paid
 
 When an invoice is issued, and again whenever money arrives in the wallet
-or a retry is due, PGDock debits the wallet for what the invoice still
+or a retry is due, Xenibase debits the wallet for what the invoice still
 owes, **all of it or nothing**:
 
 1. If the wallet holds less than is owed, nothing is debited and the
    organisation is told how much to add. Dunning starts (below), and the
    invoice is paid the moment a deposit covers it.
-2. Otherwise PGDock records a pending charge with its **own idempotency
+2. Otherwise Xenibase records a pending charge with its **own idempotency
    key** (one per attempt), then transfers the amount from the
-   organisation's wallet to PGDock's operating wallet, with the invoice
+   organisation's wallet to Xenibase's operating wallet, with the invoice
    number as the narration. A transfer is synchronous and final.
-3. PGDock books it in one transaction: the invoice is paid, a payment is
+3. Xenibase books it in one transaction: the invoice is paid, a payment is
    recorded with the rate the invoice was converted at, and the ledger
    moves the money from the organisation's wallet balance to its
    receivable (Dr `wallet_balance`, Cr `receivable`). The organisation gets
    a receipt by email.
 
 **An unanswered debit is never repeated.** If the call timed out or came
-back with a server error, PGDock looks the key up at the provider before
+back with a server error, Xenibase looks the key up at the provider before
 doing anything else: found, the debit happened and is booked; not found,
 nothing was posted and it is safe to try again with a new key. A charge
 still unresolved blocks the next attempt on the same invoice (the database
@@ -170,23 +170,23 @@ matter more than the API:
   from the rate at which naira buys dollars, and customers fund wallets
   with naira earned at the second. Whether to bill at the feed, at a rate
   the provider's desk sets, with how much spread, is a pricing decision
-  made with the provider **before launch**. PGDock charges whatever
+  made with the provider **before launch**. Xenibase charges whatever
   effective rate it is quoted and shows the market rate, the spread and the
   source on every invoice.
-- **No locked quote.** There is no rate to pass into a debit. PGDock asks
+- **No locked quote.** There is no rate to pass into a debit. Xenibase asks
   for the rate when the invoice is issued, converts, and debits the naira
   amount it computed, which is on the invoice.
 - **A 200 is not a fresh rate.** When every source is down the provider
-  answers with its last rate, however old. PGDock checks the time the rate
+  answers with its last rate, however old. Xenibase checks the time the rate
   was set and refuses to issue an invoice on one older than the billing
   setting `fx_max_age_hours` (4 hours): the invoice stays a draft and is
   tried again each hour.
 
-PGDock holds naira and prices in dollars, so the exchange exposure is
-PGDock's: it is paid in naira and pays its hosts in dollars. The provider
+Xenibase holds naira and prices in dollars, so the exchange exposure is
+Xenibase's: it is paid in naira and pays its hosts in dollars. The provider
 does not convert for it today. (It can hold and withdraw USDT, with a
 conversion from naira at a 150 bps spread on market rates, which is a way
-to turn PGDock's own naira into dollars; see
+to turn Xenibase's own naira into dollars; see
 [the wallet provider](iswallet.md#handled-and-still-open).)
 
 A **credit note** against a paid invoice is in naira (what the
@@ -194,7 +194,7 @@ customer paid, at the rate then), so it carries no exchange gain or loss.
 
 ## Manual payments
 
-The platform admin records a transfer to PGDock's own account or a cheque
+The platform admin records a transfer to Xenibase's own account or a cheque
 (Admin → Billing → Payments → Record a payment). The record needs a bank
 reference, which can't be used twice, and can include proof. These
 payments post to `cash:bank` and settle the oldest open invoices; what is
@@ -202,23 +202,23 @@ left is **credit** that the next invoice uses. Credit and the wallet are
 separate: credit (from manual payments and credit notes) is applied when
 an invoice is issued, and the wallet is debited for the rest.
 
-`pgdock billing payments` lists what was received.
+`xenibase billing payments` lists what was received.
 
 **Refunds.** Only a manual payment can be refunded. The refund completes
-at once in PGDock's books (the credit balance goes down, or the invoices
-it settled are reopened) and the admin returns the money outside PGDock.
-Money in a wallet is not refunded through PGDock: a refund of a wallet
+at once in Xenibase's books (the credit balance goes down, or the invoices
+it settled are reopened) and the admin returns the money outside Xenibase.
+Money in a wallet is not refunded through Xenibase: a refund of a wallet
 payment is refused. A paid invoice that was debited from a wallet is
 corrected with a credit note, which becomes credit toward the next invoice.
 
 ## How a deposit is recorded
 
-1. The provider sends `wallet.credit.posted`. PGDock checks its
+1. The provider sends `wallet.credit.posted`. Xenibase checks its
    signature (HMAC-SHA256 over the timestamp and the raw body, within five
    minutes) before parsing anything.
-2. PGDock stores the event once. A repeated event, or the same deposit
+2. Xenibase stores the event once. A repeated event, or the same deposit
    delivered twice, is acknowledged and ignored.
-3. PGDock never trusts the webhook body. It reads the transaction back
+3. Xenibase never trusts the webhook body. It reads the transaction back
    from the wallet and posts only what the provider confirms: the amount
    credited to the wallet, net of the collection fee.
 4. The deposit goes to the organisation that owns the wallet. If none
@@ -227,7 +227,7 @@ corrected with a credit note, which becomes credit toward the next invoice.
 5. It posts to the ledger (Dr `cash:iswallet`, Cr `wallet_balance`), the
    organisation is emailed a receipt, and anything it owes is debited.
 
-Missed webhooks are not lost. Every hour PGDock lists the last two hours
+Missed webhooks are not lost. Every hour Xenibase lists the last two hours
 of transactions at the provider, and every night the previous day, and
 records anything it hasn't seen.
 
@@ -255,7 +255,7 @@ When an invoice passes its due date:
 | 40 | **Deletion notice.** Dedicated projects are deleted 7 days later, but only if "Delete for non-payment" is on (Admin → Billing → Settings, off by default). Otherwise nothing is deleted. |
 
 A wallet that couldn't cover an invoice starts a separate **retry**
-schedule: PGDock tries again 3, 5 and 7 days after the first failure, and
+schedule: Xenibase tries again 3, 5 and 7 days after the first failure, and
 at once when a deposit arrives. Free-plan organisations can be restricted
 but are never suspended. Paying returns everything at once: the
 restriction lifts, the org is reinstated and the deletion is cancelled.
@@ -265,17 +265,17 @@ org → Billing), for an org that has agreed to pay later.
 
 ## Reconciliation
 
-Every night PGDock lists the previous day's transactions at the provider
+Every night Xenibase lists the previous day's transactions at the provider
 and compares them with its own payments. It reports:
 
-- payments missing in PGDock;
+- payments missing in Xenibase;
 - payments missing at the provider;
 - different amounts;
 - different fees.
 
 It also compares **every wallet's balance** at the provider with what the
 books hold for it (`wallet_balance`): the same money, so any difference
-is a deposit missed, a debit not booked, or a movement PGDock didn't make.
+is a deposit missed, a debit not booked, or a movement Xenibase didn't make.
 Admin → Billing → Reconciliation shows the latest result and can run it
 now. A clean night shows "No differences".
 

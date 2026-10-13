@@ -1,6 +1,6 @@
-# PGDock — V1 Specification & Build Plan
+# Xenibase — V1 Specification & Build Plan
 
-*Self-hosted managed PostgreSQL with a web UI. "PGDock" is a working name.*
+*Self-hosted managed PostgreSQL with a web UI. "Xenibase" is a working name.*
 
 |  |  |
 | --- | --- |
@@ -52,9 +52,9 @@
 
 | Term | Meaning |
 | --- | --- |
-| **Operator** | A person who logs into PGDock's web UI (you, and later teammates). |
+| **Operator** | A person who logs into Xenibase's web UI (you, and later teammates). |
 | **Project** | One logical database a user works with. Has a name, slug, tier, and connection strings. |
-| **Node** | A Linux server registered with PGDock and running the **agent**. |
+| **Node** | A Linux server registered with Xenibase and running the **agent**. |
 | **Shared cluster** | One Postgres instance on a node that hosts many shared-tier projects, each as its own database and role. |
 | **Dedicated instance** | A Postgres container on a node that serves exactly one project. |
 | **Edge pooler** | The PgBouncer pair every client connects through. It routes by database name to the project's current backend. |
@@ -68,9 +68,9 @@
 
 ```
                          ┌──────────────────────────── Control Node ────────────────────────────┐
-  Browser ──HTTPS──▶     │  Caddy (TLS) ──▶ pgdock-server (Go: API + embedded UI + workers)     │
+  Browser ──HTTPS──▶     │  Caddy (TLS) ──▶ xenibase-server (Go: API + embedded UI + workers)     │
                          │                        │                                              │
-                         │                        ├──▶ Metadata Postgres (pgdock's own DB)       │
+                         │                        ├──▶ Metadata Postgres (xenibase's own DB)       │
                          │                        │                                              │
   App clients ──TLS──▶   │  PgBouncer :5432 (session)   ┐   routes by dbname                     │
                          │  PgBouncer :6543 (transaction)┘──────────────┐                        │
@@ -79,7 +79,7 @@
                      ┌───────────────────────────────────────────────────┼───────────────┐
                      ▼                                                   ▼               ▼
             ┌── Node A (shared) ──┐                          ┌── Node B ──────────────────────┐
-            │ pgdock-agent        │                          │ pgdock-agent                   │
+            │ xenibase-agent        │                          │ xenibase-agent                   │
             │ Shared Postgres     │                          │ Dedicated PG container (proj X)│
             │  ├ db: blog_k2f9    │                          │ Dedicated PG container (proj Y)│
             │  ├ db: todo_8xq1    │                          └────────────────────────────────┘
@@ -95,10 +95,10 @@
 
 | Component | Tech | Responsibility |
 | --- | --- | --- |
-| `pgdock-server` | Go single binary | REST API, embedded web UI, session auth, job workers, pooler config management, direct SQL to backends for provisioning. |
+| `xenibase-server` | Go single binary | REST API, embedded web UI, session auth, job workers, pooler config management, direct SQL to backends for provisioning. |
 | Metadata DB | PostgreSQL | Stores operators, nodes, projects, operations, backups, and the audit log. Backed up like any other project. |
 | Edge pooler | PgBouncer ≥ 1.21, two processes | Stable client entry point. `:5432` is session mode (migrations, ORMs that need session features). `:6543` is transaction mode (app traffic, serverless). |
-| `pgdock-agent` | Go binary, one per node | Manages Docker containers for dedicated instances, runs `pg_dump`/`pg_restore` and WAL-G locally, reports host metrics, and writes local Postgres config. |
+| `xenibase-agent` | Go binary, one per node | Manages Docker containers for dedicated instances, runs `pg_dump`/`pg_restore` and WAL-G locally, reports host metrics, and writes local Postgres config. |
 | Shared cluster | PostgreSQL 18 | Hosts shared-tier projects. |
 | Dedicated instance | Official `postgres` image plus WAL-G, in Docker | One project per instance, with CPU/memory limits. |
 | Object storage | Cloudflare R2 (any S3 API works) | Logical dumps (shared tier) and base backups + WAL (dedicated tier). R2 has no egress fees, which keeps restores and restore tests cheap. |
@@ -106,7 +106,7 @@
 
 ### 3.3 Communication
 
-- **Server → backend Postgres:** direct connection over the private network, using a per-node `pgdock_admin` superuser. Used for SQL-level provisioning such as roles, databases, grants, and extensions.
+- **Server → backend Postgres:** direct connection over the private network, using a per-node `xenibase_admin` superuser. Used for SQL-level provisioning such as roles, databases, grants, and extensions.
 - **Server → agent:** HTTPS with **mutual TLS**. The server acts as a small CA and issues each agent a client certificate at registration. The agent exposes a narrow, fixed command API with no arbitrary shell execution.
 - **Clients → pooler:** TLS required (`sslmode=require` minimum). The pooler uses a Let's Encrypt certificate for the configured DB hostname (e.g. `db.yourdomain.com`), obtained via DNS-01 or HTTP-01 and reloaded on renewal.
 - **Pooler → backends:** private network, no public exposure. Backends' `pg_hba.conf` accepts connections only from the pooler host and the control plane.
@@ -177,7 +177,7 @@ On promotion, only the pooler's `[databases]` entry changes. Clients reconnect t
 
 ### 5.2 Pooler configuration management
 
-- `pgdock-server` owns the pooler config files and regenerates them from the metadata DB (`[databases]` section plus the auth file).
+- `xenibase-server` owns the pooler config files and regenerates them from the metadata DB (`[databases]` section plus the auth file).
 - It writes atomically (temp file + rename), then issues `RELOAD` on the PgBouncer admin console.
 - For a promotion cutover it uses `PAUSE <db>` → switch route → `RELOAD` → `RESUME <db>`, so in-flight clients wait rather than error.
 - **Auth:** the control plane generates the password, sets it on the backend role, and writes the **SCRAM-SHA-256 verifier** (never the plaintext) to PgBouncer's `auth_file`. SCRAM passthrough lets PgBouncer authenticate to the backend without storing plaintext.
@@ -186,7 +186,7 @@ On promotion, only the pooler's `[databases]` entry changes. Clients reconnect t
 ### 5.3 Credentials
 
 - The password is **shown once** at creation. Operators can **rotate** it at any time, which updates the backend role and the pooler auth file, then shows the new password once.
-- PgDock does **not** store project passwords in plaintext or reversibly. It stores only the SCRAM verifier needed by the pooler.
+- Xenibase does **not** store project passwords in plaintext or reversibly. It stores only the SCRAM verifier needed by the pooler.
 - The SQL console never needs the project password (see §8.5).
 
 ---
@@ -199,7 +199,7 @@ Every flow runs as an **operation** row with states `queued → running → succ
 
 1. Validate the name and generate a slug + random suffix. Pick the shared node with the most free capacity.
 2. Generate a 32-byte random password and compute its SCRAM verifier.
-3. On the chosen cluster, as `pgdock_admin`:
+3. On the chosen cluster, as `xenibase_admin`:
 
    ```sql
    CREATE ROLE blog_k2f9_owner LOGIN PASSWORD '<scram-verifier>' CONNECTION LIMIT 20;
@@ -267,12 +267,12 @@ This is the flagship flow. V1 uses dump/restore with a short write freeze. V1.1 
 ### 6.7 Enable an extension
 
 1. The operator picks from the allow-list in the UI.
-2. The control plane runs `CREATE EXTENSION IF NOT EXISTS <ext>` as `pgdock_admin` inside the project DB, then grants usage as needed.
+2. The control plane runs `CREATE EXTENSION IF NOT EXISTS <ext>` as `xenibase_admin` inside the project DB, then grants usage as needed.
 3. The change is recorded in the audit log.
 
 ### 6.8 Import from an existing database
 
-The first use of PGDock is moving existing Supabase projects across, so import is part of V1. It reuses the restore machinery from M3.
+The first use of Xenibase is moving existing Supabase projects across, so import is part of V1. It reuses the restore machinery from M3.
 
 1. The operator pastes a source connection string, chooses a project name and tier, and picks which schemas to import. For Supabase sources the UI preselects `public` (and any user-created schemas) and skips Supabase-managed schemas such as `auth`, `storage`, `realtime`, `extensions`, `graphql`, and `vault`.
 2. **Preflight** (runs before anything is created): connect to the source, report its Postgres version, database size, schemas, and installed extensions, and flag any extension not on the target tier's allow-list. The preflight also flags references to Supabase-specific roles (`anon`, `authenticated`, `service_role`) in grants and RLS policies.
@@ -285,7 +285,7 @@ The first use of PGDock is moving existing Supabase projects across, so import i
 
 - The source connection string is used only for the duration of the operation. It is held in memory, never written to the metadata DB, and redacted from operation logs.
 - Older source versions (e.g. 15 or 17) restore cleanly into 18 through `pg_dump`/`pg_restore`.
-- RLS policies that reference Supabase roles are kept but will not be enforced as before, because those roles don't exist in PGDock. The preflight lists them so the operator can review them after import.
+- RLS policies that reference Supabase roles are kept but will not be enforced as before, because those roles don't exist in Xenibase. The preflight lists them so the operator can review them after import.
 - Import is a one-time copy with a write freeze up to the operator (stop the app, import, repoint). Live sync from a source is out of scope.
 
 ---
@@ -318,7 +318,7 @@ Every create enforces, and an automated test verifies:
 
 ### 7.3 Secrets
 
-- Secret material (the agent CA key, backup encryption key, S3 credentials, per-node `pgdock_admin` passwords) is encrypted at rest in the metadata DB with a **master key** supplied through an environment variable or file (`PGDOCK_MASTER_KEY`). It is never stored in the database.
+- Secret material (the agent CA key, backup encryption key, S3 credentials, per-node `xenibase_admin` passwords) is encrypted at rest in the metadata DB with a **master key** supplied through an environment variable or file (`XENIBASE_MASTER_KEY`). It is never stored in the database.
 - The master key can be rotated with a CLI command that re-encrypts the stored secrets.
 - Backups are encrypted **before** upload. Losing the backup key means losing the backups, so the UI prompts the operator to export and store it offline at setup.
 
@@ -338,7 +338,7 @@ Every mutating API call writes an audit row with the operator, action, target, I
 
 ## 8. Web UI
 
-A single-page app served by `pgdock-server` at the root path. All data comes from `/api/v1`.
+A single-page app served by `xenibase-server` at the root path. All data comes from `/api/v1`.
 
 ### 8.1 Screen map
 
@@ -599,13 +599,13 @@ JSON over HTTPS, with session cookie auth and CSRF headers on mutations. Long ac
 | GET | `/metrics` | Prometheus exposition (optionally protected by token) |
 | GET | `/healthz`, `/readyz` | Liveness and readiness |
 
-A thin **CLI** (`pgdock`) calling the same API is a stretch goal for V1 and can use personal API tokens (see §12).
+A thin **CLI** (`xenibase`) calling the same API is a stretch goal for V1 and can use personal API tokens (see §12).
 
 ### Agent API (internal, mTLS only)
 
 `POST /v1/instances` (create container) · `DELETE /v1/instances/:id` · `POST /v1/instances/:id/restart` · `POST /v1/dump` · `POST /v1/restore` · `POST /v1/walg/backup` · `POST /v1/walg/fetch` · `GET /v1/host/metrics` · `GET /v1/health`
 
-Registration: `pgdock-agent register --server https://… --token <one-time>` creates a keypair, sends a CSR, receives a signed client cert, and pins the server CA.
+Registration: `xenibase-agent register --server https://… --token <one-time>` creates a keypair, sends a CSR, receives a signed client cert, and pins the server CA.
 
 ---
 
@@ -617,7 +617,7 @@ Registration: `pgdock-agent register --server https://… --token <one-time>` cr
 curl -fsSL https://…/install.sh | sh     # or docker compose up
 ```
 
-The install provides: `pgdock-server` (systemd), metadata Postgres, the shared cluster Postgres, two PgBouncer units, Caddy, and `pgdock-agent`, all on one host. Ship both a **Docker Compose** bundle and a **bare-metal systemd** path. Compose is the recommended default.
+The install provides: `xenibase-server` (systemd), metadata Postgres, the shared cluster Postgres, two PgBouncer units, Caddy, and `xenibase-agent`, all on one host. Ship both a **Docker Compose** bundle and a **bare-metal systemd** path. Compose is the recommended default.
 
 ### 11.2 Shared cluster tuning defaults (8 GB host)
 
@@ -625,29 +625,29 @@ The install provides: `pgdock-server` (systemd), metadata Postgres, the shared c
 
 ### 11.3 Upgrades
 
-- **pgdock-server/agent:** a single binary swap. Metadata migrations run on start with `goose`, and the server refuses to start if the agent version is incompatible.
+- **xenibase-server/agent:** a single binary swap. Metadata migrations run on start with `goose`, and the server refuses to start if the agent version is incompatible.
 - **Postgres minor versions:** a rolling restart per instance from the UI (dedicated) or a scheduled window (shared).
 - **Postgres major versions:** V1 runs PostgreSQL 18 everywhere. Major upgrades and multi-version support arrive in V1.1, which will reuse the promotion machinery to move a project into an instance on a newer version.
 
 ### 11.4 Hosting
 
-- **Nodes on Hetzner.** Best price per spec for the shared cluster and dedicated instances. App servers that use PGDock databases should run in the **same Hetzner region**, because app-to-database latency is what users feel.
+- **Nodes on Hetzner.** Best price per spec for the shared cluster and dedicated instances. App servers that use Xenibase databases should run in the **same Hetzner region**, because app-to-database latency is what users feel.
 - **Backups on Cloudflare R2.** No egress fees, so restores, imports from backups, and the weekly restore tests cost nothing beyond storage.
 - **Data residency.** A project that becomes a regulated Nigerian fintech may need its data hosted in Nigeria; check the current CBN and NDPA requirements at that point. The design already supports it: register a Nigeria-hosted node and promote the project onto it. A per-project R2 bucket in a suitable jurisdiction (V1.1) covers its backups.
 
 ### 11.5 Repository layout & build
 
-PGDock is a **monorepo with one Go module**. The server, agent, and web UI are versioned and released together, and the UI is embedded into `pgdock-server` with `go:embed`, so each release is one consistent server + agent + UI set.
+Xenibase is a **monorepo with one Go module**. The server, agent, and web UI are versioned and released together, and the UI is embedded into `xenibase-server` with `go:embed`, so each release is one consistent server + agent + UI set.
 
 ```
-pgdock/
+xenibase/
 ├── go.mod                  # one Go module for server + agent
 ├── Makefile                # dev, generate, build, test, release
 ├── api/
 │   └── openapi.yaml        # single source of truth for the HTTP API
 ├── cmd/
-│   ├── server/main.go      # pgdock-server
-│   └── agent/main.go       # pgdock-agent
+│   ├── server/main.go      # xenibase-server
+│   └── agent/main.go       # xenibase-agent
 ├── internal/
 │   ├── api/                # chi handlers implementing generated interfaces
 │   ├── auth/               # argon2id, TOTP, sessions, CSRF, reauth
@@ -682,7 +682,7 @@ pgdock/
 └── docs/
 ```
 
-**Embedding.** `go:embed` cannot reference parent directories, so `cmd/server` cannot embed `web/dist` directly. Instead, `web/embed.go` makes `web` a Go package that embeds its own `dist` folder and exports it as an `fs.FS`. `pgdock-server` imports it and serves it at `/` with an SPA fallback: any non-`/api` path that doesn't match a file returns `index.html`, so client-side routes survive a page refresh. Static assets with hashed filenames get long-lived cache headers, and `index.html` gets `no-cache`.
+**Embedding.** `go:embed` cannot reference parent directories, so `cmd/server` cannot embed `web/dist` directly. Instead, `web/embed.go` makes `web` a Go package that embeds its own `dist` folder and exports it as an `fs.FS`. `xenibase-server` imports it and serves it at `/` with an SPA fallback: any non-`/api` path that doesn't match a file returns `index.html`, so client-side routes survive a page refresh. Static assets with hashed filenames get long-lived cache headers, and `index.html` gets `no-cache`.
 
 **Placeholder build.** A committed `web/dist/index.html` placeholder lets backend-only work compile without Node installed. Release builds always overwrite it with the real UI, and the release pipeline fails if the placeholder is still present in the built binary.
 
@@ -692,7 +692,7 @@ pgdock/
 | --- | --- |
 | `make dev` | Runs the Go server with live reload (`air`) and the Vite dev server together. Vite proxies `/api` to Go, so the UI hot-reloads without rebuilding Go. |
 | `make generate` | Regenerates `sqlc` code, Go server interfaces (`oapi-codegen`), and TypeScript API types (`openapi-typescript`). |
-| `make build` | `npm ci && npm run build` in `web/`, then `go build` for `pgdock-server` (UI embedded) and `pgdock-agent`. Version, commit, and build date injected via `-ldflags`. |
+| `make build` | `npm ci && npm run build` in `web/`, then `go build` for `xenibase-server` (UI embedded) and `xenibase-agent`. Version, commit, and build date injected via `-ldflags`. |
 | `make test` | Go unit tests, frontend type-check and unit tests. |
 | `make test-integration` | Integration and isolation suites against real Postgres + PgBouncer via testcontainers. |
 | `make release` | Cross-compiles `linux/amd64` and `linux/arm64`, builds the Postgres image, produces the Compose bundle and checksums. |
@@ -709,7 +709,7 @@ The metadata DB is backed up nightly to the same object store with the same encr
 
 ## 12. Future (post-V1, noted to avoid painting into corners)
 
-- **V1.1:** logical-replication promotion (seconds of downtime), `pgdock` CLI with personal API tokens, per-project extra roles (read-only role), teammates (invitations + `member` role), multiple Postgres major versions and in-place major upgrades, per-project backup buckets in the UI.
+- **V1.1:** logical-replication promotion (seconds of downtime), `xenibase` CLI with personal API tokens, per-project extra roles (read-only role), teammates (invitations + `member` role), multiple Postgres major versions and in-place major upgrades, per-project backup buckets in the UI.
 - **V1.2:** database branching for dev/test (clone from a backup), scheduled restore to staging, HA for dedicated instances (Patroni or streaming standby).
 - **V2:** optional per-project PostgREST, automatic VM provisioning (Hetzner/DigitalOcean APIs), usage-based quotas, team/org separation.
 
@@ -748,7 +748,7 @@ Estimates assume **one experienced engineer working roughly full time**. The who
 - Operation queue with a worker pool (`SKIP LOCKED`), retries, step logging, and SSE streaming.
 - Docker Compose dev environment: metadata PG, shared PG, PgBouncer ×2.
 
-**Done when:** `make build` produces a `pgdock-server` binary that serves the placeholder React app at `/` and `GET /api/v1/version` from the same origin; CI is green; and a dummy operation can be enqueued, run, and streamed to `curl`.
+**Done when:** `make build` produces a `xenibase-server` binary that serves the placeholder React app at `/` and `GET /api/v1/version` from the same origin; CI is green; and a dummy operation can be enqueued, run, and streamed to `curl`.
 
 ### M1 — Shared-tier provisioning via API (Week 2)
 
@@ -858,7 +858,7 @@ Estimates assume **one experienced engineer working roughly full time**. The who
 
 | # | Question | Decision | Rationale |
 | --- | --- | --- | --- |
-| 1 | Product name | Keep **PGDock** as the internal codename; choose the public name before v1.0. | A name only matters once others see the tool. |
+| 1 | Product name | Keep **Xenibase** as the internal codename; choose the public name before v1.0. | A name only matters once others see the tool. |
 | 2 | UI stack | **React + TypeScript + Vite**, embedded via `go:embed`. | The SQL console, charts, and live logs benefit most from a rich client; single-binary deploy is kept. |
 | 3 | Hosting | **Hetzner** nodes, **Cloudflare R2** backups. | Best price per spec; no egress fees on restores. Nigeria-hosted node available later for regulated projects (§11.4). |
 | 4 | Operators | **Single owner** in V1; `role` column kept for V1.1 teammates. | Saves 2–3 days in M2. |

@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Mailer sends email (the mail service).
@@ -43,7 +43,7 @@ type Service struct {
 	docs           DocStore
 
 	// Wallets (V4.1): the wallet provider, and the prefix of the owner
-	// references PGDock gives it (pgdock:<environment>).
+	// references Xenibase gives it (xenibase:<environment>).
 	wallets     WalletProvider
 	defaults    func() Prices // the first price book (DefaultPrices unless set)
 	rates       RateSource
@@ -56,7 +56,7 @@ type Service struct {
 func (s *Service) SetDefaultPrices(f func() Prices) { s.defaults = f }
 
 // SetWallets configures the wallet provider and the owner-reference prefix
-// (pgdock:<environment>) that keeps this installation's wallets apart from
+// (xenibase:<environment>) that keeps this installation's wallets apart from
 // any other's at the provider. The provider also serves virtual accounts
 // and deposit events through the usual payment machinery.
 func (s *Service) SetWallets(w WalletProvider, ownerPrefix string) {
@@ -115,7 +115,7 @@ type Settings struct {
 	FXMaxAgeHours int `json:"fx_max_age_hours,omitempty"`
 }
 
-// Seller is PGDock's company on invoices.
+// Seller is Xenibase's company on invoices.
 type Seller struct {
 	LegalName string `json:"legal_name"`
 	Address   string `json:"address"`
@@ -127,7 +127,7 @@ type Seller struct {
 // DefaultSettings: VAT at 7.5% and WHT at 5%. Drafts aren't issued
 // automatically until an admin turns it on (when payments are live).
 func DefaultSettings() Settings {
-	return Settings{VATRate: D("0.075"), WHTRate: D("0.05"), Seller: Seller{LegalName: "PGDock"}}
+	return Settings{VATRate: D("0.075"), WHTRate: D("0.05"), Seller: Seller{LegalName: "Xenibase"}}
 }
 
 // Validate checks the rates.
@@ -420,10 +420,10 @@ func (s *Service) notifyRepricing(ctx context.Context, b Book) int {
 		}
 		msg := mail.Message{
 			To:      to,
-			Subject: "PGDock prices are changing on " + b.EffectiveAt.UTC().Format("2 January 2006"),
+			Subject: "Xenibase prices are changing on " + b.EffectiveAt.UTC().Format("2 January 2006"),
 			Body: fmt.Sprintf("Prices for %s's plan change from %s.\n\n%s\nThe full price list: %s/pricing\n",
 				a.OrgName, when, body, s.publicURL),
-			Headers: map[string]string{"X-PGDock-Event": "billing.repricing"},
+			Headers: map[string]string{"X-Xenibase-Event": "billing.repricing"},
 		}
 		if err := s.mail.Send(ctx, msg); err != nil {
 			s.log.Warn("repricing notice", "org", a.OrgID, "err", err)

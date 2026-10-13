@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/jwtes"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/jwtes"
 )
 
 // The V4-M37 security review's fuzz tests of the edge's isolation (V4 §13):
@@ -48,7 +48,7 @@ func newFuzzProject(t testing.TB, ref string) (*fuzzProject, edgeapi.Project) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fp := &fuzzProject{ref: ref, pub: "pgd_pub_" + ref, sec: "pgd_sec_" + ref, der: der, kid: "k1"}
+	fp := &fuzzProject{ref: ref, pub: "xb_pub_" + ref, sec: "xb_sec_" + ref, der: der, kid: "k1"}
 	sign := func(c map[string]any) string {
 		s, err := jwtes.Sign(der, "k1", c)
 		if err != nil {
@@ -165,9 +165,9 @@ func validHeader(s string) bool {
 }
 
 func FuzzRefFromHost(f *testing.F) {
-	e := New(Config{Domain: "api.pgdock.ng."})
-	for _, s := range []string{"k7f3m2q9.api.pgdock.ng", "K7F3M2Q9.API.pgdock.ng:443", "a.k7f3m2q9.api.pgdock.ng", "api.pgdock.ng",
-		".api.pgdock.ng", "k7f3m2q9.api.pgdock.ng.evil", "[::1]:80", "k7f3m2q9.api.pgdock.ng:", "x.api.pgdock.ng.."} {
+	e := New(Config{Domain: "api.xenibase.ng."})
+	for _, s := range []string{"k7f3m2q9.api.xenibase.ng", "K7F3M2Q9.API.xenibase.ng:443", "a.k7f3m2q9.api.xenibase.ng", "api.xenibase.ng",
+		".api.xenibase.ng", "k7f3m2q9.api.xenibase.ng.evil", "[::1]:80", "k7f3m2q9.api.xenibase.ng:", "x.api.xenibase.ng.."} {
 		f.Add(s)
 	}
 	f.Fuzz(func(t *testing.T, host string) {
@@ -178,7 +178,7 @@ func FuzzRefFromHost(f *testing.F) {
 		if ref == "" || strings.ContainsAny(ref, ".:/[]") || ref != strings.ToLower(ref) {
 			t.Fatalf("%q gave ref %q", host, ref)
 		}
-		if !strings.Contains(strings.ToLower(host), ref+".api.pgdock.ng") {
+		if !strings.Contains(strings.ToLower(host), ref+".api.xenibase.ng") {
 			t.Fatalf("%q gave ref %q not under the domain", host, ref)
 		}
 	})

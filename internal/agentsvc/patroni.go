@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/docker"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/docker"
 )
 
 // HA members (V3 §2.2): the instance's container runs Patroni, which runs
@@ -20,7 +20,7 @@ import (
 // etcd.
 const (
 	restPort      = "8008/tcp"
-	patroniLabel  = "pgdock.patroni"
+	patroniLabel  = "xenibase.patroni"
 	patroniConfig = "/etc/patroni"
 )
 
@@ -104,7 +104,7 @@ func (in *instances) applyPatroni(cc *docker.ContainerConfig, spec agentapi.Inst
 		}
 	} else if in.cfg.PublishAddr != "" {
 		// One Docker host (development): peers use the network; the
-		// published ports are for pgdock-server only.
+		// published ports are for xenibase-server only.
 		cc.HostConfig.PortBindings[restPort] = []docker.PortBinding{{HostIP: in.cfg.PublishAddr, HostPort: ""}}
 	}
 	var etcdHosts []string
@@ -140,7 +140,7 @@ func (in *instances) applyPatroni(cc *docker.ContainerConfig, spec agentapi.Inst
 		hba = append(hba, scram("host", "replication", p.ReplicationUser, c), scram("host", "all", spec.AdminUser, c))
 	}
 	for _, c := range in.cfg.MoveAllow {
-		hba = append(hba, scram("host", "all", "/^pgdock_move_[0-9a-f]+$", c))
+		hba = append(hba, scram("host", "all", "/^xenibase_move_[0-9a-f]+$", c))
 	}
 	major := spec.PGVersion
 	if major == 0 {
@@ -154,11 +154,11 @@ func (in *instances) applyPatroni(cc *docker.ContainerConfig, spec agentapi.Inst
 	methods := map[string]any{"basebackup": map[string]any{"checkpoint": "fast"}}
 	if spec.WALG != nil {
 		replicaMethods = []string{"walg", "basebackup"}
-		methods["walg"] = map[string]any{"command": "/usr/local/bin/pgdock-patroni replica", "no_leader": true}
+		methods["walg"] = map[string]any{"command": "/usr/local/bin/xenibase-patroni replica", "no_leader": true}
 	}
 	conf := map[string]any{
 		"scope":     p.Scope,
-		"namespace": "/pgdock/",
+		"namespace": "/xenibase/",
 		"name":      spec.ID,
 		"log":       map[string]any{"level": "INFO"},
 		"restapi": map[string]any{
@@ -211,13 +211,13 @@ func (in *instances) applyPatroni(cc *docker.ContainerConfig, spec agentapi.Inst
 	}
 	// Patroni, not the image's entry point, initialises and runs Postgres.
 	cc.Env = slices.DeleteFunc(cc.Env, func(e string) bool {
-		return strings.HasPrefix(e, "POSTGRES_") || strings.HasPrefix(e, "PGDOCK_HBA_ALLOW=")
+		return strings.HasPrefix(e, "POSTGRES_") || strings.HasPrefix(e, "XENIBASE_HBA_ALLOW=")
 	})
-	// PGDOCK_ADMIN_USER (not a secret) is who WAL-G and the agent's psql
+	// XENIBASE_ADMIN_USER (not a secret) is who WAL-G and the agent's psql
 	// connect as over the local socket, as POSTGRES_USER is gone.
-	cc.Env = append(cc.Env, "PGDOCK_PATRONI_CONFIG="+string(raw), "PGDOCK_ADMIN_USER="+spec.AdminUser,
-		"PGDOCK_ETCD_CA="+p.EtcdCA, "PGDOCK_ETCD_CERT="+p.EtcdCert, "PGDOCK_ETCD_KEY="+p.EtcdKey)
-	cc.Entrypoint, cc.Cmd = []string{"/usr/local/bin/pgdock-patroni"}, nil
+	cc.Env = append(cc.Env, "XENIBASE_PATRONI_CONFIG="+string(raw), "XENIBASE_ADMIN_USER="+spec.AdminUser,
+		"XENIBASE_ETCD_CA="+p.EtcdCA, "XENIBASE_ETCD_CERT="+p.EtcdCert, "XENIBASE_ETCD_KEY="+p.EtcdKey)
+	cc.Entrypoint, cc.Cmd = []string{"/usr/local/bin/xenibase-patroni"}, nil
 	cc.StopSignal = "SIGTERM" // Patroni stops Postgres cleanly
 	cc.Labels[patroniLabel] = p.Scope
 	return nil

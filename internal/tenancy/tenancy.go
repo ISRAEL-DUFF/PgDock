@@ -1,7 +1,7 @@
 // Package tenancy implements V2's multi-tenant hardening (§10): quotas and
 // per-org rate limits, storage enforcement, the statement reaper, usage
 // recording, suspension, break-glass, dedicated allowances, and org
-// deletion. Its background loops run in every pgdock-server; each step is
+// deletion. Its background loops run in every xenibase-server; each step is
 // idempotent, so several servers converge on the same state.
 package tenancy
 
@@ -18,9 +18,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Config tunes the background work. Zero values take the spec defaults.

@@ -1,4 +1,4 @@
-import { PgdockError, type Result, fail, ok, toError } from "./errors.js";
+import { XenibaseError, type Result, fail, ok, toError } from "./errors.js";
 
 export type Fetch = typeof fetch;
 
@@ -39,7 +39,7 @@ export function buildURL(
 }
 
 /** apiError reads the API's {"error":{code,message,request_id}} answer. */
-export async function apiError(res: Response): Promise<PgdockError> {
+export async function apiError(res: Response): Promise<XenibaseError> {
   let code = "http_" + res.status;
   let message = res.statusText || "request failed";
   let requestId = res.headers.get("x-request-id") ?? undefined;
@@ -59,7 +59,7 @@ export async function apiError(res: Response): Promise<PgdockError> {
     // not JSON: keep the status
   }
   const ra = Number(res.headers.get("retry-after"));
-  return new PgdockError(res.status, code, message, {
+  return new XenibaseError(res.status, code, message, {
     requestId,
     details,
     retryAfter: Number.isFinite(ra) && ra > 0 ? ra : undefined,
@@ -111,7 +111,7 @@ export async function json<T>(
     return ok((text ? JSON.parse(text) : null) as T);
   } catch (e) {
     return fail(
-      new PgdockError(
+      new XenibaseError(
         r.data.status,
         "invalid_response",
         "the answer isn't JSON: " + toError(e).message,

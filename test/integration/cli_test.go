@@ -17,15 +17,15 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
-// buildCLI builds the pgdock binary once per test.
+// buildCLI builds the xenibase binary once per test.
 func buildCLI(t *testing.T) string {
 	t.Helper()
-	bin := filepath.Join(t.TempDir(), "pgdock")
-	cmd := exec.Command("go", "build", "-o", bin, "github.com/israel-duff/pgdock/cmd/cli")
+	bin := filepath.Join(t.TempDir(), "xenibase")
+	cmd := exec.Command("go", "build", "-o", bin, "github.com/israel-duff/xenibase/cmd/cli")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build the CLI: %v\n%s", err, out)
 	}
@@ -55,8 +55,8 @@ func runCLI(t *testing.T, bin string, env []string, args ...string) cliRun {
 }
 
 // TestCLIJobWithRestrictedWriteToken is M10's done-when as a CI job runs it:
-// the pgdock binary with PGDOCK_SERVER and a project-restricted write
-// PGDOCK_TOKEN runs SQL on its project, gets not-found for a project in
+// the xenibase binary with XENIBASE_SERVER and a project-restricted write
+// XENIBASE_TOKEN runs SQL on its project, gets not-found for a project in
 // another org, and is refused (exit 4) deleting its own project.
 func TestCLIJobWithRestrictedWriteToken(t *testing.T) {
 	e := testenv.Start(t, testenv.Options{})
@@ -68,7 +68,7 @@ func TestCLIJobWithRestrictedWriteToken(t *testing.T) {
 		"name": "GitHub Actions — blog", "org_id": e.OrgID, "scopes": []string{"write"},
 		"project_ids": []uuid.UUID{blog.Project.Id},
 	})
-	env := []string{"PGDOCK_SERVER=" + e.URL, "PGDOCK_TOKEN=" + token, "PGDOCK_CONFIG_DIR=" + t.TempDir()}
+	env := []string{"XENIBASE_SERVER=" + e.URL, "XENIBASE_TOKEN=" + token, "XENIBASE_CONFIG_DIR=" + t.TempDir()}
 
 	r := runCLI(t, bin, env, "sql", "Blog", "-c", "CREATE TABLE deploys (id int); INSERT INTO deploys VALUES (1); SELECT count(*) AS n FROM deploys")
 	if r.code != 0 || !strings.Contains(r.stdout, "SELECT 1") {
@@ -130,20 +130,20 @@ func TestCLIJobWithRestrictedWriteToken(t *testing.T) {
 	if r.code != 2 {
 		t.Fatalf("unknown command: exit %d", r.code)
 	}
-	r = runCLI(t, bin, []string{"PGDOCK_SERVER=" + e.URL, "PGDOCK_TOKEN=pgd_" + strings.Repeat("x", 43), "PGDOCK_CONFIG_DIR=" + t.TempDir()}, "whoami")
+	r = runCLI(t, bin, []string{"XENIBASE_SERVER=" + e.URL, "XENIBASE_TOKEN=xb_" + strings.Repeat("x", 43), "XENIBASE_CONFIG_DIR=" + t.TempDir()}, "whoami")
 	if r.code != 4 {
 		t.Fatalf("a bad token: exit %d %s", r.code, r.stderr)
 	}
 }
 
-// TestCLIDeviceLogin: pgdock login prints a code, the user approves it in
+// TestCLIDeviceLogin: xenibase login prints a code, the user approves it in
 // the browser, and the CLI saves a context it then uses.
 func TestCLIDeviceLogin(t *testing.T) {
 	e := testenv.Start(t, testenv.Options{})
 	bin := buildCLI(t)
 	app := e.CreateProject("App")
 	cfgDir := t.TempDir()
-	env := []string{"PGDOCK_CONFIG_DIR=" + cfgDir, "PGDOCK_TOKEN=", "PGDOCK_SERVER="}
+	env := []string{"XENIBASE_CONFIG_DIR=" + cfgDir, "XENIBASE_TOKEN=", "XENIBASE_SERVER="}
 
 	cmd := exec.Command(bin, "login", "--server", e.URL, "--no-browser", "--name", "home")
 	cmd.Env = append(os.Environ(), env...)
@@ -188,7 +188,7 @@ func TestCLIDeviceLogin(t *testing.T) {
 		t.Fatalf("config file: %v %v", fi, err)
 	}
 
-	// The saved context works without PGDOCK_TOKEN.
+	// The saved context works without XENIBASE_TOKEN.
 	r := runCLI(t, bin, env, "context", "list")
 	if r.code != 0 || !strings.Contains(r.stdout, "home") {
 		t.Fatalf("context list: %d %s %s", r.code, r.stdout, r.stderr)
@@ -211,7 +211,7 @@ func TestCLIDeviceLogin(t *testing.T) {
 	}
 	_ = app
 	r = runCLI(t, bin, env, "tokens", "list")
-	if r.code != 0 || !strings.Contains(r.stdout, "pgdock CLI") {
+	if r.code != 0 || !strings.Contains(r.stdout, "xenibase CLI") {
 		t.Fatalf("tokens list: %d %s %s", r.code, r.stdout, r.stderr)
 	}
 	// logout revokes the token on the server.

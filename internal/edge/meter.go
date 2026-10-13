@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
 )
 
-// Bounds on what is held between reports, so a pgdock-server outage can't
+// Bounds on what is held between reports, so a xenibase-server outage can't
 // grow the edge's memory without limit.
 const (
 	maxLogs    = 20000
@@ -34,7 +34,7 @@ type meter struct {
 	// batch ids.
 	pending []edgeapi.Report
 	// lastTaken is when the last report was made: an empty one is still
-	// sent every Config.AliveEvery, so pgdock-server sees the edge is up.
+	// sent every Config.AliveEvery, so xenibase-server sees the edge is up.
 	lastTaken time.Time
 }
 
@@ -43,7 +43,7 @@ func newMeter() *meter {
 }
 
 // activeUser notes a user who signed in or refreshed (monthly active
-// users); pgdock-server counts each once a month.
+// users); xenibase-server counts each once a month.
 func (m *meter) activeUser(project, user uuid.UUID) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

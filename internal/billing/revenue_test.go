@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/billing"
+	"github.com/israel-duff/xenibase/internal/billing"
 )
 
 // MRR and its movements from daily snapshots: a new subscription, an

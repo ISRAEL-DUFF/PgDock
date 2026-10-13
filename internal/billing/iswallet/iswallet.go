@@ -1,11 +1,11 @@
-// Package iswallet is PGDock's wallet provider: each organisation has a
+// Package iswallet is Xenibase's wallet provider: each organisation has a
 // wallet at iswallet that holds its money, funded by bank transfer into a
-// virtual account, and debited for invoices by a transfer to PGDock's
+// virtual account, and debited for invoices by a transfer to Xenibase's
 // operating wallet. It also prices a dollar in naira. Amounts are kobo.
 //
-// The contract is iswallet's OpenAPI document and its answers to PGDock's
+// The contract is iswallet's OpenAPI document and its answers to Xenibase's
 // integration request (12 October 2026): a transfer is synchronous and
-// final, a debit needs no customer approval (PGDock records the consent),
+// final, a debit needs no customer approval (Xenibase records the consent),
 // there are no holds or locked quotes, and an idempotent call can be looked
 // up by its key.
 package iswallet
@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/billing"
+	"github.com/israel-duff/xenibase/internal/billing"
 )
 
 // Config configures the client.
@@ -37,7 +37,7 @@ type Config struct {
 	APIKey  string
 	// WebhookSecret signs webhooks (the subscription's signing secret).
 	WebhookSecret string
-	// ClientID is PGDock's client id at iswallet, when the key doesn't imply it.
+	// ClientID is Xenibase's client id at iswallet, when the key doesn't imply it.
 	ClientID string
 	Client   *http.Client
 	// Now is the clock for webhook replay protection.
@@ -54,7 +54,7 @@ type Client struct {
 	cfg Config
 
 	mu       sync.Mutex
-	operator string // PGDock's operating wallet, once known
+	operator string // Xenibase's operating wallet, once known
 }
 
 // New returns the client.
@@ -247,7 +247,7 @@ func (c *Client) Balance(ctx context.Context, walletID string) (billing.WalletBa
 	return b, nil
 }
 
-// OperatingWallet is PGDock's own wallet at iswallet.
+// OperatingWallet is Xenibase's own wallet at iswallet.
 func (c *Client) OperatingWallet(ctx context.Context) (string, error) {
 	c.mu.Lock()
 	op := c.operator
@@ -395,7 +395,7 @@ func (c *Client) status(id, s string) string {
 		c.cfg.Log.Error("iswallet: a transaction is unresolved or was resolved by hand; check its ledger", "txn", id, "state", s)
 		return billing.TxPending
 	}
-	c.cfg.Log.Error("iswallet: a transaction in a state PGDock doesn't know; treating it as pending", "txn", id, "state", s)
+	c.cfg.Log.Error("iswallet: a transaction in a state Xenibase doesn't know; treating it as pending", "txn", id, "state", s)
 	return billing.TxPending
 }
 
@@ -475,7 +475,7 @@ func Sign(secret string, ts int64, body []byte) string {
 }
 
 // ParseWebhook authenticates a webhook and normalises it. Only deposits
-// matter to PGDock (our own debits are booked as they are made); any other
+// matter to Xenibase (our own debits are booked as they are made); any other
 // event is ignored.
 func (c *Client) ParseWebhook(_ context.Context, r *http.Request) (billing.Event, error) {
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
@@ -516,12 +516,12 @@ func (c *Client) ParseWebhook(_ context.Context, r *http.Request) (billing.Event
 		// Not acted on yet: the books will hold more than the wallet, and the
 		// nightly balance reconciliation flags it. Say why, so the difference
 		// has a cause attached when it appears.
-		c.cfg.Log.Error("iswallet: a deposit was reversed or rejected; the wallet's balance will differ from PGDock's books until it is handled",
+		c.cfg.Log.Error("iswallet: a deposit was reversed or rejected; the wallet's balance will differ from Xenibase's books until it is handled",
 			"event", env.EventType, "wallet", env.WalletID, "txn", env.Data.TxnID, "amount", env.Data.Amount, "uncovered", env.Data.Uncovered)
 		return billing.Event{}, billing.ErrIgnoredEvent
 	}
 	// A customer's bank transfer is source_type va_deposit; wallet_transfer
-	// is our own debits and refunds, and pull_inflow an API PGDock doesn't use.
+	// is our own debits and refunds, and pull_inflow an API Xenibase doesn't use.
 	if env.EventType != "wallet.credit.posted" || env.Data.SourceType != "va_deposit" {
 		return billing.Event{}, billing.ErrIgnoredEvent
 	}

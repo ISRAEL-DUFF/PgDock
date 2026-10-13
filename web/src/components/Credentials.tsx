@@ -9,7 +9,7 @@ export function CredentialPanel({ creds, onDismiss, ready }: { creds: ProjectCre
   return (
     <div className="flex flex-col gap-4" data-testid="credential-panel">
       <Alert tone="warn" title="Save these now">
-        This is the only time PGDock shows the password. It stores only a SCRAM verifier, so it cannot show it again;
+        This is the only time Xenibase shows the password. It stores only a SCRAM verifier, so it cannot show it again;
         rotate the password if you lose it.
       </Alert>
       {!ready && <Alert tone="accent">The connection strings start working when provisioning finishes.</Alert>}

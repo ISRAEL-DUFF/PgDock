@@ -12,8 +12,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Ranges the API serves: 1h and 24h from 1-minute points, 7d from hourly.
@@ -211,7 +211,7 @@ func WritePrometheus(ctx context.Context, w io.Writer, db store.DBTX, interval t
 		if !ok {
 			continue // deleted since
 		}
-		name := "pgdock_" + r.Scope + "_" + r.Metric
+		name := "xenibase_" + r.Scope + "_" + r.Metric
 		byName[name] = append(byName[name], sample{l, r.Value})
 		metricOf[name] = r.Metric
 	}
@@ -221,7 +221,7 @@ func WritePrometheus(ctx context.Context, w io.Writer, db store.DBTX, interval t
 	}
 	sort.Strings(names)
 	var b strings.Builder
-	b.WriteString("# HELP pgdock_up PGDock control plane is serving.\n# TYPE pgdock_up gauge\npgdock_up 1\n")
+	b.WriteString("# HELP xenibase_up Xenibase control plane is serving.\n# TYPE xenibase_up gauge\nxenibase_up 1\n")
 	for _, name := range names {
 		fmt.Fprintf(&b, "# HELP %s %s\n# TYPE %s gauge\n", name, promHelp[metricOf[name]], name)
 		ss := byName[name]

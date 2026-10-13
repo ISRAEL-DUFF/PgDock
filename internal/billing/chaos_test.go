@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // failureEmails counts "wallet couldn't pay" emails.
@@ -82,7 +82,7 @@ func TestProviderOutage(t *testing.T) {
 		t.Fatalf("debits and deposits: %d, %d, %v", debits, deposits, err)
 	}
 	if got := w.fake.OperatingBalance(); got != paid.TotalMinor {
-		t.Errorf("PGDock's wallet got %d for one invoice of %d", got, paid.TotalMinor)
+		t.Errorf("Xenibase's wallet got %d for one invoice of %d", got, paid.TotalMinor)
 	}
 	if got := w.held(t, org, billing.AccWalletBalance); got != w.fake.WalletBalance(wid) {
 		t.Errorf("books %d, provider %d", got, w.fake.WalletBalance(wid))
@@ -112,7 +112,7 @@ func TestChargeRetryDuringOutage(t *testing.T) {
 	}
 	start := *a.ChargeFailingSince
 
-	// The wallet is topped up, but the webhook is lost: PGDock doesn't know yet.
+	// The wallet is topped up, but the webhook is lost: Xenibase doesn't know yet.
 	w.fake.DropWebhooks(1)
 	if _, _, _, err := w.fake.Deposit(va.AccountNumber, 50_000_00); err != nil {
 		t.Fatal(err)

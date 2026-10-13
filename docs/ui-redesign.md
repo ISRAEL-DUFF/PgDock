@@ -10,12 +10,12 @@ expanded navigation rail of Supabase Studio, as of late 2026.
 | # | Decision |
 | --- | --- |
 | 1 | Order: the shell first, then the Table Editor, then the SQL Editor and the remaining pages. One PR per phase, each releasable on its own. |
-| 2 | Supabase features PGDock has no backend for (RLS and the "Role" switch, auth, storage, edge functions, realtime, AI filters, CSV import, charts of results) are **left out**, not shown disabled. |
+| 2 | Supabase features Xenibase has no backend for (RLS and the "Role" switch, auth, storage, edge functions, realtime, AI filters, CSV import, charts of results) are **left out**, not shown disabled. |
 | 3 | Dark theme by default, with a light theme and "system" in the user menu. **Purple** accent. |
-| 4 | Layout, density and interaction follow Supabase closely. Supabase's logo, name and green brand are not used: PGDock keeps its own mark. |
+| 4 | Layout, density and interaction follow Supabase closely. Supabase's logo, name and green brand are not used: Xenibase keeps its own mark. |
 | 5 | Same stack (React 19, Vite, Tailwind 4, TanStack Router and Query). New libraries, all MIT: Radix UI primitives with shadcn-style components, `react-data-grid` (what Supabase's grid is built on), `lucide-react` icons, `cmdk` (the ⌘K menu), `sonner` (toasts), and **Monaco** (`monaco-editor`, the editor Supabase uses) in place of CodeMirror. The font is Inter, bundled with `@fontsource` so installs need no outside network access; Monaco is bundled too (no CDN loader), in its own chunk. |
 | 7 | SQL queries are saved on the server (question 1, option a): per project, private or shared with the project's members, with per-user favourites (phase 3). |
-| 8 | PGDock gets a simple SVG mark of its own, drawn in phase 1. |
+| 8 | Xenibase gets a simple SVG mark of its own, drawn in phase 1. |
 | 9 | The branch switcher works like Supabase's: `main` carries a `PRODUCTION` badge, branches a `PREVIEW` badge; the menu searches branches and has "Create branch" and "Manage branches". The project's tier shows on the Overview and in Settings, not in the switcher. |
 | 10 | Branches, backups, webhooks, scheduled jobs, extensions and migrations live under the rail's Database section. |
 | 6 | No API changes, except small additions a phase can't do without; each is listed in its phase. |
@@ -64,7 +64,7 @@ themes, for review and for later visual tests.
 
 Laid out as in the screenshots:
 
-- **Top bar** (48px): PGDock mark, then breadcrumb-style switchers with
+- **Top bar** (48px): Xenibase mark, then breadcrumb-style switchers with
   `/` between them:
   - **Organisation**, with its plan as a badge (`PERSONAL`, `TEAM`,
     `UNLIMITED`). The menu lists organisations and has "New organisation".
@@ -179,7 +179,7 @@ Matches the first screenshot:
     and nullability shown, and a JSON editor for `json`/`jsonb`.
   - Each schema change shows the existing risk notes and the SQL it will
     run before applying, as now (the review step Supabase lacks is kept: it
-    is a PGDock safety feature).
+    is a Xenibase safety feature).
 - Read-only members and read-only projects see the same screens without
   editing controls.
 
@@ -211,7 +211,7 @@ rewritten for the new screens.
 Matches the second screenshot:
 
 - **Sidebar:** query search and "+", collapsible groups (Private, Shared,
-  Favorites; see question 1), and Templates (common snippets PGDock
+  Favorites; see question 1), and Templates (common snippets Xenibase
   ships).
 - **Tabs** for open queries.
 - **Editor:** Monaco, as in Supabase, with a theme to match: line
@@ -335,7 +335,7 @@ Radix `Dialog`/`SidePanel`.
   themes. Editor tab strips are navigation landmarks; inline links are
   underlined.
 - The e2e run checks every screenshot with axe (WCAG 2.1 A and AA):
-  serious and critical issues fail it. `PGDOCK_E2E_AXE=report` writes them
+  serious and critical issues fail it. `XENIBASE_E2E_AXE=report` writes them
   to `axe.jsonl` instead. A journey covers the shortcuts and the
   narrow-screen menu.
 

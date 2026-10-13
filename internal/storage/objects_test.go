@@ -18,7 +18,7 @@ func TestObjectsAndPresignedMultipart(t *testing.T) {
 	}
 	defer f.Close()
 	tg := f.Target("files")
-	tg.Prefix = "pgdock"
+	tg.Prefix = "xenibase"
 	c, err := New(tg)
 	if err != nil {
 		t.Fatal(err)

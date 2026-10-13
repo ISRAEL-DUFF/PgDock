@@ -316,7 +316,7 @@ export function setCsrfToken(token: string) {
  */
 function cookieToken(): string {
   if (typeof document === "undefined") return "";
-  const m = /(?:^|;\s*)(?:__Host-)?pgdock_csrf=([^;]+)/.exec(document.cookie);
+  const m = /(?:^|;\s*)(?:__Host-)?xenibase_csrf=([^;]+)/.exec(document.cookie);
   return m ? decodeURIComponent(m[1]) : "";
 }
 

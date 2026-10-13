@@ -11,8 +11,8 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // threeNodes registers node-b and node-c beside the harness's "test" node
@@ -107,13 +107,13 @@ func TestEtcdCluster(t *testing.T) {
 	}
 
 	// Clients need a certificate from the etcd CA.
-	member := "pgdock-etcd-" + ns[1].Id.String()
+	member := "xenibase-etcd-" + ns[1].Id.String()
 	endpoint := "--endpoints=" + c.Members[0].ClientUrl
 	ctl := func(args ...string) (string, error) {
-		out, err := exec.Command("docker", append([]string{"exec", member, "/usr/local/bin/etcdctl", endpoint, "--cacert=/etc/pgdock-etcd/ca.pem"}, args...)...).CombinedOutput()
+		out, err := exec.Command("docker", append([]string{"exec", member, "/usr/local/bin/etcdctl", endpoint, "--cacert=/etc/xenibase-etcd/ca.pem"}, args...)...).CombinedOutput()
 		return string(out), err
 	}
-	if out, err := ctl("--cert=/etc/pgdock-etcd/member.pem", "--key=/etc/pgdock-etcd/member-key.pem", "endpoint", "health"); err != nil || !strings.Contains(out, "is healthy") {
+	if out, err := ctl("--cert=/etc/xenibase-etcd/member.pem", "--key=/etc/xenibase-etcd/member-key.pem", "endpoint", "health"); err != nil || !strings.Contains(out, "is healthy") {
 		t.Fatalf("with a certificate: %v %s", err, out)
 	}
 	if out, err := ctl("--command-timeout=3s", "endpoint", "health"); err == nil {
@@ -121,7 +121,7 @@ func TestEtcdCluster(t *testing.T) {
 	}
 
 	// One member down: the cluster keeps its quorum.
-	if out, err := exec.Command("docker", "kill", "pgdock-etcd-"+ns[2].Id.String()).CombinedOutput(); err != nil {
+	if out, err := exec.Command("docker", "kill", "xenibase-etcd-"+ns[2].Id.String()).CombinedOutput(); err != nil {
 		t.Fatalf("kill member: %v %s", err, out)
 	}
 	// If it was the leader, the others answer "leader changed" until they

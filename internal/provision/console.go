@@ -12,9 +12,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // consoleConnLimit caps a project's concurrent console-login sessions.
@@ -49,7 +49,7 @@ func DropConsoleRole(ctx context.Context, conn *pgx.Conn, role, database string)
 // ConsolePassword is the console login's password, derived from the master
 // key.
 func (s *Service) ConsolePassword(role string) string {
-	return base64.RawURLEncoding.EncodeToString(s.keyring.Derive("pgdock console role "+role, 32))
+	return base64.RawURLEncoding.EncodeToString(s.keyring.Derive("xenibase console role "+role, 32))
 }
 
 // EnsureConsoleRole creates or repairs the project's console login (and

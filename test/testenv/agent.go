@@ -13,19 +13,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
-// StartAgent runs pgdock-agent in the agent-test container (Postgres 18
+// StartAgent runs xenibase-agent in the agent-test container (Postgres 18
 // client tools, on the Compose network) and registers it for the shared
 // node with a one-time token, as an operator would. It stops when the test
 // ends.
 func (e *Env) StartAgent() {
 	e.t.Helper()
-	container := need(e.t, "PGDOCK_TEST_AGENT_CONTAINER")
-	agentAddr := need(e.t, "PGDOCK_TEST_AGENT_ADDR")
+	container := need(e.t, "XENIBASE_TEST_AGENT_CONTAINER")
+	agentAddr := need(e.t, "XENIBASE_TEST_AGENT_ADDR")
 	node, err := store.New(e.DB).GetNodeByName(context.Background(), "test")
 	if err != nil {
 		e.t.Fatal(err)
@@ -41,21 +41,21 @@ func (e *Env) StartAgent() {
 // the node named name, registered with token (from POST /nodes).
 func (e *Env) StartSecondAgent(name, token string) {
 	e.t.Helper()
-	e.runAgent(need(e.t, "PGDOCK_TEST_AGENT2_CONTAINER"), need(e.t, "PGDOCK_TEST_AGENT2_ADDR"), name, token)
+	e.runAgent(need(e.t, "XENIBASE_TEST_AGENT2_CONTAINER"), need(e.t, "XENIBASE_TEST_AGENT2_ADDR"), name, token)
 }
 
 // StartThirdAgent runs a third agent (the agent-test-3 container) for the
 // node named name, registered with token.
 func (e *Env) StartThirdAgent(name, token string) {
 	e.t.Helper()
-	e.runAgent(need(e.t, "PGDOCK_TEST_AGENT3_CONTAINER"), need(e.t, "PGDOCK_TEST_AGENT3_ADDR"), name, token)
+	e.runAgent(need(e.t, "XENIBASE_TEST_AGENT3_CONTAINER"), need(e.t, "XENIBASE_TEST_AGENT3_ADDR"), name, token)
 }
 
 // StartFourthAgent runs a fourth agent (the agent-test-4 container) for
 // the node named name, registered with token.
 func (e *Env) StartFourthAgent(name, token string) {
 	e.t.Helper()
-	e.runAgent(need(e.t, "PGDOCK_TEST_AGENT4_CONTAINER"), need(e.t, "PGDOCK_TEST_AGENT4_ADDR"), name, token)
+	e.runAgent(need(e.t, "XENIBASE_TEST_AGENT4_CONTAINER"), need(e.t, "XENIBASE_TEST_AGENT4_ADDR"), name, token)
 }
 
 func (e *Env) runAgent(container, agentAddr, nodeName, token string) {
@@ -65,14 +65,14 @@ func (e *Env) runAgent(container, agentAddr, nodeName, token string) {
 	b := make([]byte, 4)
 	_, _ = rand.Read(b)
 	state := "/tmp/agent-state-" + hex.EncodeToString(b)
-	script := `echo $$ > /tmp/agent.pid; exec /pgdock/pgdock-agent run --state ` + state +
-		` --server ` + e.URL + ` --token "$PGDOCK_AGENT_TOKEN" --advertise ` + agentAddr + ` --listen :7070 > /tmp/agent.log 2>&1`
-	args := []string{"exec", "-d", "-e", "PGDOCK_AGENT_TOKEN=" + token, "-e", "PGDOCK_AGENT_LOG_FORMAT=text"}
-	if img := os.Getenv("PGDOCK_TEST_PG_IMAGE"); img != "" {
+	script := `echo $$ > /tmp/agent.pid; exec /xenibase/xenibase-agent run --state ` + state +
+		` --server ` + e.URL + ` --token "$XENIBASE_AGENT_TOKEN" --advertise ` + agentAddr + ` --listen :7070 > /tmp/agent.log 2>&1`
+	args := []string{"exec", "-d", "-e", "XENIBASE_AGENT_TOKEN=" + token, "-e", "XENIBASE_AGENT_LOG_FORMAT=text"}
+	if img := os.Getenv("XENIBASE_TEST_PG_IMAGE"); img != "" {
 		// Instances join the Compose network (poolers and the agent use the
 		// container name) and publish on 127.0.0.1 (the test server).
-		args = append(args, "-e", "PGDOCK_AGENT_PG_IMAGE="+img, "-e", "PGDOCK_AGENT_NETWORK="+os.Getenv("PGDOCK_TEST_DOCKER_NETWORK"),
-			"-e", "PGDOCK_AGENT_PUBLISH=127.0.0.1")
+		args = append(args, "-e", "XENIBASE_AGENT_PG_IMAGE="+img, "-e", "XENIBASE_AGENT_NETWORK="+os.Getenv("XENIBASE_TEST_DOCKER_NETWORK"),
+			"-e", "XENIBASE_AGENT_PUBLISH=127.0.0.1")
 	}
 	cmd := exec.Command("docker", append(args, container, "sh", "-c", script)...)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -119,18 +119,18 @@ func stopAgent(container string) {
 // backup key. It returns the key as downloaded.
 func (e *Env) ConfigureBackups() string {
 	e.t.Helper()
-	gw := os.Getenv("PGDOCK_TEST_DOCKER_GATEWAY")
+	gw := os.Getenv("XENIBASE_TEST_DOCKER_GATEWAY")
 	addr := ""
 	if gw != "" {
 		addr = net.JoinHostPort(gw, "0")
 	}
-	fake, err := storage.NewFakeAt("pgdock-test", addr)
+	fake, err := storage.NewFakeAt("xenibase-test", addr)
 	if err != nil {
 		e.t.Fatal(err)
 	}
 	e.t.Cleanup(fake.Close)
 	e.S3 = fake
-	tgt := fake.Target("pgdock-test")
+	tgt := fake.Target("xenibase-test")
 	if e.s3Link {
 		u, err := url.Parse(tgt.Endpoint)
 		if err != nil {
@@ -142,7 +142,7 @@ func (e *Env) ConfigureBackups() string {
 	}
 	e.SaveStorage(tgt)
 	var key gen.BackupKeyExport
-	if code := e.Do("POST", "/api/v1/settings/backup-key", nil, &key); code != http.StatusCreated || !strings.HasPrefix(key.Key, "pgdock-backup-key-v1:") {
+	if code := e.Do("POST", "/api/v1/settings/backup-key", nil, &key); code != http.StatusCreated || !strings.HasPrefix(key.Key, "xenibase-backup-key-v1:") {
 		e.t.Fatalf("generate backup key: status %d", code)
 	}
 	var info gen.BackupKeyInfo
@@ -153,11 +153,11 @@ func (e *Env) ConfigureBackups() string {
 }
 
 // SaveStorage makes tgt the platform's default storage target (under the
-// "pgdock" prefix): backups, and backend services' files.
+// "xenibase" prefix): backups, and backend services' files.
 func (e *Env) SaveStorage(tgt storage.Target) {
 	e.t.Helper()
 	var res gen.StorageTestResult
-	region, prefix, pathStyle := tgt.Region, "pgdock", true
+	region, prefix, pathStyle := tgt.Region, "xenibase", true
 	if code := e.Do("PUT", "/api/v1/settings/storage", gen.StorageRequest{
 		Endpoint: tgt.Endpoint, Region: &region, Bucket: tgt.Bucket, Prefix: &prefix,
 		AccessKey: tgt.AccessKey, SecretKey: &tgt.SecretKey, PathStyle: &pathStyle,
@@ -169,7 +169,7 @@ func (e *Env) SaveStorage(tgt storage.Target) {
 // removeInstances deletes instance containers and volumes a test left
 // behind (normally deletes and rollbacks remove them).
 func removeInstances(t testing.TB) {
-	for _, label := range []string{"pgdock.instance", "pgdock.etcd"} {
+	for _, label := range []string{"xenibase.instance", "xenibase.etcd"} {
 		removeLabelled(t, label)
 	}
 }

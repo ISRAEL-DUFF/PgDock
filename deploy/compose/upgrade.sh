@@ -1,5 +1,5 @@
 #!/bin/sh
-# Upgrade PGDock on this host to a release tag: back up the metadata database,
+# Upgrade Xenibase on this host to a release tag: back up the metadata database,
 # check out the tag, run install.sh, check the result, and put the old version
 # back if the checks fail. (docs/deploying.md)
 #
@@ -18,7 +18,7 @@
 # The first time (an install that doesn't have this script yet), fetch it from
 # the new tag and point it at the install:
 #   git fetch --tags && git show v4.1.0:deploy/compose/upgrade.sh > /tmp/upgrade.sh
-#   PGDOCK_DIR=$PWD sh /tmp/upgrade.sh v4.1.0
+#   XENIBASE_DIR=$PWD sh /tmp/upgrade.sh v4.1.0
 #
 # Environment: UPGRADE_BACKUP_DIR (default ./upgrade-backups), UPGRADE_WAIT
 # (seconds to wait for the new version to become healthy, default 300),
@@ -53,17 +53,17 @@ printf '%s' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$' ||
 
 # git checkout replaces this very file when the tag carries a different one, and
 # a shell reads its script as it runs. So run from a private copy, from the
-# directory the script was started in (PGDOCK_DIR can name it, for a copy kept
+# directory the script was started in (XENIBASE_DIR can name it, for a copy kept
 # elsewhere: the first upgrade of an install that doesn't have this script yet).
-if [ -z "${PGDOCK_UPGRADE_COPY:-}" ]; then
-	dir=${PGDOCK_DIR:-$(cd "$(dirname "$0")" && pwd)}
-	copy=$(mktemp "${TMPDIR:-/tmp}/pgdock-upgrade.XXXXXX")
+if [ -z "${XENIBASE_UPGRADE_COPY:-}" ]; then
+	dir=${XENIBASE_DIR:-$(cd "$(dirname "$0")" && pwd)}
+	copy=$(mktemp "${TMPDIR:-/tmp}/xenibase-upgrade.XXXXXX")
 	cp "$0" "$copy"
-	PGDOCK_UPGRADE_COPY=$copy PGDOCK_DIR=$dir exec sh "$copy" "$@"
+	XENIBASE_UPGRADE_COPY=$copy XENIBASE_DIR=$dir exec sh "$copy" "$@"
 fi
-trap 'rm -f "$PGDOCK_UPGRADE_COPY"' EXIT
-cd "$PGDOCK_DIR"
-[ -f .env ] || die "no .env here: run this in deploy/compose of an installed PGDock"
+trap 'rm -f "$XENIBASE_UPGRADE_COPY"' EXIT
+cd "$XENIBASE_DIR"
+[ -f .env ] || die "no .env here: run this in deploy/compose of an installed Xenibase"
 command -v docker >/dev/null || die "docker is required"
 docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is required"
 command -v git >/dev/null || die "git is required"
@@ -79,13 +79,13 @@ log_file="$backup_dir/upgrade-$stamp.log"
 # --- helpers -----------------------------------------------------------------
 
 # db runs a query on the metadata database.
-db() { docker compose exec -T metadata-db psql -U pgdock -d pgdock -Atc "$1"; }
+db() { docker compose exec -T metadata-db psql -U xenibase -d xenibase -Atc "$1"; }
 
 # schema_version is the database's latest applied migration.
 schema_version() { db "select coalesce(max(version_id),0) from goose_db_version" 2>/dev/null | tr -d '[:space:]'; }
 
-# server_version is what the running pgdock-server says it is ("v4.1.0").
-server_version() { docker compose exec -T pgdock-server pgdock-server -version 2>/dev/null | awk '{print $2}'; }
+# server_version is what the running xenibase-server says it is ("v4.1.0").
+server_version() { docker compose exec -T xenibase-server xenibase-server -version 2>/dev/null | awk '{print $2}'; }
 
 # unhealthy lists the services that aren't running (and healthy where they
 # have a check); empty means everything is up.
@@ -106,11 +106,11 @@ gates() {
 		sv=$(server_version || true)
 		sc=$(schema_version || true)
 		if [ -z "$bad" ] && [ "$sv" = "$want_version" ] && [ "$sc" = "$want_schema" ]; then
-			log "healthy: pgdock-server $sv, schema $sc, every service running"
+			log "healthy: xenibase-server $sv, schema $sc, every service running"
 			return 0
 		fi
 		if [ "$(date +%s)" -ge "$end" ]; then
-			log "FAILED after ${wait_s}s: services not up: ${bad:-none}; pgdock-server version '${sv:-?}' (want $want_version); schema '${sc:-?}' (want $want_schema)"
+			log "FAILED after ${wait_s}s: services not up: ${bad:-none}; xenibase-server version '${sv:-?}' (want $want_version); schema '${sc:-?}' (want $want_schema)"
 			return 1
 		fi
 		sleep "${UPGRADE_POLL:-5}"
@@ -143,13 +143,13 @@ cur_version=$(server_version || true)
 cur_schema=$(schema_version || true)
 [ -n "$cur_schema" ] || die "can't read the metadata database (is the stack up?)"
 want_schema=$(git -C "$root" ls-tree --name-only "$target" internal/store/migrations/ | sed -E 's#.*/0*([0-9]+)_.*#\1#' | sort -n | tail -1)
-[ -n "$want_schema" ] || die "$tag has no migrations directory: is it a PGDock release?"
+[ -n "$want_schema" ] || die "$tag has no migrations directory: is it a Xenibase release?"
 if [ "$want_schema" -lt "$cur_schema" ]; then
 	die "$tag's last migration is $want_schema but the database is at $cur_schema: that is a downgrade, which can't be done by checking out (restore a metadata backup instead; docs/upgrade.md, Rolling back)"
 fi
 
 echo
-echo "Upgrade PGDock on this host"
+echo "Upgrade Xenibase on this host"
 echo "  from  ${cur_version:-unknown} ($prev_name)   schema $cur_schema"
 echo "  to    $tag   schema $want_schema ($((want_schema - cur_schema)) new migrations)"
 echo "  backup to  $backup_dir (a copy of the metadata database, kept)"
@@ -172,10 +172,10 @@ log "log: $log_file"
 
 dump="$backup_dir/metadata-$stamp-before-$tag.dump"
 log "backing up the metadata database to $dump"
-docker compose exec -T metadata-db pg_dump -U pgdock -Fc pgdock > "$dump" || { rm -f "$dump"; die "the backup failed; nothing was changed"; }
+docker compose exec -T metadata-db pg_dump -U xenibase -Fc xenibase > "$dump" || { rm -f "$dump"; die "the backup failed; nothing was changed"; }
 chmod 600 "$dump"
 [ -s "$dump" ] || die "the backup is empty; nothing was changed"
-docker compose exec -T metadata-db pg_restore -l < "$dump" 2>/dev/null | grep -q 'goose_db_version' || die "the backup doesn't look like a PGDock metadata dump; nothing was changed"
+docker compose exec -T metadata-db pg_restore -l < "$dump" 2>/dev/null | grep -q 'goose_db_version' || die "the backup doesn't look like a Xenibase metadata dump; nothing was changed"
 printf 'from=%s\ncommit=%s\nschema=%s\nversion=%s\nto=%s\n' "$prev_name" "$prev" "$cur_schema" "$cur_version" "$tag" > "$dump.meta"
 log "backup verified ($(wc -c < "$dump" | tr -d ' ') bytes). Copy it off this server too."
 
@@ -183,12 +183,12 @@ log "backup verified ($(wc -c < "$dump" | tr -d ' ') bytes). Copy it off this se
 
 rollback_now() {
 	log "ROLLING BACK to $prev_name"
-	docker compose stop pgdock-server pgdock-agent >/dev/null 2>&1 || true
+	docker compose stop xenibase-server xenibase-agent >/dev/null 2>&1 || true
 	now_schema=$(schema_version || true)
 	if [ -n "$now_schema" ] && [ "$now_schema" != "$cur_schema" ]; then
 		log "the database was migrated ($cur_schema -> $now_schema): restoring the backup"
-		docker compose exec -T metadata-db psql -U pgdock -d postgres -Atc "drop database pgdock with (force)" -c "create database pgdock owner pgdock" >/dev/null || return 1
-		docker compose exec -T metadata-db pg_restore -U pgdock -d pgdock --no-owner < "$dump" >/dev/null || return 1
+		docker compose exec -T metadata-db psql -U xenibase -d postgres -Atc "drop database xenibase with (force)" -c "create database xenibase owner xenibase" >/dev/null || return 1
+		docker compose exec -T metadata-db pg_restore -U xenibase -d xenibase --no-owner < "$dump" >/dev/null || return 1
 		[ "$(schema_version)" = "$cur_schema" ] || { log "the restored schema isn't $cur_schema"; return 1; }
 	else
 		log "the database wasn't migrated: no restore needed"
@@ -202,15 +202,15 @@ rollback_now() {
 fail() {
 	log "UPGRADE FAILED: $1"
 	if [ "$rollback" -eq 0 ]; then
-		log "--no-rollback: stopping here. The backup is $dump; to go back: stop pgdock-server, restore it (docs/upgrade.md, Rolling back), git checkout $prev_name, ./install.sh"
+		log "--no-rollback: stopping here. The backup is $dump; to go back: stop xenibase-server, restore it (docs/upgrade.md, Rolling back), git checkout $prev_name, ./install.sh"
 		exit 2
 	fi
 	if rollback_now; then
-		log "rolled back: PGDock is running $prev_name again. Nothing from the failed upgrade was kept. See $log_file"
+		log "rolled back: Xenibase is running $prev_name again. Nothing from the failed upgrade was kept. See $log_file"
 		exit 2
 	fi
 	log "THE ROLLBACK FAILED. The metadata backup is $dump (schema $cur_schema, from $prev_name)."
-	log "By hand: docker compose stop pgdock-server; restore the backup (docs/upgrade.md, Rolling back); git checkout $prev_name; ./install.sh"
+	log "By hand: docker compose stop xenibase-server; restore the backup (docs/upgrade.md, Rolling back); git checkout $prev_name; ./install.sh"
 	exit 3
 }
 

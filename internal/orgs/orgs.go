@@ -23,11 +23,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Errors returned to the API layer. Messages are safe to show.
@@ -714,9 +714,9 @@ func (s *Service) Invite(ctx context.Context, p InviteParams) (Invited, error) {
 		return Invited{}, err
 	}
 	out := Invited{Invitation: inv, URL: s.publicURL + "/invite?token=" + token}
-	what := "PGDock"
+	what := "Xenibase"
 	if orgName != "" {
-		what = "the " + orgName + " organisation on PGDock"
+		what = "the " + orgName + " organisation on Xenibase"
 	}
 	body := fmt.Sprintf("%s invited you to %s.\n\nAccept the invitation:\n\n%s\n\nThe link works for 7 days, once.",
 		p.InviterName, what, out.URL)

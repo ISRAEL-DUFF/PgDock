@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 
 export type Theme = "light" | "dark" | "system";
 
-const KEY = "pgdock.theme";
+const KEY = "xenibase.theme";
 
 export function loadTheme(): Theme {
   try {

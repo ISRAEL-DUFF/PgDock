@@ -1,6 +1,6 @@
-// Package sandbox runs PGDock's wallet provider client against the
+// Package sandbox runs Xenibase's wallet provider client against the
 // provider's real sandbox (docs/iswallet.md). It needs sandbox credentials,
-// so it runs only with PGDOCK_TEST_SANDBOX=1 (make test-payments-sandbox).
+// so it runs only with XENIBASE_TEST_SANDBOX=1 (make test-payments-sandbox).
 // What needs a person (simulating a bank transfer, redelivering a webhook)
 // is in docs/payments.md, "Sandbox rehearsal"; this test checks everything
 // the client can do on its own.
@@ -15,14 +15,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/billing/iswallet"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/billing/iswallet"
 )
 
 func need(t *testing.T, keys ...string) map[string]string {
 	t.Helper()
-	if os.Getenv("PGDOCK_TEST_SANDBOX") == "" {
-		t.Skip("set PGDOCK_TEST_SANDBOX=1 (make test-payments-sandbox) to run against the provider's sandbox")
+	if os.Getenv("XENIBASE_TEST_SANDBOX") == "" {
+		t.Skip("set XENIBASE_TEST_SANDBOX=1 (make test-payments-sandbox) to run against the provider's sandbox")
 	}
 	out := map[string]string{}
 	for _, k := range keys {
@@ -35,19 +35,19 @@ func need(t *testing.T, keys ...string) map[string]string {
 	return out
 }
 
-// TestISWalletSandbox needs PGDOCK_ISWALLET_BASE_URL (the sandbox's),
-// PGDOCK_ISWALLET_API_KEY and a director's BVN the sandbox accepts in
-// PGDOCK_TEST_SANDBOX_BVN; PGDOCK_ISWALLET_CLIENT_ID is passed on when set.
+// TestISWalletSandbox needs XENIBASE_ISWALLET_BASE_URL (the sandbox's),
+// XENIBASE_ISWALLET_API_KEY and a director's BVN the sandbox accepts in
+// XENIBASE_TEST_SANDBOX_BVN; XENIBASE_ISWALLET_CLIENT_ID is passed on when set.
 func TestISWalletSandbox(t *testing.T) {
-	env := need(t, "PGDOCK_ISWALLET_BASE_URL", "PGDOCK_ISWALLET_API_KEY", "PGDOCK_TEST_SANDBOX_BVN")
-	if strings.Contains(strings.ToLower(env["PGDOCK_ISWALLET_API_KEY"]), "live") {
-		t.Fatal("PGDOCK_ISWALLET_API_KEY looks like a live key: refusing to run against a live account")
+	env := need(t, "XENIBASE_ISWALLET_BASE_URL", "XENIBASE_ISWALLET_API_KEY", "XENIBASE_TEST_SANDBOX_BVN")
+	if strings.Contains(strings.ToLower(env["XENIBASE_ISWALLET_API_KEY"]), "live") {
+		t.Fatal("XENIBASE_ISWALLET_API_KEY looks like a live key: refusing to run against a live account")
 	}
-	if !strings.Contains(strings.ToLower(env["PGDOCK_ISWALLET_BASE_URL"]), "sandbox") && os.Getenv("PGDOCK_SANDBOX_ALLOW_URL") == "" {
-		t.Fatal("PGDOCK_ISWALLET_BASE_URL doesn't look like a sandbox; set PGDOCK_SANDBOX_ALLOW_URL=1 if it is one")
+	if !strings.Contains(strings.ToLower(env["XENIBASE_ISWALLET_BASE_URL"]), "sandbox") && os.Getenv("XENIBASE_SANDBOX_ALLOW_URL") == "" {
+		t.Fatal("XENIBASE_ISWALLET_BASE_URL doesn't look like a sandbox; set XENIBASE_SANDBOX_ALLOW_URL=1 if it is one")
 	}
-	p := iswallet.New(iswallet.Config{BaseURL: env["PGDOCK_ISWALLET_BASE_URL"], APIKey: env["PGDOCK_ISWALLET_API_KEY"],
-		ClientID: os.Getenv("PGDOCK_ISWALLET_CLIENT_ID")})
+	p := iswallet.New(iswallet.Config{BaseURL: env["XENIBASE_ISWALLET_BASE_URL"], APIKey: env["XENIBASE_ISWALLET_API_KEY"],
+		ClientID: os.Getenv("XENIBASE_ISWALLET_CLIENT_ID")})
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
@@ -57,8 +57,8 @@ func TestISWalletSandbox(t *testing.T) {
 	var wallet billing.Wallet
 	t.Run("wallet", func(t *testing.T) {
 		var err error
-		wallet, err = p.CreateWallet(ctx, billing.WalletRequest{OwnerRef: "pgdock:sandbox:org:" + id.String(), Name: "PGDock sandbox " + id.String()[:8],
-			Email: "sandbox+" + id.String()[:8] + "@pgdock.test", BVN: env["PGDOCK_TEST_SANDBOX_BVN"], Tier: "TIER_2", IdempotencyKey: uuid.NewString()})
+		wallet, err = p.CreateWallet(ctx, billing.WalletRequest{OwnerRef: "xenibase:sandbox:org:" + id.String(), Name: "Xenibase sandbox " + id.String()[:8],
+			Email: "sandbox+" + id.String()[:8] + "@xenibase.test", BVN: env["XENIBASE_TEST_SANDBOX_BVN"], Tier: "TIER_2", IdempotencyKey: uuid.NewString()})
 		if err != nil || wallet.ID == "" {
 			t.Fatalf("create wallet: %+v %v", wallet, err)
 		}

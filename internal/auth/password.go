@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"unicode/utf8"
 
-	"github.com/israel-duff/pgdock/internal/argonpw"
+	"github.com/israel-duff/xenibase/internal/argonpw"
 )
 
 // Argon2id parameters (RFC 9106 second recommended option, scaled to a
@@ -49,7 +49,7 @@ func VerifyPassword(pw, encoded string) (bool, error) { return argonpw.Verify(pw
 // dummyHash is verified against for unknown emails, so a login for a
 // missing account costs the same as one with a wrong password.
 var dummyHash = func() string {
-	h, err := HashPassword("pgdock-dummy-password-for-timing")
+	h, err := HashPassword("xenibase-dummy-password-for-timing")
 	if err != nil {
 		panic(err)
 	}

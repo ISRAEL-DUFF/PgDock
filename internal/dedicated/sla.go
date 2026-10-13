@@ -12,16 +12,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/statusapi"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
 // SLA measurement (V3 §2.7): every interval, each HA project's pooler
-// endpoint is probed from pgdock-server (one vantage point) and, when a
+// endpoint is probed from xenibase-server (one vantage point) and, when a
 // status service is configured, from it (the other). availability_minutes
 // keeps a row per minute; a minute is unavailable when every vantage point
 // that probed in it failed.

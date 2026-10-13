@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/billing/iswallet"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/billing/iswallet"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // awaitPay polls cond until it holds (webhooks arrive asynchronously).
@@ -185,7 +185,7 @@ func TestPaymentsThroughWallets(t *testing.T) {
 		t.Errorf("after the re-query: the books hold %d, the provider %d", got, e.ISWallet.WalletBalance(*lw.WalletId))
 	}
 
-	// 4. Money paid into an account PGDock has no record of waits for an
+	// 4. Money paid into an account Xenibase has no record of waits for an
 	// admin to say whose it is.
 	own := newPayOrg(t, e, "Owner Co", false)
 	ow := openWallet(t, e, own.id, "Owner Co")

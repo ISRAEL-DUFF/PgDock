@@ -176,7 +176,7 @@ function RecordPayment({
       open={open}
       onOpenChange={(o) => !o && onClose()}
       title="Record a payment"
-      description="For a transfer to PGDock's own account or a cheque. It settles the invoice given, then the oldest open ones; anything left becomes credit."
+      description="For a transfer to Xenibase's own account or a cheque. It settles the invoice given, then the oldest open ones; anything left becomes credit."
       testId="record-payment"
       footer={
         <Button variant="primary" busy={busy === "save"} onClick={save}>
@@ -443,7 +443,7 @@ export function ReconciliationTab() {
   return (
     <Panel
       title="Reconciliation"
-      description="Each night PGDock lists the previous day's transactions at each provider and compares them with the payments it recorded."
+      description="Each night Xenibase lists the previous day's transactions at each provider and compares them with the payments it recorded."
       testId="reconciliation"
       actions={
         <Button
@@ -487,7 +487,7 @@ export function ReconciliationTab() {
               </div>
               {r.error && <p className="mt-1 text-danger">{r.error}</p>}
               {r.differences.length > 0 && (
-                <Table head={["Difference", "Reference", "Provider", "PGDock"]}>
+                <Table head={["Difference", "Reference", "Provider", "Xenibase"]}>
                   {r.differences.map((d) => (
                     <tr key={d.kind + d.provider_ref}>
                       <td className="px-3 py-2">
@@ -500,7 +500,7 @@ export function ReconciliationTab() {
                         {naira(d.provider_minor)}
                       </td>
                       <td className="px-3 py-2 tabular-nums">
-                        {naira(d.pgdock_minor)}
+                        {naira(d.xenibase_minor)}
                       </td>
                     </tr>
                   ))}
@@ -514,7 +514,7 @@ export function ReconciliationTab() {
   );
 }
 
-/** Provider webhooks PGDock could not match to an organisation. */
+/** Provider webhooks Xenibase could not match to an organisation. */
 export function EventsTab() {
   const qc = useQueryClient();
   const [outcome, setOutcome] = useState("unmatched");
@@ -532,7 +532,7 @@ export function EventsTab() {
   return (
     <Panel
       title="Payment events"
-      description="Every webhook from a provider, verified before it is posted. A transfer PGDock cannot match to an organisation waits here to be attributed."
+      description="Every webhook from a provider, verified before it is posted. A transfer Xenibase cannot match to an organisation waits here to be attributed."
       testId="payment-events"
       actions={
         <Select

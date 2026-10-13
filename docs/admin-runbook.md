@@ -1,6 +1,6 @@
 # Platform admin runbook
 
-The tasks of whoever runs a PGDock installation for other people, in the
+The tasks of whoever runs a Xenibase installation for other people, in the
 order they come up. [Operations](operations.md) explains each feature;
 this page is what to do, and when. Incidents have their own page:
 [incident process](incidents.md).
@@ -28,7 +28,7 @@ this page is what to do, and when. Incidents have their own page:
 6. **Outbound traffic** (V2 §10.7): webhooks and HTTP jobs reach only
    public `https://` addresses. If your servers can reach private networks
    or a metadata service on unusual ranges, add them to
-   `PGDOCK_OUTBOUND_BLOCK`. Allow-list internal hosts for an organisation
+   `XENIBASE_OUTBOUND_BLOCK`. Allow-list internal hosts for an organisation
    only when you trust it (Organisations → the org → Outbound).
 7. **An external review.** Before anyone outside your own projects relies
    on it, have someone else look at tenant isolation, or pay for a short
@@ -60,7 +60,7 @@ people (V2 §14 M16):
   capacity you have, or reject with a reason.
 - **Payments** (Admin → Billing): attribute any transfer under **Events →
   Unmatched**, look at **Reconciliation** (it should say "No
-  differences" for each provider), and record any payment to PGDock's own
+  differences" for each provider), and record any payment to Xenibase's own
   bank account under **Payments**. See [Payments](payments.md).
 
 - **Capacity** (Platform → Capacity): approve or reject proposals that
@@ -99,7 +99,7 @@ the first real invoice:
 1. **The company** is incorporated. Its legal name, address, TIN and VAT
    registration go in Admin → Billing → Settings, so invoices show them.
 2. **The wallet provider** (iswallet): the account is approved for live
-   use, with the live key and webhook secret in `PGDOCK_ISWALLET_*` and
+   use, with the live key and webhook secret in `XENIBASE_ISWALLET_*` and
    the webhook URL registered, and the sandbox rehearsal has been run. See
    [Payments](payments.md).
 3. **Legal review**: a lawyer reviews the terms, privacy notice, AUP,
@@ -133,7 +133,7 @@ the first real invoice:
 | Someone lost their authenticator and recovery codes | Confirm who they are out of band (a call, not the email that asks), then Users → the user → **Reset two-factor**. It is audited and they are emailed. |
 | A colleague should help run the platform | They need an active account with two-factor set up. Users → **Platform role** → platform admin. It asks for your password and a code, signs them out, emails them, and is audited. Choosing *user* reverses it; the last admin can't be removed. |
 | A colleague should answer support tickets | Users → **Platform role** → *support staff*. They see Platform → Support and the metadata of the organisations that write in, and nothing else of the platform's. See [support](support.md). |
-| Nobody can sign in as a platform admin | On the server: `docker compose exec pgdock-server pgdock-server admin list`, then `promote <email>`, `reset-2fa <email>` or `reset-password <email>` (prints a one-hour link when email is down). Audited as done on the server. See [operations](operations.md#platform-admins-and-recovery). |
+| Nobody can sign in as a platform admin | On the server: `docker compose exec xenibase-server xenibase-server admin list`, then `promote <email>`, `reset-2fa <email>` or `reset-password <email>` (prints a one-hour link when email is down). Audited as done on the server. See [operations](operations.md#platform-admins-and-recovery). |
 | Someone leaves a team | The team's owners remove them; it's immediate. You don't need to do anything. |
 | An account is abused or compromised | Users → **Disable**: sessions, tokens and database logins end at once. |
 | A user wants their account deleted | They do it from Account; it is refused while they're the last owner of an organisation with projects. |
@@ -153,8 +153,8 @@ the first real invoice:
 - The **backup key** (Settings → Backup key) decrypts every backup on
   platform targets. Keep its export offline; without it, a lost server
   means lost backups.
-- The **master key** (`PGDOCK_MASTER_KEY`) seals credentials; rotate it with
-  `pgdock-server -rotate-master-key` ([operations](operations.md#secrets)).
+- The **master key** (`XENIBASE_MASTER_KEY`) seals credentials; rotate it with
+  `xenibase-server -rotate-master-key` ([operations](operations.md#secrets)).
 - A full rebuild of the control node: [disaster recovery](disaster-recovery.md).
 
 ## Releases

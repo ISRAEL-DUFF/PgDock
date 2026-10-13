@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // fakeSuspender suspends in the database, as tenancy does.
@@ -352,7 +352,7 @@ func TestReconciliation(t *testing.T) {
 			kinds[d.Kind] = true
 		}
 	}
-	if !kinds["missing_in_pgdock"] || !kinds["missing_at_provider"] || !kinds["wallet_balance"] {
+	if !kinds["missing_in_xenibase"] || !kinds["missing_at_provider"] || !kinds["wallet_balance"] {
 		t.Errorf("differences: %+v", res)
 	}
 	if last, _ := w.s.LastReconciliation(ctx); len(last) != 2 {

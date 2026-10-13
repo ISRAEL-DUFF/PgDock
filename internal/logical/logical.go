@@ -22,12 +22,12 @@ import (
 )
 
 // Prefix names every object a move creates on either side.
-const Prefix = "pgdock_move_"
+const Prefix = "xenibase_move_"
 
 // Schema holds the move's own objects on both sides: the DDL block's
 // function and the marker table the cutover syncs on. Superuser-owned,
 // dropped by Cleanup, and never part of a dump.
-const Schema = "pgdock_move"
+const Schema = "xenibase_move"
 
 const schema = Schema
 
@@ -300,7 +300,7 @@ func secret() (string, error) {
 
 // blockDDL installs the event trigger that refuses tenants' DDL while the
 // move runs (V3 §2.3): the target's schema was copied once and DDL isn't
-// replicated. The superuser (PGDock itself) is let through.
+// replicated. The superuser (Xenibase itself) is let through.
 func blockDDL(ctx context.Context, c *pgx.Conn) error {
 	_, err := c.Exec(ctx, `
 CREATE OR REPLACE FUNCTION `+schema+`.block_ddl() RETURNS event_trigger LANGUAGE plpgsql AS $f$

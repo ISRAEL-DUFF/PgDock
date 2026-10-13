@@ -19,14 +19,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/floatip"
-	"github.com/israel-duff/pgdock/internal/incidents"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/pooler"
-	"github.com/israel-duff/pgdock/internal/statusapi"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/floatip"
+	"github.com/israel-duff/xenibase/internal/incidents"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // edgeHost is one pooler-host container and its keepalived sidecar.
@@ -40,16 +40,16 @@ type edgeHost struct {
 // floating IP. Killing the host that holds the address must bring
 // connections back through it, on the other host, within 10 seconds.
 func TestPoolerHostFailover(t *testing.T) {
-	hostImage, kaImage := os.Getenv("PGDOCK_TEST_POOLER_HOST_IMAGE"), os.Getenv("PGDOCK_TEST_KEEPALIVED_IMAGE")
+	hostImage, kaImage := os.Getenv("XENIBASE_TEST_POOLER_HOST_IMAGE"), os.Getenv("XENIBASE_TEST_KEEPALIVED_IMAGE")
 	if hostImage == "" || kaImage == "" {
-		t.Skip("PGDOCK_TEST_POOLER_HOST_IMAGE and PGDOCK_TEST_KEEPALIVED_IMAGE are not set (make pooler-host-images)")
+		t.Skip("XENIBASE_TEST_POOLER_HOST_IMAGE and XENIBASE_TEST_KEEPALIVED_IMAGE are not set (make pooler-host-images)")
 	}
 	e := testenv.Start(t, testenv.Options{})
 	ctx := context.Background()
-	gw := os.Getenv("PGDOCK_TEST_DOCKER_GATEWAY")
-	network := os.Getenv("PGDOCK_TEST_DOCKER_NETWORK")
+	gw := os.Getenv("XENIBASE_TEST_DOCKER_GATEWAY")
+	network := os.Getenv("XENIBASE_TEST_DOCKER_NETWORK")
 	if gw == "" || network == "" {
-		t.Skip("PGDOCK_TEST_DOCKER_GATEWAY and PGDOCK_TEST_DOCKER_NETWORK are not set")
+		t.Skip("XENIBASE_TEST_DOCKER_GATEWAY and XENIBASE_TEST_DOCKER_NETWORK are not set")
 	}
 	prefix := gw[:strings.LastIndex(gw, ".")+1]
 	vip := prefix + "240"
@@ -67,8 +67,8 @@ func TestPoolerHostFailover(t *testing.T) {
 	hzURL := "http://" + ln.Addr().String() + "/v1"
 
 	hosts := []*edgeHost{
-		{name: "edge-a", container: "pgdock-test-edge-a", ip: prefix + "231", serverID: "1001"},
-		{name: "edge-b", container: "pgdock-test-edge-b", ip: prefix + "232", serverID: "1002"},
+		{name: "edge-a", container: "xenibase-test-edge-a", ip: prefix + "231", serverID: "1001"},
+		{name: "edge-b", container: "xenibase-test-edge-b", ip: prefix + "232", serverID: "1002"},
 	}
 	removeEdge := func() {
 		for _, h := range hosts {
@@ -105,20 +105,20 @@ func TestPoolerHostFailover(t *testing.T) {
 		}
 		peer := hosts[1-i].ip
 		run := []string{"run", "-d", "--name", h.container, "--network", network, "--ip", h.ip,
-			"-v", edgeDir + ":/etc/pgdock-edge",
-			"-e", "PGDOCK_AGENT_SERVER=" + e.URL, "-e", "PGDOCK_AGENT_TOKEN=" + created.Token,
-			"-e", "PGDOCK_AGENT_ADVERTISE=" + h.ip + ":7070", "-e", "PGDOCK_AGENT_LOG_FORMAT=text",
-			"-e", "PGDOCK_AGENT_SERVER_ID=" + h.serverID, "-e", "PGDOCK_AGENT_HETZNER_API=" + hzURL,
-			"-e", "PGDOCK_AGENT_HETZNER_TOKEN=" + fake.Token, "-e", "PGDOCK_AGENT_FLOATING_IP_ID=" + fake.IPID,
-			"-e", "PGDOCK_EDGE_SELF_IP=" + h.ip, "-e", "PGDOCK_EDGE_PEER_IP=" + peer, "-e", "PGDOCK_EDGE_VIP=" + vip,
-			"-e", "PGDOCK_EDGE_VRRP_PASSWORD=edgetest", "-e", "PGDOCK_EDGE_PRIORITY=" + strconv.Itoa(110-10*i),
+			"-v", edgeDir + ":/etc/xenibase-edge",
+			"-e", "XENIBASE_AGENT_SERVER=" + e.URL, "-e", "XENIBASE_AGENT_TOKEN=" + created.Token,
+			"-e", "XENIBASE_AGENT_ADVERTISE=" + h.ip + ":7070", "-e", "XENIBASE_AGENT_LOG_FORMAT=text",
+			"-e", "XENIBASE_AGENT_SERVER_ID=" + h.serverID, "-e", "XENIBASE_AGENT_HETZNER_API=" + hzURL,
+			"-e", "XENIBASE_AGENT_HETZNER_TOKEN=" + fake.Token, "-e", "XENIBASE_AGENT_FLOATING_IP_ID=" + fake.IPID,
+			"-e", "XENIBASE_EDGE_SELF_IP=" + h.ip, "-e", "XENIBASE_EDGE_PEER_IP=" + peer, "-e", "XENIBASE_EDGE_VIP=" + vip,
+			"-e", "XENIBASE_EDGE_VRRP_PASSWORD=edgetest", "-e", "XENIBASE_EDGE_PRIORITY=" + strconv.Itoa(110-10*i),
 			hostImage}
 		if out, err := exec.Command("docker", run...).CombinedOutput(); err != nil {
 			t.Fatalf("start %s: %v: %s", h.container, err, out)
 		}
 		ka := []string{"run", "-d", "--name", h.container + "-keepalived", "--network", "container:" + h.container,
 			"--cap-add", "NET_ADMIN", "--cap-add", "NET_BROADCAST", "--cap-add", "NET_RAW",
-			"-v", edgeDir + ":/etc/pgdock-edge:ro", "--entrypoint", "sh", kaImage, "-c", string(keepalivedScript)}
+			"-v", edgeDir + ":/etc/xenibase-edge:ro", "--entrypoint", "sh", kaImage, "-c", string(keepalivedScript)}
 		if out, err := exec.Command("docker", ka...).CombinedOutput(); err != nil {
 			t.Fatalf("start %s keepalived: %v: %s", h.container, err, out)
 		}
@@ -135,9 +135,9 @@ func TestPoolerHostFailover(t *testing.T) {
 		return true
 	})
 
-	// pgdock-server's side, as cmd/server wires it.
+	// xenibase-server's side, as cmd/server wires it.
 	e.Pooler.SetHostDriver(nodes.PoolerDriver{S: e.Nodes}, pooler.HostAdminConfig{
-		User: "pgdock", Password: os.Getenv("PGDOCK_TEST_POOLER_ADMIN_PASSWORD"), SSLMode: "require",
+		User: "xenibase", Password: os.Getenv("XENIBASE_TEST_POOLER_ADMIN_PASSWORD"), SSLMode: "require",
 	})
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	if testing.Verbose() {
@@ -191,7 +191,7 @@ func TestPoolerHostFailover(t *testing.T) {
 	}
 	t.Logf("active %s, standby %s", active.name, standby.name)
 
-	// pgdock-status, outside the dev network, probing both ports through
+	// xenibase-status, outside the dev network, probing both ports through
 	// the shared address as an outside prober would (V3 §2.6).
 	st := startStatusContainer(t, creds.Connection.SessionUrl, creds.Connection.PooledUrl, vip)
 	st.waitEdge(t, statusapi.Operational, false)
@@ -270,14 +270,14 @@ func TestPoolerHostFailover(t *testing.T) {
 	}
 }
 
-// statusContainer is pgdock-status in Docker, on the host's network.
+// statusContainer is xenibase-status in Docker, on the host's network.
 type statusContainer struct{ name, url string }
 
 func startStatusContainer(t *testing.T, sessionURL, pooledURL, vip string) *statusContainer {
 	t.Helper()
-	image := os.Getenv("PGDOCK_TEST_STATUS_IMAGE")
+	image := os.Getenv("XENIBASE_TEST_STATUS_IMAGE")
 	if image == "" {
-		t.Skip("PGDOCK_TEST_STATUS_IMAGE is not set (make status-image)")
+		t.Skip("XENIBASE_TEST_STATUS_IMAGE is not set (make status-image)")
 	}
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -325,17 +325,17 @@ heartbeat = true
 	if err := os.WriteFile(filepath.Join(dir, "status.toml"), []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	c := &statusContainer{name: "pgdock-test-status", url: "http://" + addr}
+	c := &statusContainer{name: "xenibase-test-status", url: "http://" + addr}
 	_ = exec.Command("docker", "rm", "-f", "-v", c.name).Run()
 	out, err := exec.Command("docker", "run", "-d", "--name", c.name, "--network", "host",
-		"-e", "PGDOCK_STATUS_LOG_FORMAT=text", "-v", dir+":/etc/pgdock-status:ro", image).CombinedOutput()
+		"-e", "XENIBASE_STATUS_LOG_FORMAT=text", "-v", dir+":/etc/xenibase-status:ro", image).CombinedOutput()
 	if err != nil {
-		t.Fatalf("start pgdock-status: %v: %s", err, out)
+		t.Fatalf("start xenibase-status: %v: %s", err, out)
 	}
 	t.Cleanup(func() {
 		if t.Failed() {
 			out, _ := exec.Command("docker", "logs", "--tail", "60", c.name).CombinedOutput()
-			t.Logf("pgdock-status:\n%s", out)
+			t.Logf("xenibase-status:\n%s", out)
 		}
 		_ = exec.Command("docker", "rm", "-f", "-v", c.name).Run()
 	})

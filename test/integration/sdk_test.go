@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestSDKs runs each SDK's live test (sdk/js/test/live.mjs,
@@ -26,7 +26,7 @@ import (
 // security, a realtime change, files, errors and sign-out. The edge is
 // reached through a local proxy that gives it the project's host name.
 // Node and Go always run; Dart runs when `dart` is on PATH or
-// PGDOCK_TEST_DART names it.
+// XENIBASE_TEST_DART names it.
 func TestSDKs(t *testing.T) {
 	e := testenv.Start(t, testenv.Options{})
 	e.ConfigureBackups() // file storage
@@ -63,14 +63,14 @@ func TestSDKs(t *testing.T) {
 	defer app.Close(ctx)
 	user := store.UserRole(p.DbName)
 	for _, st := range []string{
-		`CREATE TABLE notes (id bigserial PRIMARY KEY, owner_id uuid NOT NULL DEFAULT pgd_auth.uid() REFERENCES pgd_auth.users (id) ON DELETE CASCADE,
+		`CREATE TABLE notes (id bigserial PRIMARY KEY, owner_id uuid NOT NULL DEFAULT xb_auth.uid() REFERENCES xb_auth.users (id) ON DELETE CASCADE,
 			body text NOT NULL, created_at timestamptz NOT NULL DEFAULT now())`,
 		`ALTER TABLE notes ENABLE ROW LEVEL SECURITY`,
-		fmt.Sprintf(`CREATE POLICY own ON notes FOR ALL TO %q USING (owner_id = pgd_auth.uid()) WITH CHECK (owner_id = pgd_auth.uid())`, user),
-		`SELECT pgd_realtime.enable('notes')`,
-		fmt.Sprintf(`CREATE POLICY own_files ON pgd_storage.objects FOR ALL TO %q
-			USING (bucket = 'files' AND pgd_storage.folder(path, 1) = pgd_auth.uid()::text)
-			WITH CHECK (bucket = 'files' AND pgd_storage.folder(path, 1) = pgd_auth.uid()::text)`, user),
+		fmt.Sprintf(`CREATE POLICY own ON notes FOR ALL TO %q USING (owner_id = xb_auth.uid()) WITH CHECK (owner_id = xb_auth.uid())`, user),
+		`SELECT xb_realtime.enable('notes')`,
+		fmt.Sprintf(`CREATE POLICY own_files ON xb_storage.objects FOR ALL TO %q
+			USING (bucket = 'files' AND xb_storage.folder(path, 1) = xb_auth.uid()::text)
+			WITH CHECK (bucket = 'files' AND xb_storage.folder(path, 1) = xb_auth.uid()::text)`, user),
 	} {
 		if _, err := app.Exec(ctx, st); err != nil {
 			t.Fatalf("%s: %v", st, err)
@@ -104,7 +104,7 @@ func TestSDKs(t *testing.T) {
 
 	_, file, _, _ := runtime.Caller(0)
 	root := filepath.Join(filepath.Dir(file), "..", "..")
-	env := append(os.Environ(), "PGDOCK_SDK_URL="+srv.URL, "PGDOCK_SDK_PUB="+pub, "PGDOCK_SDK_SECRET="+sec, "PGDOCK_SDK_PASSWORD=sdk-password-123")
+	env := append(os.Environ(), "XENIBASE_SDK_URL="+srv.URL, "XENIBASE_SDK_PUB="+pub, "XENIBASE_SDK_SECRET="+sec, "XENIBASE_SDK_PASSWORD=sdk-password-123")
 	run := func(t *testing.T, dir string, name string, args ...string) {
 		t.Helper()
 		cmd := exec.Command(name, args...)
@@ -131,10 +131,10 @@ func TestSDKs(t *testing.T) {
 		run(t, "sdk/go", "go", "test", "-count=1", "-race", "-run", "TestLive", "./...")
 	})
 	t.Run("dart", func(t *testing.T) {
-		dart := os.Getenv("PGDOCK_TEST_DART")
+		dart := os.Getenv("XENIBASE_TEST_DART")
 		if dart == "" {
 			if dart, err = exec.LookPath("dart"); err != nil {
-				t.Skip("dart not installed (set PGDOCK_TEST_DART)")
+				t.Skip("dart not installed (set XENIBASE_TEST_DART)")
 			}
 		}
 		run(t, "sdk/dart", dart, "pub", "get")

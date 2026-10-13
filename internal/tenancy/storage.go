@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Storage states (V2 §10.4).
@@ -144,17 +144,17 @@ func (s *Service) storageEmail(ctx context.Context, p store.Project, cur, want s
 	link := s.link("/projects/" + p.ID.String())
 	switch {
 	case stateRank[want] < stateRank[cur] && stateRank[cur] >= stateRank[StateSoft]:
-		subject = fmt.Sprintf("[PGDock] %s is writable again", p.Name)
+		subject = fmt.Sprintf("[Xenibase] %s is writable again", p.Name)
 		body = fmt.Sprintf("%s is back under its storage limit (%d%%), and its locks are lifted.\n\n%s", p.Name, pct, link)
 	case want == StateWarn && cur == StateNone:
-		subject = fmt.Sprintf("[PGDock] %s is at %d%% of its storage limit", p.Name, pct)
+		subject = fmt.Sprintf("[Xenibase] %s is at %d%% of its storage limit", p.Name, pct)
 		body = fmt.Sprintf("%s is at %d%% of its storage limit. At 100%% it becomes read-only; at 120%% apps can no longer connect.\n\nDelete data or ask for a larger plan:\n%s", p.Name, pct, link)
 	case want == StateSoft:
-		subject = fmt.Sprintf("[PGDock] %s is read-only: storage limit reached", p.Name)
+		subject = fmt.Sprintf("[Xenibase] %s is read-only: storage limit reached", p.Name)
 		body = fmt.Sprintf("%s has reached its storage limit (%d%%) and is now read-only by default. You can still delete data (in a read-write transaction, or from the SQL console), then use Reclaim space.\n\nAt 120%% apps can no longer connect.\n\n%s", p.Name, pct, link)
 	case want == StateHard:
-		subject = fmt.Sprintf("[PGDock] %s is offline: storage limit exceeded", p.Name)
-		body = fmt.Sprintf("%s is at %d%% of its storage limit, so its logins are switched off. The PGDock SQL console and table editor still work: delete data there, then use Reclaim space.\n\n%s", p.Name, pct, link)
+		subject = fmt.Sprintf("[Xenibase] %s is offline: storage limit exceeded", p.Name)
+		body = fmt.Sprintf("%s is at %d%% of its storage limit, so its logins are switched off. The Xenibase SQL console and table editor still work: delete data there, then use Reclaim space.\n\n%s", p.Name, pct, link)
 	default:
 		return
 	}

@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
 func oneLine(s string, n int) string {

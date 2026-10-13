@@ -5,11 +5,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/israel-duff/pgdock/internal/datacat"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/datacat"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
-// The API page's per-table docs and `pgdock policies list` (V4.1 §9.2,
+// The API page's per-table docs and `xenibase policies list` (V4.1 §9.2,
 // §9.4): what the data API exposes, from the same catalog as typegen,
 // with each table's row-level security, its policies in the request
 // roles' friendly names, and what anon and user may do.
@@ -261,7 +261,7 @@ func embedName(cat *datacat.Catalog, t *datacat.Table) string {
 	return t.Schema + "." + t.Name
 }
 
-// Policies lists p's policies by table (`pgdock policies list`), or one
+// Policies lists p's policies by table (`xenibase policies list`), or one
 // table's ("schema.table" or a bare name in an exposed schema).
 func (s *Service) Policies(ctx context.Context, p store.Project, table string) ([]TableDoc, error) {
 	d, err := s.Describe(ctx, p)

@@ -3,7 +3,7 @@
 Upgrading the control server by hand (checkout, `./install.sh`, look around)
 works, but it leaves the safety checks to whoever is typing. `upgrade.sh`
 does them every time, and a GitHub Actions workflow can run it for you behind
-an approval. This page covers both. What an upgrade changes in PGDock is in
+an approval. This page covers both. What an upgrade changes in Xenibase is in
 [Upgrading](upgrade.md); the steps for V2 → V4 are in
 [the V2 to V4 runbook](upgrade-v2-to-v4.md).
 
@@ -26,7 +26,7 @@ Run it in `deploy/compose` on the server:
 3. **Checks out the tag and runs `./install.sh`**, which builds the images
    while the old version keeps serving, then restarts what changed.
 4. **Checks the result**, for up to five minutes: every service running (and
-   healthy where it has a check), `pgdock-server -version` reporting the tag,
+   healthy where it has a check), `xenibase-server -version` reporting the tag,
    and the database at the tag's last migration.
 5. **If a check fails, rolls back by itself:** stops the new server, restores
    the metadata backup *if* a migration had run, checks out the previous
@@ -55,10 +55,10 @@ An install that doesn't have `upgrade.sh` yet (anything before the release
 that added it) takes it from the new tag:
 
 ```sh
-cd ~/pgdock/deploy/compose
+cd ~/xenibase/deploy/compose
 git fetch --tags
 git show v4.1.0:deploy/compose/upgrade.sh > /tmp/upgrade.sh
-PGDOCK_DIR=$PWD sh /tmp/upgrade.sh v4.1.0
+XENIBASE_DIR=$PWD sh /tmp/upgrade.sh v4.1.0
 ```
 
 From then on it is in the checkout. The script runs from a private copy of
@@ -83,15 +83,15 @@ over SSH:
 ```sh
 adduser --disabled-password --gecos '' deploy
 usermod -aG docker deploy                 # it runs docker compose
-chown -R deploy: /path/to/pgdock          # the checkout; deploy runs git in it
+chown -R deploy: /path/to/xenibase          # the checkout; deploy runs git in it
 ```
 
-Make a key pair on your laptop (`ssh-keygen -t ed25519 -f pgdock-deploy`), and
+Make a key pair on your laptop (`ssh-keygen -t ed25519 -f xenibase-deploy`), and
 put the public key in `/home/deploy/.ssh/authorized_keys` as a **forced
 command**, so the key can do an upgrade and nothing else:
 
 ```text
-restrict,command="/path/to/pgdock/deploy/compose/deploy-ssh.sh" ssh-ed25519 AAAA… pgdock-deploy
+restrict,command="/path/to/xenibase/deploy/compose/deploy-ssh.sh" ssh-ed25519 AAAA… xenibase-deploy
 ```
 
 `deploy-ssh.sh` accepts exactly `upgrade <tag> [--dry-run]`, `status` and
@@ -100,8 +100,8 @@ session, so a dropped connection doesn't kill it half-way; `last` says how it
 ended. The server must be able to `git fetch` the repository (public, or give
 the deploy user a read-only deploy key).
 
-Try it from your laptop: `ssh -i pgdock-deploy deploy@host status`, and a shell
-must be refused: `ssh -i pgdock-deploy deploy@host bash`.
+Try it from your laptop: `ssh -i xenibase-deploy deploy@host status`, and a shell
+must be refused: `ssh -i xenibase-deploy deploy@host bash`.
 
 **In GitHub**, Settings → Environments → **production**:
 
@@ -118,7 +118,7 @@ must be refused: `ssh -i pgdock-deploy deploy@host bash`.
   nodes](upgrade.md#remote-nodes)): an agent older than the server is refused
   work.
 - **Zero downtime.** There is one control server.
-- **Test your apps.** The checks say PGDock is up and migrated, not that your
+- **Test your apps.** The checks say Xenibase is up and migrated, not that your
   customers' apps work. Open the dashboard, Nodes, Operations and Alerts, and
   run a backup.
 - **Undo a rollback you didn't want.** A rollback discards what was done in
@@ -129,7 +129,7 @@ must be refused: `ssh -i pgdock-deploy deploy@host bash`.
 ## Keeping it safe
 
 - The backups in `upgrade-backups/` hold the metadata database, which includes
-  email addresses and secrets sealed with `PGDOCK_MASTER_KEY`. Keep the folder
+  email addresses and secrets sealed with `XENIBASE_MASTER_KEY`. Keep the folder
   readable by root and the deploy user only, and copy dumps off the server
   encrypted.
 - Anyone who can approve the `production` environment can change what runs on

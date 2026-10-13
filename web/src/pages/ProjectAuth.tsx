@@ -809,7 +809,7 @@ function EmailsTab({
         ) : (
           <Alert tone="warn" title="Platform email: for development">
             Up to {cfg.email.platform_per_hour} emails an hour go through
-            PGDock's email ({cfg.email.platform_left} left this hour). Set up
+            Xenibase's email ({cfg.email.platform_left} left this hour). Set up
             your own SMTP server before launch.
           </Alert>
         )}
@@ -869,7 +869,7 @@ function SMTPPanel({
   return (
     <Panel
       title="Your SMTP server"
-      description="Emails come from your domain, without PGDock's hourly limit."
+      description="Emails come from your domain, without Xenibase's hourly limit."
       testId="auth-smtp"
     >
       <form

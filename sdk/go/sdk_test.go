@@ -1,4 +1,4 @@
-package pgdock
+package xenibase
 
 import (
 	"context"
@@ -56,7 +56,7 @@ func newFake(t *testing.T, h func(w http.ResponseWriter, r *http.Request, body s
 		f.h(w, r, string(b))
 	}))
 	t.Cleanup(srv.Close)
-	c, err := New(srv.URL, "pgd_pub_x")
+	c, err := New(srv.URL, "xb_pub_x")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestQueries(t *testing.T) {
 	}
 	r := f.calls[0]
 	if r.Method != "GET" || r.URL.Path != "/data/v1/todos" || r.URL.Query().Get("where") != "done:eq:false" ||
-		r.URL.Query().Get("or") != "a:eq:1,b:eq:2" || r.URL.Query().Get("order") != "created_at:desc" || r.Header.Get("apikey") != "pgd_pub_x" {
+		r.URL.Query().Get("or") != "a:eq:1,b:eq:2" || r.URL.Query().Get("order") != "created_at:desc" || r.Header.Get("apikey") != "xb_pub_x" {
 		t.Fatalf("read: %s %s", r.Method, r.URL)
 	}
 	// not() needs the JSON form.

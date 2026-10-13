@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // KindNoop is a dummy operation for exercising the queue end to end.

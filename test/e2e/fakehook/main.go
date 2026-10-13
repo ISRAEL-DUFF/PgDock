@@ -1,6 +1,6 @@
 // Command fakehook is a webhook receiver for the e2e bundle. It records
 // every request it gets and lists them as JSON at GET /requests, so browser
-// tests can check what PGDock sent (and its signature).
+// tests can check what Xenibase sent (and its signature).
 package main
 
 import (

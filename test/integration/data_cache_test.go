@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // TestDataCache is V4.1-M9's done-when (V4.1 §10): a listed table's second

@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // PaymentIn is money received, from a provider event, a re-query, or the
@@ -88,7 +88,7 @@ func (s *Service) RecordPayment(ctx context.Context, p PaymentIn) (Settlement, e
 		if p.Provider == ProviderISwallet {
 			s.afterDeposit(p.OrgID)
 		}
-		s.notifyOrg(ctx, p.OrgID, "billing.receipt", fmt.Sprintf("PGDock: payment of %s received", Naira(p.AmountMinor)),
+		s.notifyOrg(ctx, p.OrgID, "billing.receipt", fmt.Sprintf("Xenibase: payment of %s received", Naira(p.AmountMinor)),
 			fmt.Sprintf("Thank you: %s received from %s on %s (reference %s).\n\nThe receipt: %s/org/billing?org=%s\n",
 				Naira(p.AmountMinor), s.orgName(ctx, p.OrgID), p.ReceivedAt.UTC().Format("2 January 2006"), p.ProviderRef, s.publicURL, p.OrgID))
 	}
@@ -342,10 +342,10 @@ func (s *Service) RecordManual(ctx context.Context, m ManualPayment) (Settlement
 // With reopen, a refund larger than the credit first takes the rest back
 // off the invoices this payment settled (newest first), which are owed
 // again: for money returned, a chargeback, or a payment to the wrong
-// organisation. The money itself goes back outside PGDock, so the refund
+// organisation. The money itself goes back outside Xenibase, so the refund
 // completes at once and the ledger's cash moves (V3 §3.3: a refund reverses
 // the payment's cash; nothing is edited). Money in an org's wallet is not
-// PGDock's to return.
+// Xenibase's to return.
 func (s *Service) Refund(ctx context.Context, paymentID uuid.UUID, amount int64, reason string, reopen bool, by *uuid.UUID) (store.Refund, error) {
 	reason = strings.TrimSpace(reason)
 	if amount <= 0 || reason == "" {

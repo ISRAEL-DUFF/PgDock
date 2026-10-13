@@ -1,4 +1,4 @@
-// Package api implements the PGDock HTTP API and serves the embedded web UI.
+// Package api implements the Xenibase HTTP API and serves the embedded web UI.
 package api
 
 import (
@@ -16,38 +16,38 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/alerts"
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/branching"
-	"github.com/israel-duff/pgdock/internal/capacity"
-	"github.com/israel-duff/pgdock/internal/console"
-	"github.com/israel-duff/pgdock/internal/costs"
-	"github.com/israel-duff/pgdock/internal/freetier"
-	"github.com/israel-duff/pgdock/internal/incidents"
-	"github.com/israel-duff/pgdock/internal/insights"
-	"github.com/israel-duff/pgdock/internal/isocheck"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/legal"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/orgs"
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/internal/pgversions"
-	"github.com/israel-duff/pgdock/internal/pooler"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/regions"
-	"github.com/israel-duff/pgdock/internal/schedjobs"
-	"github.com/israel-duff/pgdock/internal/services"
-	"github.com/israel-duff/pgdock/internal/settings"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/support"
-	"github.com/israel-duff/pgdock/internal/tenancy"
-	"github.com/israel-duff/pgdock/internal/tokens"
-	"github.com/israel-duff/pgdock/internal/version"
-	"github.com/israel-duff/pgdock/internal/webhooks"
+	"github.com/israel-duff/xenibase/internal/alerts"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/branching"
+	"github.com/israel-duff/xenibase/internal/capacity"
+	"github.com/israel-duff/xenibase/internal/console"
+	"github.com/israel-duff/xenibase/internal/costs"
+	"github.com/israel-duff/xenibase/internal/freetier"
+	"github.com/israel-duff/xenibase/internal/incidents"
+	"github.com/israel-duff/xenibase/internal/insights"
+	"github.com/israel-duff/xenibase/internal/isocheck"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/legal"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/orgs"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/internal/pgversions"
+	"github.com/israel-duff/xenibase/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/regions"
+	"github.com/israel-duff/xenibase/internal/schedjobs"
+	"github.com/israel-duff/xenibase/internal/services"
+	"github.com/israel-duff/xenibase/internal/settings"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/support"
+	"github.com/israel-duff/xenibase/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/tokens"
+	"github.com/israel-duff/xenibase/internal/version"
+	"github.com/israel-duff/xenibase/internal/webhooks"
 )
 
 // Server implements gen.ServerInterface. Endpoints that later milestones
@@ -118,7 +118,7 @@ type Options struct {
 	// may be nil in tests that only exercise static routes.
 	DB       DB
 	Notifier *jobs.Notifier
-	// DevEndpoints enables /api/v1/dev/* (PGDOCK_DEV_ENDPOINTS).
+	// DevEndpoints enables /api/v1/dev/* (XENIBASE_DEV_ENDPOINTS).
 	DevEndpoints bool
 	// StreamCtx ends open SSE streams when done; nil means never.
 	StreamCtx context.Context

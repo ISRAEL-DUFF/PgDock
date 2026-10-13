@@ -1,6 +1,6 @@
-// Package incidents is PGDock's side of the status page (V3 §2.6): the
-// platform admin's incidents, pushed to pgdock-status with a signature,
-// and the heartbeat that reports the components pgdock-status can't probe
+// Package incidents is Xenibase's side of the status page (V3 §2.6): the
+// platform admin's incidents, pushed to xenibase-status with a signature,
+// and the heartbeat that reports the components xenibase-status can't probe
 // from outside.
 package incidents
 
@@ -18,15 +18,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/statusapi"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // DefaultComponents are the status page's component IDs
 // (deploy/status/status.example.toml).
 var DefaultComponents = []string{"dashboard", "edge-pooler", "shared-tier", "dedicated", "backups", "webhooks-jobs", "billing", "backend-services"}
 
-// Heartbeat components: the ones pgdock-server reports.
+// Heartbeat components: the ones xenibase-server reports.
 const (
 	ComponentDedicated    = "dedicated"
 	ComponentBackups      = "backups"
@@ -36,9 +36,9 @@ const (
 	ComponentBackendServices = "backend-services"
 )
 
-// Config connects PGDock to its status page.
+// Config connects Xenibase to its status page.
 type Config struct {
-	// URL and Secret reach pgdock-status; empty URL keeps incidents local.
+	// URL and Secret reach xenibase-status; empty URL keeps incidents local.
 	URL, Secret string
 	// Components the admin can attach incidents to (DefaultComponents).
 	Components []string
@@ -280,7 +280,7 @@ func (s *Service) List(ctx context.Context, limit int32) ([]Incident, error) {
 	return out, nil
 }
 
-// wire is the incident as pgdock-status takes it.
+// wire is the incident as xenibase-status takes it.
 func wire(in Incident) statusapi.Incident {
 	w := statusapi.Incident{ID: in.ID.String(), Title: in.Title, Components: in.Components, Severity: in.Severity,
 		Status: in.Status, StartedAt: in.StartedAt.UTC(), Updates: []statusapi.IncidentUpdate{}}
@@ -334,7 +334,7 @@ func (s *Service) Push(ctx context.Context) error {
 	return errors.Join(errs...)
 }
 
-// Heartbeat reports the components pgdock-status can't probe.
+// Heartbeat reports the components xenibase-status can't probe.
 func (s *Service) Heartbeat(ctx context.Context) error {
 	if s.client == nil {
 		return nil

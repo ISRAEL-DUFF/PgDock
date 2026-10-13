@@ -2,14 +2,14 @@
 
 Query insights (V3 §8) show which queries take a project's time, how they
 run, and which indexes would help. They are under **Project → Query
-insights** (and `pgdock insights`), for **Pro and Team** organisations'
+insights** (and `xenibase insights`), for **Pro and Team** organisations'
 shared projects and every **dedicated** project. Other projects get
 "plan_required" with a pointer to Billing.
 
 ## How it is collected
 
 `pg_stat_statements` is loaded on every shared cluster and dedicated
-instance. Every 5 minutes (`PGDOCK_INSIGHTS_INTERVAL`) pgdock-server
+instance. Every 5 minutes (`XENIBASE_INSIGHTS_INTERVAL`) xenibase-server
 reads it as the instance's admin, which sees every row, and keeps each
 project's own statements:
 
@@ -21,9 +21,9 @@ project's own statements:
   with their literals inline: an extended-protocol statement shows `$1`
   there, so it has no example).
 
-Tenants never read the view themselves on shared clusters. PGDock's own
+Tenants never read the view themselves on shared clusters. Xenibase's own
 sessions (backups, the SQL console, moves) aren't counted. The first read
-of an instance is the baseline: work from before PGDock looked isn't
+of an instance is the baseline: work from before Xenibase looked isn't
 shown.
 
 ## The tabs
@@ -34,7 +34,7 @@ shown.
   example. **Explain** runs `EXPLAIN` (never `ANALYZE`: nothing runs) as
   the project's role in a read-only transaction, on the example, or as a
   generic plan (`GENERIC_PLAN`, parameters unknown) when there is none.
-- **Slow queries:** statements over `PGDOCK_SLOW_QUERY_MS` (default
+- **Slow queries:** statements over `XENIBASE_SLOW_QUERY_MS` (default
   1000): seen running past it when the statistics were read; a call that
   slow between two reads (from pg_stat_statements' maximum and the
   interval's mean); and statements the shared tier's reaper cancelled.
@@ -65,9 +65,9 @@ shown.
 
 | Variable | Default | |
 | --- | --- | --- |
-| `PGDOCK_INSIGHTS_PLANS` | `pro,team` | Plans whose shared projects get insights; `all` for installations without billing. |
-| `PGDOCK_INSIGHTS_INTERVAL` | `5m` | How often pg_stat_statements is read. |
-| `PGDOCK_SLOW_QUERY_MS` | `1000` | The slow-query threshold. |
+| `XENIBASE_INSIGHTS_PLANS` | `pro,team` | Plans whose shared projects get insights; `all` for installations without billing. |
+| `XENIBASE_INSIGHTS_INTERVAL` | `5m` | How often pg_stat_statements is read. |
+| `XENIBASE_SLOW_QUERY_MS` | `1000` | The slow-query threshold. |
 
 `pg_stat_statements.max` (5000 by default) bounds how many distinct
 statements a cluster tracks; on a busy shared cluster the rarest are

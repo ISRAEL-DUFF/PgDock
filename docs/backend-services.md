@@ -10,18 +10,18 @@ milestones after them.
 ## How a request is served
 
 ```
-app ──HTTPS──▶ <ref>.<domain> ──▶ pgdock-edge (per region)
+app ──HTTPS──▶ <ref>.<domain> ──▶ xenibase-edge (per region)
                                     │ key, token, CORS, rate limit
                                     ▼
                         transaction pooler ──▶ the project's database
                         BEGIN; SET LOCAL ROLE <db>_anon|_user|_service;
-                        set_config('pgd.claims', …, true); …; COMMIT
+                        set_config('xb.claims', …, true); …; COMMIT
 ```
 
 - Each project with backend services has a **reference**, eight letters and
   digits starting with a letter (`k7f3m2q9`), and is served at
-  `https://<ref>.<domain>`, where the domain is `PGDOCK_API_DOMAIN`.
-- **pgdock-edge** resolves exactly one project per request from the
+  `https://<ref>.<domain>`, where the domain is `XENIBASE_API_DOMAIN`.
+- **xenibase-edge** resolves exactly one project per request from the
   hostname, checks the API key against that project's keys only, and runs
   the request in one transaction through the transaction pooler. It logs
   in as the project's `<db>_edge` role, which owns nothing and can only
@@ -33,8 +33,8 @@ app ──HTTPS──▶ <ref>.<domain> ──▶ pgdock-edge (per region)
 
 | Key | Prefix | Used from | Requests run as |
 | --- | --- | --- | --- |
-| Publishable | `pgd_pub_` | Browsers and mobile apps; meant to be embedded | `<db>_anon`, or `<db>_user` with a signed-in user's token |
-| Secret | `pgd_sec_` | Servers only | `<db>_service` (bypasses row-level security) |
+| Publishable | `xb_pub_` | Browsers and mobile apps; meant to be embedded | `<db>_anon`, or `<db>_user` with a signed-in user's token |
+| Secret | `xb_sec_` | Servers only | `<db>_service` (bypasses row-level security) |
 
 - Send the key in the `apikey` header. A signed-in user's access token goes
   in `Authorization: Bearer …`; it is an ES256 JWT for this project
@@ -49,12 +49,12 @@ app ──HTTPS──▶ <ref>.<domain> ──▶ pgdock-edge (per region)
 ## Turning it on
 
 Project → Settings → **API** → **Enable backend services**, or
-`pgdock services enable <project>`. Enabling:
+`xenibase services enable <project>`. Enabling:
 
 1. creates `<db>_edge`, `<db>_anon`, `<db>_user` and `<db>_service` and lets
    the pooler accept the edge login;
-2. adds the `pgd_auth`, `pgd_storage` and `pgd_realtime` schemas, owned by
-   the platform, with `pgd_auth.uid()`, `role()`, `claims()` and
+2. adds the `xb_auth`, `xb_storage` and `xb_realtime` schemas, owned by
+   the platform, with `xb_auth.uid()`, `role()`, `claims()` and
    `claim(text)` for your row-level security policies;
 3. grants the three request roles use of what the owner creates in
    `public` (row-level security decides which rows);
@@ -64,15 +64,15 @@ Project → Settings → **API** → **Enable backend services**, or
 ```sql
 ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
 CREATE POLICY own_todos ON todos FOR ALL TO "<db>_user"
-  USING (owner_id = pgd_auth.uid()) WITH CHECK (owner_id = pgd_auth.uid());
+  USING (owner_id = xb_auth.uid()) WITH CHECK (owner_id = xb_auth.uid());
 ```
 
 Turning it off revokes the keys and switches the edge login off. The
-`pgd_*` schemas and their data stay, so turning it on again restores
+`xb_*` schemas and their data stay, so turning it on again restores
 everything except the keys, which are new.
 
-The `pgd_*` schemas are part of the database: backups, restores and
-branches carry them. After a restore or a move, PGDock takes them back from
+The `xb_*` schemas are part of the database: backups, restores and
+branches carry them. After a restore or a move, Xenibase takes them back from
 the project's owner (a restore recreates them as the owner's) and re-applies
 the request roles' grants, within seconds. A promotion or demotion creates
 the request roles on the new instance before copying.
@@ -80,7 +80,7 @@ the request roles on the new instance before copying.
 Check that it works:
 
 ```sh
-curl -H "apikey: pgd_pub_…" https://k7f3m2q9.api.pgdock.ng/data/v1/health
+curl -H "apikey: xb_pub_…" https://k7f3m2q9.api.xenibase.ng/data/v1/health
 # {"status":"ok","project":"k7f3m2q9","role":"anon","region":"ng-lagos"}
 ```
 
@@ -91,8 +91,8 @@ exposed schemas (`public` unless you choose others). Name a table in another
 exposed schema as `schema.table`.
 
 ```sh
-curl -G https://k7f3m2q9.api.pgdock.ng/data/v1/todos \
-  -H "apikey: pgd_pub_…" -H "Authorization: Bearer $ACCESS_TOKEN" \
+curl -G https://k7f3m2q9.api.xenibase.ng/data/v1/todos \
+  -H "apikey: xb_pub_…" -H "Authorization: Bearer $ACCESS_TOKEN" \
   --data-urlencode "select=id,title,done,owner:profiles(name)" \
   --data-urlencode "where=done:eq:false" \
   --data-urlencode "order=created_at:desc" --data-urlencode "limit=20"
@@ -130,7 +130,7 @@ same way. The secret key bypasses row-level security entirely.
 ```sql
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY readable ON posts FOR SELECT
-  USING (published OR author_id = pgd_auth.uid());
+  USING (published OR author_id = xb_auth.uid());
 ```
 
 Column privileges hold too: `REVOKE SELECT (email) ON profiles FROM "<db>_anon"`
@@ -176,8 +176,8 @@ writable, without it**.
 
 ```sh
 # Insert one row or a list (up to 1,000); the new rows come back.
-curl -X POST https://k7f3m2q9.api.pgdock.ng/data/v1/todos \
-  -H "apikey: pgd_pub_…" -H "Authorization: Bearer $ACCESS_TOKEN" \
+curl -X POST https://k7f3m2q9.api.xenibase.ng/data/v1/todos \
+  -H "apikey: xb_pub_…" -H "Authorization: Bearer $ACCESS_TOKEN" \
   -d '{"owner_id":"…","title":"Buy milk"}'
 # {"affected":1,"data":[{"id":7,"owner_id":"…","title":"Buy milk","done":false}]}
 
@@ -208,8 +208,8 @@ choice) on `POST`, `PATCH` or `DELETE` of a table, on a batch, or on a
 `POST` to a function, and repeat it with the retry:
 
 ```sh
-curl -X POST https://k7f3m2q9.api.pgdock.ng/data/v1/orders \
-  -H "apikey: pgd_sec_…" -H "Idempotency-Key: 6f1c0e4a-…" -d '{"item":"tea"}'
+curl -X POST https://k7f3m2q9.api.xenibase.ng/data/v1/orders \
+  -H "apikey: xb_sec_…" -H "Idempotency-Key: 6f1c0e4a-…" -d '{"item":"tea"}'
 ```
 
 - A repeat **within 24 hours** gets the first answer (same status and
@@ -224,7 +224,7 @@ curl -X POST https://k7f3m2q9.api.pgdock.ng/data/v1/orders \
 - Keys belong to the caller: the secret key's, or a signed-in user's. The
   publishable key **without** a user can't use them (`400
   idempotency_needs_user`), since every such caller would share them.
-- Answers are kept in the project's database (`pgd_auth.idempotency`,
+- Answers are kept in the project's database (`xb_auth.idempotency`,
   which your roles can't read) and removed after a day.
 
 ### Batches
@@ -280,7 +280,7 @@ At most 3,600 seconds and 100 entries.
   another edge) shows within the TTL.
 - **Billing:** cached answers still count as requests and transfer.
 - Each edge process keeps its own cache, at most 64 MB by default
-  (`PGDOCK_EDGE_CACHE_MB`); the least recently used entries go first, and
+  (`XENIBASE_EDGE_CACHE_MB`); the least recently used entries go first, and
   one answer may take at most an eighth of it.
 
 ## Functions
@@ -310,9 +310,9 @@ Typed rows, inserts and updates for every table, view and function the data
 API exposes:
 
 ```sh
-pgdock gen types --lang ts --project my-app > src/database.types.ts
-pgdock gen types --lang dart --project my-app -o lib/database_types.dart
-pgdock gen types --lang go --project my-app --package db -o db/types.go
+xenibase gen types --lang ts --project my-app > src/database.types.ts
+xenibase gen types --lang dart --project my-app -o lib/database_types.dart
+xenibase gen types --lang go --project my-app --package db -o db/types.go
 ```
 
 - **TypeScript:** a `Database` interface (`Database["public"]["Tables"]["todos"]["Row" | "Insert" | "Update"]`, `Views`, `Functions` with `Args` and `Returns`) and `Tables<"todos">`-style helpers. Columns with a default or that accept null are optional in `Insert`; generated columns are left out.
@@ -377,22 +377,22 @@ made there are real.
 
 ## Auth
 
-Users live in the project's own database, in `pgd_auth` (V4 §4.2), so they
+Users live in the project's own database, in `xb_auth` (V4 §4.2), so they
 move with it: backups, restores, branches and promotions keep them, and
-data residency covers them. Only pgdock-edge reads the auth tables; your
-SQL sees the safe view `pgd_auth.user_profiles` (no password hashes,
-tokens or codes) and may reference `pgd_auth.users(id)` from its own
+data residency covers them. Only xenibase-edge reads the auth tables; your
+SQL sees the safe view `xb_auth.user_profiles` (no password hashes,
+tokens or codes) and may reference `xb_auth.users(id)` from its own
 tables:
 
 ```sql
 CREATE TABLE todos (
   id bigserial PRIMARY KEY,
-  owner_id uuid NOT NULL DEFAULT pgd_auth.uid() REFERENCES pgd_auth.users (id) ON DELETE CASCADE,
+  owner_id uuid NOT NULL DEFAULT xb_auth.uid() REFERENCES xb_auth.users (id) ON DELETE CASCADE,
   title text NOT NULL
 );
 ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
 CREATE POLICY own ON todos FOR ALL TO "<db>_user"
-  USING (owner_id = pgd_auth.uid()) WITH CHECK (owner_id = pgd_auth.uid());
+  USING (owner_id = xb_auth.uid()) WITH CHECK (owner_id = xb_auth.uid());
 ```
 
 ### Signing up and in
@@ -400,11 +400,11 @@ CREATE POLICY own ON todos FOR ALL TO "<db>_user"
 All at `https://<ref>.<domain>/auth/v1/`, with the publishable key:
 
 ```sh
-curl -X POST .../auth/v1/signup -H "apikey: pgd_pub_…" \
+curl -X POST .../auth/v1/signup -H "apikey: xb_pub_…" \
   -d '{"email":"ada@example.com","password":"…","data":{"name":"Ada"},"redirect_to":"https://app.example.com/welcome"}'
 # {"confirmation_sent":true}       (or a session, when confirmation is off)
 
-curl -X POST .../auth/v1/signin/password -H "apikey: pgd_pub_…" -d '{"email":"ada@example.com","password":"…"}'
+curl -X POST .../auth/v1/signin/password -H "apikey: xb_pub_…" -d '{"email":"ada@example.com","password":"…"}'
 # {"access_token":"eyJ…","token_type":"bearer","expires_in":3600,"expires_at":…,"refresh_token":"…","user":{…}}
 ```
 
@@ -434,8 +434,8 @@ local way (`0803 123 4567`) or internationally (`+2348031234567`); they are
 stored in E.164.
 
 ```sh
-curl -X POST .../auth/v1/signin/otp -H "apikey: pgd_pub_…" -d '{"phone":"08031234567","channel":"whatsapp"}'
-curl -X POST .../auth/v1/verify -H "apikey: pgd_pub_…" -d '{"type":"sms","phone":"+2348031234567","token":"123456"}'
+curl -X POST .../auth/v1/signin/otp -H "apikey: xb_pub_…" -d '{"phone":"08031234567","channel":"whatsapp"}'
+curl -X POST .../auth/v1/verify -H "apikey: xb_pub_…" -d '{"type":"sms","phone":"+2348031234567","token":"123456"}'
 ```
 
 | Endpoint | |
@@ -447,14 +447,14 @@ curl -X POST .../auth/v1/verify -H "apikey: pgd_pub_…" -d '{"type":"sms","phon
 | `PATCH user` with `phone` (and `channel`) | Sends a code to the new number. |
 | `POST resend` with `{"type":"sms","phone":…}` | Another code (only to an existing user). |
 
-**Who sends.** By default, PGDock's own accounts: Termii for SMS, through
+**Who sends.** By default, Xenibase's own accounts: Termii for SMS, through
 its DND route so numbers registered as do-not-disturb still get codes,
-and PGDock's WhatsApp Business number with an approved authentication
+and Xenibase's WhatsApp Business number with an approved authentication
 template. Each message is metered (`messages_sms`, `messages_whatsapp`)
 and its cost shown under Authentication → Phone. Free projects bring their
 own provider unless the install allows otherwise. A project can use its
 own **Termii, Africa's Talking or Twilio** account for SMS and its own
-**WhatsApp Cloud API** number (or Twilio) for WhatsApp; PGDock doesn't bill
+**WhatsApp Cloud API** number (or Twilio) for WhatsApp; Xenibase doesn't bill
 those messages. A **send-message hook** (below) replaces sending entirely.
 
 **SMS pumping.** Paid codes invite fraud: someone requests codes to numbers
@@ -463,7 +463,7 @@ they profit from. Four limits stop it:
 - **Countries**: numbers must be in the project's countries (Nigeria only
   by default; `403 phone_country_not_allowed` otherwise).
 - **Per number**: one code a minute from the edge, and at most 5 an hour at
-  pgdock-server (`429 over_sms_send_rate_limit`).
+  xenibase-server (`429 over_sms_send_rate_limit`).
 - **Daily cap**: 200 codes a day per project by default. At the cap, codes
   stop (`429`, "daily limit") and the project's admins are emailed; they
   are also emailed when a quarter of the cap goes out in one hour.
@@ -495,7 +495,7 @@ unverified one never does. Microsoft's email isn't treated as verified.
 
 With **Anonymous sign-in** on, `POST /auth/v1/signup` with an empty body
 returns a session for a new user with `is_anonymous: true` (the claim is
-in the token, and `pgd_auth.is_anonymous()` reads it in policies). The
+in the token, and `xb_auth.is_anonymous()` reads it in policies). The
 user becomes permanent when they add an email or phone (`PATCH user`, then
 verify) or link a provider.
 
@@ -521,7 +521,7 @@ body) do the same. The **policy** (Authentication → MFA and captcha) is
 optional (users choose), required (the data API answers only `aal2`
 tokens: `403 mfa_required`), or required by claim for users whose
 `app_metadata.mfa_required` is true. Policies can check
-`pgd_auth.aal() = 'aal2'` themselves.
+`xb_auth.aal() = 'aal2'` themselves.
 
 ### Hooks
 
@@ -530,12 +530,12 @@ tokens: `403 mfa_required`), or required by claim for users whose
 | **Custom claims** | A Postgres function `schema.name(event jsonb) returns jsonb` | Called when a token is issued with `{"user_id","claims","authentication_method"}`; return `{"claims":{…}}`. Claims the edge sets (`sub`, `role`, `aud`, `exp`, `iat`, `session_id`, `aal`, `amr`, `is_anonymous`) can't be changed. |
 | **Before sign-up** | A Postgres function, or a webhook | Called with `{"user","method","ip"}`; `{"decision":"reject","message":…}` (or a webhook's 4xx) refuses with `403 signup_rejected`. A webhook that doesn't answer in 3 seconds lets the sign-up through. |
 | **After sign-up**, **after sign-in** | Webhooks | `{"type":"after_signup","data":{"user":…,"method":…}}`, queued and retried like database webhooks. |
-| **Send message** | A webhook | Receives every email and code (`{"type":"send_message","channel","kind","to","body","code","link"}`) instead of PGDock sending it. |
+| **Send message** | A webhook | Receives every email and code (`{"type":"send_message","channel","kind","to","body","code","link"}`) instead of Xenibase sending it. |
 
 Postgres hooks run in their own transaction, with a 2-second timeout, as
 the project's **hook role** `<db>_auth_hook` (a login of its own, like the
 request roles: code that runs `RESET ROLE` stays that role), which has no privileges
-beyond reading `pgd_auth.user_profiles` and the `pgd_auth` functions:
+beyond reading `xb_auth.user_profiles` and the `xb_auth` functions:
 grant it what the hook reads.
 
 ```sql
@@ -544,12 +544,12 @@ CREATE FUNCTION public.custom_claims(event jsonb) RETURNS jsonb LANGUAGE sql STA
   SELECT jsonb_build_object('claims', (event -> 'claims') || coalesce(
     (SELECT jsonb_build_object('org_id', org_id) FROM members WHERE user_id = (event ->> 'user_id')::uuid), '{}'::jsonb))
 $$;
--- then, in a policy: USING (org_id = pgd_auth.claim('org_id'))
+-- then, in a policy: USING (org_id = xb_auth.claim('org_id'))
 ```
 
 A failing custom-claims hook fails the sign-in (`500`), so test it before
 turning it on. Webhooks are signed with the project's **hook secret**
-(`PGDock-Signature`, the same scheme as database webhooks), go through the
+(`Xenibase-Signature`, the same scheme as database webhooks), go through the
 organisation's outbound rules, and are listed with their results under
 Authentication → Hooks.
 
@@ -569,10 +569,10 @@ send) or `"captcha_token"` (`400 captcha_failed` otherwise).
   `is_anonymous`, `app_metadata`, `user_metadata`, and whatever a
   custom-claims hook adds. Send it as `Authorization: Bearer …`
   with the publishable key: requests run as `<db>_user` and
-  `pgd_auth.uid()` is its `sub`.
+  `xb_auth.uid()` is its `sub`.
 - **Your servers verify tokens with the JWKS endpoint**; there is no shared
   secret. Rotating the key (Authentication → Signing keys, or
-  `pgdock auth rotate-key`) signs new tokens with a new key and keeps the
+  `xenibase auth rotate-key`) signs new tokens with a new key and keeps the
   old one in the JWKS for a day, so nobody is signed out.
 - Refresh tokens rotate on every use. **Presenting a refresh token that was
   already used ends its whole session** (`400 refresh_token_reused`): a
@@ -586,7 +586,7 @@ send) or `"captcha_token"` (`400 captcha_failed` otherwise).
 ### Emails
 
 Confirmation, magic-link (with the code), password-reset, invitation and
-email-change emails are sent by pgdock-server from the project's
+email-change emails are sent by xenibase-server from the project's
 templates (Authentication → Emails: plain text with `{{.Code}}`,
 `{{.Link}}`, `{{.Email}}`, `{{.SiteURL}}`, with a preview).
 
@@ -611,8 +611,8 @@ org-scoped rows is in [examples/flutter-auth](examples/flutter-auth/).
   `"none"`), `POST /auth/v1/admin/users/{id}/signout`,
   `POST /auth/v1/admin/invite`, `POST /auth/v1/admin/generate-link`
   (a link and code without sending them, for your own emails).
-- **CLI:** `pgdock auth users list|show|invite|ban|unban|signout|delete`,
-  `pgdock auth config|set|hooks`.
+- **CLI:** `xenibase auth users list|show|invite|ban|unban|signout|delete`,
+  `xenibase auth config|set|hooks`.
 
 Deleting a user deletes their sessions and sign-in methods; rows of your
 tables that reference them follow your foreign keys.
@@ -623,34 +623,34 @@ month) are recorded as usage (`auth_mau`) and shown on the Users tab.
 ## Storage
 
 Files live in **buckets**. A file's metadata is a row in the project's own
-database (`pgd_storage.objects`: bucket, path, size, MIME type, checksum,
+database (`xb_storage.objects`: bucket, path, size, MIME type, checksum,
 owner, your metadata), and its bytes are in the region's object store (the
 same store as the region's backups; for data-residency projects, the
 in-country one). Who may read, upload, overwrite and delete files is decided
-by **row-level security on `pgd_storage.objects`**, the same policies as
+by **row-level security on `xb_storage.objects`**, the same policies as
 your tables. The project's owner role owns the table, so you write the
 policies:
 
 ```sql
 -- Each user reads and writes only under avatars/<their id>/.
-CREATE POLICY own_avatar ON pgd_storage.objects FOR ALL TO <db>_user
-  USING (bucket = 'avatars' AND pgd_storage.folder(path, 1) = pgd_auth.uid()::text)
-  WITH CHECK (bucket = 'avatars' AND pgd_storage.folder(path, 1) = pgd_auth.uid()::text);
+CREATE POLICY own_avatar ON xb_storage.objects FOR ALL TO <db>_user
+  USING (bucket = 'avatars' AND xb_storage.folder(path, 1) = xb_auth.uid()::text)
+  WITH CHECK (bucket = 'avatars' AND xb_storage.folder(path, 1) = xb_auth.uid()::text);
 ```
 
-Helpers: `pgd_storage.foldername(path)` (the folders, as an array),
-`pgd_storage.folder(path, n)` (the nth), `pgd_storage.filename(path)` and
-`pgd_storage.extension(path)`. The edge checks each request by running the
-matching statement on `pgd_storage.objects` as the caller (an insert for
+Helpers: `xb_storage.foldername(path)` (the folders, as an array),
+`xb_storage.folder(path, n)` (the nth), `xb_storage.filename(path)` and
+`xb_storage.extension(path)`. The edge checks each request by running the
+matching statement on `xb_storage.objects` as the caller (an insert for
 an upload, an update for an overwrite, a select for a read, a delete for a
 delete) before it touches the bytes. With row-level security off on
-`pgd_storage.objects`, the publishable key gets `403 rls_required`; the
+`xb_storage.objects`, the publishable key gets `403 rls_required`; the
 secret key bypasses policies.
 
 ### Buckets
 
 Buckets are made with the secret key (`POST /storage/v1/bucket`), in
-Project → Storage, or with `pgdock storage buckets create`. A bucket has a
+Project → Storage, or with `xenibase storage buckets create`. A bucket has a
 name (lowercase, digits, `.`, `_`, `-`; it is in file URLs), whether it is
 **public**, a **file size limit**, **allowed MIME types** (`image/*`,
 `application/pdf`; empty allows any), and how long browsers may cache its
@@ -718,8 +718,8 @@ Files are served with `ETag` and `Cache-Control` (`public` for public
 buckets, `private` otherwise, for the bucket's cache time), and
 `Content-Disposition: attachment` with `?download` (or `?download=<name>`). Put a CDN in front of
 the edge's hostname to cache public files; with Cloudflare, set
-`PGDOCK_CDN_CLOUDFLARE_ZONE_ID` and `PGDOCK_CDN_CLOUDFLARE_TOKEN` (a token
-with Cache Purge) on pgdock-server so a bucket made private is purged.
+`XENIBASE_CDN_CLOUDFLARE_ZONE_ID` and `XENIBASE_CDN_CLOUDFLARE_TOKEN` (a token
+with Cache Purge) on xenibase-server so a bucket made private is purged.
 
 ### Image transforms
 
@@ -735,9 +735,9 @@ downloads' bytes (5 GB on Personal); once either allowance is used up,
 renders answer `429 transform_limit` or downloads `429
 storage_egress_limit` until the month turns.
 
-Renders run in separate worker processes (`pgdock-edge render-worker`), one
+Renders run in separate worker processes (`xenibase-edge render-worker`), one
 image at a time each, as many as half the edge's CPUs. A worker has its own
-memory limit (`PGDOCK_EDGE_RENDER_MEMORY_MB`, 512 by default); an image
+memory limit (`XENIBASE_EDGE_RENDER_MEMORY_MB`, 512 by default); an image
 that crashes its decoder or runs it out of memory ends only that worker:
 the request gets `500 transform_failed` and the next render starts a new
 worker.
@@ -747,9 +747,9 @@ worker.
 - **Versions.** Each upload writes a new object under a new version, and
   the row points at it; the old version's bytes are removed a minute
   later, so a download in flight finishes. A trigger on
-  `pgd_storage.objects` queues the bytes to remove and keeps the project's
+  `xb_storage.objects` queues the bytes to remove and keeps the project's
   totals.
-- **The sweep** (every 5 minutes, pgdock-server) removes queued bytes and
+- **The sweep** (every 5 minutes, xenibase-server) removes queued bytes and
   abandoned uploads, records storage used (`storage_gb_hours`) and the
   month's downloads and transforms, and sends the edges each project's
   remaining quota.
@@ -770,12 +770,12 @@ Project admins and developers can use it; read-only members can't, since
 files may hold your users' data. The CLI does the same:
 
 ```sh
-pgdock storage buckets create <p> avatars --types 'image/*' --size-limit 5MB
-pgdock storage cp <p> ./logo.png ss:///avatars/logo.png
-pgdock storage ls <p> ss:///avatars/
-pgdock storage cp <p> ss:///avatars/logo.png ./logo.png
-pgdock storage sign <p> ss:///avatars/logo.png --expires 24h
-pgdock storage rm <p> ss:///avatars/logo.png
+xenibase storage buckets create <p> avatars --types 'image/*' --size-limit 5MB
+xenibase storage cp <p> ./logo.png ss:///avatars/logo.png
+xenibase storage ls <p> ss:///avatars/
+xenibase storage cp <p> ss:///avatars/logo.png ./logo.png
+xenibase storage sign <p> ss:///avatars/logo.png --expires 24h
+xenibase storage rm <p> ss:///avatars/logo.png
 ```
 
 ## Realtime
@@ -801,16 +801,16 @@ the old expires, and a channel whose token has expired is closed.
 ### Database changes
 
 Turn realtime on for a table in Project → Realtime, with
-`pgdock realtime enable <p> public.todos`, or from SQL as the owner:
+`xenibase realtime enable <p> public.todos`, or from SQL as the owner:
 
 ```sql
-SELECT pgd_realtime.enable('public.todos');   -- and pgd_realtime.disable(…)
+SELECT xb_realtime.enable('public.todos');   -- and xb_realtime.disable(…)
 ```
 
 The table needs a primary key, and it must be in an exposed schema.
 Turning it on adds a trigger that records each committed insert, update
-and delete in `pgd_realtime.outbox` in the same transaction, so a
-rolled-back change is never delivered. pgdock-edge holds one `LISTEN`
+and delete in `xb_realtime.outbox` in the same transaction, so a
+rolled-back change is never delivered. xenibase-edge holds one `LISTEN`
 connection per project while it has subscribers (through the region's
 session-mode pooler; without one it polls every second), reads the outbox
 in transaction order, and delivers each change only to subscribers who may
@@ -843,7 +843,7 @@ see the row:
 Broadcast sends a message to everyone on a channel (`self: true` to get
 your own back, `ack: true` to have the edge confirm it); presence keeps
 who is on a channel with each client's state (`track`, `untrack`,
-`presence_state`, `presence_diff`). Clients on different pgdock-edge
+`presence_state`, `presence_diff`). Clients on different xenibase-edge
 processes reach each other through `NOTIFY` on the project's database, and
 a process that stops is dropped from presence within about 35 seconds.
 
@@ -855,23 +855,23 @@ curl -X POST https://<ref>.<domain>/realtime/v1/api/broadcast -H "apikey: $SECRE
 ```
 
 Broadcasts on topics listed in Project → Realtime → Broadcast history
-(`pgd_realtime.persisted_topics`) are kept 7 days and read with
+(`xb_realtime.persisted_topics`) are kept 7 days and read with
 `GET /realtime/v1/history/<topic>?after=<id>&limit=` (add `private=true`
 for a private channel's history, which needs its read policy).
 
 ### Private channels
 
 A channel joined with `private: true` is decided by your policies on
-`pgd_realtime.channel_access` (owned by the project's owner): SELECT
+`xb_realtime.channel_access` (owned by the project's owner): SELECT
 policies decide who may join and receive, INSERT policies who may send
 broadcasts and track presence. A row's `topic` is the channel name (without
 `realtime:`) and `extension` is `broadcast` or `presence`:
 
 ```sql
-CREATE POLICY members_read ON pgd_realtime.channel_access FOR SELECT TO <db>_user
-  USING (EXISTS (SELECT 1 FROM room_members m WHERE m.room = topic AND m.user_id = pgd_auth.uid()));
-CREATE POLICY members_send ON pgd_realtime.channel_access FOR INSERT TO <db>_user
-  WITH CHECK (EXISTS (SELECT 1 FROM room_members m WHERE m.room = topic AND m.user_id = pgd_auth.uid()));
+CREATE POLICY members_read ON xb_realtime.channel_access FOR SELECT TO <db>_user
+  USING (EXISTS (SELECT 1 FROM room_members m WHERE m.room = topic AND m.user_id = xb_auth.uid()));
+CREATE POLICY members_send ON xb_realtime.channel_access FOR INSERT TO <db>_user
+  WITH CHECK (EXISTS (SELECT 1 FROM room_members m WHERE m.room = topic AND m.user_id = xb_auth.uid()));
 ```
 
 The edge checks them in a transaction it rolls back when a client joins.
@@ -901,7 +901,7 @@ connection time (`realtime_connection_minutes`) are metered.
   (12,000). Over the limit, the edge answers `429` with `Retry-After`.
 - **Exposed schemas**: the schemas the data API serves (`public`). Exposing
   another grants the request roles use of what the owner makes there.
-  Platform schemas (`pgd_*`, `pg_*`, `pgdock`) can't be exposed.
+  Platform schemas (`xb_*`, `pg_*`, `xenibase`) can't be exposed.
 - **Public tables**: tables and views the publishable key may read without
   row-level security. Anyone with your app can read them.
 - **Maximum query cost**: the cost guard's limit (above).
@@ -919,7 +919,7 @@ organisation's projects answer `403 project_suspended`.
 
 The edge counts each request that passed the key check (`api_requests`)
 and the bytes it returned (`api_egress_gb`), per project and hour, and
-sends them to pgdock-server every few seconds with the request log. A
+sends them to xenibase-server every few seconds with the request log. A
 report is recorded once even if it is retried. The request log (method,
 path, status, latency, role, user, key, IP) is on the API page and at
 `GET /api/v1/projects/{id}/services/logs`, kept 7 days.
@@ -957,17 +957,17 @@ plan.
   this month keep signing in and refreshing their sessions; a new user
   gets `429 mau_limit_reached`. The edge gets a compact filter of the
   users counted this month (about 12 KB for 10,000 users), so it can
-  answer without asking pgdock-server; about one new user in a hundred
+  answer without asking xenibase-server; about one new user in a hundred
   can still slip through until the next count.
 - **Ceilings.** A project's timeout and rate limits are capped at the
   plan's: asking for 15 s on a 5 s plan gets 5 s. The API page (Access
-  and limits) and `pgdock services status` show what is in effect.
-- **SMS codes.** Codes sent with PGDock's own sender are capped per
+  and limits) and `xenibase services status` show what is in effect.
+- **SMS codes.** Codes sent with Xenibase's own sender are capped per
   project and day at the lower of the project's cap and the plan's; a
   project's own provider has only its own cap. Free plans send codes only
-  when the operator allows it (`PGDOCK_PHONE_AUTH_FREE`).
+  when the operator allows it (`XENIBASE_PHONE_AUTH_FREE`).
 
-pgdock-server works the limits out every five minutes, so a limit
+xenibase-server works the limits out every five minutes, so a limit
 reached or lifted (an upgrade, an override) reaches the edges within
 about five minutes. Owners and admins get an email at 80% and at 100% of
 each monthly limit, once a month each.
@@ -976,30 +976,30 @@ On an install upgrading from an earlier version, the limits apply from
 the first full month after the upgrade (the `plan_limits_from` setting);
 notices before then say when they start.
 
-## Running pgdock-edge
+## Running xenibase-edge
 
-Run one pgdock-edge per region, on the region's nodes. It keeps no state.
+Run one xenibase-edge per region, on the region's nodes. It keeps no state.
 
 | Setting | |
 | --- | --- |
-| `PGDOCK_API_DOMAIN` (server) | The API domain: projects are at `<ref>.<domain>`. |
-| `PGDOCK_EDGE_SECRET` (server and edges) | At least 32 characters, the same everywhere. Without it pgdock-server serves no edge. |
-| `PGDOCK_EDGE_CONTROL_URL` | pgdock-server's URL as the edge reaches it. |
-| `PGDOCK_EDGE_DOMAIN` | The same as `PGDOCK_API_DOMAIN`. |
-| `PGDOCK_EDGE_REGION` | The region it serves (empty for all). |
-| `PGDOCK_EDGE_TLS_CERT`, `PGDOCK_EDGE_TLS_KEY` | A wildcard certificate for `*.<domain>`. |
-| `PGDOCK_EDGE_LISTEN` | Default `:8443`. |
-| `PGDOCK_EDGE_POOLER_ADDR` | Optional: the transaction pooler as the edge reaches it. |
-| `PGDOCK_EDGE_SESSION_ADDR` | Optional: the session-mode pooler as the edge reaches it (realtime's `LISTEN` connections). |
-| `PGDOCK_EDGE_TRUSTED_PROXIES` | Optional: CIDRs allowed to set `X-Forwarded-For`. |
-| `PGDOCK_EDGE_CACHE_MB` | Optional: the anonymous-read cache's size per edge process (default 64). |
-| `PGDOCK_EDGE_RENDER_MEMORY_MB` | Optional: each image render worker's memory limit (default 512, at least 64). |
-| `PGDOCK_EDGE_RENDER_IN_PROCESS` | Optional: set to render images inside the edge process instead of in workers (not recommended; a bad image can then take the edge down). |
+| `XENIBASE_API_DOMAIN` (server) | The API domain: projects are at `<ref>.<domain>`. |
+| `XENIBASE_EDGE_SECRET` (server and edges) | At least 32 characters, the same everywhere. Without it xenibase-server serves no edge. |
+| `XENIBASE_EDGE_CONTROL_URL` | xenibase-server's URL as the edge reaches it. |
+| `XENIBASE_EDGE_DOMAIN` | The same as `XENIBASE_API_DOMAIN`. |
+| `XENIBASE_EDGE_REGION` | The region it serves (empty for all). |
+| `XENIBASE_EDGE_TLS_CERT`, `XENIBASE_EDGE_TLS_KEY` | A wildcard certificate for `*.<domain>`. |
+| `XENIBASE_EDGE_LISTEN` | Default `:8443`. |
+| `XENIBASE_EDGE_POOLER_ADDR` | Optional: the transaction pooler as the edge reaches it. |
+| `XENIBASE_EDGE_SESSION_ADDR` | Optional: the session-mode pooler as the edge reaches it (realtime's `LISTEN` connections). |
+| `XENIBASE_EDGE_TRUSTED_PROXIES` | Optional: CIDRs allowed to set `X-Forwarded-For`. |
+| `XENIBASE_EDGE_CACHE_MB` | Optional: the anonymous-read cache's size per edge process (default 64). |
+| `XENIBASE_EDGE_RENDER_MEMORY_MB` | Optional: each image render worker's memory limit (default 512, at least 64). |
+| `XENIBASE_EDGE_RENDER_IN_PROCESS` | Optional: set to render images inside the edge process instead of in workers (not recommended; a bad image can then take the edge down). |
 
 `deploy/edge/Dockerfile` builds the image, and `deploy/edge/edge.env.example`
-lists the settings. With the compose install, set `PGDOCK_API_DOMAIN` and
-`PGDOCK_EDGE_SECRET` in its `.env` (the compose file passes them to
-pgdock-server).
+lists the settings. With the compose install, set `XENIBASE_API_DOMAIN` and
+`XENIBASE_EDGE_SECRET` in its `.env` (the compose file passes them to
+xenibase-server).
 
 - **DNS:** a wildcard record `*.<domain>` pointing at the region's edge.
 - **TLS:** get the wildcard certificate with a DNS-01 client for your DNS
@@ -1007,26 +1007,26 @@ pgdock-server).
   files. The edge re-reads them when they change. Behind a TLS terminator,
   leave them empty and the edge serves plain HTTP.
 
-The edge follows pgdock-server's configuration feed. A change, such as a
+The edge follows xenibase-server's configuration feed. A change, such as a
 key revoked, an origin added, a project paused or an organisation
 suspended, reaches it within a second or two, and it re-reads everything
-every minute in case a change was missed. While pgdock-server is down, the
+every minute in case a change was missed. While xenibase-server is down, the
 edge keeps serving from what it has and holds its reports, retrying them
 later. `GET /healthz` on any host that isn't a project answers once the
 first configuration has loaded.
 
 ## Platform SMS and WhatsApp (operators)
 
-pgdock-server sends projects' codes when they don't bring their own
+xenibase-server sends projects' codes when they don't bring their own
 provider. Set:
 
 | Variable | |
 | --- | --- |
-| `PGDOCK_TERMII_API_KEY` (or `_FILE`), `PGDOCK_TERMII_SENDER_ID` | Termii's API key and an approved sender ID. Codes go by Termii's `dnd` channel. `PGDOCK_TERMII_URL` is the account's API base if it isn't `https://api.ng.termii.com`. |
-| `PGDOCK_AFRICASTALKING_USERNAME`, `PGDOCK_AFRICASTALKING_API_KEY` (or `_FILE`), `PGDOCK_AFRICASTALKING_FROM`, `PGDOCK_AFRICASTALKING_URL` | Africa's Talking, the fallback for SMS. With both set, a code goes by Termii and, if Termii fails, by Africa's Talking at once; a provider that failed is tried last for a minute, so an outage costs one timeout rather than one per code. Each failure is logged (`platform SMS provider failed`) and the provider that sent each code is recorded in `message_sends`. Either alone also works. |
-| `PGDOCK_WHATSAPP_OTP_TEMPLATE`, `PGDOCK_WHATSAPP_OTP_LANGUAGE` | An approved **authentication** template (with a copy-code button) on the WhatsApp number support uses (`PGDOCK_WHATSAPP_PHONE_NUMBER_ID`, `PGDOCK_WHATSAPP_ACCESS_TOKEN`); the language defaults to `en`. |
-| `PGDOCK_SMS_PRICE_MINOR`, `PGDOCK_WHATSAPP_PRICE_MINOR`, `PGDOCK_MESSAGE_CURRENCY` | What a message costs the project, in minor units (default NGN 4.50 and NGN 15.00), shown as spend; usage is metered as `messages_sms` and `messages_whatsapp`. |
-| `PGDOCK_PHONE_AUTH_FREE` | `true` lets Free projects use the platform's providers (by default they bring their own). |
+| `XENIBASE_TERMII_API_KEY` (or `_FILE`), `XENIBASE_TERMII_SENDER_ID` | Termii's API key and an approved sender ID. Codes go by Termii's `dnd` channel. `XENIBASE_TERMII_URL` is the account's API base if it isn't `https://api.ng.termii.com`. |
+| `XENIBASE_AFRICASTALKING_USERNAME`, `XENIBASE_AFRICASTALKING_API_KEY` (or `_FILE`), `XENIBASE_AFRICASTALKING_FROM`, `XENIBASE_AFRICASTALKING_URL` | Africa's Talking, the fallback for SMS. With both set, a code goes by Termii and, if Termii fails, by Africa's Talking at once; a provider that failed is tried last for a minute, so an outage costs one timeout rather than one per code. Each failure is logged (`platform SMS provider failed`) and the provider that sent each code is recorded in `message_sends`. Either alone also works. |
+| `XENIBASE_WHATSAPP_OTP_TEMPLATE`, `XENIBASE_WHATSAPP_OTP_LANGUAGE` | An approved **authentication** template (with a copy-code button) on the WhatsApp number support uses (`XENIBASE_WHATSAPP_PHONE_NUMBER_ID`, `XENIBASE_WHATSAPP_ACCESS_TOKEN`); the language defaults to `en`. |
+| `XENIBASE_SMS_PRICE_MINOR`, `XENIBASE_WHATSAPP_PRICE_MINOR`, `XENIBASE_MESSAGE_CURRENCY` | What a message costs the project, in minor units (default NGN 4.50 and NGN 15.00), shown as spend; usage is metered as `messages_sms` and `messages_whatsapp`. |
+| `XENIBASE_PHONE_AUTH_FREE` | `true` lets Free projects use the platform's providers (by default they bring their own). |
 
 Without them, phone sign-in works only for projects with their own
 provider.

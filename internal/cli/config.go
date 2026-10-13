@@ -13,8 +13,8 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// Config is ~/.config/pgdock/config.toml: named contexts, so one CLI can
-// talk to more than one PGDock (V2 §7.1).
+// Config is ~/.config/xenibase/config.toml: named contexts, so one CLI can
+// talk to more than one Xenibase (V2 §7.1).
 type Config struct {
 	Current  string              `toml:"current"`
 	Contexts map[string]*Context `toml:"contexts"`
@@ -27,27 +27,27 @@ type Context struct {
 	OrgName string `toml:"org_name,omitempty"` // for display
 	User    string `toml:"user,omitempty"`     // email, for display
 	Token   string `toml:"token,omitempty"`
-	// TokenCmd prints the token, e.g. "pass show pgdock/home".
+	// TokenCmd prints the token, e.g. "pass show xenibase/home".
 	TokenCmd string `toml:"token_cmd,omitempty"`
 	TokenID  string `toml:"token_id,omitempty"`
 	// CAFile verifies a server whose certificate isn't publicly trusted.
 	CAFile string `toml:"ca_file,omitempty"`
 }
 
-// configDir is $PGDOCK_CONFIG_DIR, $XDG_CONFIG_HOME/pgdock, or
-// ~/.config/pgdock.
+// configDir is $XENIBASE_CONFIG_DIR, $XDG_CONFIG_HOME/xenibase, or
+// ~/.config/xenibase.
 func (a *App) configDir() (string, error) {
-	if d := a.getenv("PGDOCK_CONFIG_DIR"); d != "" {
+	if d := a.getenv("XENIBASE_CONFIG_DIR"); d != "" {
 		return d, nil
 	}
 	if d := a.getenv("XDG_CONFIG_HOME"); d != "" {
-		return filepath.Join(d, "pgdock"), nil
+		return filepath.Join(d, "xenibase"), nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".config", "pgdock"), nil
+	return filepath.Join(home, ".config", "xenibase"), nil
 }
 
 func (a *App) configPath() (string, error) {
@@ -118,8 +118,8 @@ type target struct {
 	CAFile string
 }
 
-// resolve picks the server and token: PGDOCK_TOKEN (and PGDOCK_SERVER)
-// win, for CI; then --context, PGDOCK_CONTEXT, or the current context.
+// resolve picks the server and token: XENIBASE_TOKEN (and XENIBASE_SERVER)
+// win, for CI; then --context, XENIBASE_CONTEXT, or the current context.
 func (a *App) resolve() (target, error) {
 	cfg, err := a.loadConfig()
 	if err != nil {
@@ -127,7 +127,7 @@ func (a *App) resolve() (target, error) {
 	}
 	name := a.contextName
 	if name == "" {
-		name = a.getenv("PGDOCK_CONTEXT")
+		name = a.getenv("XENIBASE_CONTEXT")
 	}
 	if name == "" {
 		name = cfg.Current
@@ -143,25 +143,25 @@ func (a *App) resolve() (target, error) {
 			t.Token = strings.TrimSpace(string(out))
 		}
 	} else if a.contextName != "" {
-		return t, usageErrorf("no context named %q (see pgdock context list)", a.contextName)
+		return t, usageErrorf("no context named %q (see xenibase context list)", a.contextName)
 	}
-	if v := a.getenv("PGDOCK_SERVER"); v != "" {
+	if v := a.getenv("XENIBASE_SERVER"); v != "" {
 		t.Server = v
 	}
 	if a.server != "" {
 		t.Server = a.server
 	}
-	if v := a.getenv("PGDOCK_TOKEN"); v != "" {
+	if v := a.getenv("XENIBASE_TOKEN"); v != "" {
 		t.Token, t.Org = v, "" // the token's own org (from whoami)
 	}
-	if v := a.getenv("PGDOCK_CA_FILE"); v != "" {
+	if v := a.getenv("XENIBASE_CA_FILE"); v != "" {
 		t.CAFile = v
 	}
 	if t.Server == "" {
-		return t, usageErrorf("not logged in: run pgdock login --server https://… (or set PGDOCK_SERVER and PGDOCK_TOKEN)")
+		return t, usageErrorf("not logged in: run xenibase login --server https://… (or set XENIBASE_SERVER and XENIBASE_TOKEN)")
 	}
 	if t.Token == "" {
-		return t, usageErrorf("no token for %s: run pgdock login, or set PGDOCK_TOKEN", t.Server)
+		return t, usageErrorf("no token for %s: run xenibase login, or set XENIBASE_TOKEN", t.Server)
 	}
 	t.Server = strings.TrimRight(t.Server, "/")
 	return t, nil
