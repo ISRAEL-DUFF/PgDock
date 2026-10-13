@@ -77,7 +77,7 @@ differences below; the paid launch waits on a run with none.
 
 | Date | By | Notes |
 | --- | --- | --- |
-| | | |
+| 13 Oct 2026 | Claude, with the sandbox's dev key | Client check and the money path without webhooks (`TestEndToEndAgainstTheSandbox`): wallet at tier 2, virtual account, simulated ₦100,000 deposit credited ₦98,600, found by the re-query, invoice converted at the provider's rate and debited, books equal the provider, ledger check and reconciliation clean. Found: the wallet request needs `client_id`. Not yet run: live webhooks and their signature, the lost-answer case, a simulated reversal. |
 
 ## An organisation's wallet
 

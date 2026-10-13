@@ -80,7 +80,10 @@ type FakeTxn struct {
 	At                            time.Time
 }
 
-const fakeOperator = "op-wallet-0001"
+const (
+	fakeOperator = "op-wallet-0001"
+	fakeClient   = "xenibase"
+)
 
 // NewFake returns a fake with the given key and webhook secret. The rate
 // starts at ₦1,500 to the dollar with no spread, priced just now and kept
@@ -280,6 +283,10 @@ func (f *Fake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				"request_id": "req_fake", "original_response": f.walletJSON(f.wallets[id])}})
 			return
 		}
+		if str("client_id") != fakeClient {
+			f.fail(w, http.StatusForbidden, "SCOPE_INSUFFICIENT", "client_id must match your API key's client_id")
+			return
+		}
 		if str("bvn") == "" || str("business_email") == "" {
 			f.fail(w, http.StatusUnprocessableEntity, "INVALID_REQUEST", "a director's BVN and a business email are needed")
 			return
@@ -364,7 +371,7 @@ func (f *Fake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		f.reply(w, 200, map[string]any{"idempotency_key": parts[2], "kind": st.Kind, "resource_id": st.ResourceID, "status": st.Status, "terminal": st.Terminal})
 	case r.Method == http.MethodGet && r.URL.Path == "/v1/platform/account":
-		f.reply(w, 200, map[string]any{"operating_wallet_id": f.operator, "canonical_currency": "NGN", "client_id": "xenibase"})
+		f.reply(w, 200, map[string]any{"operating_wallet_id": f.operator, "canonical_currency": "NGN", "client_id": fakeClient})
 	case r.Method == http.MethodGet && r.URL.Path == "/v1/rates":
 		q := r.URL.Query()
 		if q.Get("from") != "USD" || q.Get("to") != "NGN" {
