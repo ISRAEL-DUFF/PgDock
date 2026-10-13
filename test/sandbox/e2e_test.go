@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -159,7 +158,7 @@ func deposit(t *testing.T, base, key, account string, kobo int64) {
 	defer res.Body.Close()
 	raw, _ := io.ReadAll(res.Body)
 	if res.StatusCode != http.StatusOK {
-		t.Fatal(fmt.Sprintf("simulate deposit: %d %s", res.StatusCode, raw))
+		t.Fatalf("simulate deposit: %d %s", res.StatusCode, raw)
 	}
 	t.Logf("simulated deposit: %.300s", raw)
 }
