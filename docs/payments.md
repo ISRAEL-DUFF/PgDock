@@ -184,7 +184,10 @@ matter more than the API:
 
 PGDock holds naira and prices in dollars, so the exchange exposure is
 PGDock's: it is paid in naira and pays its hosts in dollars. The provider
-does not convert for it.
+does not convert for it today. (It can hold and withdraw USDT, with a
+conversion from naira at a 150 bps spread on market rates, which is a way
+to turn PGDock's own naira into dollars; see
+[the wallet provider](iswallet.md#handled-and-still-open).)
 
 A **credit note** against a paid invoice is in naira (what the
 customer paid, at the rate then), so it carries no exchange gain or loss.

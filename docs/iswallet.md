@@ -138,7 +138,17 @@ Still open:
    context for an audit and isn't used by the code.
 3. **The dollar rate and spread**: a commercial decision with the provider
    ([Payments](payments.md#the-dollar-rate)). The feed is the official rate
-   with no spread; the provider can pin the pair to a desk rate.
+   with no spread; the provider can pin the pair to a desk rate. Since
+   13 October there is a second way to price a dollar: a wallet can hold
+   **USDT** (backed, withdrawable to an address), and converting NGN to
+   USDT (`POST /v1/convert/quotes`, then `POST /v1/convert`, a 60-second
+   locked quote) prices off P2P and exchange rates, which are market rates
+   rather than the official one, at a **150 bps** spread. PGDock doesn't use
+   it: it converts nothing for customers, who pay naira for dollar prices.
+   It is how PGDock could turn its own operating wallet's naira into
+   dollars to pay its hosts (a USDT withdrawal). The provider has not yet
+   enabled USDT for live conversions, a converted and withdrawn balance can
+   settle before the dollars are bought, and a withdrawal can't be recalled.
 4. **The largest monthly invoice PGDock expects**, for the limits above.
 5. **Regulatory position** (agent, merchant of record, neither) and the
    production go-live process are owned by the provider's compliance and
