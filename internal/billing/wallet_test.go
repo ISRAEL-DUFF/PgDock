@@ -256,7 +256,7 @@ func TestWalletTooShortThenToppedUp(t *testing.T) {
 		t.Fatalf("dunning didn't start: %+v %v", a.ChargeFailingSince, err)
 	}
 	var told bool
-	for _, m := range w.sent.msgs {
+	for _, m := range w.sent.all() {
 		told = told || strings.Contains(m.Subject, "wallet couldn't pay")
 	}
 	if !told {
