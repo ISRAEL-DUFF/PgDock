@@ -85,13 +85,13 @@ Projects move to a newer one with a major upgrade (Project Settings →
 Compute → Postgres version), a logical-replication move that pauses writes
 for a few seconds. See [moves and Postgres versions](moves.md#major-upgrades).
 
-## Upgrading from V2 in one step
+## Moving from V2 (PGDock)
 
-An install on V2 can go straight to the latest release: the server applies
-every migration in order on its first start. The sections below say what
-each version changes; [Upgrading from V2 to V4.1](upgrade-v2-to-v4.md) puts
-them in order as one runbook, with the settings to choose first and a
-rehearsal on a copy of production.
+V4.1 renamed the product (PGDock became Xenibase) as a clean break, so an
+install on `v2.0.0` or `v2.1.0` can't be upgraded in place. Install V4.1
+on a new server and move the projects across one at a time:
+[Moving from V2 to V4.1](upgrade-v2-to-v4.md) is the runbook. The sections
+below say what each version changed.
 
 ## Upgrading to V3
 

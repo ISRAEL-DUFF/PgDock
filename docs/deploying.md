@@ -4,8 +4,8 @@ Upgrading the control server by hand (checkout, `./install.sh`, look around)
 works, but it leaves the safety checks to whoever is typing. `upgrade.sh`
 does them every time, and a GitHub Actions workflow can run it for you behind
 an approval. This page covers both. What an upgrade changes in Xenibase is in
-[Upgrading](upgrade.md); the steps for V2 → V4 are in
-[the V2 to V4 runbook](upgrade-v2-to-v4.md).
+[Upgrading](upgrade.md); moving from V2 (PGDock) is a fresh install,
+not an upgrade: [the V2 to V4 runbook](upgrade-v2-to-v4.md).
 
 ## What `upgrade.sh` does
 
