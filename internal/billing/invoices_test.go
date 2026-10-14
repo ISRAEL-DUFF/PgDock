@@ -168,8 +168,8 @@ func TestMonthWithMidMonthUpgrade(t *testing.T) {
 	if again, err := s.Draft(ctx, org, day(31)); err != nil || again.Status != billing.StatusIssued {
 		t.Errorf("re-drafting an issued month: %+v %v", again, err)
 	}
-	if n := len(sent.msgs); n != 1 || !strings.Contains(sent.msgs[0].Subject, "XB-2026-000001") || sent.msgs[0].To[0] != "ap@acme.example" {
-		t.Errorf("invoice email: %+v", sent.msgs)
+	if n := len(sent.all()); n != 1 || !strings.Contains(sent.all()[0].Subject, "XB-2026-000001") || sent.all()[0].To[0] != "ap@acme.example" {
+		t.Errorf("invoice email: %+v", sent.all())
 	}
 
 	// The ledger: what the org owes is the total; revenue by product line.

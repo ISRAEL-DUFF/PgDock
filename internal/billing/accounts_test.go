@@ -31,6 +31,14 @@ func (m *sentMail) Send(_ context.Context, msg mail.Message) error {
 	return nil
 }
 
+// all is a copy of what was sent: mail goes out from background work (a
+// deposit pays what is owed on its own), so tests read it under the lock.
+func (m *sentMail) all() []mail.Message {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]mail.Message(nil), m.msgs...)
+}
+
 type clock struct{ t time.Time }
 
 func (c *clock) Now() time.Time { return c.t }
@@ -219,10 +227,10 @@ func TestPriceBookPublishing(t *testing.T) {
 	}
 	// The monthly and annual Pro orgs hear about it; not the grandfathered
 	// org nor Free (whose prices don't change).
-	if notified != 2 || len(sent.msgs) != 2 {
-		t.Fatalf("notified %d: %+v", notified, sent.msgs)
+	if notified != 2 || len(sent.all()) != 2 {
+		t.Fatalf("notified %d: %+v", notified, sent.all())
 	}
-	for _, m := range sent.msgs {
+	for _, m := range sent.all() {
 		if !strings.Contains(m.Body, "NGN 15,000.00 → NGN 20,000.00") && !strings.Contains(m.Body, "NGN 150,000.00 → NGN 200,000.00") {
 			t.Errorf("notice body: %s", m.Body)
 		}

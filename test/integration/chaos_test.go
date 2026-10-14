@@ -235,8 +235,9 @@ func TestChaosWakerFailure(t *testing.T) {
 	e.StartAgent()
 	ctx := context.Background()
 
-	a := e.CreateProject("Sleepy A")
-	b := e.CreateProject("Sleepy B")
+	free := e.CreateOrg("Free team") // the owner's own organisation is Unlimited, which is never paused
+	a := e.CreateProjectIn("Sleepy A", free)
+	b := e.CreateProjectIn("Sleepy B", free)
 	ids := []string{a.Project.Id.String(), b.Project.Id.String()}
 	idle := func() {
 		t.Helper()

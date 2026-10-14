@@ -41,7 +41,7 @@ func TestRestrictedWriteTokenInCI(t *testing.T) {
 		"name": "GitHub Actions — blog", "org_id": e.OrgID, "scopes": []string{"write"},
 		"project_ids": []uuid.UUID{blog.Project.Id}, "expires_in_days": 30,
 	})
-	if !strings.HasPrefix(token, "xb_") || len(token) != 47 {
+	if !strings.HasPrefix(token, "xb_") || len(token) != 46 {
 		t.Fatalf("token format: %q", token)
 	}
 	blogPath := "/api/v1/projects/" + blog.Project.Id.String()

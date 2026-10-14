@@ -181,7 +181,7 @@ func TestPrepaidAlertsAndZeroBalance(t *testing.T) {
 	}
 	subjects := func() string {
 		var out []string
-		for _, m := range sent.msgs {
+		for _, m := range sent.all() {
 			out = append(out, m.Subject)
 		}
 		return strings.Join(out, " | ")
@@ -189,11 +189,11 @@ func TestPrepaidAlertsAndZeroBalance(t *testing.T) {
 	if !strings.Contains(subjects(), "prepaid balance is low") {
 		t.Fatalf("no low-balance alert: %s", subjects())
 	}
-	n := len(sent.msgs)
+	n := len(sent.all())
 	if err := s.CheckPrepaid(ctx, org); err != nil {
 		t.Fatal(err)
 	}
-	if len(sent.msgs) != n {
+	if len(sent.all()) != n {
 		t.Errorf("the alert was sent twice: %s", subjects())
 	}
 

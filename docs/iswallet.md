@@ -31,7 +31,7 @@ Xenibase first designed for, and a few things don't exist at all:
 
 | Call | For |
 | --- | --- |
-| `POST /v1/wallets` (`Idempotency-Key`) | Open an organisation's wallet: `owner_type` `client_end_business`, a namespaced `owner_ref` (`xenibase:prod:org:<id>`), `currency` NGN, the business's name, email and phone, a director's BVN, and `initial_tier` TIER_2. A `409 WALLET_ALREADY_EXISTS` carries the existing wallet and counts as success. |
+| `POST /v1/wallets` (`Idempotency-Key`) | Open an organisation's wallet (the body's `client_id` must be the key's own, which Xenibase reads from `GET /v1/platform/account` unless `XENIBASE_ISWALLET_CLIENT_ID` is set; otherwise `403 SCOPE_INSUFFICIENT`): `owner_type` `client_end_business`, a namespaced `owner_ref` (`xenibase:prod:org:<id>`), `currency` NGN, the business's name, email and phone, a director's BVN, and `initial_tier` TIER_2. A `409 WALLET_ALREADY_EXISTS` carries the existing wallet and counts as success. |
 | `POST /v1/wallets/{id}/virtual-account` | The permanent bank account (NUBAN) that funds the wallet. Re-asking returns the same one. Needs the BVN to have been given. |
 | `GET /v1/wallets/{id}/balance` | The balance. Xenibase reads `balances[]` (the top-level `balance` is the canonical currency for older integrators) and uses `available`. |
 | `GET /v1/platform/account` | Xenibase's operating wallet, where debits go. Provisioned per tenant: Xenibase never creates one. |

@@ -103,7 +103,7 @@ func TestOverdueLadderAndReversal(t *testing.T) {
 		t.Fatal("deleted with deletion for non-payment off")
 	}
 	var subjects []string
-	for _, m := range sent.msgs {
+	for _, m := range sent.all() {
 		subjects = append(subjects, m.Subject)
 	}
 	for _, want := range []string{"overdue balance", "can't create new resources", "final notice", "suspended for non-payment", "will be deleted"} {
@@ -227,7 +227,7 @@ func TestChargeRetries(t *testing.T) {
 		t.Errorf("after the retry: %+v", a)
 	}
 	n := 0
-	for _, m := range w.sent.msgs {
+	for _, m := range w.sent.all() {
 		if strings.Contains(m.Subject, "acme's wallet couldn't pay") {
 			n++
 		}

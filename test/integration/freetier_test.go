@@ -71,7 +71,9 @@ func TestFreeProjectPausesAndArchives(t *testing.T) {
 	ctx := context.Background()
 	q := store.New(e.DB)
 
-	c := e.CreateProject("Hobby")
+	// A Free organisation: the owner's own is on the Unlimited plan, which is never paused.
+	free := e.CreateOrg("Free team")
+	c := e.CreateProjectIn("Hobby", free)
 	app := e.MustConnect(c.Connection.PooledUrl)
 	if _, err := app.Exec(ctx, `CREATE TABLE notes (id serial PRIMARY KEY, body text); INSERT INTO notes (body) SELECT 'note ' || g FROM generate_series(1, 250) g`); err != nil {
 		t.Fatal(err)
@@ -181,11 +183,12 @@ func busy(t *testing.T, e *testenv.Env, p gen.Project) bool {
 func TestFreeTierSweepRules(t *testing.T) {
 	e := testenv.Start(t, testenv.Options{})
 	ctx := context.Background()
-	c := e.CreateProject("Paid soon")
+	free := e.CreateOrg("Free team") // the owner's own organisation is Unlimited, which is never paused
+	c := e.CreateProjectIn("Paid soon", free)
 	if _, err := e.DB.Exec(ctx, `UPDATE projects SET last_active_at = now() - interval '30 days', pause_warned_at = now() - interval '2 days' WHERE id = $1`, c.Project.Id); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.Billing.ChangePlan(ctx, e.OrgID, billing.PlanRequest{Plan: billing.PlanPro}); err != nil {
+	if _, err := e.Billing.ChangePlan(ctx, free, billing.PlanRequest{Plan: billing.PlanPro}); err != nil {
 		t.Fatal(err)
 	}
 	if sw, err := e.FreeTier.Sweep(ctx); err != nil || sw.Paused != 0 || sw.Warned != 0 {
@@ -203,10 +206,10 @@ func TestFreeTierSweepRules(t *testing.T) {
 
 	// An archived Free project, 360 days in: only the 7-day notice (the
 	// 30-day one is past), then deletion once the year is up.
-	if _, err := e.Billing.ChangePlan(ctx, e.OrgID, billing.PlanRequest{Plan: billing.PlanFree, Immediately: true}); err != nil {
+	if _, err := e.Billing.ChangePlan(ctx, free, billing.PlanRequest{Plan: billing.PlanFree, Immediately: true}); err != nil {
 		t.Fatal(err)
 	}
-	d := e.CreateProject("Long gone")
+	d := e.CreateProjectIn("Long gone", free)
 	if _, err := e.DB.Exec(ctx, `UPDATE projects SET lifecycle = 'archived', paused_at = now() - interval '450 days', archived_at = now() - interval '360 days' WHERE id = $1`, d.Project.Id); err != nil {
 		t.Fatal(err)
 	}

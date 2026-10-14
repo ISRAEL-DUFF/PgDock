@@ -90,7 +90,7 @@ export function channelLabel(channel: string): string {
     case "transfer":
       return "Bank transfer";
     case "manual":
-      return "Recorded by Xenibase";
+      return "Recorded manually";
     case "card":
     case "saved_card":
       return "Card";

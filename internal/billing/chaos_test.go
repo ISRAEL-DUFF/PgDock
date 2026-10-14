@@ -13,7 +13,7 @@ import (
 // failureEmails counts "wallet couldn't pay" emails.
 func failureEmails(w *payWorld) int {
 	n := 0
-	for _, m := range w.sent.msgs {
+	for _, m := range w.sent.all() {
 		if strings.Contains(m.Subject, "couldn't pay") {
 			n++
 		}

@@ -55,6 +55,7 @@ type Client struct {
 
 	mu       sync.Mutex
 	operator string // Xenibase's operating wallet, once known
+	clientID string // Xenibase's client id at the provider, once known
 }
 
 // New returns the client.
@@ -184,8 +185,17 @@ func (c *Client) CreateWallet(ctx context.Context, r billing.WalletRequest) (bil
 		"owner_type": "client_end_business", "owner_ref": r.OwnerRef, "currency": "NGN",
 		"business_name": r.Name, "business_email": r.Email, "business_phone": r.Phone, "bvn": r.BVN,
 	}
-	if c.cfg.ClientID != "" {
-		body["client_id"] = c.cfg.ClientID
+	// The provider wants the client id in the body and refuses one that
+	// isn't the key's: it is configured, or read from the platform account.
+	clientID := c.cfg.ClientID
+	if clientID == "" {
+		var err error
+		if _, clientID, err = c.platform(ctx); err != nil {
+			return billing.Wallet{}, err
+		}
+	}
+	if clientID != "" {
+		body["client_id"] = clientID
 	}
 	if r.TIN != "" {
 		body["tin"] = r.TIN
@@ -247,27 +257,34 @@ func (c *Client) Balance(ctx context.Context, walletID string) (billing.WalletBa
 	return b, nil
 }
 
-// OperatingWallet is Xenibase's own wallet at iswallet.
-func (c *Client) OperatingWallet(ctx context.Context) (string, error) {
+// platform reads Xenibase's operating wallet and client id, once.
+func (c *Client) platform(ctx context.Context) (operator, clientID string, err error) {
 	c.mu.Lock()
-	op := c.operator
+	op, cid := c.operator, c.clientID
 	c.mu.Unlock()
 	if op != "" {
-		return op, nil
+		return op, cid, nil
 	}
 	var out struct {
-		ID string `json:"operating_wallet_id"`
+		ID       string `json:"operating_wallet_id"`
+		ClientID string `json:"client_id"`
 	}
 	if err := c.call(ctx, http.MethodGet, "/v1/platform/account", "", nil, &out); err != nil {
-		return "", err
+		return "", "", err
 	}
 	if out.ID == "" {
-		return "", errors.New("iswallet: no operating wallet for this client")
+		return "", "", errors.New("iswallet: no operating wallet for this client")
 	}
 	c.mu.Lock()
-	c.operator = out.ID
+	c.operator, c.clientID = out.ID, out.ClientID
 	c.mu.Unlock()
-	return out.ID, nil
+	return out.ID, out.ClientID, nil
+}
+
+// OperatingWallet is Xenibase's own wallet at iswallet.
+func (c *Client) OperatingWallet(ctx context.Context) (string, error) {
+	op, _, err := c.platform(ctx)
+	return op, err
 }
 
 // Transfer moves money between two wallets. It completes synchronously.
