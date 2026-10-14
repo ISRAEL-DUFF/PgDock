@@ -15,10 +15,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // KindStorageSwitch moves a project's backups to another target (V2 s6):
@@ -271,10 +271,13 @@ func (s *Service) SwitchTarget(ctx context.Context, p store.Project, sp SwitchPa
 		if err != nil {
 			return nil, err
 		}
-		if row.OrgID == nil && row.IsDefault {
+		if err := residencyAllows(p, row); err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrInvalid, err)
+		}
+		if row.OrgID == nil && row.IsDefault && !s.regionHasTarget(ctx, p.Region) {
 			sp.TargetID = nil // the default, followed if it changes
 		}
-	} else if _, _, err := s.StorageTarget(ctx); err != nil {
+	} else if _, _, err := s.regionTarget(ctx, p); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrConflict, err)
 	}
 	if p.Tier != provision.TierDedicated && !sp.CopyExisting {

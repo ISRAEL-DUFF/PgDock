@@ -20,4 +20,4 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/israel-duff/pgdock
+        - github.com/israel-duff/xenibase

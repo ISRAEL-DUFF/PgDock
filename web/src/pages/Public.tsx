@@ -7,6 +7,7 @@ import { AuthShell, TermsText } from "../components/Layout";
 import { Alert, Button, Field, Input, Spinner } from "../components/ui";
 import { setCurrentOrg } from "../lib/org";
 import { sessionQuery, setSession } from "../lib/session";
+import { Turnstile } from "../components/Turnstile";
 
 function PasswordFields({ password, setPassword, confirm, setConfirm }: { password: string; setPassword: (v: string) => void; confirm: string; setConfirm: (v: string) => void }) {
   const mismatch = confirm !== "" && confirm !== password;
@@ -54,12 +55,14 @@ export function SignupPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [challenge, setChallenge] = useState("");
+  const siteKey = session?.turnstile_site_key;
 
   if (session?.signup_mode === "invite_only") {
     return (
       <AuthShell>
         <h1 className="mb-2 text-lg font-semibold">Sign-up is by invitation</h1>
-        <p className="text-sm text-muted">Ask someone who uses this PGDock to invite you. The email it sends has a link that creates your account.</p>
+        <p className="text-sm text-muted">Ask someone who uses this Xenibase to invite you. The email it sends has a link that creates your account.</p>
         <Link to="/login" className="mt-4 block text-sm underline">
           Back to sign in
         </Link>
@@ -72,7 +75,7 @@ export function SignupPage() {
     setBusy(true);
     setErr(null);
     try {
-      await api.signup({ email, password, name: name || undefined, terms_version: terms.data?.version ?? 0 });
+      await api.signup({ email, password, name: name || undefined, terms_version: terms.data?.version ?? 0, challenge: challenge || undefined });
       setSent(true);
     } catch (e) {
       setErr(errorMessage(e));
@@ -101,8 +104,14 @@ export function SignupPage() {
         <Field label="Email">{(id) => <Input id={id} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />}</Field>
         <PasswordFields password={password} setPassword={setPassword} confirm={confirm} setConfirm={setConfirm} />
         <TermsAgreement checked={accepted} setChecked={setAccepted} />
+        {siteKey && <Turnstile siteKey={siteKey} onToken={setChallenge} />}
         {err && <Alert>{err}</Alert>}
-        <Button type="submit" variant="primary" busy={busy} disabled={!accepted || password.length < 12 || password !== confirm}>
+        <Button
+          type="submit"
+          variant="primary"
+          busy={busy}
+          disabled={!accepted || password.length < 12 || password !== confirm || (!!siteKey && !challenge)}
+        >
           Create account
         </Button>
         <Link to="/login" className="text-xs text-muted hover:text-fg">
@@ -282,7 +291,7 @@ export function InvitePage() {
       {preview.isError && <Alert>This invitation is invalid, expired, or already used.</Alert>}
       {p && (
         <div className="flex flex-col gap-4">
-          <h1 className="text-lg font-semibold">{p.org_name ? `Join ${p.org_name}` : "Join PGDock"}</h1>
+          <h1 className="text-lg font-semibold">{p.org_name ? `Join ${p.org_name}` : "Join Xenibase"}</h1>
           <p className="text-sm text-muted">
             {p.invited_by} invited <strong>{p.email}</strong>
             {p.org_name ? ` as ${p.role}${p.project_count ? `, with access to ${p.project_count} project${p.project_count === 1 ? "" : "s"}` : ""}` : ""}.

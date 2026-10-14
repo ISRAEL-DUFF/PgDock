@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/mail"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/mail"
 )
 
 // inbox captures account email.
@@ -56,7 +56,7 @@ func (b *inbox) count(addr string) int {
 
 func newAccounts(t *testing.T) (*auth.Service, *clock, *inbox, int, string) {
 	t.Helper()
-	s, c := newService(t, auth.Config{PublicURL: "https://pgdock.test"})
+	s, c := newService(t, auth.Config{PublicURL: "https://xenibase.test"})
 	box := &inbox{}
 	s.SetMailer(box)
 	ctx := context.Background()
@@ -250,7 +250,7 @@ func TestTermsVersions(t *testing.T) {
 	if pending, _, err := s.TermsOutstanding(ctx, sess.UserID); err != nil || pending {
 		t.Fatalf("setup accepted version 1: %v %v", pending, err)
 	}
-	v2, err := s.PublishTerms(ctx, "# Terms v2", "# Privacy v2", sess.UserID)
+	v2, err := s.PublishTerms(ctx, "# Terms v2", "# Privacy v2", "", sess.UserID)
 	if err != nil || v2.Version != 2 {
 		t.Fatalf("publish: %+v %v", v2, err)
 	}

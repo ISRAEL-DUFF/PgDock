@@ -113,7 +113,7 @@ CREATE INDEX operations_created_at ON operations (created_at DESC, id DESC);
 CREATE FUNCTION operations_notify() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
-  PERFORM pg_notify('pgdock_operations',
+  PERFORM pg_notify('xenibase_operations',
     json_build_object('id', NEW.id, 'status', NEW.status)::text);
   RETURN NULL;
 END

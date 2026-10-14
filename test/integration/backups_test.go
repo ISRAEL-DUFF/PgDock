@@ -12,11 +12,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestBackupDeleteRestoreVerify is the M3 done-when, minus the Supabase
@@ -55,12 +55,12 @@ func TestBackupDeleteRestoreVerify(t *testing.T) {
 		t.Fatalf("list backups: %d %+v", code, list)
 	}
 	b := list.Items[0]
-	if b.Status != gen.BackupStatusSucceeded || b.Kind != gen.Logical || b.SizeBytes == nil || *b.SizeBytes == 0 || b.Checksum == nil {
+	if b.Status != gen.BackupStatusSucceeded || b.Kind != gen.BackupKindLogical || b.SizeBytes == nil || *b.SizeBytes == 0 || b.Checksum == nil {
 		t.Fatalf("backup row: %+v", b)
 	}
 	// The object is in the bucket under projects/<id>/logical/, encrypted.
-	keys, err := e.S3.Objects("pgdock-test")
-	if err != nil || len(keys) != 1 || !strings.HasPrefix(keys[0], "pgdock/projects/"+p.Id.String()+"/logical/") {
+	keys, err := e.S3.Objects("xenibase-test")
+	if err != nil || len(keys) != 1 || !strings.HasPrefix(keys[0], "xenibase/projects/"+p.Id.String()+"/logical/") {
 		t.Fatalf("bucket objects: %v %v", keys, err)
 	}
 	raw := downloadRaw(t, e, keys[0])
@@ -134,7 +134,7 @@ func TestBackupDeleteRestoreVerify(t *testing.T) {
 		t.Fatalf("project after in-place restore: %s", proj.Status)
 	}
 	// A safety backup of the pre-restore state (10 rows) was taken first.
-	safety := gen.Safety
+	safety := gen.BackupKindSafety
 	e.Do("GET", "/api/v1/backups?kind="+string(safety), nil, &list)
 	if len(list.Items) != 1 || list.Items[0].ExpiresAt == nil || list.Items[0].ProjectId == nil || *list.Items[0].ProjectId != p.Id {
 		t.Fatalf("safety backups: %+v", list.Items)
@@ -148,7 +148,7 @@ func TestBackupDeleteRestoreVerify(t *testing.T) {
 		t.Fatalf("restore test: %s\n%s", op.Status, testenv.FormatLog(op))
 	}
 	admin := e.SharedAdmin("postgres")
-	if err := admin.QueryRow(ctx, `SELECT count(*) FROM pg_database WHERE datname LIKE 'pgdock_restore_test_%'`).Scan(&n); err != nil || n != 0 {
+	if err := admin.QueryRow(ctx, `SELECT count(*) FROM pg_database WHERE datname LIKE 'xenibase_restore_test_%'`).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("scratch databases left behind: %d %v", n, err)
 	}
 
@@ -176,7 +176,7 @@ func TestBackupDeleteRestoreVerify(t *testing.T) {
 	if op = e.WaitOperation(del.Id); op.Status != gen.OperationStatusSucceeded {
 		t.Fatalf("delete: %s\n%s", op.Status, testenv.FormatLog(op))
 	}
-	final := gen.Final
+	final := gen.BackupKindFinal
 	e.Do("GET", "/api/v1/backups?kind="+string(final), nil, &list)
 	if len(list.Items) != 1 || list.Items[0].ExpiresAt == nil || time.Until(*list.Items[0].ExpiresAt) < 29*24*time.Hour ||
 		list.Items[0].ProjectDeleted == nil || !*list.Items[0].ProjectDeleted {
@@ -212,7 +212,7 @@ func verifyShop(t *testing.T, c *pgx.Conn, want int) {
 // downloadRaw fetches an object's bytes without decrypting.
 func downloadRaw(t *testing.T, e *testenv.Env, key string) string {
 	t.Helper()
-	cl, err := storage.New(e.S3.Target("pgdock-test"))
+	cl, err := storage.New(e.S3.Target("xenibase-test"))
 	if err != nil {
 		t.Fatal(err)
 	}

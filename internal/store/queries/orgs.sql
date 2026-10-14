@@ -68,7 +68,7 @@ SELECT count(*) FROM org_members WHERE org_id = @org_id AND role = 'owner';
 
 -- name: LockOrgMembers :exec
 -- Serializes membership changes in one organisation (the last-owner rule).
-SELECT pg_advisory_xact_lock(hashtext('pgdock_org_members:' || @org_key::text));
+SELECT pg_advisory_xact_lock(hashtext('xenibase_org_members:' || @org_key::text));
 
 -- name: ListOrgMembers :many
 SELECT m.org_id, m.user_id, m.role, m.created_at, u.email, u.name, u.last_active_at, u.disabled_at,
@@ -224,9 +224,9 @@ UPDATE project_db_users SET org_id = @new_org_id WHERE project_id = @project_id 
 
 -- name: PoolerDBUsers :many
 -- tenant: system - every personal login the poolers must accept.
-SELECT d.role_name, d.scram_verifier
+SELECT d.role_name, d.scram_verifier, p.region, p.forward_region, p.forward_until
 FROM project_db_users d JOIN projects p ON p.id = d.project_id
-WHERE p.deleted_at IS NULL AND p.status IN ('provisioning', 'active', 'promoting', 'demoting', 'restoring')
+WHERE p.deleted_at IS NULL AND p.status IN ('provisioning', 'active', 'promoting', 'demoting', 'moving', 'upgrading', 'restoring')
 ORDER BY d.role_name;
 
 -- name: ListOrgBackups :many

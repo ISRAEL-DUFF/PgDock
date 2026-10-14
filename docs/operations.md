@@ -1,6 +1,6 @@
-# Operating PGDock
+# Operating Xenibase
 
-Day-to-day running of a PGDock install. Commands run in `deploy/compose`.
+Day-to-day running of a Xenibase install. Commands run in `deploy/compose`.
 
 ## Health at a glance
 
@@ -17,6 +17,8 @@ Day-to-day running of a PGDock install. Commands run in `deploy/compose`.
   | Node unreachable | critical | A node's agent has not answered for 2+ minutes |
   | Project disk | warning | A project is larger than its disk warning (Project Settings → Database) |
   | Pooler down | critical | A PgBouncer's admin console does not answer |
+  | Pooler host not ready | critical | An edge pooler host can't serve or is stale ([standby edge pooler](edge-poolers.md)) |
+  | Pooler split brain | critical | Both edge pooler hosts say keepalived made them MASTER |
   | Isolation check | critical | The nightly tenant-isolation check found a problem |
 
 - **Operations** shows every long action with its step log.
@@ -30,9 +32,12 @@ Day-to-day running of a PGDock install. Commands run in `deploy/compose`.
 
 - Logical backups of every project run nightly (02:00 UTC plus up to 2 h of
   jitter); dedicated instances also take daily base backups and archive WAL
-  continuously (point-in-time recovery for 7 days).
-- Retention: 7 daily backups and 4 weekly ones; final backups of deleted
-  projects are kept 30 days.
+  continuously (point-in-time recovery for 7 days, or 14 or 30 as an
+  add-on).
+- Retention: 7 daily backups and 4 weekly ones, or longer as an add-on
+  (extended: 30 daily, 12 weekly; long: 30 daily, 52 weekly); final
+  backups of deleted projects are kept 30 days. See
+  [billing add-ons](billing.md#add-ons).
 - Weekly, a random project's latest backup is restored into a scratch
   database and verified (Settings → Backup checks).
 - The metadata database backs itself up nightly to `<prefix>/metadata/`.
@@ -65,7 +70,7 @@ archive stays restorable for the 7-day recovery window, then goes.
 OpenPGP messages to it, and on the dedicated tier WAL-G uses it too.
 **Download key…** needs re-authentication, is audited, and gives a file
 with a README on restoring with gpg and pg_restore alone
-([disaster recovery](disaster-recovery.md#restoring-a-project-without-pgdock)).
+([disaster recovery](disaster-recovery.md#restoring-a-project-without-xenibase)).
 A target can't be deleted while a project uses it; one that still holds
 backups is deleted only when you accept that they become unrestorable. A
 project whose backups are on its organisation's target moves to platform
@@ -106,10 +111,10 @@ If nobody who is an admin can sign in, recover from the server, where you
 already hold the metadata database and `.env`:
 
 ```sh
-docker compose exec pgdock-server pgdock-server admin list
-docker compose exec pgdock-server pgdock-server admin promote you@example.com
-docker compose exec pgdock-server pgdock-server admin reset-2fa you@example.com
-docker compose exec pgdock-server pgdock-server admin reset-password you@example.com
+docker compose exec xenibase-server xenibase-server admin list
+docker compose exec xenibase-server xenibase-server admin promote you@example.com
+docker compose exec xenibase-server xenibase-server admin reset-2fa you@example.com
+docker compose exec xenibase-server xenibase-server admin reset-password you@example.com
 ```
 
 `promote` also approves, verifies and re-enables the account (it need not
@@ -234,7 +239,7 @@ change as plain SQL, goose or dbmate, to apply to other environments.
 A branch is a throwaway copy of a project on the shared tier (on the
 organisation's own shared cluster if it has one), from its latest backup
 or live, schema only or with data. Developers and above create them under
-**Database → Branches** or with `pgdock branch create`; they expire after
+**Database → Branches** or with `xenibase branch create`; they expire after
 7 days unless given another TTL (1 hour to 30 days, or kept), the
 creator is emailed a day before, and an hourly job deletes expired ones
 without a final backup. **Reset** refills a branch from its parent while
@@ -254,7 +259,7 @@ scheduled jobs are never copied.
 
 ## API tokens and the CLI
 
-Members use the `pgdock` CLI ([CLI guide](cli.md)) and API tokens for
+Members use the `xenibase` CLI ([CLI guide](cli.md)) and API tokens for
 scripts and CI. Tokens act in one organisation with read, write or admin
 scope, optionally restricted to some projects, and expire within a year.
 Set a lower maximum under **Settings → API tokens**. Organisation owners
@@ -275,7 +280,7 @@ for that.
   database), **promote** it (Project Settings → Compute and tier): same URL,
   a short write freeze.
 - When it no longer needs its own instance, **demote** it (Project Settings →
-  Compute and tier → Move back to shared, or `pgdock demote`). The preflight checks the size
+  Compute and tier → Move back to shared, or `xenibase demote`). The preflight checks the size
   against the organisation's shared storage limits, extensions against
   the shared allow-list, custom roles, peak connections, database
   settings that will reset, and a shared cluster with room for the
@@ -293,12 +298,12 @@ for that.
 
 ## Outbound traffic
 
-Webhooks and HTTP jobs are the only way tenants make PGDock send requests
+Webhooks and HTTP jobs are the only way tenants make Xenibase send requests
 ([webhooks and scheduled jobs](webhooks.md)). Before each request
-pgdock-server resolves the host and refuses private, loopback, link-local,
+xenibase-server resolves the host and refuses private, loopback, link-local,
 CGNAT and cloud-metadata addresses, then connects to the address it
 checked, without following redirects. Add your nodes' network (and any
-other internal range) with `PGDOCK_OUTBOUND_BLOCK=10.0.0.0/16,192.0.2.0/24`
+other internal range) with `XENIBASE_OUTBOUND_BLOCK=10.0.0.0/16,192.0.2.0/24`
 if it isn't in a private range already.
 
 On an organisation's admin page you can:
@@ -312,23 +317,23 @@ On an organisation's admin page you can:
 - See the organisation's requests per destination host over the last 30
   days (hosts and counts only, no payloads).
 
-Only one pgdock-server delivers webhooks and runs the scheduler at a time
+Only one xenibase-server delivers webhooks and runs the scheduler at a time
 (advisory locks), so more servers can be added later without double
 deliveries.
 
 ## Secrets
 
-- `.env` holds `PGDOCK_MASTER_KEY`; keep a copy off the server.
+- `.env` holds `XENIBASE_MASTER_KEY`; keep a copy off the server.
 - **Rotate the master key**: generate a new one, run the rotation, then
   switch over:
 
   ```sh
-  new=$(docker compose exec -T pgdock-server pgdock-server -gen-master-key)
-  old=$(grep '^PGDOCK_MASTER_KEY=' .env | cut -d= -f2-)
-  docker compose stop pgdock-server
-  docker compose run --rm -e PGDOCK_MASTER_KEY="$new" -e PGDOCK_MASTER_KEY_PREVIOUS="$old" \
-    pgdock-server -rotate-master-key
-  sed -i "s|^PGDOCK_MASTER_KEY=.*|PGDOCK_MASTER_KEY=$new|" .env
+  new=$(docker compose exec -T xenibase-server xenibase-server -gen-master-key)
+  old=$(grep '^XENIBASE_MASTER_KEY=' .env | cut -d= -f2-)
+  docker compose stop xenibase-server
+  docker compose run --rm -e XENIBASE_MASTER_KEY="$new" -e XENIBASE_MASTER_KEY_PREVIOUS="$old" \
+    xenibase-server -rotate-master-key
+  sed -i "s|^XENIBASE_MASTER_KEY=.*|XENIBASE_MASTER_KEY=$new|" .env
   docker compose up -d
   ```
 
@@ -336,7 +341,7 @@ deliveries.
   key alone opens it all; on any error nothing changes. Operators sign in
   again afterwards. Back up the new `.env`.
 - The backup key never changes (old backups need it); keep it offline.
-- `PGDOCK_CONSOLE_DISABLED=true` turns the SQL console and table browser
+- `XENIBASE_CONSOLE_DISABLED=true` turns the SQL console and table browser
   off for every project.
 
 ## Upgrades and disaster recovery

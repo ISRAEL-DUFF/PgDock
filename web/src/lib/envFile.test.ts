@@ -14,7 +14,19 @@ describe("envFileContents", () => {
     const text = envFileContents(creds);
     expect(text).toContain('DATABASE_URL="postgresql://u:p@db.example.com:6543/my_blog_k2f9?sslmode=require"');
     expect(text).toContain('DATABASE_SESSION_URL="postgresql://u:p@db.example.com:5432/my_blog_k2f9?sslmode=require"');
-    expect(text.startsWith("# PGDock project: My Blog (my_blog_k2f9)")).toBe(true);
+    expect(text.startsWith("# Xenibase project: My Blog (my_blog_k2f9)")).toBe(true);
     expect(text.endsWith("\n")).toBe(true);
+  });
+
+  it("adds a branch's own API", () => {
+    const creds = {
+      project: { name: "pr-7", db_name: "shop_pr7" },
+      connection: { pooled_url: "postgresql://a", session_url: "postgresql://b" },
+      api: { ref: "k7f3", url: "https://k7f3.api.example", publishable_key: "xb_pub_x", secret_key: "xb_sec_y" },
+    } as ProjectCredentials;
+    const text = envFileContents(creds);
+    expect(text).toContain('XENIBASE_API_URL="https://k7f3.api.example"');
+    expect(text).toContain('XENIBASE_PUBLISHABLE_KEY="xb_pub_x"');
+    expect(text).toContain('XENIBASE_SECRET_KEY="xb_sec_y"');
   });
 });

@@ -17,16 +17,16 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/backupfmt"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/dedicated"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/walg"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/backupfmt"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/walg"
 )
 
 // Operation kinds.
@@ -45,6 +45,9 @@ const (
 	Final    = "final"
 	Safety   = "safety"
 	Metadata = "metadata"
+	// Archive is an archived Free project's backup (V3 §4.3), kept for as
+	// long as the project is archived.
+	Archive = "archive"
 )
 
 // Errors for the API layer.
@@ -118,7 +121,7 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 }
 
 // objectKey is where a backup object lives under the target's prefix:
-// ".dump.enc" for the PGDock format, ".dump.gpg" for an OpenPGP message
+// ".dump.enc" for the Xenibase format, ".dump.gpg" for an OpenPGP message
 // (a project's own key).
 func objectKey(kind string, projectID *uuid.UUID, at time.Time, pgp bool) string {
 	b := make([]byte, 3)
@@ -146,7 +149,7 @@ func (s *Service) defaultPlacement(ctx context.Context) (Placement, error) {
 }
 
 // sealing is how an upload is encrypted under pl: an OpenPGP message to
-// the project's key, or the PGDock format under the instance key.
+// the project's key, or the Xenibase format under the instance key.
 func (s *Service) sealing(ctx context.Context, pl Placement) (agentapi.Upload, error) {
 	up := agentapi.Upload{Storage: pl.Target}
 	if pl.KeyID != nil {
@@ -290,7 +293,13 @@ func (s *Service) applyRetention(ctx context.Context, projectID *uuid.UUID, kind
 			byID[r.ID] = r
 		}
 	}
-	expired := s.cfg.Retention.Expired(items)
+	pol := s.cfg.Retention
+	if projectID != nil {
+		if pol, err = s.projectRetention(ctx, q, *projectID); err != nil {
+			return err
+		}
+	}
+	expired := pol.Expired(items)
 	if len(expired) == 0 {
 		return nil
 	}
@@ -302,7 +311,27 @@ func (s *Service) applyRetention(ctx context.Context, projectID *uuid.UUID, kind
 		}
 		deleted++
 	}
-	return log.Info(ctx, "retention", "dropped %d backup(s) outside %d daily + %d weekly", deleted, s.cfg.Retention.Daily, s.cfg.Retention.Weekly)
+	return log.Info(ctx, "retention", "dropped %d backup(s) outside %d daily + %d weekly", deleted, pol.Daily, pol.Weekly)
+}
+
+// projectRetention is the project's nightly backup policy: the configured
+// one when standard, else extended or long (V4.1 §4.2).
+func (s *Service) projectRetention(ctx context.Context, q *store.Queries, projectID uuid.UUID) (Retention, error) {
+	p, err := q.GetProject(ctx, projectID)
+	if err != nil {
+		return Retention{}, err
+	}
+	set, err := store.DecodeProjectSettings(p.Settings)
+	if err != nil {
+		return Retention{}, err
+	}
+	switch set.Retention() {
+	case store.RetentionExtended:
+		return ExtendedRetention, nil
+	case store.RetentionLong:
+		return LongRetention, nil
+	}
+	return s.cfg.Retention, nil
 }
 
 // deleteObject removes a backup's object from its target and marks it
@@ -326,6 +355,9 @@ func (s *Service) deleteObject(ctx context.Context, b store.Backup) error {
 		return s.deleteBaseBackup(ctx, c, b)
 	}
 	if err := c.Delete(ctx, b.ObjectKey); err != nil {
+		return err
+	}
+	if err := s.deleteCopy(ctx, b); err != nil {
 		return err
 	}
 	if err := q.MarkBackupDeleted(ctx, b.ID); err != nil {
@@ -437,7 +469,7 @@ func (s *Service) Schedule(ctx context.Context, now time.Time) error {
 	}
 	return pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		var got bool
-		if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock(hashtext('pgdock_backup_scheduler'))`).Scan(&got); err != nil || !got {
+		if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock(hashtext('xenibase_backup_scheduler'))`).Scan(&got); err != nil || !got {
 			return err
 		}
 		q := store.New(tx)
@@ -487,7 +519,10 @@ func (s *Service) Schedule(ctx context.Context, now time.Time) error {
 		last, err := q.LastOperationOfKind(ctx, KindRestoreTest)
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && now.Sub(last.CreatedAt) >= 7*24*time.Hour) {
 			if _, err := q.RandomProjectWithBackup(ctx); err == nil {
-				if _, err := jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: KindRestoreTest}); err != nil {
+				// Alternate between primary and copy targets (V3 §2.5).
+				// The first test (no last operation) reads a copy if any.
+				next := RestoreTestParams{FromCopy: !restoreTestParams(last).FromCopy}
+				if _, err := jobs.Enqueue(ctx, tx, jobs.EnqueueParams{Kind: KindRestoreTest, Params: next}); err != nil {
 					return err
 				}
 			}
@@ -503,10 +538,18 @@ func (s *Service) Schedule(ctx context.Context, now time.Time) error {
 func (s *Service) Run(ctx context.Context) {
 	t := time.NewTicker(time.Minute)
 	defer t.Stop()
-	lastExpiry := time.Time{}
+	lastExpiry, lastCopies := time.Time{}, time.Time{}
 	for {
 		if err := s.Schedule(ctx, time.Now()); err != nil && ctx.Err() == nil {
 			s.log.Warn("backup scheduler", "err", err)
+		}
+		if time.Since(lastCopies) > 5*time.Minute {
+			if res, err := s.CopyRegionBackups(ctx, 20); err != nil && ctx.Err() == nil {
+				s.log.Warn("cross-region backup copies", "err", err)
+			} else if res.Copied+res.Failed > 0 {
+				s.log.Info("cross-region backup copies", "copied", res.Copied, "failed", res.Failed, "skipped", res.Skipped)
+			}
+			lastCopies = time.Now()
 		}
 		if time.Since(lastExpiry) > time.Hour {
 			s.expireSpecial(ctx)

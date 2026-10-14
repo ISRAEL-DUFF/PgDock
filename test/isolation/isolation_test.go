@@ -15,9 +15,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/isocheck"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/isocheck"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 type tenant struct {
@@ -215,10 +215,10 @@ func TestTenantIsolation(t *testing.T) {
 		mustFail(t, a.conn, `SELECT pg_ls_dir('.')`, "permission denied")
 		mustFail(t, a.conn, `SELECT pg_stat_file('postgresql.conf')`, "permission denied")
 		mustFail(t, a.conn, `COPY sink FROM '/etc/passwd'`, "permission denied")
-		mustFail(t, a.conn, `COPY sink TO '/tmp/pgdock_escape'`, "permission denied")
+		mustFail(t, a.conn, `COPY sink TO '/tmp/xenibase_escape'`, "permission denied")
 		mustFail(t, a.conn, `COPY sink FROM PROGRAM 'id'`, "permission denied")
 		mustFail(t, a.conn, `SELECT lo_import('/etc/passwd')`, "permission denied")
-		mustFail(t, a.conn, `SELECT lo_export(0, '/tmp/pgdock_escape')`, "permission denied")
+		mustFail(t, a.conn, `SELECT lo_export(0, '/tmp/xenibase_escape')`, "permission denied")
 	})
 
 	t.Run("no escape-prone extensions or untrusted languages", func(t *testing.T) {
@@ -345,8 +345,8 @@ func TestLiveIsolationCheck(t *testing.T) {
 	// The throwaway tenants are gone afterwards.
 	admin := e.SharedAdmin("postgres")
 	var probes int
-	if err := admin.QueryRow(ctx, `SELECT (SELECT count(*) FROM pg_database WHERE datname LIKE 'pgdock\_isocheck\_%') +
-		(SELECT count(*) FROM pg_roles WHERE rolname LIKE 'pgdock\_isocheck\_%')`).Scan(&probes); err != nil || probes != 0 {
+	if err := admin.QueryRow(ctx, `SELECT (SELECT count(*) FROM pg_database WHERE datname LIKE 'xenibase\_isocheck\_%') +
+		(SELECT count(*) FROM pg_roles WHERE rolname LIKE 'xenibase\_isocheck\_%')`).Scan(&probes); err != nil || probes != 0 {
 		t.Fatalf("probe leftovers: %d %v", probes, err)
 	}
 
@@ -385,7 +385,7 @@ func TestLiveIsolationCheck(t *testing.T) {
 	}
 
 	// A suspended organisation's logins must be off (V2 §10.8): suspend,
-	// then switch one back on behind PGDock's back.
+	// then switch one back on behind Xenibase's back.
 	team := e.CreateOrg("Isolated team")
 	tp := e.CreateProjectIn("suspended app", team)
 	e.Reauth()

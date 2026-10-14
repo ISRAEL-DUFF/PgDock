@@ -1,8 +1,8 @@
 // Package webhooks sends row changes of a project's tables to URLs (V2
 // §9.1) through a transactional outbox in the project's database: triggers
-// write each change to pgdock.webhook_outbox in the same transaction, so
+// write each change to xenibase.webhook_outbox in the same transaction, so
 // rolled-back changes never produce an event and committed ones always do,
-// and a delivery worker in pgdock-server posts them in order, signed, with
+// and a delivery worker in xenibase-server posts them in order, signed, with
 // retries and dead letters.
 package webhooks
 
@@ -20,17 +20,19 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 var (
@@ -134,15 +136,30 @@ type Params struct {
 	// Headers replace the stored ones when not nil.
 	Headers map[string]string
 	Enabled bool
+	// Description and Metadata are free for the webhook's owner, such as
+	// a tool tagging the webhooks it created; Metadata replaces the
+	// stored one when not nil.
+	Description string
+	Metadata    map[string]string
 }
+
+// Metadata's bounds.
+const (
+	maxDescription   = 500
+	maxMetadataKeys  = 16
+	maxMetadataValue = 500
+	// MaxSecretOverlap is the longest a rotated-out secret keeps signing.
+	MaxSecretOverlap = 24 * time.Hour
+)
 
 var (
 	nameRe   = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$`)
 	headerRe = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
+	metaKey  = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,40}$`)
 )
 
-// reserved headers are set by PGDock.
-var reserved = []string{"content-type", "content-length", "host", "user-agent", "pgdock-signature", "pgdock-event-id", "pgdock-webhook", "pgdock-job"}
+// reserved headers are set by Xenibase.
+var reserved = []string{"content-type", "content-length", "host", "user-agent", "xenibase-signature", "xenibase-event-id", "xenibase-webhook", "xenibase-job"}
 
 // table is a resolved table of the project.
 type table struct{ Schema, Name string }
@@ -185,6 +202,21 @@ func (s *Service) validate(ctx context.Context, p store.Project, in *Params) err
 	if len(in.Columns) > 0 && !slices.Contains(in.Events, "UPDATE") {
 		return fmt.Errorf("%w: columns filter UPDATE events; add UPDATE or remove the columns", ErrInvalid)
 	}
+	in.Description = strings.TrimSpace(in.Description)
+	if utf8.RuneCountInString(in.Description) > maxDescription || strings.ContainsFunc(in.Description, unicode.IsControl) {
+		return fmt.Errorf("%w: a description of at most %d characters, on one line", ErrInvalid, maxDescription)
+	}
+	if len(in.Metadata) > maxMetadataKeys {
+		return fmt.Errorf("%w: at most %d metadata keys", ErrInvalid, maxMetadataKeys)
+	}
+	for k, v := range in.Metadata {
+		if !metaKey.MatchString(k) {
+			return fmt.Errorf("%w: metadata key %q: 1 to 40 letters, digits, dots, colons, dashes or underscores", ErrInvalid, k)
+		}
+		if utf8.RuneCountInString(v) > maxMetadataValue {
+			return fmt.Errorf("%w: metadata %q is longer than %d characters", ErrInvalid, k, maxMetadataValue)
+		}
+	}
 	if len(in.Headers) > 20 {
 		return fmt.Errorf("%w: at most 20 headers", ErrInvalid)
 	}
@@ -211,7 +243,7 @@ func (s *Service) validate(ctx context.Context, p store.Project, in *Params) err
 	var tables []string
 	for _, raw := range in.Tables {
 		t := splitTable(strings.TrimSpace(raw))
-		if t.Schema == "pgdock" || t.Schema == "pg_catalog" || t.Schema == "information_schema" {
+		if t.Schema == "xenibase" || t.Schema == "pg_catalog" || t.Schema == "information_schema" {
 			return fmt.Errorf("%w: %s is not one of the project's tables", ErrInvalid, raw)
 		}
 		var kind string
@@ -254,8 +286,13 @@ func (s *Service) Create(ctx context.Context, p store.Project, in Params, by *uu
 		return Created{}, err
 	}
 	secret := newSecret()
+	conn, err := s.projects.AdminConn(ctx, p.InstanceID, p.DbName)
+	if err != nil {
+		return Created{}, err
+	}
+	defer conn.Close(context.Background())
 	var out Created
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		q := store.New(tx)
 		id := uuid.New()
 		sec, err := s.keyring.Encrypt([]byte(secret), secretAAD(id))
@@ -276,6 +313,7 @@ func (s *Service) Create(ctx context.Context, p store.Project, in Params, by *uu
 		w, err := q.InsertWebhook(ctx, store.InsertWebhookParams{
 			ID: id, ProjectID: p.ID, Name: in.Name, Tables: in.Tables, Events: in.Events, Columns: in.Columns, Url: in.URL,
 			HeadersEnc: hdr, SecretEnc: sec, Enabled: in.Enabled, Status: status, CreatedBy: by,
+			Description: in.Description, Metadata: metadataJSON(in.Metadata),
 		})
 		if err != nil {
 			var pe *pgconn.PgError
@@ -284,7 +322,7 @@ func (s *Service) Create(ctx context.Context, p store.Project, in Params, by *uu
 			}
 			return err
 		}
-		if err := s.install(ctx, p, w); err != nil {
+		if err := installOn(ctx, conn, w); err != nil {
 			return err
 		}
 		out = Created{Webhook: w, Secret: secret}
@@ -297,7 +335,24 @@ func updateParams(w store.Webhook, hdr []byte) store.UpdateWebhookParams {
 	return store.UpdateWebhookParams{
 		ID: w.ID, Name: w.Name, Tables: w.Tables, Events: w.Events, Columns: w.Columns, Url: w.Url, HeadersEnc: hdr,
 		Enabled: w.Enabled, Status: w.Status, StatusReason: w.StatusReason, ConsecutiveFailures: w.ConsecutiveFailures,
+		Description: w.Description, Metadata: w.Metadata,
 	}
+}
+
+// metadataJSON is m as stored ({} when empty).
+func metadataJSON(m map[string]string) json.RawMessage {
+	if len(m) == 0 {
+		return json.RawMessage("{}")
+	}
+	b, _ := json.Marshal(m)
+	return b
+}
+
+// Metadata is a webhook's stored metadata.
+func Metadata(w store.Webhook) map[string]string {
+	m := map[string]string{}
+	_ = json.Unmarshal(w.Metadata, &m)
+	return m
 }
 
 // Update changes a webhook and reinstalls its triggers; enabling a paused
@@ -319,14 +374,23 @@ func (s *Service) Update(ctx context.Context, p store.Project, w store.Webhook, 
 	}
 	old := w
 	w.Name, w.Tables, w.Events, w.Columns, w.Url, w.Enabled = in.Name, in.Tables, in.Events, in.Columns, in.URL, in.Enabled
+	w.Description = in.Description
+	if in.Metadata != nil {
+		w.Metadata = metadataJSON(in.Metadata)
+	}
 	switch {
 	case !in.Enabled:
 		w.Status = StatusPaused
 	case !old.Enabled || old.Status == StatusBroken || old.Status == StatusPaused:
 		w.Status, w.StatusReason, w.ConsecutiveFailures = StatusHealthy, nil, 0
 	}
+	conn, err := s.projects.AdminConn(ctx, p.InstanceID, p.DbName)
+	if err != nil {
+		return old, err
+	}
+	defer conn.Close(context.Background())
 	var out store.Webhook
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		var err error
 		if out, err = store.New(tx).UpdateWebhook(ctx, updateParams(w, hdr)); err != nil {
 			var pe *pgconn.PgError
@@ -335,7 +399,7 @@ func (s *Service) Update(ctx context.Context, p store.Project, w store.Webhook, 
 			}
 			return err
 		}
-		return s.install(ctx, p, out)
+		return installOn(ctx, conn, out)
 	})
 	if err == nil && out.Enabled {
 		s.Kick(p.ID)
@@ -349,17 +413,44 @@ func (s *Service) SetEnabled(ctx context.Context, p store.Project, w store.Webho
 	if err != nil {
 		return w, err
 	}
-	return s.Update(ctx, p, w, Params{Name: w.Name, Tables: w.Tables, Events: w.Events, Columns: w.Columns, URL: w.Url, Headers: hdrs, Enabled: enabled})
+	return s.Update(ctx, p, w, Params{Name: w.Name, Tables: w.Tables, Events: w.Events, Columns: w.Columns, URL: w.Url, Headers: hdrs, Enabled: enabled,
+		Description: w.Description})
 }
 
 // RotateSecret replaces the signing secret; the new one is returned once.
-func (s *Service) RotateSecret(ctx context.Context, w store.Webhook) (string, error) {
+//
+// With an overlap, the old secret keeps signing deliveries beside the new
+// one (two v1 values) until then, so receivers can switch without failing
+// the events in flight; without one the old secret stops at once.
+func (s *Service) RotateSecret(ctx context.Context, w store.Webhook, overlap time.Duration) (string, *time.Time, error) {
+	if overlap < 0 || overlap > MaxSecretOverlap {
+		return "", nil, fmt.Errorf("%w: the overlap is 0 to %d seconds", ErrInvalid, int(MaxSecretOverlap.Seconds()))
+	}
 	secret := newSecret()
 	sec, err := s.keyring.Encrypt([]byte(secret), secretAAD(w.ID))
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return secret, store.New(s.db).SetWebhookSecret(ctx, store.SetWebhookSecretParams{ID: w.ID, SecretEnc: sec})
+	params := store.SetWebhookSecretParams{ID: w.ID, SecretEnc: sec}
+	if overlap > 0 {
+		until := s.cfg.Now().Add(overlap)
+		params.PreviousSecretEnc, params.PreviousSecretExpiresAt = w.SecretEnc, &until
+	}
+	return secret, params.PreviousSecretExpiresAt, store.New(s.db).SetWebhookSecret(ctx, params)
+}
+
+// PreviousSecret is the rotated-out secret still signing beside the
+// current one, or "" when there is none or its overlap is over.
+func (s *Service) PreviousSecret(w store.Webhook) string {
+	if len(w.PreviousSecretEnc) == 0 || w.PreviousSecretExpiresAt == nil || !s.cfg.Now().Before(*w.PreviousSecretExpiresAt) {
+		return ""
+	}
+	b, err := s.keyring.Decrypt(w.PreviousSecretEnc, secretAAD(w.ID))
+	if err != nil {
+		s.log.Warn("open a webhook's previous secret", "webhook_id", w.ID, "err", err)
+		return ""
+	}
+	return string(b)
 }
 
 // Delete removes a webhook's triggers, its queued events, and the webhook.
@@ -379,7 +470,7 @@ func (s *Service) Delete(ctx context.Context, p store.Project, w store.Webhook) 
 		if exists, err := outboxExists(ctx, tx); err != nil || !exists {
 			return err
 		}
-		_, err := tx.Exec(ctx, `DELETE FROM pgdock.webhook_outbox WHERE webhook_id = $1`, w.ID)
+		_, err := tx.Exec(ctx, `DELETE FROM xenibase.webhook_outbox WHERE webhook_id = $1`, w.ID)
 		return err
 	})
 	if err != nil {
@@ -398,7 +489,7 @@ func lockError(err error) error {
 
 // ---- The outbox in the project's database ----------------------------------
 
-// outboxDDL creates the pgdock schema, owned by the superuser, with the
+// outboxDDL creates the xenibase schema, owned by the superuser, with the
 // outbox and the SECURITY DEFINER trigger function (V2 §9.1). The project
 // role has no access to the schema; the function's search_path is pinned.
 //
@@ -407,19 +498,19 @@ func lockError(err error) error {
 // superuser's function never writes into tables a tenant controls.
 const outboxDDL = `
 DO $own$ BEGIN
-  IF EXISTS (SELECT 1 FROM pg_namespace n JOIN pg_roles r ON r.oid = n.nspowner WHERE n.nspname = 'pgdock' AND NOT r.rolsuper)
+  IF EXISTS (SELECT 1 FROM pg_namespace n JOIN pg_roles r ON r.oid = n.nspowner WHERE n.nspname = 'xenibase' AND NOT r.rolsuper)
      OR EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace JOIN pg_roles r ON r.oid = c.relowner
-                WHERE n.nspname = 'pgdock' AND NOT r.rolsuper)
+                WHERE n.nspname = 'xenibase' AND NOT r.rolsuper)
      OR EXISTS (SELECT 1 FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace JOIN pg_roles r ON r.oid = f.proowner
-                WHERE n.nspname = 'pgdock' AND NOT r.rolsuper)
+                WHERE n.nspname = 'xenibase' AND NOT r.rolsuper)
      OR EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace JOIN pg_roles r ON r.oid = t.typowner
-                WHERE n.nspname = 'pgdock' AND NOT r.rolsuper) THEN
-    DROP SCHEMA pgdock CASCADE;
+                WHERE n.nspname = 'xenibase' AND NOT r.rolsuper) THEN
+    DROP SCHEMA xenibase CASCADE;
   END IF;
 END $own$;
-CREATE SCHEMA IF NOT EXISTS pgdock;
-REVOKE ALL ON SCHEMA pgdock FROM PUBLIC;
-CREATE TABLE IF NOT EXISTS pgdock.webhook_outbox (
+CREATE SCHEMA IF NOT EXISTS xenibase;
+REVOKE ALL ON SCHEMA xenibase FROM PUBLIC;
+CREATE TABLE IF NOT EXISTS xenibase.webhook_outbox (
   id              bigserial PRIMARY KEY,
   webhook_id      uuid NOT NULL,
   table_name      text NOT NULL,
@@ -432,30 +523,30 @@ CREATE TABLE IF NOT EXISTS pgdock.webhook_outbox (
   last_error      text,
   created_at      timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS webhook_outbox_webhook ON pgdock.webhook_outbox (webhook_id, id);
-REVOKE ALL ON pgdock.webhook_outbox FROM PUBLIC;
-CREATE OR REPLACE FUNCTION pgdock.webhook_enqueue() RETURNS trigger
+CREATE INDEX IF NOT EXISTS webhook_outbox_webhook ON xenibase.webhook_outbox (webhook_id, id);
+REVOKE ALL ON xenibase.webhook_outbox FROM PUBLIC;
+CREATE OR REPLACE FUNCTION xenibase.webhook_enqueue() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $fn$
 BEGIN
-  INSERT INTO pgdock.webhook_outbox (webhook_id, table_name, op, old_row, new_row)
+  INSERT INTO xenibase.webhook_outbox (webhook_id, table_name, op, old_row, new_row)
   VALUES (TG_ARGV[0]::uuid, TG_TABLE_SCHEMA || '.' || TG_TABLE_NAME, TG_OP,
           CASE WHEN TG_OP <> 'INSERT' THEN to_jsonb(OLD) END,
           CASE WHEN TG_OP <> 'DELETE' THEN to_jsonb(NEW) END);
-  PERFORM pg_notify('pgdock_webhooks', '');
+  PERFORM pg_notify('xenibase_webhooks', '');
   RETURN NULL;
 END
 $fn$;
-REVOKE ALL ON FUNCTION pgdock.webhook_enqueue() FROM PUBLIC;
+REVOKE ALL ON FUNCTION xenibase.webhook_enqueue() FROM PUBLIC;
 `
 
 // OutboxChannel is the LISTEN channel the trigger function notifies.
-const OutboxChannel = "pgdock_webhooks"
+const OutboxChannel = "xenibase_webhooks"
 
 func outboxExists(ctx context.Context, q interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }) (bool, error) {
 	var ok bool
-	err := q.QueryRow(ctx, `SELECT to_regclass('pgdock.webhook_outbox') IS NOT NULL`).Scan(&ok)
+	err := q.QueryRow(ctx, `SELECT to_regclass('xenibase.webhook_outbox') IS NOT NULL`).Scan(&ok)
 	return ok, err
 }
 
@@ -463,7 +554,7 @@ func outboxExists(ctx context.Context, q interface {
 // for UPDATE (which can have a WHEN clause on the columns).
 func triggerNames(id uuid.UUID) (rows, update string) {
 	short := strings.ReplaceAll(id.String(), "-", "")[:16]
-	return "pgdock_wh_" + short, "pgdock_whu_" + short
+	return "xenibase_wh_" + short, "xenibase_whu_" + short
 }
 
 func dropTriggers(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
@@ -498,10 +589,18 @@ func (s *Service) install(ctx context.Context, p store.Project, w store.Webhook)
 		return err
 	}
 	defer conn.Close(context.Background())
+	return installOn(ctx, conn, w)
+}
+
+// installOn is install on a connection the caller opened: Create and Update
+// open it before their metadata transaction, so they never hold one
+// metadata connection while waiting for another (AdminConn reads the
+// instance), which deadlocks once the pool is busy.
+func installOn(ctx context.Context, conn *pgx.Conn, w store.Webhook) error {
 	if _, err := conn.Exec(ctx, outboxDDL); err != nil {
 		return fmt.Errorf("install the webhook outbox: %w", err)
 	}
-	err = pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
+	err := pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '5s'`); err != nil {
 			return err
 		}
@@ -526,7 +625,7 @@ func installTriggers(ctx context.Context, tx pgx.Tx, w store.Webhook) error {
 		t := splitTable(raw)
 		var stmts []string
 		if len(rowEvents) > 0 {
-			stmts = append(stmts, fmt.Sprintf("CREATE TRIGGER %s AFTER %s ON %s FOR EACH ROW EXECUTE FUNCTION pgdock.webhook_enqueue(%s)",
+			stmts = append(stmts, fmt.Sprintf("CREATE TRIGGER %s AFTER %s ON %s FOR EACH ROW EXECUTE FUNCTION xenibase.webhook_enqueue(%s)",
 				pgx.Identifier{rowsName}.Sanitize(), strings.Join(rowEvents, " OR "), t.ident(), arg))
 		}
 		if slices.Contains(w.Events, "UPDATE") {
@@ -539,7 +638,7 @@ func installTriggers(ctx context.Context, tx pgx.Tx, w store.Webhook) error {
 				}
 				when = " WHEN (" + strings.Join(conds, " OR ") + ")"
 			}
-			stmts = append(stmts, fmt.Sprintf("CREATE TRIGGER %s AFTER UPDATE ON %s FOR EACH ROW%s EXECUTE FUNCTION pgdock.webhook_enqueue(%s)",
+			stmts = append(stmts, fmt.Sprintf("CREATE TRIGGER %s AFTER UPDATE ON %s FOR EACH ROW%s EXECUTE FUNCTION xenibase.webhook_enqueue(%s)",
 				pgx.Identifier{updName}.Sanitize(), t.ident(), when, arg))
 		}
 		for _, st := range stmts {
@@ -566,7 +665,7 @@ func literal(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + 
 // Reinstall rebuilds p's webhook schema after its database was replaced
 // or copied (a restore in place, a branch reset, a new branch or restored
 // copy): whatever came with the data is dropped, then the outbox and
-// triggers are installed from PGDock's configuration, empty, so events from
+// triggers are installed from Xenibase's configuration, empty, so events from
 // the restored past aren't sent (V2 §9.3). A project without webhooks keeps
 // none: copies don't carry them over (V2 §8.1).
 func (s *Service) Reinstall(ctx context.Context, p store.Project) error {
@@ -598,11 +697,11 @@ func (s *Service) Reinstall(ctx context.Context, p store.Project) error {
 	})
 }
 
-// Strip removes PGDock's webhook schema, its triggers with it, from a copy
+// Strip removes Xenibase's webhook schema, its triggers with it, from a copy
 // of a project (a branch, a restore into a new project, an import): webhooks
 // are not carried over (V2 §8.1, §9.3).
 func Strip(ctx context.Context, conn *pgx.Conn) error {
-	_, err := conn.Exec(ctx, `DROP SCHEMA IF EXISTS pgdock CASCADE`)
+	_, err := conn.Exec(ctx, `DROP SCHEMA IF EXISTS xenibase CASCADE`)
 	return err
 }
 
@@ -653,7 +752,7 @@ func (s *Service) Backlog(ctx context.Context, p store.Project) (map[uuid.UUID]i
 	if ok, err := outboxExists(ctx, conn); err != nil || !ok {
 		return out, err
 	}
-	rows, err := conn.Query(ctx, `SELECT webhook_id, count(*) FROM pgdock.webhook_outbox GROUP BY 1`)
+	rows, err := conn.Query(ctx, `SELECT webhook_id, count(*) FROM xenibase.webhook_outbox GROUP BY 1`)
 	if err != nil {
 		return out, err
 	}
@@ -697,7 +796,7 @@ func (s *Service) notify(ctx context.Context, p store.Project, subject, body str
 	}
 }
 
-// header is the static headers plus PGDock's.
+// header is the static headers plus Xenibase's.
 func header(static map[string]string) http.Header {
 	h := http.Header{}
 	for k, v := range static {

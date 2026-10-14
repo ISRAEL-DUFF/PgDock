@@ -14,10 +14,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // waitKind waits for the latest operation of kind on a project to finish.
@@ -812,14 +812,14 @@ func TestOrgDeletionGracePeriod(t *testing.T) {
 // TestPerOrgSharedCluster covers V2 §10.5: an organisation given its own
 // shared cluster gets its new projects there, and no one else's ever are.
 func TestPerOrgSharedCluster(t *testing.T) {
-	smallURL := os.Getenv("PGDOCK_TEST_SMALL_ADMIN_URL")
+	smallURL := os.Getenv("XENIBASE_TEST_SMALL_ADMIN_URL")
 	if smallURL == "" {
-		t.Skip("PGDOCK_TEST_SMALL_ADMIN_URL not set")
+		t.Skip("XENIBASE_TEST_SMALL_ADMIN_URL not set")
 	}
 	e := testenv.Start(t, testenv.Options{})
 	ctx := context.Background()
 	if err := provision.RegisterSharedCluster(ctx, e.DB, e.Keyring, provision.SharedCluster{
-		NodeName: "small", AdminURL: smallURL, PoolerHost: os.Getenv("PGDOCK_TEST_SMALL_POOLER_HOST"), PoolerPort: 5432, NodeRole: "shared",
+		NodeName: "small", AdminURL: smallURL, PoolerHost: os.Getenv("XENIBASE_TEST_SMALL_POOLER_HOST"), PoolerPort: 5432, NodeRole: "shared",
 	}, slogDiscard()); err != nil {
 		t.Fatal(err)
 	}

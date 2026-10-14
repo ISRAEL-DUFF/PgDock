@@ -9,10 +9,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // access is what the guard resolved for a request: who acts, on which
@@ -42,7 +42,8 @@ func accessFrom(ctx context.Context) access {
 }
 
 func actorFor(sess auth.Session) authz.Actor {
-	a := authz.Actor{Kind: authz.ActorSession, UserID: sess.UserID, PlatformAdmin: sess.PlatformAdmin()}
+	a := authz.Actor{Kind: authz.ActorSession, UserID: sess.UserID, PlatformAdmin: sess.PlatformAdmin(),
+		Support: sess.Token == nil && sess.PlatformRole == auth.RoleSupport}
 	if t := sess.Token; t != nil {
 		a.Kind = authz.ActorToken
 		a.TokenID, a.TokenOrg = &t.ID, &t.OrgID

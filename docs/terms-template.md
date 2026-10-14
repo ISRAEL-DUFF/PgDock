@@ -1,6 +1,6 @@
 # Terms of use: a template
 
-PGDock publishes a short default (`internal/auth/terms.go`) on a fresh
+Xenibase publishes a short default (`internal/auth/terms.go`) on a fresh
 install. Before inviting people, replace it (Platform → Terms) with your
 own, starting from the text below. Fill in everything in `[brackets]`;
 publishing a new version makes every user accept it again. This is not
@@ -12,7 +12,7 @@ legal advice: if the platform holds other people's personal data, get some
 ```markdown
 # Terms of use
 
-[Name] ("we") runs this PGDock installation at [address] for [friends and
+[Name] ("we") runs this Xenibase installation at [address] for [friends and
 colleagues / the members of …]. By using it you agree to these terms.
 Questions: [email].
 
@@ -25,7 +25,7 @@ yours.
 
 ## What we can and cannot see
 
-We manage the servers, plans and accounts. Through PGDock we can see your
+We manage the servers, plans and accounts. Through Xenibase we can see your
 organisations' names, member and project counts, sizes and usage, and the
 host names (not the contents) your webhooks and jobs call. We cannot open
 your databases, SQL console, backups, connection strings, webhook URLs or
@@ -75,6 +75,15 @@ If something goes wrong that affects your data or access, we email the
 owners of your organisation within [72 hours] of finding it, with what we
 know and what you should do, and send a written follow-up once it is
 understood.
+
+## Postgres versions
+
+We announce the retirement of a Postgres major version at least [180
+days] ahead, by email to your organisation's owners and admins. After that
+date your projects on it keep running, but they are unsupported: we do not
+fix problems specific to that version, may not be able to restore its
+backups onto newer infrastructure, and do not upgrade it for you. Upgrade
+before the date.
 
 ## Ending
 

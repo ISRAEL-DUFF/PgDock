@@ -21,7 +21,9 @@ import {
 } from "../components/ui";
 import { formatBytes, formatDate } from "../lib/format";
 import { setCurrentOrg } from "../lib/org";
+import { OrgBillingPanel } from "../components/AdminPayments";
 import { formatQuantity, LIMIT_LABELS, monthStart } from "../lib/usage";
+import { OrderFormCard } from "./Legal";
 
 function statusBadge(status: string) {
   return <Badge tone={status === "active" ? "ok" : status === "suspended" ? "danger" : "warn"}>{status}</Badge>;
@@ -36,7 +38,7 @@ export function AdminOrgsPage() {
   for (const r of usage.data?.items ?? []) if (r.metric === "shared_storage_gb_hours") storage[r.org_id] = r.quantity;
   return (
     <>
-      <PageHeading title="Organisations" description="Every organisation on this PGDock: plan, size, and status. What is inside them is theirs." />
+      <PageHeading title="Organisations" description="Every organisation on this Xenibase: plan, size, and status. What is inside them is theirs." />
       <div className="mb-3">
         <Input placeholder="Search name or slug" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs" aria-label="Search organisations" />
       </div>
@@ -168,6 +170,8 @@ export function AdminOrgPage() {
             />
           )}
         </Panel>
+        <OrgBillingPanel org={id} />
+        <OrderFormCard org={id} />
         <SuspendCard org={o} onDone={refresh} />
         <BreakGlassCard org={o} onDone={refresh} />
       </div>

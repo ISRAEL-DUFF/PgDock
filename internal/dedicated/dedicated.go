@@ -20,14 +20,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/walg"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/ha"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/walg"
 )
 
 // Secrets supplies backup storage and keys (the backup service).
@@ -54,12 +55,25 @@ type Config struct {
 	AdminVia string
 	// RetainFull is how many full base backups WAL-G keeps (spec §6.4).
 	RetainFull int
+	// HostPoll is how often a creation waiting for a new host checks it
+	// (5 s by default).
+	HostPoll time.Duration
 	// ReadyTimeout bounds waiting for a restored instance to promote.
 	ReadyTimeout time.Duration
 	// AfterFreeze, if set, runs during a promotion or demotion right after
 	// writes are frozen; an error fails it there (tests use it to exercise
 	// the rollback).
 	AfterFreeze func(ctx context.Context) error
+	// MoveWait tunes when a logical move cuts over (defaults: lag under
+	// 1 MB for 30 s, checked every 2 s).
+	MoveWait MoveWait
+	// RequireAnnouncement: the maintenance window restarts an HA project
+	// only inside maintenance announced to it at least 72 hours before
+	// (V3.1 §4.3; XENIBASE_MAINTENANCE_REQUIRE_ANNOUNCEMENT).
+	RequireAnnouncement bool
+	// ReplicaMaxLag is how far behind a read replica may fall before it
+	// leaves the pooler's read-only route (V4 §7; default 10 s).
+	ReplicaMaxLag time.Duration
 }
 
 // Service manages dedicated instances.
@@ -72,12 +86,27 @@ type Service struct {
 	cfg      Config
 	log      *slog.Logger
 
+	// Etcd is the etcd cluster HA instances use (V3 §2.2); nil when the
+	// server runs without one.
+	Etcd  *ha.Service
+	watch watcher
+	sla   slaState
 	// Quotas, when set, checks organisation limits for demotions (the
 	// tenancy service).
 	Quotas Quotas
 	// Snapshot, when set, takes a logical backup of a project (the backup
 	// service): a demoted project's first (V2 §5.3 step 7).
 	Snapshot func(ctx context.Context, p store.Project, log *jobs.StepLogger) error
+	// ServiceRoles, when set, creates a project's backend services roles on
+	// another instance before its database is copied there (V4 §2.5).
+	ServiceRoles func(ctx context.Context, p store.Project, instance uuid.UUID) error
+	// Hosts, when set, provides a new dedicated host when no node has room
+	// (the capacity service, V4.1 §5.3).
+	Hosts HostFunc
+	// proposer drafts the announcements the HA window gate waits for.
+	proposer Proposer
+	// etcdMoveOne replaces MoveToRegionEtcd in Move all (tests).
+	etcdMoveOne func(ctx context.Context, project uuid.UUID, by *uuid.UUID) (store.Operation, error)
 }
 
 // New returns a Service.
@@ -90,6 +119,9 @@ func New(db *pgxpool.Pool, keyring *crypto.Keyring, ns *nodes.Service, ps *provi
 	}
 	if cfg.ReadyTimeout <= 0 {
 		cfg.ReadyTimeout = 15 * time.Minute
+	}
+	if cfg.ReplicaMaxLag <= 0 {
+		cfg.ReplicaMaxLag = DefaultReplicaMaxLag
 	}
 	return &Service{db: db, keyring: keyring, nodes: ns, projects: ps, secrets: secrets, cfg: cfg, log: log}
 }
@@ -160,14 +192,11 @@ func (s *Service) Validate(ctx context.Context, p *provision.CreateParams) (prov
 	}
 	q := store.New(s.db)
 	if p.NodeID == nil {
-		n, err := q.PickDedicatedNode(ctx)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return prof, fmt.Errorf("%w: no healthy node with an agent accepts dedicated instances", provision.ErrNoCapacity)
-		}
+		id, err := s.placeDedicated(ctx, q, p.Region, Size{CPUs: prof.CPUs, MemoryMB: prof.MemoryMB, DiskGB: p.VolumeGB})
 		if err != nil {
 			return prof, err
 		}
-		p.NodeID = &n.ID
+		p.NodeID = &id
 		return prof, nil
 	}
 	n, err := q.GetNode(ctx, *p.NodeID)
@@ -313,6 +342,16 @@ func (s *Service) Ensure(ctx context.Context, op store.Operation, p store.Projec
 	if err != nil {
 		return err
 	}
+	if d, err := opDetach(op); err != nil {
+		return err
+	} else if d != nil {
+		return s.ensureDetached(ctx, inst, p, d, log)
+	}
+	if inst.Status != "running" {
+		if err := s.waitForHost(ctx, inst.NodeID, log); err != nil {
+			return err
+		}
+	}
 	if inst.Status == "running" {
 		if err := s.adoptRestore(ctx, inst, p, pitr, log); err != nil {
 			return err
@@ -323,7 +362,7 @@ func (s *Service) Ensure(ctx context.Context, op store.Operation, p store.Projec
 	// The superuser: generated, or for a restore the source's (it is in the
 	// restored data).
 	if len(inst.AdminSecret) == 0 {
-		secret := provision.AdminSecret{User: "pgdock_admin", Password: randomPassword()}
+		secret := provision.AdminSecret{User: "xenibase_admin", Password: randomPassword()}
 		if pitr != nil {
 			src, err := q.GetInstance(ctx, pitr.SourceInstance)
 			if err != nil {
@@ -386,7 +425,7 @@ func (s *Service) Ensure(ctx context.Context, op store.Operation, p store.Projec
 		return err
 	}
 	if res.Host == "" {
-		return jobs.Permanent(fmt.Errorf("agent on %s reports no address for the instance (set PGDOCK_AGENT_NETWORK or PGDOCK_AGENT_PUBLISH)", agent.Node.Name))
+		return jobs.Permanent(fmt.Errorf("agent on %s reports no address for the instance (set XENIBASE_AGENT_NETWORK or XENIBASE_AGENT_PUBLISH)", agent.Node.Name))
 	}
 	if err := s.recordRunning(ctx, inst, agent, res); err != nil {
 		return err
@@ -411,6 +450,13 @@ func (s *Service) instanceSpec(ctx context.Context, inst store.Instance) (agenta
 	if err != nil {
 		return agentapi.InstanceSpec{}, jobs.Permanent(err)
 	}
+	if inst.Kind == provision.TierShared {
+		return sharedSpec(inst, secret), nil
+	}
+	if inst.Patroni {
+		// An HA instance: the leader's member (V3 §2.2).
+		return s.memberSpec(ctx, inst, leaderKey(inst))
+	}
 	w, err := s.walgFor(ctx, inst)
 	if err != nil {
 		return agentapi.InstanceSpec{}, err
@@ -419,6 +465,7 @@ func (s *Service) instanceSpec(ctx context.Context, inst store.Instance) (agenta
 	return agentapi.InstanceSpec{
 		ID: inst.ID.String(), Kind: agentapi.InstanceDedicated, CPUs: prof.CPUs, MemoryMB: prof.MemoryMB,
 		AdminUser: secret.User, AdminPassword: secret.Password, Settings: settings(prof), WALG: &w,
+		PGVersion: int(inst.PgVersion),
 	}, nil
 }
 
@@ -488,7 +535,7 @@ func (s *Service) adminConn(ctx context.Context, inst store.Instance, database s
 	}
 	cfg.User, cfg.Password, cfg.Database = secret.User, secret.Password, database
 	cfg.ConnectTimeout = 10 * time.Second
-	cfg.RuntimeParams["application_name"] = "pgdock-server"
+	cfg.RuntimeParams["application_name"] = "xenibase-server"
 	return pgx.ConnectConfig(ctx, cfg)
 }
 
@@ -624,6 +671,20 @@ func (s *Service) Provisioned(ctx context.Context, p store.Project, log *jobs.St
 	return err
 }
 
+// DefaultPITRDays is the point-in-time recovery window every dedicated
+// instance has; 14 and 30 days are billed add-ons (V4.1 §4.1).
+const DefaultPITRDays = 7
+
+// RetainFull is how many daily base backups WAL-G keeps for inst: its
+// window in days when longer than the default, else the configured count.
+// WAL older than the oldest kept backup goes with it, so the window follows.
+func (s *Service) RetainFull(inst store.Instance) int {
+	if inst.PitrDays > DefaultPITRDays {
+		return int(inst.PitrDays)
+	}
+	return s.cfg.RetainFull
+}
+
 // BaseBackup takes a WAL-G base backup of a dedicated project (spec §6.4),
 // applies retention, and records it.
 func (s *Service) BaseBackup(ctx context.Context, p store.Project, opID *uuid.UUID, log *jobs.StepLogger) (store.Backup, error) {
@@ -650,7 +711,8 @@ func (s *Service) BaseBackup(ctx context.Context, p store.Project, opID *uuid.UU
 	if err := log.Info(ctx, "backup", "wal-g backup-push on %s", agent.Node.Name); err != nil {
 		return store.Backup{}, err
 	}
-	res, err := agent.BaseBackup(ctx, inst.ID.String(), agentapi.WALGBackupRequest{RetainFull: s.cfg.RetainFull})
+	// From the leader (V3 §2.2: WAL-G runs from the current primary).
+	res, err := agent.BaseBackup(ctx, agentKey(inst), agentapi.WALGBackupRequest{RetainFull: s.RetainFull(inst)})
 	if err != nil {
 		return store.Backup{}, err
 	}
@@ -665,7 +727,7 @@ func (s *Service) BaseBackup(ctx context.Context, p store.Project, opID *uuid.UU
 		return store.Backup{}, err
 	}
 	// Retention happened in WAL-G; forget backups it no longer lists.
-	if list, err := agent.BaseBackups(ctx, inst.ID.String()); err == nil {
+	if list, err := agent.BaseBackups(ctx, agentKey(inst)); err == nil {
 		keep := map[string]bool{}
 		for _, l := range list {
 			keep[l.Name] = true
@@ -732,7 +794,22 @@ func (s *Service) removeInstance(ctx context.Context, inst store.Instance) (node
 	if err != nil {
 		return "", archived, err
 	}
-	if err := agent.DestroyInstance(ctx, inst.ID.String()); err != nil {
+	// An HA instance's other members first, then the leader.
+	members, err := store.New(s.db).ListInstanceMembers(ctx, inst.ID)
+	if err != nil {
+		return "", archived, err
+	}
+	for _, m := range members {
+		if m.ID != leaderKey(inst) {
+			if err := s.removeMember(ctx, m.ID, m.NodeID); err != nil {
+				return "", archived, err
+			}
+		}
+	}
+	if err := store.New(s.db).DeleteInstanceReplicas(ctx, inst.ID); err != nil {
+		return "", archived, err
+	}
+	if err := agent.DestroyInstance(ctx, agentKey(inst)); err != nil {
 		return "", archived, err
 	}
 	if inst.WalgPrefix != nil {

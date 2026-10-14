@@ -5,10 +5,10 @@ before you need it.
 
 ## What you need, kept off the server
 
-- **`.env`** from `deploy/compose` (above all `PGDOCK_MASTER_KEY`: it
+- **`.env`** from `deploy/compose` (above all `XENIBASE_MASTER_KEY`: it
   decrypts the secrets in the metadata DB).
 - **The backup key file** you downloaded in the setup wizard
-  (`pgdock-backup-key-<fingerprint>.txt`). Without it no backup can be
+  (`xenibase-backup-key-<fingerprint>.txt`). Without it no backup can be
   decrypted, by you or anyone else.
 - **Credentials for the backup bucket.**
 
@@ -32,13 +32,13 @@ with any S3 client, decrypt it with the backup key, and restore it:
 ```sh
 aws s3 cp s3://<bucket>/<prefix>/metadata/<newest>.dump.enc .   # or rclone, mc, …
 # --user 0: the key file is usually readable by root only.
-docker compose run --rm -T --no-deps --user 0 -v "$PWD:/work:ro" pgdock-agent \
-  decrypt --key-file /work/pgdock-backup-key-<fingerprint>.txt < <newest>.dump.enc > metadata.dump
+docker compose run --rm -T --no-deps --user 0 -v "$PWD:/work:ro" xenibase-agent \
+  decrypt --key-file /work/xenibase-backup-key-<fingerprint>.txt < <newest>.dump.enc > metadata.dump
 docker compose cp metadata.dump metadata-db:/tmp/metadata.dump
-docker compose exec metadata-db pg_restore -U pgdock -d pgdock --clean --if-exists --no-owner /tmp/metadata.dump
+docker compose exec metadata-db pg_restore -U xenibase -d xenibase --clean --if-exists --no-owner /tmp/metadata.dump
 ```
 
-`pgdock-agent decrypt` checks every chunk; a wrong key or a damaged object
+`xenibase-agent decrypt` checks every chunk; a wrong key or a damaged object
 fails without writing a partial file.
 
 ## 3. Start everything
@@ -47,7 +47,7 @@ fails without writing a partial file.
 docker compose up -d --wait
 ```
 
-pgdock-server runs its migrations, re-renders the pooler configuration
+xenibase-server runs its migrations, re-renders the pooler configuration
 (routes and SCRAM verifiers come from the metadata), and reloads the
 poolers, so existing connection strings and passwords keep working once
 the databases are back.
@@ -68,11 +68,11 @@ project (in-place restore needs the old database to exist). Point the app at
 the new connection string. Final backups of deleted projects stay listed
 for 30 days.
 
-## Restoring a project without PGDock
+## Restoring a project without Xenibase
 
 A project with its own backup key (**Backups → Storage → Use a project
 key**) can be restored with standard tools alone, from the downloaded
-key file and the bucket, even if every PGDock server is gone. This is
+key file and the bucket, even if every Xenibase server is gone. This is
 the point of an organisation's own storage target: the data and the key
 are both yours.
 
@@ -83,7 +83,7 @@ are both yours.
 
    ```sh
    export GNUPGHOME=$(mktemp -d)
-   gpg --batch --import pgdock-backup-key-<project id>.asc
+   gpg --batch --import xenibase-backup-key-<project id>.asc
    gpg --batch --decrypt backup.dump.gpg > backup.dump
    ```
 
@@ -98,4 +98,4 @@ Dedicated projects' WAL-G base backups and WAL under
 `<prefix>/instances/<instance id>/wal-g-…/` use the same key: point
 `wal-g backup-fetch` at that prefix with `WALG_PGP_KEY_PATH` set to the
 key file. Backups made before the project key was enabled (`.dump.enc`)
-need the instance backup key and `pgdock-agent decrypt` instead.
+need the instance backup key and `xenibase-agent decrypt` instead.

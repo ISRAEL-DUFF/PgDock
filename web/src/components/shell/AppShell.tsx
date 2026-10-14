@@ -35,8 +35,8 @@ export function AppShell() {
   const [menu, setMenu] = useState(false);
 
   const rail = useMemo(
-    () => (ctx.kind === "project" ? (project.data ? projectRail(project.data) : []) : ctx.kind === "platform" ? platformRail() : orgRail(org)),
-    [ctx.kind, project.data, org],
+    () => (ctx.kind === "project" ? (project.data ? projectRail(project.data) : []) : ctx.kind === "platform" ? platformRail(session?.user?.platform_role) : orgRail(org)),
+    [ctx.kind, project.data, org, session?.user?.platform_role],
   );
   useGlobalShortcuts({
     rail,

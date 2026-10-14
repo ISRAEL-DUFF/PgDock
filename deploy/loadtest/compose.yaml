@@ -1,0 +1,94 @@
+# The 1,000-project backend load test's rig (V4.1 §13): six servers on one
+# private network. README.md has the steps; each server runs one profile
+# of this file with its own copy of loadtest.env:
+#
+#   node-1        deploy/compose (xenibase-server, poolers, shared cluster 1)
+#   node-2..4     docker compose --profile node up -d    (an agent; then a
+#                 shared cluster from Platform → Nodes)
+#   edge          docker compose --profile edge up -d    (xenibase-edge)
+#   load          docker compose --profile load run --rm load
+#
+# Every service uses the host's network: addresses in loadtest.env are the
+# servers' private ones.
+
+name: xenibase-loadtest
+
+services:
+  agent:
+    profiles: [node]
+    image: ${XENIBASE_AGENT_IMAGE:?set XENIBASE_AGENT_IMAGE in loadtest.env}
+    restart: unless-stopped
+    network_mode: host
+    # Root, for the Docker socket: the shared cluster is a sibling container.
+    user: "0:0"
+    environment:
+      XENIBASE_AGENT_SERVER: ${XENIBASE_SERVER_URL:?}
+      # One-time, from Platform → Nodes → Add node; the agent keeps its
+      # certificate afterwards.
+      XENIBASE_AGENT_TOKEN: ${XENIBASE_AGENT_TOKEN:-}
+      XENIBASE_AGENT_ADVERTISE: ${NODE_IP:?set NODE_IP to this server's private address}:7070
+      XENIBASE_AGENT_PUBLISH: ${NODE_IP}
+      XENIBASE_AGENT_PG_IMAGE: ${XENIBASE_PG_IMAGE:-xenibase-postgres:{major}-walg3.0.9}
+      # The cluster takes logins from node-1 (xenibase-server and the poolers)
+      # and moves within the network.
+      XENIBASE_AGENT_DB_ALLOW: ${NODE1_IP:?}/32
+      XENIBASE_AGENT_MOVE_ALLOW: ${PRIVATE_CIDR:-10.0.0.0/16}
+      XENIBASE_AGENT_LOG_FORMAT: json
+    volumes:
+      - agent-state:/var/lib/xenibase-agent
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  edge:
+    profiles: [edge]
+    image: ${XENIBASE_EDGE_IMAGE:?set XENIBASE_EDGE_IMAGE in loadtest.env}
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      XENIBASE_EDGE_NAME: loadtest-edge
+      XENIBASE_EDGE_CONTROL_URL: ${XENIBASE_SERVER_URL:?}
+      XENIBASE_EDGE_SECRET: ${XENIBASE_EDGE_SECRET:?}
+      XENIBASE_EDGE_DOMAIN: ${XENIBASE_API_DOMAIN:?}
+      XENIBASE_EDGE_LISTEN: ":443"
+      XENIBASE_EDGE_TLS_CERT: /tls/fullchain.pem
+      XENIBASE_EDGE_TLS_KEY: /tls/privkey.pem
+      # The poolers on node-1, over the private network.
+      XENIBASE_EDGE_POOLER_ADDR: ${NODE1_IP}:6543
+      XENIBASE_EDGE_SESSION_ADDR: ${NODE1_IP}:5432
+      XENIBASE_EDGE_LOG_FORMAT: json
+    volumes:
+      - ./tls:/tls:ro
+
+  # The load generator: TestBackendLoad from this checkout, against the
+  # install (XENIBASE_LOAD_TARGET). The report lands in ../../tmp.
+  load:
+    profiles: [load]
+    image: golang:1.26
+    network_mode: host
+    working_dir: /src
+    command: ["go", "test", "-count=1", "-timeout=3h", "-v", "-run=TestBackendLoad", "./test/load/"]
+    environment:
+      XENIBASE_TEST_LOAD: "1"
+      XENIBASE_LOAD_TARGET: ${XENIBASE_SERVER_URL:?}
+      XENIBASE_LOAD_EMAIL: ${XENIBASE_LOAD_EMAIL:?}
+      XENIBASE_LOAD_PASSWORD: ${XENIBASE_LOAD_PASSWORD:?}
+      XENIBASE_LOAD_TOTP_SECRET: ${XENIBASE_LOAD_TOTP_SECRET:?}
+      XENIBASE_LOAD_API_DOMAIN: ${XENIBASE_API_DOMAIN:?}
+      XENIBASE_LOAD_EDGE_ADDR: ${EDGE_IP:?}:443
+      XENIBASE_LOAD_EDGE_CA: ${XENIBASE_LOAD_EDGE_CA:-}
+      XENIBASE_LOAD_BACKEND_PROJECTS: ${XENIBASE_LOAD_BACKEND_PROJECTS:-1000}
+      XENIBASE_LOAD_RPS: ${XENIBASE_LOAD_RPS:-2000}
+      XENIBASE_LOAD_SECONDS: ${XENIBASE_LOAD_SECONDS:-60}
+      XENIBASE_LOAD_STEPS: ${XENIBASE_LOAD_STEPS:-500,1000,1500}
+      XENIBASE_LOAD_TRANSFORMS: ${XENIBASE_LOAD_TRANSFORMS:-200}
+      XENIBASE_LOAD_PARALLEL: ${XENIBASE_LOAD_PARALLEL:-16}
+    volumes:
+      - ../..:/src
+      - go-cache:/root/.cache/go-build
+      - go-mod:/go/pkg/mod
+    ulimits:
+      nofile: 65536
+
+volumes:
+  agent-state:
+  go-cache:
+  go-mod:

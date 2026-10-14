@@ -14,8 +14,8 @@ describe("remembered organisation", () => {
 
   it("is forgotten on sign-out", () => {
     setCurrentOrg("org-1");
-    expect(store.get("pgdock.org")).toBe("org-1");
+    expect(store.get("xenibase.org")).toBe("org-1");
     clearCurrentOrg();
-    expect(store.has("pgdock.org")).toBe(false);
+    expect(store.has("xenibase.org")).toBe(false);
   });
 });

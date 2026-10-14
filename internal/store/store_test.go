@@ -3,14 +3,15 @@ package store_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/store/storetest"
 )
 
 func TestMigrateIsIdempotent(t *testing.T) {
@@ -103,5 +104,30 @@ func TestAuditLogIsAppendOnly(t *testing.T) {
 	var n int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM audit_log WHERE action = 'test.append'`).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("audit rows: %d %v", n, err)
+	}
+}
+
+// A release must not run on a database a newer one migrated: its queries
+// don't know the newer schema, and nothing says so until data is wrong.
+func TestMigrateRefusesANewerSchema(t *testing.T) {
+	ctx := context.Background()
+	pool := storetest.NewEmpty(t)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if err := store.Migrate(ctx, pool, log); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Migrate(ctx, pool, log); err != nil {
+		t.Fatalf("migrating an up-to-date database: %v", err)
+	}
+	// A later release applied a migration this one doesn't have.
+	if _, err := pool.Exec(ctx, `INSERT INTO goose_db_version (version_id, is_applied) VALUES (9999, true)`); err != nil {
+		t.Fatal(err)
+	}
+	err := store.Migrate(ctx, pool, log)
+	if !errors.Is(err, store.ErrSchemaNewer) {
+		t.Fatalf("Migrate on a newer schema = %v, want ErrSchemaNewer", err)
+	}
+	if !strings.Contains(err.Error(), "9999") || !strings.Contains(err.Error(), "restore the metadata backup") {
+		t.Errorf("the message should say what to do: %v", err)
 	}
 }

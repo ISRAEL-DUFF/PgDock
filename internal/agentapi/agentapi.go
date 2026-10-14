@@ -1,6 +1,6 @@
 // Package agentapi defines the agent's fixed command API (spec §3.3: "a
 // narrow, fixed command API with no arbitrary shell execution"), shared by
-// pgdock-agent and pgdock-server's agent client.
+// xenibase-agent and xenibase-server's agent client.
 package agentapi
 
 import (
@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/storage"
+	"github.com/israel-duff/xenibase/internal/storage"
 )
 
 // Paths.
@@ -21,7 +21,7 @@ const (
 	PathDump     = "/v1/dump"
 	PathRestore  = "/v1/restore"
 	PathCopy     = "/v1/copy"
-	PathRegister = "/api/v1/agent/register" // on pgdock-server
+	PathRegister = "/api/v1/agent/register" // on xenibase-server
 
 	// Instances (spec §10 agent API). {id} is the instance ID.
 	PathInstances      = "/v1/instances"
@@ -30,6 +30,11 @@ const (
 	PathInstanceStop   = "/v1/instances/{id}/stop"
 	PathWALGBackup     = "/v1/instances/{id}/walg/backup"
 	PathWALGBackupList = "/v1/instances/{id}/walg/backups"
+
+	// The node's etcd member (V3 §2.2).
+	PathEtcd        = "/v1/etcd"
+	PathEtcdAddress = "/v1/etcd/address"
+	PathEtcdMembers = "/v1/etcd/members"
 )
 
 // PGConn is how the agent reaches a Postgres server. Passwords travel only
@@ -190,7 +195,7 @@ type CopyRequest struct {
 	Restore RestoreOptions `json:"restore"`
 }
 
-// RegisterRequest is POST /api/v1/agent/register on pgdock-server.
+// RegisterRequest is POST /api/v1/agent/register on xenibase-server.
 type RegisterRequest struct {
 	// Token is a one-time registration token for a node, or the bootstrap
 	// token together with Node naming an existing node.
@@ -243,6 +248,62 @@ type InstanceSpec struct {
 	// one from the agent's current image and this spec: a restart that
 	// picks up a new Postgres minor version (spec §11.3).
 	Recreate bool `json:"recreate,omitempty"`
+	// PGVersion is the Postgres major (0: the agent's default, 18). The
+	// agent's image may be a template with {major} in it (V3 §2.4).
+	PGVersion int `json:"pg_version,omitempty"`
+	// Patroni, when set, runs the instance as a member of a Patroni
+	// cluster (an HA instance, V3 §2.2): Patroni starts Postgres with these
+	// settings, takes over an existing data directory as the leader, or,
+	// on an empty volume, joins as a standby built from the newest WAL-G
+	// base backup (or pg_basebackup from the leader).
+	Patroni *PatroniSpec `json:"patroni,omitempty"`
+}
+
+// PatroniSpec configures an HA member.
+type PatroniSpec struct {
+	// Scope names the cluster (the instance's id); members of one HA
+	// instance share it. The member's name is the spec's ID.
+	Scope string `json:"scope"`
+	// Etcd are the cluster's client URLs; EtcdCA, EtcdCert and EtcdKey the
+	// TLS material for them.
+	Etcd     []string `json:"etcd"`
+	EtcdCA   string   `json:"etcd_ca"`
+	EtcdCert string   `json:"etcd_cert"`
+	EtcdKey  string   `json:"etcd_key"`
+	// ReplicationUser/Password stream WAL between members; RestPassword
+	// protects Patroni's REST API's changing endpoints (user "patroni").
+	ReplicationUser     string `json:"replication_user"`
+	ReplicationPassword string `json:"replication_password"`
+	RestPassword        string `json:"rest_password"`
+	// Synchronous turns on synchronous_mode when the cluster is first
+	// initialised (later changes go through the REST API).
+	Synchronous bool `json:"synchronous,omitempty"`
+	// PeerAllow are the CIDRs the other members connect from.
+	PeerAllow []string `json:"peer_allow"`
+	// ReadReplica tags the member nofailover and nosync (a read replica,
+	// V4 §7): it follows the leader but is never promoted and never a
+	// synchronous standby.
+	ReadReplica bool `json:"read_replica,omitempty"`
+	// PreferPort, when the member is published on the node's address, is
+	// the host port to try first for Postgres: an instance's replicas
+	// share one, so the pooler can balance across them in one route
+	// (PgBouncer takes one port for a host list). 0, or taken, means any.
+	PreferPort int `json:"prefer_port,omitempty"`
+}
+
+// PatroniREST is the user of Patroni's REST API.
+const PatroniREST = "patroni"
+
+// DefaultPGVersion is the major an instance spec without one runs.
+const DefaultPGVersion = 18
+
+// ImageFor is the image for a Postgres major: tmpl with {major} replaced
+// (a tmpl without it serves every version).
+func ImageFor(tmpl string, major int) string {
+	if major == 0 {
+		major = DefaultPGVersion
+	}
+	return strings.ReplaceAll(tmpl, "{major}", strconv.Itoa(major))
 }
 
 // WALG is where an instance's base backups and WAL live, and the key that
@@ -279,6 +340,17 @@ type Instance struct {
 	PublishedHost string `json:"published_host,omitempty"`
 	PublishedPort int    `json:"published_port,omitempty"`
 	Image         string `json:"image"`
+	// Version is the Postgres release the container runs ("18.1"), and
+	// ImageVersion the one its image tag now holds: when the tag has a
+	// newer minor, recreating the container upgrades it (V3 §2.4).
+	Version      string `json:"version,omitempty"`
+	ImageVersion string `json:"image_version,omitempty"`
+	// RestPort/PublishedRestPort are Patroni's REST API on an HA member
+	// (0 otherwise), as Port/PublishedPort are Postgres.
+	RestPort          int `json:"rest_port,omitempty"`
+	PublishedRestPort int `json:"published_rest_port,omitempty"`
+	// Patroni says whether the container runs Patroni.
+	Patroni bool `json:"patroni,omitempty"`
 }
 
 // WALGBackupRequest is POST /v1/instances/{id}/walg/backup.
@@ -304,4 +376,69 @@ type WALGBackupResult struct {
 	Backup     WALGBackup `json:"backup"`
 	DurationMS int64      `json:"duration_ms"`
 	Deleted    string     `json:"deleted,omitempty"` // retention output
+}
+
+// EtcdAddress is where this node's etcd member is reached, by clients and
+// by the other members: the container's name on the agent's Docker
+// network, or the node's published address with fixed ports.
+type EtcdAddress struct {
+	Host       string `json:"host"`
+	ClientPort int    `json:"client_port"`
+	PeerPort   int    `json:"peer_port"`
+}
+
+// EtcdSpec is PUT /v1/etcd: run (or re-create) this node's etcd member.
+type EtcdSpec struct {
+	Name string `json:"name"`
+	// InitialCluster is etcd's --initial-cluster ("a=https://h:2380,…");
+	// State is "new" when the cluster is bootstrapped, "existing" when the
+	// member joins one (after "member add").
+	InitialCluster string `json:"initial_cluster"`
+	State          string `json:"state"`
+	Token          string `json:"token"`
+	CAPEM          string `json:"ca_pem"`
+	CertPEM        string `json:"cert_pem"`
+	KeyPEM         string `json:"key_pem"`
+	// Wipe removes the member's data first (rejoining after "member
+	// remove").
+	Wipe bool `json:"wipe,omitempty"`
+}
+
+// EtcdMembersRequest is POST /v1/etcd/members: list, add or remove members
+// of the cluster through this node's member (V3.1 §3.2), as a client with
+// the certificate given.
+type EtcdMembersRequest struct {
+	Action   string `json:"action"` // list, add, remove
+	PeerURL  string `json:"peer_url,omitempty"`
+	MemberID string `json:"member_id,omitempty"`
+	CAPEM    string `json:"ca_pem"`
+	CertPEM  string `json:"cert_pem"`
+	KeyPEM   string `json:"key_pem"`
+}
+
+// EtcdClusterMember is a member as the cluster lists it. A member added
+// but not started yet has no name.
+type EtcdClusterMember struct {
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	PeerURLs   []string `json:"peer_urls"`
+	ClientURLs []string `json:"client_urls"`
+}
+
+// EtcdMembers is the cluster's members after the action.
+type EtcdMembers struct {
+	Members []EtcdClusterMember `json:"members"`
+	// Added is the member an add created.
+	Added *EtcdClusterMember `json:"added,omitempty"`
+}
+
+// Etcd is the state of the node's etcd member.
+type Etcd struct {
+	Container string      `json:"container"`
+	State     string      `json:"state"` // running, exited, missing
+	Running   bool        `json:"running"`
+	Address   EtcdAddress `json:"address"`
+	// Healthy is the member's own /health over TLS; Error says why not.
+	Healthy bool   `json:"healthy"`
+	Error   string `json:"error,omitempty"`
 }

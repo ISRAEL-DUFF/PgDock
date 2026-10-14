@@ -15,7 +15,7 @@ import (
 
 func main() {
 	addr := flag.String("listen", ":9000", "listen address")
-	buckets := flag.String("buckets", "pgdock", "comma-separated buckets to create")
+	buckets := flag.String("buckets", "xenibase", "comma-separated buckets to create")
 	flag.Parse()
 	be := s3mem.New()
 	for _, b := range strings.Split(*buckets, ",") {

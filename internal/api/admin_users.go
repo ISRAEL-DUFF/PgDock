@@ -8,11 +8,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/orgs"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/orgs"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func genAdminUser(u store.User, orgCount int) gen.AdminUser {
@@ -250,8 +250,8 @@ func (s *Server) PutMailSettings(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 	if err := mail.Send(ctx, cfg, mail.Message{
-		To: []string{string(req.TestTo)}, Subject: "PGDock email works",
-		Body: "This is a test from PGDock's email settings. Account email, invitations, and alerts will arrive like this.",
+		To: []string{string(req.TestTo)}, Subject: "Xenibase email works",
+		Body: "This is a test from Xenibase's email settings. Account email, invitations, and alerts will arrive like this.",
 	}); err != nil {
 		writeError(w, http.StatusBadGateway, "smtp_test_failed", "the test email could not be sent: "+err.Error())
 		return
@@ -275,11 +275,11 @@ func (s *Server) PublishTerms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sess, _ := sessionFrom(r.Context())
-	t, err := s.auth.PublishTerms(r.Context(), req.TermsMd, req.PrivacyMd, sess.UserID)
+	t, err := s.auth.PublishTerms(r.Context(), req.TermsMd, req.PrivacyMd, valueOr(req.AupMd, ""), sess.UserID)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 	auditFrom(r.Context()).set("version", t.Version)
-	writeJSON(w, http.StatusCreated, gen.Terms{Version: int(t.Version), TermsMd: t.TermsMd, PrivacyMd: t.PrivacyMd, PublishedAt: t.PublishedAt})
+	writeJSON(w, http.StatusCreated, gen.Terms{Version: int(t.Version), TermsMd: t.TermsMd, PrivacyMd: t.PrivacyMd, AupMd: &t.AupMd, PublishedAt: t.PublishedAt})
 }

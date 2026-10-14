@@ -1,6 +1,6 @@
-// Package agentsvc is pgdock-agent's HTTPS service: a fixed set of commands
+// Package agentsvc is xenibase-agent's HTTPS service: a fixed set of commands
 // (health, host metrics, dump, restore, copy) behind mutual TLS that only
-// pgdock-server's client certificate can pass (spec §3.3).
+// xenibase-server's client certificate can pass (spec §3.3).
 package agentsvc
 
 import (
@@ -19,11 +19,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/agentca"
-	"github.com/israel-duff/pgdock/internal/backupfmt"
-	"github.com/israel-duff/pgdock/internal/pgpstream"
-	"github.com/israel-duff/pgdock/internal/storage"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/agentca"
+	"github.com/israel-duff/xenibase/internal/backupfmt"
+	"github.com/israel-duff/xenibase/internal/pgpstream"
+	"github.com/israel-duff/xenibase/internal/storage"
 )
 
 // Config configures the service.
@@ -46,6 +46,17 @@ type Service struct {
 	log  *slog.Logger
 	jobs chan struct{}
 	inst *instances
+	pool *poolerHost // nil unless this is a pooler host (V3 §2.1)
+}
+
+// EnablePooler makes this agent a pooler host's agent.
+func (s *Service) EnablePooler(cfg PoolerConfig) error {
+	p, err := newPoolerHost(cfg, s.log)
+	if err != nil {
+		return err
+	}
+	s.pool = p
+	return nil
 }
 
 // New returns a Service.
@@ -58,6 +69,10 @@ func New(cfg Config, log *slog.Logger) *Service {
 	}
 	return &Service{cfg: cfg, log: log, jobs: make(chan struct{}, cfg.MaxJobs), inst: newInstances(cfg.Instances)}
 }
+
+// EnsureMoveRules gives running instances the pg_hba.conf rules moves need
+// (V3 §2.3); the agent calls it once at start.
+func (s *Service) EnsureMoveRules(ctx context.Context) { s.inst.ensureMoveRules(ctx, s.log) }
 
 // Handler returns the API's HTTP handler.
 func (s *Service) Handler() http.Handler {
@@ -74,10 +89,18 @@ func (s *Service) Handler() http.Handler {
 	mux.HandleFunc("POST "+agentapi.PathInstanceStop, s.instanceAction("stop"))
 	mux.HandleFunc("POST "+agentapi.PathWALGBackup, s.walgBackup)
 	mux.HandleFunc("GET "+agentapi.PathWALGBackupList, s.walgBackups)
+	mux.HandleFunc("GET "+agentapi.PathEtcdAddress, s.etcdAddressHandler)
+	mux.HandleFunc("PUT "+agentapi.PathEtcd, s.runEtcd)
+	mux.HandleFunc("GET "+agentapi.PathEtcd, s.getEtcd)
+	mux.HandleFunc("DELETE "+agentapi.PathEtcd, s.removeEtcd)
+	mux.HandleFunc("POST "+agentapi.PathEtcdMembers, s.etcdMembers)
+	mux.HandleFunc("PUT "+agentapi.PathPoolerConfig, s.poolerConfig)
+	mux.HandleFunc("PUT "+agentapi.PathPoolerExpected, s.poolerExpected)
+	mux.HandleFunc("GET "+agentapi.PathPoolerStatus, s.poolerStatus)
 	return mux
 }
 
-// TLSConfig requires a client certificate from ca with pgdock-server's
+// TLSConfig requires a client certificate from ca with xenibase-server's
 // subject.
 func TLSConfig(cert tls.Certificate, ca *x509.CertPool) *tls.Config {
 	return &tls.Config{
@@ -87,7 +110,7 @@ func TLSConfig(cert tls.Certificate, ca *x509.CertPool) *tls.Config {
 		MinVersion:   tls.VersionTLS13,
 		VerifyPeerCertificate: func(_ [][]byte, chains [][]*x509.Certificate) error {
 			if len(chains) == 0 || chains[0][0].Subject.CommonName != agentca.ServerCN {
-				return errors.New("client certificate is not pgdock-server's")
+				return errors.New("client certificate is not xenibase-server's")
 			}
 			return nil
 		},

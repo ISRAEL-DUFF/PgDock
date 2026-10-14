@@ -100,12 +100,12 @@ func TestACMEFallsBackForIPs(t *testing.T) {
 // TestACMEWithPebble obtains a real certificate from Pebble (Let's
 // Encrypt's test CA) over HTTP-01: Pebble resolves the name through
 // pebble-challtestsrv to 127.0.0.1 and fetches the challenge from our
-// handler on :5002. Needs PGDOCK_TEST_PEBBLE_DIR with the pebble and
+// handler on :5002. Needs XENIBASE_TEST_PEBBLE_DIR with the pebble and
 // pebble-challtestsrv binaries (`make test-acme` installs them).
 func TestACMEWithPebble(t *testing.T) {
-	bin := os.Getenv("PGDOCK_TEST_PEBBLE_DIR")
+	bin := os.Getenv("XENIBASE_TEST_PEBBLE_DIR")
 	if bin == "" {
-		t.Skip("PGDOCK_TEST_PEBBLE_DIR not set; run `make test-acme`")
+		t.Skip("XENIBASE_TEST_PEBBLE_DIR not set; run `make test-acme`")
 	}
 	root := pebbleModuleDir(t)
 	work := t.TempDir()
@@ -149,7 +149,7 @@ func TestACMEWithPebble(t *testing.T) {
 		Mode: ModeACME, Dir: dir, DataDir: t.TempDir(), Log: quiet,
 		ACMECA: "https://127.0.0.1:14000/dir", ACMERoots: roots, ACMEEmail: "ops@example.com", ChallengePort: 5002,
 		Reload: func(context.Context) error { reloads.Add(1); return nil },
-	}, "db.pgdock.test")
+	}, "db.xenibase.test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestACMEWithPebble(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.VerifyHostname("db.pgdock.test") != nil || !strings.Contains(m.Status().Issuer, "Pebble") {
+	if c.VerifyHostname("db.xenibase.test") != nil || !strings.Contains(m.Status().Issuer, "Pebble") {
 		t.Fatalf("not a Pebble certificate for the host: issuer=%q status=%+v", c.Issuer, m.Status())
 	}
 	if challenges.Load() == 0 {

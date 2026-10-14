@@ -14,15 +14,15 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 func needDedicated(t *testing.T) {
 	t.Helper()
-	if os.Getenv("PGDOCK_TEST_PG_IMAGE") == "" {
-		t.Skip("PGDOCK_TEST_PG_IMAGE not set; run `make test-integration`")
+	if os.Getenv("XENIBASE_TEST_PG_IMAGE") == "" {
+		t.Skip("XENIBASE_TEST_PG_IMAGE not set; run `make test-integration`")
 	}
 }
 
@@ -95,7 +95,7 @@ func TestDedicatedProjectAndPITR(t *testing.T) {
 		p.PitrWindow == nil || !p.Settings.ConsoleReadOnly || p.Settings.PoolSize != 20 {
 		t.Fatalf("dedicated project detail: %+v instance %+v window %+v", p, p.Instance, p.PitrWindow)
 	}
-	container := "pgdock-" + p.Instance.Id.String()
+	container := "xenibase-" + p.Instance.Id.String()
 	if limits, err := dockerInspect(t, container, "{{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.State.Running}}"); err != nil || limits != "1073741824 1000000000 true" {
 		t.Fatalf("container limits: %q %v", limits, err)
 	}
@@ -205,7 +205,7 @@ func TestDedicatedProjectAndPITR(t *testing.T) {
 	// Base backups: listed, and on demand.
 	var list gen.BackupList
 	e.Do("GET", "/api/v1/backups?project_id="+c.Project.Id.String(), nil, &list)
-	if len(list.Items) != 2 || list.Items[0].Kind != gen.Base || list.Items[0].SizeBytes == nil {
+	if len(list.Items) != 2 || list.Items[0].Kind != gen.BackupKindBase || list.Items[0].SizeBytes == nil {
 		t.Fatalf("base backups: %+v", list.Items)
 	}
 	if code := e.Do("POST", "/api/v1/projects/"+c.Project.Id.String()+"/backups", nil, &op); code != http.StatusAccepted {
@@ -247,10 +247,10 @@ func TestDedicatedProjectAndPITR(t *testing.T) {
 	if op = e.WaitOperation(op.Id); op.Status != gen.OperationStatusSucceeded {
 		t.Fatalf("delete restored: %s\n%s", op.Status, testenv.FormatLog(op))
 	}
-	if _, err := dockerInspect(t, "pgdock-"+rp.Instance.Id.String(), "{{.Id}}"); err == nil {
+	if _, err := dockerInspect(t, "xenibase-"+rp.Instance.Id.String(), "{{.Id}}"); err == nil {
 		t.Fatal("the restored project's container survived its delete")
 	}
-	keys, _ := e.S3.Objects("pgdock-test")
+	keys, _ := e.S3.Objects("xenibase-test")
 	for _, k := range keys {
 		if strings.Contains(k, "instances/"+rp.Instance.Id.String()+"/") {
 			t.Fatalf("WAL-G object left behind: %s", k)

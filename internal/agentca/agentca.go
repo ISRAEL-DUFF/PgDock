@@ -1,6 +1,6 @@
 // Package agentca is the control plane's private CA for agent mTLS (spec
 // §3.3): it signs each agent's certificate at registration and a client
-// certificate for pgdock-server itself. Agents accept only that client
+// certificate for xenibase-server itself. Agents accept only that client
 // certificate; the server accepts only agents whose certificate it signed
 // and whose fingerprint it pinned.
 package agentca
@@ -27,15 +27,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 const (
 	settingsKey = "agent_ca"
 	keyAAD      = "settings.agent_ca.key"
-	// ServerCN is the subject of pgdock-server's client certificate.
-	ServerCN = "pgdock-server"
+	// ServerCN is the subject of xenibase-server's client certificate.
+	ServerCN = "xenibase-server"
 	// NodeCNPrefix prefixes agent certificate subjects: "node:<uuid>".
 	NodeCNPrefix = "node:"
 )
@@ -61,7 +61,7 @@ func LoadOrCreate(ctx context.Context, db *pgxpool.Pool, keyring *crypto.Keyring
 func loadOrCreate(ctx context.Context, db *pgxpool.Pool, keyring *crypto.Keyring) (*CA, error) {
 	var ca *CA
 	err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('pgdock_agent_ca'))`); err != nil {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('xenibase_agent_ca'))`); err != nil {
 			return err
 		}
 		q := store.New(tx)
@@ -106,7 +106,7 @@ func generate() (*CA, error) {
 	}
 	tmpl := &x509.Certificate{
 		SerialNumber:          serial(),
-		Subject:               pkix.Name{CommonName: "PGDock agent CA", Organization: []string{"PGDock"}},
+		Subject:               pkix.Name{CommonName: "Xenibase agent CA", Organization: []string{"Xenibase"}},
 		NotBefore:             time.Now().Add(-time.Hour),
 		NotAfter:              time.Now().AddDate(20, 0, 0),
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
@@ -174,7 +174,7 @@ func (ca *CA) SignAgent(csrPEM []byte, nodeID string, hosts []string) (certPEM [
 	}
 	tmpl := &x509.Certificate{
 		SerialNumber: serial(),
-		Subject:      pkix.Name{CommonName: NodeCNPrefix + nodeID, Organization: []string{"PGDock agent"}},
+		Subject:      pkix.Name{CommonName: NodeCNPrefix + nodeID, Organization: []string{"Xenibase agent"}},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().AddDate(2, 0, 0),
 		KeyUsage:     x509.KeyUsageDigitalSignature,
@@ -194,7 +194,7 @@ func (ca *CA) SignAgent(csrPEM []byte, nodeID string, hosts []string) (certPEM [
 	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), Fingerprint(der), nil
 }
 
-// ServerClientCert issues pgdock-server's client certificate, valid for 30
+// ServerClientCert issues xenibase-server's client certificate, valid for 30
 // days; the server issues a fresh one at every start.
 func (ca *CA) ServerClientCert() (tls.Certificate, error) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -203,7 +203,7 @@ func (ca *CA) ServerClientCert() (tls.Certificate, error) {
 	}
 	tmpl := &x509.Certificate{
 		SerialNumber: serial(),
-		Subject:      pkix.Name{CommonName: ServerCN, Organization: []string{"PGDock"}},
+		Subject:      pkix.Name{CommonName: ServerCN, Organization: []string{"Xenibase"}},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().AddDate(0, 0, 30),
 		KeyUsage:     x509.KeyUsageDigitalSignature,
@@ -236,7 +236,7 @@ func NewCSR() (csrPEM, keyPEM []byte, err error) {
 		return nil, nil, err
 	}
 	der, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{
-		Subject: pkix.Name{CommonName: "pgdock-agent"},
+		Subject: pkix.Name{CommonName: "xenibase-agent"},
 	}, key)
 	if err != nil {
 		return nil, nil, err

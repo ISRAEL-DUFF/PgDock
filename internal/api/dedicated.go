@@ -9,11 +9,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/dedicated"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/faildomain"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func (s *Server) dedicatedSvc(w http.ResponseWriter) *dedicated.Service {
@@ -43,10 +47,27 @@ func (s *Server) instanceSummaries(ctx context.Context) map[uuid.UUID]gen.Instan
 		s.log.Warn("instance summaries", "err", err)
 		return out
 	}
+	life := map[int]provision.PGVersion{}
+	if s.projects != nil {
+		if vs, err := s.projects.Versions(ctx); err == nil {
+			for _, v := range vs {
+				life[v.Major] = v
+			}
+		}
+	}
 	for _, r := range rows {
 		sum := gen.InstanceSummary{
 			Id: r.ID, Kind: gen.InstanceSummaryKind(r.Kind), Status: r.Status, Error: r.Error,
 			NodeId: r.NodeID, NodeName: r.NodeName, Profile: r.Profile, MemoryMb: i32(r.MemLimitMb), VolumeGb: i32(r.VolumeGb),
+			PgVersion: int(r.PgVersion), PgRelease: r.PgRelease, PgReleaseAvailable: r.PgReleaseAvailable, HaEnabled: &r.HaEnabled,
+		}
+		if r.Kind == "dedicated" {
+			pd := int(r.PitrDays)
+			sum.PitrDays = &pd
+		}
+		if v, ok := life[int(r.PgVersion)]; ok {
+			st := gen.InstanceSummaryPgVersionStatus(v.Status)
+			sum.PgVersionStatus, sum.PgVersionRetiresAt = &st, v.RetiresAt
 		}
 		if f, err := r.CpuLimit.Float64Value(); err == nil && f.Valid {
 			v := float32(f.Float64)
@@ -58,8 +79,32 @@ func (s *Server) instanceSummaries(ctx context.Context) map[uuid.UUID]gen.Instan
 }
 
 // ListProfiles implements GET /api/v1/profiles.
-func (s *Server) ListProfiles(w http.ResponseWriter, _ *http.Request) {
-	out := gen.ProfileList{DefaultProfile: dedicated.DefaultProfile, DefaultVolumeGb: dedicated.DefaultVolumeGB}
+func (s *Server) ListProfiles(w http.ResponseWriter, r *http.Request) {
+	out := gen.ProfileList{DefaultProfile: dedicated.DefaultProfile, DefaultVolumeGb: dedicated.DefaultVolumeGB,
+		PgVersions: provision.DefaultPGVersions, DefaultPgVersion: provision.DefaultPGVersions[len(provision.DefaultPGVersions)-1]}
+	if s.projects != nil {
+		// Open for new projects: installed, not retired, not in preview.
+		vs, err := s.projects.Versions(r.Context())
+		if err != nil {
+			s.internalError(w, "profiles", err)
+			return
+		}
+		out.PgVersions = []int{}
+		var life []gen.PgVersionInfo
+		for _, v := range vs {
+			if !v.Installed {
+				continue
+			}
+			life = append(life, toAPIPgVersion(v, false))
+			if v.Status == provision.VersionSupported || v.Status == provision.VersionDeprecated {
+				out.PgVersions = append(out.PgVersions, v.Major)
+			}
+		}
+		out.PgVersionLifecycle = &life
+		if d, err := s.projects.DefaultVersion(r.Context()); err == nil {
+			out.DefaultPgVersion = d
+		}
+	}
 	for _, p := range dedicated.Profiles {
 		out.Items = append(out.Items, gen.Profile{Name: p.Name, Cpus: float32(p.CPUs), MemoryMb: p.MemoryMB})
 	}
@@ -139,22 +184,47 @@ func (s *Server) CreateNode(w http.ResponseWriter, r *http.Request) {
 	a := auditFrom(r.Context())
 	a.set("name", req.Name)
 	a.set("role", string(req.Role))
-	n, tok, exp, err := s.nodes.CreateNode(r.Context(), req.Name, req.PrivateAddr, string(req.Role))
+	region, domain := "", ""
+	if req.Region != nil {
+		region = *req.Region
+	}
+	if req.FailureDomain != nil {
+		domain = *req.FailureDomain
+		a.set("failure_domain", domain)
+	}
+	n, tok, exp, err := s.nodes.CreateNode(r.Context(), req.Name, req.PrivateAddr, string(req.Role), region, domain)
 	if err != nil {
 		s.backupError(w, "create node", err)
 		return
 	}
 	a.target("node", n.ID.String())
-	writeJSON(w, http.StatusCreated, gen.NodeCreated{
+	out := gen.NodeCreated{
 		Node: s.toAPINode(n), Token: tok, ExpiresAt: exp, Command: registerCommand(r, tok, req.PrivateAddr),
-	})
+	}
+	var warnings []string
+	if n.Role == nodes.RolePooler {
+		// The region's pooler hosts should be apart (V3.1 §2.2); Xenibase
+		// can't move them, so it says so rather than refusing.
+		if all, err := store.New(s.db).ListNodes(r.Context()); err == nil {
+			for _, o := range all {
+				if o.ID != n.ID && o.Role == nodes.RolePooler && o.Status != "removed" && o.Region == n.Region && !faildomain.Separated(o, n) {
+					msg := fmt.Sprintf("%s is in the same failure domain as pooler host %s (%s): one failure could take both", n.Name, o.Name, faildomain.Label(o))
+					warnings = append(warnings, msg)
+				}
+			}
+		}
+	}
+	if len(warnings) > 0 {
+		out.Warnings = &warnings
+	}
+	writeJSON(w, http.StatusCreated, out)
 }
 
 func registerCommand(r *http.Request, token, addr string) string {
 	if addr == "" {
 		addr = "<this node's private address>"
 	}
-	return fmt.Sprintf("pgdock-agent register --server https://%s --token %s --advertise %s:7070", r.Host, token, addr)
+	return fmt.Sprintf("xenibase-agent register --server https://%s --token %s --advertise %s:7070", r.Host, token, addr)
 }
 
 // GetNode implements GET /api/v1/nodes/{id}.
@@ -182,6 +252,7 @@ func (s *Server) GetNode(w http.ResponseWriter, r *http.Request, id gen.NodeID) 
 		ni := gen.NodeInstance{
 			Id: i.ID, Kind: i.Kind, Status: i.Status, Error: i.Error, Profile: i.Profile,
 			MemoryMb: i32(i.MemLimitMb), VolumeGb: i32(i.VolumeGb), Projects: int(i.Projects), CreatedAt: &i.CreatedAt,
+			PgVersion: ptrTo(int(i.PgVersion)), PgRelease: i.PgRelease, PgReleaseAvailable: i.PgReleaseAvailable,
 		}
 		if f, err := i.CpuLimit.Float64Value(); err == nil && f.Valid {
 			v := float32(f.Float64)
@@ -224,7 +295,12 @@ func (s *Server) CreateSharedCluster(w http.ResponseWriter, r *http.Request, id 
 	a := auditFrom(r.Context())
 	a.target("node", id.String())
 	a.set("memory_mb", req.MemoryMb)
-	op, err := ds.AddSharedCluster(r.Context(), id, req.MemoryMb, userID(r.Context()))
+	version := 0
+	if req.PgVersion != nil {
+		version = *req.PgVersion
+		a.set("pg_version", version)
+	}
+	op, err := ds.AddSharedCluster(r.Context(), id, req.MemoryMb, version, userID(r.Context()))
 	if err != nil {
 		s.provisionError(w, "create shared cluster", err)
 		return
@@ -243,11 +319,25 @@ func (s *Server) UpdateNode(w http.ResponseWriter, r *http.Request, id gen.NodeI
 	}
 	a := auditFrom(r.Context())
 	a.target("node", id.String())
-	a.set("role", string(req.Role))
-	n, err := s.nodes.SetRole(r.Context(), id, string(req.Role))
-	if err != nil {
-		s.backupError(w, "update node", err)
+	if req.Role == nil && req.FailureDomain == nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "nothing to change: give role or failure_domain")
 		return
+	}
+	var n store.Node
+	var err error
+	if req.Role != nil {
+		a.set("role", string(*req.Role))
+		if n, err = s.nodes.SetRole(r.Context(), id, string(*req.Role)); err != nil {
+			s.backupError(w, "update node", err)
+			return
+		}
+	}
+	if req.FailureDomain != nil {
+		a.set("failure_domain", *req.FailureDomain)
+		if n, err = s.nodes.SetFailureDomain(r.Context(), id, *req.FailureDomain); err != nil {
+			s.backupError(w, "update node", err)
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, s.toAPINode(n))
 }
@@ -272,7 +362,15 @@ func (s *Server) GetPromotionEstimate(w http.ResponseWriter, r *http.Request, _ 
 		s.internalError(w, "promotion estimate", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, gen.PromotionEstimate{SizeBytes: est.SizeBytes, EstimatedDowntimeSeconds: int(est.Downtime.Seconds())})
+	out := gen.PromotionEstimate{SizeBytes: est.SizeBytes, EstimatedDowntimeSeconds: int(est.Downtime.Seconds())}
+	if est.Mode != "" {
+		m := gen.PromotionEstimateCopyMode(est.Mode)
+		out.CopyMode = &m
+	}
+	if est.Reason != "" {
+		out.FallbackReason = &est.Reason
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // PromoteProject implements POST /api/v1/projects/{id}/promote.
@@ -297,6 +395,9 @@ func (s *Server) PromoteProject(w http.ResponseWriter, r *http.Request, id gen.P
 	}
 	if s.tenancy != nil {
 		org := accessFrom(r.Context()).OrgID
+		if !s.checkQuota(w, s.tenancy.CheckSpendCap(r.Context(), org)) {
+			return
+		}
 		ok, err := s.tenancy.WithinAllowance(r.Context(), org, profileSize(pp.Profile, pp.VolumeGB))
 		if err != nil {
 			s.internalError(w, "promote", err)
@@ -352,6 +453,13 @@ func toAPIDemotePlan(pl dedicated.DemotePlan) gen.DemotePreflight {
 			out.Target.FreeBytes = ptrTo(int64(t.FreeBytes))
 		}
 	}
+	if pl.CopyMode != "" {
+		m := gen.DemotePreflightCopyMode(pl.CopyMode)
+		out.CopyMode = &m
+	}
+	if pl.CopyReason != "" {
+		out.FallbackReason = &pl.CopyReason
+	}
 	return out
 }
 
@@ -402,4 +510,121 @@ func (s *Server) DemoteProject(w http.ResponseWriter, r *http.Request, id gen.Pr
 		return
 	}
 	s.writeOperation(w, "demote", op)
+}
+
+// MoveProject implements POST /api/v1/admin/projects/{project_id}/move.
+func (s *Server) MoveProject(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	ds := s.dedicatedSvc(w)
+	if ds == nil || !s.requireProjects(w) {
+		return
+	}
+	var req gen.MoveProjectRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	a := auditFrom(r.Context())
+	a.target("project", id.String())
+	a.set("node_id", req.NodeId.String())
+	op, err := ds.Move(r.Context(), dedicated.MoveParams{ProjectID: id, NodeID: req.NodeId, CreatedBy: userID(r.Context())})
+	if err != nil {
+		s.provisionError(w, "move", err)
+		return
+	}
+	s.writeOperation(w, "move", op)
+}
+
+// ListProjectMoves implements GET /api/v1/projects/{id}/moves.
+func (s *Server) ListProjectMoves(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+	list, err := store.New(s.db).LatestMoves(r.Context(), store.LatestMovesParams{ProjectID: id, Lim: 20})
+	if err != nil {
+		s.internalError(w, "list moves", err)
+		return
+	}
+	out := gen.MoveList{Items: make([]gen.Move, 0, len(list))}
+	for _, m := range list {
+		mv := gen.Move{
+			Id: m.ID, OperationId: m.OperationID, SourceInstance: m.SourceInstance, TargetInstance: m.TargetInstance,
+			Mode: gen.MoveMode(m.Mode), FallbackReason: m.FallbackReason, Phase: gen.MovePhase(m.Phase),
+			LagBytes: m.LagBytes, StartedAt: m.StartedAt, FinishedAt: m.FinishedAt,
+		}
+		if m.TablesTotal != nil {
+			v := int(*m.TablesTotal)
+			mv.TablesTotal = &v
+		}
+		if m.TablesReady != nil {
+			v := int(*m.TablesReady)
+			mv.TablesReady = &v
+		}
+		if m.FreezeMs != nil {
+			v := int(*m.FreezeMs)
+			mv.FreezeMs = &v
+		}
+		out.Items = append(out.Items, mv)
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func toAPIUpgradePlan(pl dedicated.UpgradePlan) gen.UpgradePreflight {
+	out := gen.UpgradePreflight{
+		Eligible: len(pl.Blocked()) == 0, From: pl.From, To: pl.To, Checks: make([]gen.UpgradeCheck, len(pl.Checks)),
+		SizeBytes: pl.SizeBytes, EstimatedDowntimeSeconds: int(pl.Downtime.Seconds()),
+		CopyMode: gen.UpgradePreflightCopyMode(pl.CopyMode),
+	}
+	if out.CopyMode == "" {
+		out.CopyMode = gen.UpgradePreflightCopyModeLogical
+	}
+	for i, c := range pl.Checks {
+		out.Checks[i] = gen.UpgradeCheck{Name: gen.UpgradeCheckName(c.Name), Status: gen.UpgradeCheckStatus(c.Status), Message: c.Message}
+	}
+	if pl.TargetNode != "" {
+		out.TargetNode = &pl.TargetNode
+	}
+	if pl.CopyReason != "" {
+		out.FallbackReason = &pl.CopyReason
+	}
+	return out
+}
+
+// UpgradePreflight implements POST /api/v1/projects/{id}/upgrade/preflight.
+func (s *Server) UpgradePreflight(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+	ds := s.dedicatedSvc(w)
+	if ds == nil || !s.requireProjects(w) {
+		return
+	}
+	var req gen.UpgradeRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	p, err := store.New(s.db).GetProject(r.Context(), id)
+	if err != nil {
+		s.provisionError(w, "upgrade preflight", err)
+		return
+	}
+	pl, err := ds.UpgradePreflight(r.Context(), p, req.PgVersion)
+	if err != nil {
+		s.provisionError(w, "upgrade preflight", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toAPIUpgradePlan(pl))
+}
+
+// UpgradeProject implements POST /api/v1/projects/{id}/upgrade.
+func (s *Server) UpgradeProject(w http.ResponseWriter, r *http.Request, id gen.ProjectID) {
+	ds := s.dedicatedSvc(w)
+	if ds == nil || !s.requireProjects(w) {
+		return
+	}
+	var req gen.UpgradeRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	a := auditFrom(r.Context())
+	a.target("project", id.String())
+	a.set("pg_version", req.PgVersion)
+	op, _, err := ds.Upgrade(r.Context(), dedicated.UpgradeParams{ProjectID: id, PgVersion: req.PgVersion, CreatedBy: userID(r.Context())})
+	if err != nil {
+		s.provisionError(w, "upgrade", err)
+		return
+	}
+	s.writeOperation(w, "upgrade", op)
 }

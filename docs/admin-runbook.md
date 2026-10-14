@@ -1,6 +1,6 @@
 # Platform admin runbook
 
-The tasks of whoever runs a PGDock installation for other people, in the
+The tasks of whoever runs a Xenibase installation for other people, in the
 order they come up. [Operations](operations.md) explains each feature;
 this page is what to do, and when. Incidents have their own page:
 [incident process](incidents.md).
@@ -8,7 +8,7 @@ this page is what to do, and when. Incidents have their own page:
 ## Before inviting anyone
 
 0. **Have two platform admins.** Setup makes one. Invite a second person you
-   trust, then Users → **Make admin** (your password and a code). Otherwise
+   trust, then Users → **Platform role** → platform admin (your password and a code). Otherwise
    losing one phone and its recovery codes leaves nobody able to manage the
    platform (the server-side recovery below still works, but it needs a
    shell on the server).
@@ -28,7 +28,7 @@ this page is what to do, and when. Incidents have their own page:
 6. **Outbound traffic** (V2 §10.7): webhooks and HTTP jobs reach only
    public `https://` addresses. If your servers can reach private networks
    or a metadata service on unusual ranges, add them to
-   `PGDOCK_OUTBOUND_BLOCK`. Allow-list internal hosts for an organisation
+   `XENIBASE_OUTBOUND_BLOCK`. Allow-list internal hosts for an organisation
    only when you trust it (Organisations → the org → Outbound).
 7. **An external review.** Before anyone outside your own projects relies
    on it, have someone else look at tenant isolation, or pay for a short
@@ -58,8 +58,29 @@ people (V2 §14 M16):
   lists what fires when. A failed backup or restore test comes first.
 - **Requests** (Platform → Dedicated requests): approve within the node
   capacity you have, or reject with a reason.
+- **Payments** (Admin → Billing): attribute any transfer under **Events →
+  Unmatched**, look at **Reconciliation** (it should say "No
+  differences" for each provider), and record any payment to Xenibase's own
+  bank account under **Payments**. See [Payments](payments.md).
+
+- **Capacity** (Platform → Capacity): approve or reject proposals that
+  wait (an alert fires). When one fails, read its operation log and the
+  server's `/var/log/cloud-init-output.log`. See
+  [capacity and costs](capacity.md).
+- **Regions** (Platform → Regions): the copy status should show no
+  *failed* copies; a failure says why on the backup (`copy_error`) and is
+  retried after an hour. See [regions](regions.md).
+- **Support** (Platform → Support): answer what's overdue first. The
+  queue is ordered by when each ticket is due an answer. Set tickets that
+  wait on the customer to *pending*. See [support](support.md).
 
 ## Weekly
+
+- **WHT** (Admin → Billing → WHT): chase credit notes older than 30 days;
+  send the CSV to the accountant monthly.
+- **Overdue organisations:** dunning runs by itself; hold it for an org
+  that has agreed to pay later (Admin → Organisations → the org →
+  Billing).
 
 - **Capacity** (Nodes, and the [capacity notes](operations.md#capacity)):
   add a shared node before one passes about 200 projects, its disk 70%,
@@ -70,13 +91,49 @@ people (V2 §14 M16):
 - **Dependencies:** `govulncheck` and `npm audit` run on every push in CI;
   upgrade when they report something reachable ([upgrades](upgrade.md)).
 
+## Before charging anyone (the paid launch)
+
+V3's launch gate for M23. None of it is code, and all of it comes before
+the first real invoice:
+
+1. **The company** is incorporated. Its legal name, address, TIN and VAT
+   registration go in Admin → Billing → Settings, so invoices show them.
+2. **The wallet provider** (iswallet): the account is approved for live
+   use, with the live key and webhook secret in `XENIBASE_ISWALLET_*` and
+   the webhook URL registered, and the sandbox rehearsal has been run. See
+   [Payments](payments.md).
+3. **Legal review**: a lawyer reviews the terms, privacy notice, AUP,
+   SLA and DPA. Publish the company's versions (Platform settings →
+   Terms; Platform → Legal documents). See [Legal documents](legal.md).
+4. **Accounting**: an accountant confirms the VAT and WHT rates and the
+   invoice layout, and agrees to take the monthly CSVs (revenue and WHT).
+5. **A week of internal billing on real usage**: run your own
+   organisations on paid plans for a week. Draft invoices, pay them
+   from the wallet and by a recorded manual payment, and check that the reconciliation shows no
+   differences and the ledger check is balanced.
+6. Then open paid plans, in the EU region first.
+
+## Monthly
+
+- **Costs & margins**: record the month's exchange rate, check
+  organisations with negative margins and the Free tier's cost, and send
+  the CSV to the accountant with the revenue CSV. When FX erosion grows,
+  plan a repricing (price books, 30 days' notice).
+- **Rebalancing** (Platform → Capacity): approve the week's batch unless
+  automatic rebalancing is on.
+- **Revenue** (Platform → Revenue): send the CSV to the accountant with
+  the WHT CSV, and look at churn and receivables over 60 days.
+- **Legal**: when you publish a new SLA or DPA, check Platform → Legal
+  documents a few weeks later for organisations that haven't accepted it.
+
 ## Accounts
 
 | Situation | Do |
 | --- | --- |
 | Someone lost their authenticator and recovery codes | Confirm who they are out of band (a call, not the email that asks), then Users → the user → **Reset two-factor**. It is audited and they are emailed. |
-| A colleague should help run the platform | They need an active account with two-factor set up. Users → **Make admin**. It asks for your password and a code, signs them out, emails them, and is audited. **Remove admin** reverses it; the last admin can't be removed. |
-| Nobody can sign in as a platform admin | On the server: `docker compose exec pgdock-server pgdock-server admin list`, then `promote <email>`, `reset-2fa <email>` or `reset-password <email>` (prints a one-hour link when email is down). Audited as done on the server. See [operations](operations.md#platform-admins-and-recovery). |
+| A colleague should help run the platform | They need an active account with two-factor set up. Users → **Platform role** → platform admin. It asks for your password and a code, signs them out, emails them, and is audited. Choosing *user* reverses it; the last admin can't be removed. |
+| A colleague should answer support tickets | Users → **Platform role** → *support staff*. They see Platform → Support and the metadata of the organisations that write in, and nothing else of the platform's. See [support](support.md). |
+| Nobody can sign in as a platform admin | On the server: `docker compose exec xenibase-server xenibase-server admin list`, then `promote <email>`, `reset-2fa <email>` or `reset-password <email>` (prints a one-hour link when email is down). Audited as done on the server. See [operations](operations.md#platform-admins-and-recovery). |
 | Someone leaves a team | The team's owners remove them; it's immediate. You don't need to do anything. |
 | An account is abused or compromised | Users → **Disable**: sessions, tokens and database logins end at once. |
 | A user wants their account deleted | They do it from Account; it is refused while they're the last owner of an organisation with projects. |
@@ -96,8 +153,8 @@ people (V2 §14 M16):
 - The **backup key** (Settings → Backup key) decrypts every backup on
   platform targets. Keep its export offline; without it, a lost server
   means lost backups.
-- The **master key** (`PGDOCK_MASTER_KEY`) seals credentials; rotate it with
-  `pgdock-server -rotate-master-key` ([operations](operations.md#secrets)).
+- The **master key** (`XENIBASE_MASTER_KEY`) seals credentials; rotate it with
+  `xenibase-server -rotate-master-key` ([operations](operations.md#secrets)).
 - A full rebuild of the control node: [disaster recovery](disaster-recovery.md).
 
 ## Releases

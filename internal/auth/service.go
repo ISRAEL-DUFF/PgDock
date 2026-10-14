@@ -16,9 +16,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	pgmail "github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	pgmail "github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Errors returned to the API layer. Messages are safe to show.
@@ -29,7 +29,7 @@ var (
 	ErrChallengeExpired   = errors.New("this sign-in has expired; start again")
 	ErrNoSession          = errors.New("not signed in")
 	ErrSetupDone          = errors.New("setup has already been completed")
-	ErrBadSetupCode       = errors.New("the setup code is wrong (see the pgdock-server log)")
+	ErrBadSetupCode       = errors.New("the setup code is wrong (see the xenibase-server log)")
 	ErrInvalidEmail       = errors.New("enter a valid email address")
 	ErrEmailUnverified    = errors.New("confirm your email address first: we sent you a link")
 	ErrPendingApproval    = errors.New("your account is waiting for the platform admin's approval")
@@ -43,6 +43,9 @@ var (
 const (
 	RolePlatformAdmin = "platform_admin"
 	RoleUser          = "user"
+	// RoleSupport is support staff (V3 §7.1): the support console and
+	// organisations' metadata, nothing else.
+	RoleSupport = "support"
 )
 
 // Config tunes the service.
@@ -86,7 +89,7 @@ func (c *Config) setDefaults() {
 		c.ChallengeTTL = 5 * time.Minute
 	}
 	if c.Issuer == "" {
-		c.Issuer = "PGDock"
+		c.Issuer = "Xenibase"
 	}
 	c.PublicURL = strings.TrimRight(c.PublicURL, "/")
 	if c.Now == nil {
@@ -126,6 +129,7 @@ type Service struct {
 	setupCode string
 	mailer    Mailer
 	hooks     Hooks
+	guard     SignupGuard
 }
 
 // NewService returns a Service. setupCode guards the first-run wizard: it
@@ -168,6 +172,12 @@ type TokenGrant struct {
 
 // PlatformAdmin reports whether the session's user runs the platform.
 func (s Session) PlatformAdmin() bool { return s.Token == nil && s.PlatformRole == RolePlatformAdmin }
+
+// SupportStaff reports whether the session may use the support console:
+// support staff and platform admins.
+func (s Session) SupportStaff() bool {
+	return s.Token == nil && (s.PlatformRole == RoleSupport || s.PlatformRole == RolePlatformAdmin)
+}
 
 // RecentlyReauthenticated reports whether a step-up auth is still valid.
 func (s *Service) RecentlyReauthenticated(sess Session) bool {
@@ -303,7 +313,7 @@ func (s *Service) CompleteSetup(ctx context.Context, token, code string, ip *net
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		q := store.New(tx)
 		// Serialize setup so two browsers cannot both become the admin.
-		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('pgdock_setup'))`); err != nil {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('xenibase_setup'))`); err != nil {
 			return err
 		}
 		if n, err := q.CountUsers(ctx); err != nil {

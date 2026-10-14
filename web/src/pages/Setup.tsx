@@ -70,7 +70,7 @@ export function SetupPage() {
         <div className="flex flex-col gap-4">
           <h1 className="text-lg font-semibold">Email</h1>
           <p className="text-sm text-muted">
-            PGDock emails people to confirm their address, reset passwords, and accept invitations, and sends alerts. It sends a test now and saves the settings
+            Xenibase emails people to confirm their address, reset passwords, and accept invitations, and sends alerts. It sends a test now and saves the settings
             once the server accepts it.
           </p>
           <MailSettingsForm defaultTo={session?.user?.email} submitLabel="Send a test, save, and continue" onSaved={() => setStep("host")} />
@@ -80,7 +80,7 @@ export function SetupPage() {
       {step === "storage" && (
         <div className="flex flex-col gap-4">
           <h1 className="text-lg font-semibold">Backup storage</h1>
-          <p className="text-sm text-muted">Nightly backups go to an S3-compatible bucket. PGDock writes, reads, and deletes a test object before saving.</p>
+          <p className="text-sm text-muted">Nightly backups go to an S3-compatible bucket. Xenibase writes, reads, and deletes a test object before saving.</p>
           <StorageForm submitLabel="Test, save, and continue" onSaved={() => setStep("key")} />
           <Button variant="ghost" className="self-start px-0 text-xs" onClick={() => setStep("key")}>
             Skip for now (no backups until storage is set)
@@ -96,7 +96,7 @@ export function SetupPage() {
       {step === "node" && <NodeStep onDone={() => setStep("done")} />}
       {step === "done" && (
         <div className="flex flex-col gap-4">
-          <h1 className="text-lg font-semibold">PGDock is ready</h1>
+          <h1 className="text-lg font-semibold">Xenibase is ready</h1>
           <p className="text-sm text-muted">Projects are backed up every night. Create your first database, or import one you already have.</p>
           <Button variant="primary" onClick={() => navigate({ to: "/projects/new" })}>
             Create your first project
@@ -137,7 +137,7 @@ function AccountStep({ onDone }: { onDone: (e: SetupEnrollment) => void }) {
         label="Setup code"
         hint={
           <>
-            Printed in the server log: <code className="font-mono">docker compose logs pgdock-server</code>
+            Printed in the server log: <code className="font-mono">docker compose logs xenibase-server</code>
           </>
         }
       >
@@ -261,7 +261,7 @@ export function HostStep({ onDone, submitLabel = "Save and continue" }: { onDone
     <form className="flex flex-col gap-4" onSubmit={save}>
       <h1 className="text-lg font-semibold">Database hostname</h1>
       <p className="text-sm text-muted">
-        Clients connect to this name, e.g. <code className="font-mono">db.example.com</code>. Point its DNS at this server; PGDock then gets a TLS certificate
+        Clients connect to this name, e.g. <code className="font-mono">db.example.com</code>. Point its DNS at this server; Xenibase then gets a TLS certificate
         for it.
       </p>
       <Field label="Hostname">
@@ -315,11 +315,11 @@ function NodeStep({ onDone }: { onDone: () => void }) {
       <NodesPanel />
       {healthy ? (
         <Alert tone="ok" title="Agent connected">
-          Mutual TLS with a certificate from PGDock's own CA.
+          Mutual TLS with a certificate from Xenibase's own CA.
         </Alert>
       ) : (
         <Alert tone="accent">
-          Waiting for the agent… (check <code className="font-mono">docker compose logs pgdock-agent</code>)
+          Waiting for the agent… (check <code className="font-mono">docker compose logs xenibase-agent</code>)
         </Alert>
       )}
       <Button variant={healthy ? "primary" : "ghost"} className={healthy ? undefined : "self-start px-0 text-xs"} onClick={onDone}>

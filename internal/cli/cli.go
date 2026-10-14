@@ -1,4 +1,4 @@
-// Package cli is the pgdock command-line tool (V2 §7.1): contexts, device
+// Package cli is the xenibase command-line tool (V2 §7.1): contexts, device
 // login, and commands for organisations, projects, branches, SQL, backups,
 // promotion, members, tokens and operations, over the generated API
 // client. Every command takes --json; destructive ones need --confirm.
@@ -23,8 +23,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
-	"github.com/israel-duff/pgdock/internal/version"
+	"github.com/israel-duff/xenibase/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/version"
 )
 
 // Exit codes.
@@ -168,6 +168,7 @@ func (a *App) commands() []command {
 			{name: "create", summary: "Create a project: create <name> [--tier shared|dedicated]", run: (*App).projectsCreate},
 			{name: "delete", summary: "Delete a project: delete <p> --confirm <name>", run: (*App).projectsDelete},
 		}},
+		{name: "regions", summary: "The regions projects can be created in", run: (*App).regionsList},
 		{name: "connect", summary: "Print a connection URL with your personal login, or --psql to open psql", run: (*App).connect},
 		{name: "creds", summary: "Your personal database login: creds <p> [--rotate]", run: (*App).creds},
 		{name: "sql", summary: "Run SQL: sql <p> -c \"select …\" | -f file.sql [--csv]", run: (*App).sql},
@@ -176,6 +177,10 @@ func (a *App) commands() []command {
 			{name: "create", summary: "Back up now: create <p>", run: (*App).backupCreate},
 			{name: "download", summary: "Save as a pg_dump file (owners): download <p> [--backup <id>] [-o file]", run: (*App).backupDownload},
 			{name: "restore", summary: "Restore: restore <p> --backup <id> [--into <name>] | --in-place --confirm <name>", run: (*App).backupRestore},
+			{name: "retention", summary: "How long nightly backups are kept: retention <p> standard|extended|long", run: (*App).backupRetention},
+		}},
+		{name: "pitr", summary: "Point-in-time recovery of a dedicated project", sub: []command{
+			{name: "window", summary: "The recovery window: window <p> 7|14|30", run: (*App).pitrWindow},
 		}},
 		{name: "branch", summary: "Branches: throwaway copies of a project", sub: []command{
 			{name: "list", summary: "List a project's branches: list <p>", run: (*App).branchList},
@@ -202,10 +207,101 @@ func (a *App) commands() []command {
 		}},
 		{name: "promote", summary: "Move a project to a dedicated instance: promote <p> [--node <id>] [--profile]", run: (*App).promote},
 		{name: "demote", summary: "Move a dedicated project back to the shared tier: demote <p> [--node <id>] [--check] [--accept-warnings]", run: (*App).demote},
+		{name: "insights", summary: "Query insights (Pro, Team and dedicated)", sub: []command{
+			{name: "queries", summary: "Top queries: queries <p> [--range 24h] [--sort total|mean|calls|rows]", run: (*App).insightsQueries},
+			{name: "slow", summary: "Slow queries: slow <p> [--range 24h]", run: (*App).insightsSlow},
+			{name: "indexes", summary: "Index suggestions, unused and duplicate indexes: indexes <p>", run: (*App).insightsIndexes},
+		}},
+		{name: "instance", summary: "A dedicated project's instance size and disk", sub: []command{
+			{name: "resize", summary: "resize <p> (--profile medium | --cpus 4 --memory 8192) [--dry-run]", run: (*App).instanceResize},
+			{name: "disk", summary: "Grow the disk: disk <p> --gb 160 [--dry-run]", run: (*App).instanceDisk},
+		}},
+		{name: "ha", summary: "High availability for a dedicated project", sub: []command{
+			{name: "status", summary: "Members, lag, failovers and availability: status <p>", run: (*App).haStatus},
+			{name: "enable", summary: "Add a standby on another node: enable <p> [--node <id>] [--sync]", run: (*App).haEnable},
+			{name: "disable", summary: "Remove the standby: disable <p>", run: (*App).haDisable},
+			{name: "switchover", summary: "Planned switchover: switchover <p> [--to <member>]", run: (*App).haSwitchover},
+			{name: "sync", summary: "Synchronous replication: sync <p> on|off", run: (*App).haSync},
+		}},
+		{name: "replicas", summary: "Read replicas of a dedicated project", sub: []command{
+			{name: "list", summary: "Replicas, lag, rotation and the read-only URL: list <p>", run: (*App).replicasList},
+			{name: "create", summary: "Add one (up to 2): create <p> [--node <id>] [--region <r>]", run: (*App).replicasCreate},
+			{name: "delete", summary: "Remove one: delete <p> <replica-id>", run: (*App).replicasDelete},
+			{name: "detach", summary: "Make one a standalone project: detach <p> <replica-id> --name <new>", run: (*App).replicasDetach},
+		}},
+		{name: "migrate", summary: "Move a project's users, files and policies across from another platform", sub: []command{
+			{name: "supabase", summary: "From Supabase, after importing its database: supabase <p> [--step …] [--source <url>] [--s3-…]", run: (*App).migrateSupabase},
+		}},
+		{name: "resume", summary: "Resume a paused Free project, or restore an archived one: resume <p>", run: (*App).resume},
+		{name: "upgrade", summary: "Upgrade to a newer Postgres major: upgrade <p> --to 18 [--check]", run: (*App).upgrade},
+		{name: "move", summary: "Move a project to another node (platform admin): move <p> --node <id>", run: (*App).move},
+		{name: "moves", summary: "A project's recent moves between instances: moves <p>", run: (*App).moves},
 		{name: "members", summary: "Project members", sub: []command{
 			{name: "list", summary: "List: list <p>", run: (*App).membersList},
 			{name: "invite", summary: "Add: invite <p> <email> --role admin|developer|read_only", run: (*App).membersInvite},
 			{name: "remove", summary: "Remove: remove <p> <email>", run: (*App).membersRemove},
+		}},
+		{name: "billing", summary: "The organisation's plan, forecast and invoices (owners and billing members)", sub: []command{
+			{name: "show", summary: "Plan, forecast, budget and spend cap: show", run: (*App).billingShow},
+			{name: "plan", summary: "Change plan: plan free|pro|team [--annual] [--now] [--dry-run]", run: (*App).billingPlan},
+			{name: "invoices", summary: "List invoices", run: (*App).billingInvoices},
+			{name: "invoice", summary: "Show or download one: invoice <number|id> [--pdf file.pdf]", run: (*App).billingInvoice},
+			{name: "pay", summary: "Pay an invoice from the wallet now: pay <number|id>", run: (*App).billingPay},
+			{name: "wallet", summary: "The wallet's balance, what is owed and the debit consent", run: (*App).billingWallet},
+			{name: "transfer", summary: "Show the bank account to transfer to", run: (*App).billingTransfer},
+			{name: "payments", summary: "List payments received", run: (*App).billingPayments},
+		}},
+		{name: "services", summary: "Backend services: the project's data API, auth, storage and realtime", sub: []command{
+			{name: "status", summary: "URL and keys: status <p>", run: (*App).servicesStatus},
+			{name: "enable", summary: "Turn on (prints the first keys once): enable <p>", run: (*App).servicesEnable},
+			{name: "disable", summary: "Turn off (keys revoked): disable <p>", run: (*App).servicesDisable},
+		}},
+		{name: "auth", summary: "Your app's users and signing keys (backend services)", sub: []command{
+			{name: "users", summary: "App users", sub: []command{
+				{name: "list", summary: "list <p> [--search …] [--page n]", run: (*App).authUsersList},
+				{name: "show", summary: "A user's sessions and activity: show <p> <user id>", run: (*App).authUsersShow},
+				{name: "invite", summary: "Email an invitation: invite <p> <email>", run: (*App).authUsersInvite},
+				{name: "ban", summary: "ban <p> <user id> [--for 24h]", run: (*App).authUsersBan},
+				{name: "unban", summary: "unban <p> <user id>", run: (*App).authUsersUnban},
+				{name: "signout", summary: "End all sessions: signout <p> <user id>", run: (*App).authUsersSignOut},
+				{name: "delete", summary: "delete <p> <user id>", run: (*App).authUsersDelete},
+			}},
+			{name: "rotate-key", summary: "Sign tokens with a new key: rotate-key <p>", run: (*App).authRotateKey},
+			{name: "config", summary: "Sign-in settings, providers, phone spend and caps: config <p>", run: (*App).authConfig},
+			{name: "set", summary: `Change settings: set <p> '{"settings":{"phone_channels":["whatsapp"]}}' (an AuthConfigUpdate)`, run: (*App).authSet},
+			{name: "hooks", summary: "Recent auth webhook deliveries: hooks <p>", run: (*App).authHooks},
+		}},
+		{name: "storage", summary: "Your app's files (backend services); remote paths are ss:///bucket/path", sub: []command{
+			{name: "buckets", summary: "Buckets", sub: []command{
+				{name: "list", summary: "list <p>", run: (*App).storageBuckets},
+				{name: "create", summary: "create <p> <bucket> [--public] [--size-limit 10MB] [--types image/*]", run: (*App).storageBucketsCreate},
+				{name: "delete", summary: "delete <p> <bucket> [--force]", run: (*App).storageBucketsDelete},
+			}},
+			{name: "ls", summary: "List files: ls <p> ss:///bucket[/folder/]", run: (*App).storageLs},
+			{name: "cp", summary: "Upload (up to 50 MB) or download: cp <p> <file> ss:///bucket/path | cp <p> ss:///bucket/path <file|->", run: (*App).storageCp},
+			{name: "rm", summary: "Delete files: rm <p> ss:///bucket/path…", run: (*App).storageRm},
+			{name: "sign", summary: "A signed download URL: sign <p> ss:///bucket/path [--expires 1h]", run: (*App).storageSign},
+		}},
+		{name: "realtime", summary: "Your app's realtime (backend services): which tables' changes clients get", sub: []command{
+			{name: "status", summary: "Tables, limits and this month's use: status <p>", run: (*App).realtimeStatus},
+			{name: "enable", summary: "Deliver a table's changes: enable <p> <[schema.]table>", run: (*App).realtimeEnable},
+			{name: "disable", summary: "Stop: disable <p> <[schema.]table>", run: (*App).realtimeDisable},
+			{name: "history", summary: "Keep broadcasts on these topics 7 days: history <p> [topic…]", run: (*App).realtimeHistory},
+		}},
+		{name: "policies", summary: "Row-level security of the data API's tables (backend services)", sub: []command{
+			{name: "list", summary: "Policies per table, with their roles: list <p> [--table t]", run: (*App).policiesList},
+			{name: "lint", summary: "The security advisor's findings; exits 1 on any marked danger (for CI): lint <p>", run: (*App).policiesLint},
+		}},
+		{name: "logs", summary: "Logs", sub: []command{
+			{name: "api", summary: "The API's request log: api <p> [--follow] [--status 5xx] [--path /data/v1/…]", run: (*App).logsAPI},
+		}},
+		{name: "gen", summary: "Generate code", sub: []command{
+			{name: "types", summary: "Types for the SDKs: types --lang ts|dart|go --project <p> [-o file] [--package name]", run: (*App).genTypes},
+		}},
+		{name: "keys", summary: "Backend services' API keys", sub: []command{
+			{name: "list", summary: "List: list <p>", run: (*App).keysList},
+			{name: "create", summary: "create <p> --name … [--kind publishable|secret]", run: (*App).keysCreate},
+			{name: "revoke", summary: "Revoke: revoke <p> <key id>", run: (*App).keysRevoke},
 		}},
 		{name: "tokens", summary: "API tokens", sub: []command{
 			{name: "list", summary: "List your tokens", run: (*App).tokensList},
@@ -216,7 +312,7 @@ func (a *App) commands() []command {
 			{name: "get", summary: "Show an operation: get <id> [--follow]", run: (*App).operationsGet},
 		}},
 		{name: "version", summary: "Print the CLI version", run: func(a *App, _ []string) error {
-			fmt.Fprintf(a.Stdout, "pgdock %s (%s)\n", version.Version, version.Commit)
+			fmt.Fprintf(a.Stdout, "xenibase %s (%s)\n", version.Version, version.Commit)
 			return nil
 		}},
 	}
@@ -234,12 +330,12 @@ func (a *App) Run(args []string) int {
 		a.Stdin = os.Stdin
 	}
 	args = a.globalFlags(args)
-	err := a.dispatch(a.commands(), args, "pgdock")
+	err := a.dispatch(a.commands(), args, "xenibase")
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return ExitOK
 		}
-		fmt.Fprintln(a.Stderr, "pgdock: "+err.Error())
+		fmt.Fprintln(a.Stderr, "xenibase: "+err.Error())
 	}
 	return exitCode(err)
 }
@@ -305,9 +401,9 @@ func (a *App) usage(cmds []command, path string) {
 		fmt.Fprintf(w, "  %s\t%s\n", c.name, c.summary)
 	}
 	_ = w.Flush()
-	if path == "pgdock" {
+	if path == "xenibase" {
 		fmt.Fprint(a.Stderr, "\nGlobal flags: --json, --context <name>, --server <url>, --no-wait\n"+
-			"Environment: PGDOCK_TOKEN and PGDOCK_SERVER (CI), PGDOCK_CONTEXT, PGDOCK_CA_FILE\n")
+			"Environment: XENIBASE_TOKEN and XENIBASE_SERVER (CI), XENIBASE_CONTEXT, XENIBASE_CA_FILE\n")
 	}
 }
 
@@ -334,7 +430,7 @@ func parse(fs *flag.FlagSet, args []string) ([]string, error) {
 
 func need(pos []string, n int, usage string) error {
 	if len(pos) != n {
-		return usageErrorf("usage: pgdock %s", usage)
+		return usageErrorf("usage: xenibase %s", usage)
 	}
 	return nil
 }
@@ -384,7 +480,7 @@ func (a *App) useTarget(t target) error {
 		if t.Token != "" {
 			r.Header.Set("Authorization", "Bearer "+t.Token)
 		}
-		r.Header.Set("User-Agent", "pgdock-cli/"+version.Version)
+		r.Header.Set("User-Agent", "xenibase-cli/"+version.Version)
 		return nil
 	}))
 	if err != nil {

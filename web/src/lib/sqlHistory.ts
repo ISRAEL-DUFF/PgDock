@@ -2,7 +2,7 @@
 // nothing but an audit entry is stored on the server.
 
 const max = 50;
-const key = (projectId: string) => `pgdock.sql-history.${projectId}`;
+const key = (projectId: string) => `xenibase.sql-history.${projectId}`;
 
 export function loadHistory(projectId: string): string[] {
   try {

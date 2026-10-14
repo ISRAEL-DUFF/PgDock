@@ -12,9 +12,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/walg"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/walg"
 )
 
 // Storage target errors.
@@ -80,12 +80,13 @@ type Placement struct {
 	KeyID *uuid.UUID
 }
 
-// PlacementFor resolves a project's storage target (its choice, or the
-// platform default) and key.
+// PlacementFor resolves a project's storage target (its choice, or its
+// region's target, or the platform default) and key. A data-residency
+// project's backups go only to targets in its region (V3 §6.3).
 func (s *Service) PlacementFor(ctx context.Context, p store.Project) (Placement, error) {
 	pl := Placement{KeyID: p.BackupKeyID}
 	if p.StorageTargetID == nil {
-		id, t, err := s.StorageTarget(ctx)
+		id, t, err := s.regionTarget(ctx, p)
 		if err != nil {
 			return pl, err
 		}
@@ -100,12 +101,62 @@ func (s *Service) PlacementFor(ctx context.Context, p store.Project) (Placement,
 	if row.OrgID != nil && *row.OrgID != p.OrgID {
 		return pl, fmt.Errorf("project storage target %s belongs to another organisation", row.ID)
 	}
+	if err := residencyAllows(p, row); err != nil {
+		return pl, err
+	}
 	t, err := s.openTarget(row)
 	if err != nil {
 		return pl, err
 	}
 	pl.TargetID, pl.Target, pl.OrgTarget = row.ID, t, row.OrgID != nil
 	return pl, nil
+}
+
+// ErrResidency: a target outside a data-residency project's region.
+var ErrResidency = errors.New("data residency")
+
+// residencyAllows: a data-residency project may use only targets marked
+// as in its region.
+func residencyAllows(p store.Project, row store.StorageTarget) error {
+	if !p.DataResidency || (row.XenibaseRegion != nil && *row.XenibaseRegion == p.Region) {
+		return nil
+	}
+	return fmt.Errorf("%w: the project's data must stay in %s, and storage target %s is not marked as in that region", ErrResidency, p.Region, row.Name)
+}
+
+// regionHasTarget: region has its own storage target, so a project that
+// names none uses it rather than the platform default.
+func (s *Service) regionHasTarget(ctx context.Context, region string) bool {
+	r, err := store.New(s.db).GetRegion(ctx, region)
+	return err == nil && r.StorageTargetID != nil
+}
+
+// regionTarget is where a project that names no target backs up: its
+// region's storage target, or the platform default outside a residency
+// region.
+func (s *Service) regionTarget(ctx context.Context, p store.Project) (uuid.UUID, storage.Target, error) {
+	q := store.New(s.db)
+	r, err := q.GetRegion(ctx, p.Region)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, storage.Target{}, err
+	}
+	if err == nil && r.StorageTargetID != nil {
+		row, err := q.GetStorageTarget(ctx, *r.StorageTargetID)
+		if err != nil {
+			return uuid.Nil, storage.Target{}, fmt.Errorf("region %s storage target: %w", r.ID, err)
+		}
+		if row.DeletedAt == nil {
+			if err := residencyAllows(p, row); err != nil {
+				return uuid.Nil, storage.Target{}, err
+			}
+			t, err := s.openTarget(row)
+			return row.ID, t, err
+		}
+	}
+	if p.DataResidency {
+		return uuid.Nil, storage.Target{}, fmt.Errorf("%w: region %s has no in-country storage target, and the project's data must stay there", ErrResidency, p.Region)
+	}
+	return s.StorageTarget(ctx)
 }
 
 // ProjectWALG implements dedicated.Secrets: where a project's WAL-G
@@ -210,12 +261,12 @@ func (s *Service) ProjectKeyFile(ctx context.Context, p store.Project) (string, 
 }
 
 func keyReadme(p store.Project, k store.BackupKey) string {
-	return fmt.Sprintf(`PGDock backup key for project %s (%s)
+	return fmt.Sprintf(`Xenibase backup key for project %s (%s)
 Key fingerprint: %s
 Created: %s
 
 Keep this file secret and offline. Anyone with it can read the backups
-listed below; without it (and the PGDock server) they cannot be read.
+listed below; without it (and the Xenibase server) they cannot be read.
 
 What it opens
 -------------
@@ -227,7 +278,7 @@ What it opens
 Backups made before the key was enabled (or with an earlier key) keep the
 key they were made with.
 
-Restore with standard tools (no PGDock needed)
+Restore with standard tools (no Xenibase needed)
 ----------------------------------------------
 1. Fetch the object with any S3 client, e.g.
      aws s3 cp s3://<bucket>/<prefix>projects/%s/logical/<time>.dump.gpg backup.dump.gpg
@@ -252,4 +303,12 @@ func shortHash(parts ...string) string {
 		h.Write([]byte{0})
 	}
 	return hex.EncodeToString(h.Sum(nil)[:4])
+}
+
+// FilesTarget is where backend services keep the files of a project in
+// region (V4 §5.1): the region's storage target, or the platform default
+// outside a data-residency region.
+func (s *Service) FilesTarget(ctx context.Context, region string, residency bool) (storage.Target, error) {
+	_, t, err := s.regionTarget(ctx, store.Project{Region: region, DataResidency: residency})
+	return t, err
 }

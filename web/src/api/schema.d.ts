@@ -55,6 +55,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pricing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The prices in effect, and the next price book if one is published (public)
+         * @description For the pricing page and the marketing site (V3 §7.4, §11). No session needed.
+         */
+        get: operations["getPricing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -152,7 +172,7 @@ export interface paths {
          * Session state for the UI (public)
          * @description Whether first-run setup is needed, who is signed in, and the CSRF
          *     token to send as `X-CSRF-Token` on every mutating request (also set
-         *     as the `pgdock_csrf` cookie).
+         *     as the `xenibase_csrf` cookie).
          */
         get: operations["getSession"];
         put?: never;
@@ -175,7 +195,7 @@ export interface paths {
         /**
          * First-run setup, step 1 - owner account and TOTP enrolment
          * @description Only before any operator exists. `setup_code` is printed in the
-         *     pgdock-server log. Returns the TOTP secret to enrol; nothing is
+         *     xenibase-server log. Returns the TOTP secret to enrol; nothing is
          *     created until `/setup/complete` proves a code.
          */
         post: operations["beginSetup"];
@@ -325,7 +345,7 @@ export interface paths {
         put?: never;
         /**
          * Enqueue a dummy operation (development only)
-         * @description Available only when the server runs with PGDOCK_DEV_ENDPOINTS=true;
+         * @description Available only when the server runs with XENIBASE_DEV_ENDPOINTS=true;
          *     otherwise returns 404. Enqueues a `noop` operation for exercising
          *     the queue end to end.
          */
@@ -349,7 +369,7 @@ export interface paths {
         /**
          * Create a shared-tier project
          * @description Records the project and queues a `create` operation. The response
-         *     carries the password and full connection URLs exactly once; PGDock
+         *     carries the password and full connection URLs exactly once; Xenibase
          *     stores only the SCRAM verifier. The URLs work once the operation
          *     succeeds (stream it to follow progress).
          */
@@ -822,6 +842,286 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/projects/{project_id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a project to another node (platform admin, V3 §2.3)
+         * @description Queues a `logical_move` operation. A shared project goes to the
+         *     shared cluster on the node (same Postgres version); a dedicated
+         *     project gets a new instance of the same size there. The data is
+         *     copied by logical replication while the project keeps serving, then
+         *     writes pause for a few seconds while the route switches. When
+         *     logical replication isn't possible (see the operation log) the copy
+         *     is a dump/restore during the pause instead. Connection strings don't
+         *     change; the old copy is kept for 48 hours.
+         */
+        post: operations["moveProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/moves": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's recent moves between instances, newest first */
+        get: operations["listProjectMoves"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/upgrade/preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a major Postgres upgrade of this project (V3 §2.4)
+         * @description Runs the upgrade's checks without changing anything: the target
+         *     version, where the project would go, whether logical replication
+         *     can be used, and, for a shared project, a trial restore of the
+         *     schema on the new version that lists anything incompatible.
+         */
+        post: operations["upgradePreflight"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/ha": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * HA state of a dedicated project (V3 §2.2)
+         * @description Each member's node, role, state and lag; the failover history; the month's availability.
+         */
+        get: operations["getProjectHA"];
+        put?: never;
+        /**
+         * Turn HA on
+         * @description Queues an `ha_enable` operation: the instance restarts under Patroni
+         *     (writes pause for a few seconds), then a standby on another node is
+         *     built from the newest base backup and streams.
+         */
+        post: operations["enableProjectHA"];
+        /** Turn HA off (the standby is removed) */
+        delete: operations["disableProjectHA"];
+        options?: never;
+        head?: never;
+        /** Change HA settings (synchronous replication) */
+        patch: operations["updateProjectHA"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a paused or archived Free project
+         * @description Queues `resume_project` for a paused project (seconds) or
+         *     `unarchive_project` for an archived one, which restores it from its
+         *     archive backup (minutes). The first client connection does the same
+         *     by itself (V3 §4.2).
+         */
+        post: operations["resumeProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/ha/etcd-move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move an HA project's Patroni state onto its region's own etcd cluster (V3.1 §3.3)
+         * @description The standby is removed, the primary restarts on the new cluster with the poolers holding clients, and a new standby is built.
+         */
+        post: operations["moveProjectEtcd"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/migrate/supabase": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a step of the Supabase migration helper (V4 §9)
+         * @description For a project with backend services on, after its database was
+         *     imported from Supabase. `policies` rewrites the imported policies
+         *     and column defaults to the project's request roles and xb_auth
+         *     helpers; `users` copies auth.users and auth.identities from the
+         *     Supabase database, keeping ids and bcrypt password hashes (upgraded
+         *     to argon2id at each user's next sign-in); `storage` copies buckets,
+         *     files (over Supabase's S3 protocol) and storage policies. Each step
+         *     reports what it couldn't carry over in the operation's log, and can
+         *     run again (what's already there is kept). Credentials stay in the
+         *     server's memory only.
+         */
+        post: operations["migrateSupabase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/replicas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read replicas of a dedicated project (V4 §7)
+         * @description Each replica's node, region, status, lag and whether the read-only route sends reads to it.
+         */
+        get: operations["listProjectReplicas"];
+        put?: never;
+        /**
+         * Add a read replica
+         * @description Queues a `create_replica` operation: a streaming standby, tagged never
+         *     to be promoted, on another node (in the project's region unless
+         *     another is named; a project with data residency stays in its
+         *     region). A project not yet under Patroni restarts under it first
+         *     (writes pause for a few seconds). Up to 2 per project.
+         */
+        post: operations["createProjectReplica"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/replicas/{replica_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a read replica */
+        delete: operations["deleteProjectReplica"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/replicas/{replica_id}/detach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Promote a read replica into a standalone project
+         * @description The replica leaves the project's cluster, is promoted on its own data
+         *     and becomes a new dedicated project (its database, owner and password
+         *     are the new project's). The response carries the new project's
+         *     password once. The source project is not changed.
+         */
+        post: operations["detachProjectReplica"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/switchover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Planned switchover to a standby
+         * @description Writes pause for a few seconds; nothing committed is lost; the URL is unchanged.
+         */
+        post: operations["switchoverProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/upgrade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upgrade the project to a newer Postgres major
+         * @description Queues a `major_upgrade` operation: the data moves to an instance of
+         *     the new version (a shared cluster of that version, or a new
+         *     dedicated instance) by logical replication, then writes pause for a
+         *     few seconds while the route switches. Connection strings don't
+         *     change. Refused with the failing checks when the preflight blocks
+         *     it. The old copy is kept for 48 hours.
+         */
+        post: operations["upgradeProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{id}/demote/preflight": {
         parameters: {
             query?: never;
@@ -893,7 +1193,19 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Change a dedicated project's instance (size, disk, recovery window)
+         * @description The point-in-time recovery window (V4.1 §4.1): 7 days, or 14 or 30
+         *     as billed add-ons on Pro and Team. A longer window grows day by day
+         *     from now; a shorter one drops the older base backups at the next one.
+         *
+         *     A new size or disk (V4.1 §5) queues a `resize_instance` operation:
+         *     the instance restarts in a few seconds with the poolers holding
+         *     clients, or with HA a standby is resized and switched to. When its
+         *     node can't hold the new size, a `logical_move` to one that can is
+         *     queued instead (`plan.move_to`). The dedicated allowance applies.
+         */
+        patch: operations["updateProjectInstance"];
         trace?: never;
     };
     "/api/v1/profiles": {
@@ -931,7 +1243,7 @@ export interface paths {
         delete: operations["removeNode"];
         options?: never;
         head?: never;
-        /** Change a node's role (where new projects may go) */
+        /** Change a node's role (where new projects may go) or failure domain */
         patch: operations["updateNode"];
         trace?: never;
     };
@@ -979,9 +1291,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Agent registration (called by pgdock-agent, not the UI)
+         * Agent registration (called by xenibase-agent, not the UI)
          * @description Exchanges a one-time registration token and a CSR for a client
-         *     certificate signed by the PGDock agent CA. Needs no session; the
+         *     certificate signed by the Xenibase agent CA. Needs no session; the
          *     token authenticates. Rate limited per address.
          */
         post: operations["registerAgent"];
@@ -1362,7 +1674,7 @@ export interface paths {
         /**
          * Prometheus exposition of the latest metrics
          * @description Needs a signed-in operator, or `Authorization: Bearer <token>` with
-         *     PGDOCK_METRICS_TOKEN.
+         *     XENIBASE_METRICS_TOKEN.
          */
         get: operations["getPrometheusMetrics"];
         put?: never;
@@ -1405,6 +1717,76 @@ export interface paths {
         };
         /** Alerts, firing first */
         get: operations["listAlerts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Incidents for the status page, open first (V3 §2.6) */
+        get: operations["listIncidents"];
+        put?: never;
+        /** Open an incident; it is pushed to the status page */
+        post: operations["createIncident"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An incident and its updates */
+        get: operations["getIncident"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change an incident's title, components or severity */
+        patch: operations["updateIncident"];
+        trace?: never;
+    };
+    "/api/v1/incidents/{id}/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post an update; its status becomes the incident's */
+        post: operations["postIncidentUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pooler-hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The edge pooler hosts, the floating IP, and recent pooler events (V3 §2.1) */
+        get: operations["getPoolerHosts"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2116,6 +2498,26 @@ export interface paths {
         patch: operations["updateOrg"];
         trace?: never;
     };
+    "/api/v1/orgs/{org}/incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open incidents affecting the organisation's projects
+         * @description Open status page incidents whose components and region match one of the organisation's projects, or that name one of its projects or the nodes they run on (V4.1 §7.3). Public fields only.
+         */
+        get: operations["listOrgIncidents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{org}/members": {
         parameters: {
             query?: never;
@@ -2285,6 +2687,597 @@ export interface paths {
         put?: never;
         /** Create or rotate your personal database login; the password is shown once */
         post: operations["issueMyCredentials"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's backend services (V4 §2.4) - URL, keys, settings */
+        get: operations["getBackendServices"];
+        put?: never;
+        /** Turn backend services on; the first publishable and secret keys are returned once */
+        post: operations["enableBackendServices"];
+        /** Turn backend services off (keys revoked; the xb_* schemas and their data stay) */
+        delete: operations["disableBackendServices"];
+        options?: never;
+        head?: never;
+        /** Change allowed origins and gateway settings */
+        patch: operations["updateBackendServices"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Make another API key (for rotation); a secret key is shown once */
+        post: operations["createAPIKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/keys/{key_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke an API key; the edge refuses it within seconds */
+        delete: operations["revokeAPIKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The API's request logs (7 days), newest first; with after, newer ones oldest first
+         * @description With after (a log id; 0 for "from now", which answers with no logs and the cursor to follow from), returns the logs after it, oldest first, waiting up to wait seconds for one (`xenibase logs api --follow`). next is the cursor for the next call.
+         */
+        get: operations["listAPIRequestLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What the data API exposes, with row-level security, policies and access per table (the API docs) */
+        get: operations["getServicesCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** This month's backend-services usage, against the plan, and the charges that fall to the project */
+        get: operations["getServicesUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Typed definitions of the exposed tables, views and functions (TypeScript, Dart or Go) */
+        get: operations["getServiceTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/advisor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What could expose data through the API (tables without RLS, open policies, SECURITY DEFINER functions…) */
+        get: operations["getSecurityAdvisor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/services/explore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run a data API request as anon, a user or service (the request explorer) */
+        post: operations["exploreDataAPI"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/edge/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** xenibase-edge's configuration feed (signed with the edge secret; internal) */
+        get: operations["edgeConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/edge/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** xenibase-edge's usage and request logs (signed; internal) */
+        post: operations["edgeReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/edge/wake": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** xenibase-edge asks for a paused project to resume (signed; internal) */
+        post: operations["edgeWake"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/edge/auth-message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** xenibase-edge asks for an auth email, SMS or WhatsApp code to be sent (signed; internal) */
+        post: operations["edgeAuthMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/edge/auth-hook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** xenibase-edge delivers an auth event to the project's webhooks, or asks its before-sign-up hook (signed; internal) */
+        post: operations["edgeAuthHook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/edge/storage-event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** xenibase-edge reports a storage change to act on, such as a bucket made private (signed; internal) */
+        post: operations["edgeStorageEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/realtime": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's realtime (V4 §6) - its tables and which have realtime on, history topics, limits and this month's use */
+        get: operations["getProjectRealtime"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/realtime/tables/{schema}/{table}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Turn realtime on or off for a table (it needs a primary key) */
+        put: operations["setRealtimeTable"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/realtime/persisted-topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set the topics whose broadcasts are kept as history for 7 days */
+        put: operations["setRealtimePersistedTopics"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's file storage (V4 §5) - usage, limits, the reconciler's findings and buckets */
+        get: operations["getProjectFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/files/buckets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a bucket */
+        post: operations["createStorageBucket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/files/buckets/{bucket}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a bucket (empty, or with empty=true its files first) */
+        delete: operations["deleteStorageBucket"];
+        options?: never;
+        head?: never;
+        /** Change a bucket's settings (making it private purges its files from the CDN) */
+        patch: operations["updateStorageBucket"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/files/buckets/{bucket}/objects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A folder of a bucket - its files and subfolders */
+        get: operations["listStorageObjects"];
+        put?: never;
+        post?: never;
+        /** Delete files, or folders with everything under them */
+        delete: operations["deleteStorageObjects"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/files/buckets/{bucket}/object": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a file */
+        get: operations["downloadStorageObject"];
+        /** Upload a file (up to 50 MB; replaces one at the same path). Send its type as Content-Type. */
+        put: operations["uploadStorageObject"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/files/buckets/{bucket}/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A signed download URL for a file */
+        post: operations["signStorageObject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/hooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's recent auth webhook deliveries (V4 §4.7) */
+        get: operations["listAuthHookDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's auth settings, email templates and SMTP server (V4 §4) */
+        get: operations["getAuthConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change auth settings, templates or the project's SMTP server */
+        patch: operations["updateAuthConfig"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/smtp/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a test email through the project's SMTP server (or the settings given) */
+        post: operations["testAuthSMTP"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/templates/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Render an email template with sample values */
+        post: operations["previewAuthTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/signing-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The keys access tokens are signed and verified with */
+        get: operations["listSigningKeys"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/signing-keys/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign with a new key; the old one verifies until its tokens expire */
+        post: operations["rotateSigningKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's app users (search by email, phone or id) */
+        get: operations["listAuthUsers"];
+        put?: never;
+        /** Invite a user, or add one with a password */
+        post: operations["createAuthUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/users/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A user with their identities, sessions and audit log */
+        get: operations["getAuthUser"];
+        put?: never;
+        post?: never;
+        /** Delete a user (their sessions end; rows referencing them follow the foreign keys) */
+        delete: operations["deleteAuthUser"];
+        options?: never;
+        head?: never;
+        /** Ban, unban or confirm a user, or change their metadata */
+        patch: operations["updateAuthUser"];
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/users/{userId}/signout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End all of a user's sessions */
+        post: operations["signOutAuthUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/auth/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's latest auth events */
+        get: operations["listAuthAudit"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2506,6 +3499,289 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{org}/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organisation's billing account, plan and available plans (V3 §3.2; owners and billing members) */
+        get: operations["getOrgBilling"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change business details and spend controls */
+        patch: operations["updateOrgBilling"];
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change (or, with dry_run, price a change to) the plan; upgrades are immediate and prorated */
+        post: operations["changeOrgPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/contacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Billing contacts, who receive invoices and payment email */
+        get: operations["listBillingContacts"];
+        put?: never;
+        /** Add a billing contact */
+        post: operations["addBillingContact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/contacts/{email}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a billing contact */
+        delete: operations["removeBillingContact"];
+        options?: never;
+        head?: never;
+        /**
+         * Turn a billing contact's status page emails on or off
+         * @description Paying organisations' owners and billing contacts get the status page's incident emails for the components and regions their projects use (V4.1 §7.1). Turning them off removes the contact at the next hourly sync.
+         */
+        patch: operations["updateBillingContact"];
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organisation's issued invoices */
+        get: operations["listOrgInvoices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/invoices/{invoice_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An invoice with its lines and credit notes */
+        get: operations["getOrgInvoice"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/invoices/{invoice_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An invoice as PDF */
+        get: operations["getOrgInvoicePdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The current month so far and its forecast (V3 §3.10) */
+        get: operations["getOrgForecast"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/estimate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** What a dedicated instance, HA, synchronous replication or an add-on would cost (shown before billable actions) */
+        post: operations["estimateOrgCost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/virtual-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The organisation's bank account for transfers, issued on first use */
+        post: operations["orgVirtualAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organisation's wallet, its balance, bank account and debit consent */
+        get: operations["getOrgWallet"];
+        put?: never;
+        /**
+         * Open the organisation's wallet and its bank account
+         * @description A director's BVN is passed to the wallet provider, which needs it before it issues a bank account; Xenibase doesn't keep it.
+         */
+        post: operations["createOrgWallet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/debit-consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Agree to Xenibase debiting the wallet for invoices */
+        post: operations["acceptDebitTerms"];
+        /** Stop automatic debits (invoices are then paid by hand) */
+        delete: operations["withdrawDebitTerms"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pay one invoice from the wallet now */
+        post: operations["payInvoiceFromWallet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payments received, with receipts */
+        get: operations["listOrgPayments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/payments/{payment_id}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A payment's receipt as PDF */
+        get: operations["getPaymentReceipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload the WHT credit note for an invoice whose WHT was deducted (PDF, PNG or JPEG, up to 10 MB) */
+        post: operations["uploadWhtCertificate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{org}/usage": {
         parameters: {
             query?: never;
@@ -2624,6 +3900,130 @@ export interface paths {
         put?: never;
         /** Rewrite a table to return space deleted rows hold (VACUUM FULL; locks the table) */
         post: operations["reclaimSpace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/insights/queries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Top queries over a range (Pro, Team and dedicated projects) */
+        get: operations["listInsightQueries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/insights/queries/{query_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A query's totals, its calls and latency over time, and its example */
+        get: operations["getInsightQuery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/insights/explain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * EXPLAIN (without ANALYZE) a query as the project's role
+         * @description On its latest captured example with literals, or as a generic plan
+         *     (parameters unknown) when there is none or `generic` is set. Runs in
+         *     a read-only transaction; the statement is not executed.
+         */
+        post: operations["explainInsightQuery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/insights/slow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Statements over the slow-query threshold */
+        get: operations["listSlowQueries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/insights/indexes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Index suggestions, unused and duplicate indexes */
+        get: operations["getInsightIndexes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/insights/bloat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Estimated table bloat (reclaim it with reclaim-space) */
+        get: operations["getInsightBloat"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/insights/locks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current blocking chains */
+        get: operations["getInsightLocks"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2789,7 +4189,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Replace the signing secret (returned once) */
+        /**
+         * Replace the signing secret (returned once)
+         * @description Without an overlap the old secret stops signing at once. With
+         *     overlap_seconds, deliveries until then carry two v1 signatures, the
+         *     new secret's first, so a receiver holding either one verifies.
+         */
         post: operations["rotateWebhookSecret"];
         delete?: never;
         options?: never;
@@ -3072,6 +4477,1344 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/billing/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tax rates and the seller's details on invoices */
+        get: operations["getBillingSettings"];
+        /** Change the billing settings */
+        put: operations["putBillingSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/price-books": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Price book versions, newest first (V3 §3.9) */
+        get: operations["listPriceBooks"];
+        put?: never;
+        /** Create a draft price book */
+        post: operations["createPriceBook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/price-books/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One price book */
+        get: operations["getPriceBook"];
+        /** Edit a draft price book */
+        put: operations["updatePriceBook"];
+        post?: never;
+        /** Delete a draft price book */
+        delete: operations["deletePriceBook"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/price-books/{version}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish a draft (effective at least 30 days ahead); affected billing contacts are emailed */
+        post: operations["publishPriceBook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An organisation's billing account, as the platform admin sees it */
+        get: operations["adminGetOrgBilling"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** The admin's billing settings for an organisation (grandfathering, mode, payment terms, price book) */
+        patch: operations["adminUpdateOrgBilling"];
+        trace?: never;
+    };
+    "/api/v1/admin/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Invoices across organisations, drafts included */
+        get: operations["adminListInvoices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invoices/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate (or refresh) a month's drafts now, for every organisation or one */
+        post: operations["adminDraftInvoices"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invoices/{invoice_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An invoice, drafts included */
+        get: operations["adminGetInvoice"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invoices/{invoice_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An invoice (or draft) as PDF */
+        get: operations["adminGetInvoicePdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invoices/{invoice_id}/hold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hold a draft for review (it isn't issued on the 1st), or release it */
+        post: operations["adminHoldInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invoices/{invoice_id}/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue a draft now (a held one is released) */
+        post: operations["adminIssueInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invoices/{invoice_id}/credit-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue a credit note against an issued invoice (amount before VAT) */
+        post: operations["adminCreateCreditNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/ledger/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check the ledger's invariants and show each account's balance (V3 §3.3) */
+        get: operations["adminLedgerCheck"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/price-books/{version}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Estimate each organisation's invoice for a month under this price book (V3 §3.9) */
+        post: operations["previewPriceBook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/payments/webhooks/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A payment provider's webhook (authenticated by its signature, re-verified before anything is posted) */
+        post: operations["paymentWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/support/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organisation's support tickets (admins see all; members their own) */
+        get: operations["listOrgTickets"];
+        put?: never;
+        /** Open a support ticket for the organisation */
+        post: operations["openOrgTicket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/support/tickets/{ticket_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A ticket and its conversation */
+        get: operations["getOrgTicket"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/support/tickets/{ticket_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add to a ticket */
+        post: operations["replyOrgTicket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/support/phones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** WhatsApp numbers registered for support (Pro and Team) */
+        get: operations["listSupportPhones"];
+        put?: never;
+        /** Register a WhatsApp number (E.164) for the organisation's support */
+        post: operations["addSupportPhone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/support/phones/{phone}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a WhatsApp number */
+        delete: operations["removeSupportPhone"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support/inbound/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * An email to the support address, from the email provider's inbound webhook
+         * @description Authenticated with XENIBASE_SUPPORT_INBOUND_SECRET, as the basic-auth
+         *     password (https://inbound:SECRET@…) or an X-Xenibase-Inbound-Secret header. Takes this API's own fields or Postmark's
+         *     inbound JSON (From, FromName, Subject, TextBody, MessageID, Headers).
+         */
+        post: operations["supportInboundEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support/whatsapp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The WhatsApp Business Platform's webhook verification */
+        get: operations["supportWhatsAppVerify"];
+        put?: never;
+        /** WhatsApp messages, signed with the app secret (X-Hub-Signature-256) */
+        post: operations["supportWhatsAppWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/support/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The support console's tickets (support staff and platform admins) */
+        get: operations["adminListTickets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/support/tickets/{ticket_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A ticket with internal notes and the organisation's context (no tenant data) */
+        get: operations["adminGetTicket"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change a ticket's status, priority, assignee or organisation */
+        patch: operations["adminUpdateTicket"];
+        trace?: never;
+    };
+    "/api/v1/admin/support/tickets/{ticket_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer the customer (by the ticket's channel) or add an internal note */
+        post: operations["adminReplyTicket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/support/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Support staff and platform admins, to assign tickets to */
+        get: operations["adminSupportStaff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/legal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The service level agreement and data processing agreement in effect (public) */
+        get: operations["getLegal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/legal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The documents in effect for the organisation (SLA, DPA, its order form), with its acceptances */
+        get: operations["getOrgLegal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org}/legal/{document_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept a document on the organisation's behalf (owners) */
+        post: operations["acceptOrgLegal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/legal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every version of the platform-wide documents, with their acceptance counts */
+        get: operations["adminListLegal"];
+        put?: never;
+        /** Publish a new version of the SLA or DPA */
+        post: operations["adminPublishLegal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/legal/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A document version and the organisations that accepted it */
+        get: operations["adminGetLegal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/order-form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish a new version of an organisation's order form */
+        post: operations["adminPublishOrderForm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/capacity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Capacity automation at a glance (settings, outlook, proposals, moves) */
+        get: operations["adminCapacity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The regions new projects can be created in */
+        get: operations["listRegions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/pg-versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Postgres majors and where each is in its life (V4.1 §6.1) */
+        get: operations["listPgVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/pg-versions/{major}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Promote, deprecate or retire a Postgres major
+         * @description Deprecating sets a retirement date at least 180 days ahead and emails
+         *     the owners and admins of every organisation with a project on it
+         *     (again at 90, 30 and 7 days). Retiring early is refused while
+         *     projects are on it. Retired: no new projects; existing ones keep
+         *     running, unsupported.
+         */
+        patch: operations["updatePgVersion"];
+        trace?: never;
+    };
+    "/api/v1/admin/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every region with its pooler hostname, targets and usage */
+        get: operations["listAdminRegions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/regions/{region_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Create or change a region */
+        put: operations["putAdminRegion"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/regions/{region_id}/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A region's launch checks (V4.1 §13); a hidden region opens only when none of the blocking ones fail */
+        get: operations["getAdminRegionReadiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/regions/{region_id}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A region's pooler pair, etcd cluster, and HA projects on another region's etcd (V4.1 §8.1) */
+        get: operations["getAdminRegionOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/regions/{region_id}/etcd-move-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move every HA project on another region's etcd onto this region's, one at a time
+         * @description Queues one operation that runs the per-project etcd moves in turn (each pauses its own project for a few seconds); never two at once in the region.
+         */
+        post: operations["moveAllToRegionEtcd"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{id}/residency": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Turn data residency on or off (organisation owners; step-up)
+         * @description On needs a region that offers residency and backups on a target in
+         *     the region; existing cross-region copies outside the region are
+         *     deleted. Exports stay available.
+         */
+        put: operations["setProjectResidency"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/capacity/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Thresholds, the server types added, the monthly infrastructure budget */
+        put: operations["putCapacitySettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/capacity/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check thresholds now (they're checked hourly) */
+        post: operations["evaluateCapacity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/capacity/proposals/{proposal_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Provision a proposal waiting for approval (a manual provider's is marked done) */
+        post: operations["approveCapacityProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/capacity/proposals/{proposal_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close a proposal without provisioning */
+        post: operations["rejectCapacityProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/capacity/rebalance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Propose moves that even out shared nodes' disk (done weekly) */
+        post: operations["planRebalance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/capacity/batches/{batch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve or reject a proposed rebalance batch */
+        post: operations["decideRebalanceBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/cloud/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The provider's server types and prices */
+        get: operations["cloudCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nodes/{id}/drain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move every project off a node, one at a time, and place nothing new there */
+        post: operations["drainNode"];
+        /** Stop draining; moves not started are dropped */
+        delete: operations["stopDrain"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/nodes/{id}/cost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** What a node costs (manual nodes; a provider's are priced from its catalog) */
+        put: operations["setNodeCost"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/costs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Costs and margins for a month (by region and tier, plan, organisation; FX view) */
+        get: operations["adminCosts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/costs/attribute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recompute cost attribution for days (done daily) */
+        post: operations["attributeCosts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/costs/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Costs outside the server catalog (storage, egress, floating IPs, overheads) */
+        get: operations["getCostSettings"];
+        /** Save the cost settings */
+        put: operations["putCostSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/fx-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exchange rates (naira per unit), current and history */
+        get: operations["listFXRates"];
+        put?: never;
+        /** Record an exchange rate */
+        post: operations["setFXRate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/revenue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The revenue dashboard (MRR movements, paying orgs, conversion, collections, receivables) */
+        get: operations["adminRevenue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payments received, by provider and period */
+        get: operations["adminListPayments"];
+        put?: never;
+        /** Record a manual payment (a transfer to the company's bank account, a cheque), into cash:bank */
+        post: operations["adminRecordPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/billing/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Store a proof of payment (PDF, PNG or JPEG, up to 10 MB) for a manual payment */
+        post: operations["adminUploadBillingDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payments/{payment_id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refund part of a payment from the organisation's credit balance */
+        post: operations["adminRefundPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payment-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Provider events as received, newest first */
+        get: operations["adminListPaymentEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/payment-events/{event_id}/attribute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Settle an unmatched transfer for an organisation (it is verified again first) */
+        post: operations["adminAttributePaymentEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/wht": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Deducted WHT awaiting its credit note, oldest first (format=csv exports all WHT receivable for tax filing) */
+        get: operations["adminOutstandingWht"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invoices/{invoice_id}/wht-certificate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Attach a WHT credit note to an invoice */
+        post: operations["adminUploadWhtCertificate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reconciliation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The latest reconciliation against each provider */
+        get: operations["adminLastReconciliation"];
+        put?: never;
+        /** Reconcile a period now (default the previous day) */
+        post: operations["adminRunReconciliation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/orgs/{org}/billing/grace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Hold dunning for an organisation until a date (null ends the extension) */
+        put: operations["adminSetGrace"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/maintenance/announcements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Announced maintenance windows not yet over, and the last month's (V3.1 §4) */
+        get: operations["listMaintenanceAnnouncements"];
+        put?: never;
+        /** Announce a maintenance window (status page, emails); announced 72 hours ahead, it is excluded from the SLA */
+        post: operations["announceMaintenance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/maintenance/announcements/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The email an announcement would send, and how many it reaches
+         * @description Rendered from the template the announcement uses (V4.1 §8.3): for a draft (incident_id), the email confirming it sends; otherwise the email announcing the given window and scope would send.
+         */
+        post: operations["previewMaintenanceAnnouncement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/maintenance/announcements/{incident_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Announce a maintenance draft Xenibase proposed
+         * @description Its notice counts from now; it goes to the status page and the owners and admins it covers are emailed (V4.1 §8.2).
+         */
+        post: operations["confirmMaintenanceDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/maintenance/announcements/{incident_id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discard a maintenance draft; the work it was for keeps waiting */
+        post: operations["discardMaintenanceDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/maintenance/announcements/{incident_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel an announced maintenance window */
+        delete: operations["cancelMaintenance"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/maintenance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The maintenance window, instances behind their image's Postgres release, and recent minor upgrades */
+        get: operations["getMaintenance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/maintenance/window": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change the weekly maintenance window (UTC) */
+        put: operations["putMaintenanceWindow"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/instances/{instance_id}/minor-upgrade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restart an instance onto its image's newer Postgres minor release now, outside the window */
+        post: operations["minorUpgradeInstance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/failure-domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** HA pairs, etcd members and pooler pairs that share a failure domain (V3.1 §2.4) */
+        get: operations["listFailureDomainProblems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/etcd": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A region's etcd cluster HA instances keep their state in, and each member's health (V3.1 §3.1) */
+        get: operations["getEtcdCluster"];
+        put?: never;
+        /** Set up a region's etcd cluster, one member on each of three of its nodes in three failure domains */
+        post: operations["setupEtcdCluster"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/etcd/members/{node_id}/replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace the etcd member on a node (dead or alive) with one on another node in its region (V3.1 §3.2)
+         * @description The other members must be healthy. The cluster keeps its quorum throughout.
+         */
+        post: operations["replaceEtcdMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/shared-clusters": {
         parameters: {
             query?: never;
@@ -3152,6 +5895,39 @@ export interface components {
             level: "info" | "warn" | "error";
             msg: string;
         };
+        RegionOverview: {
+            region: string;
+            pooler_hosts: components["schemas"]["RegionPoolerHost"][];
+            /** @description Set when the pair shares a failure domain (or one isn't set). */
+            pooler_pair_problem?: string | null;
+            etcd_members: components["schemas"]["RegionEtcdMember"][];
+            etcd_ready: boolean;
+            /** @description Why the region's cluster can't take projects yet, when it can't. */
+            etcd_problem?: string | null;
+            /** @description The region's HA projects whose Patroni state is in another region's etcd cluster. */
+            ha_elsewhere: components["schemas"]["RegionHAElsewhere"][];
+            move_all?: components["schemas"]["Operation"];
+        };
+        RegionPoolerHost: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            status: string;
+            failure_domain?: string | null;
+        };
+        RegionEtcdMember: {
+            /** Format: uuid */
+            node_id: string;
+            node_name: string;
+            status: string;
+            failure_domain?: string | null;
+        };
+        RegionHAElsewhere: {
+            /** Format: uuid */
+            project_id: string;
+            name: string;
+            etcd_region: string;
+        };
         Operation: {
             /** Format: uuid */
             id: string;
@@ -3195,7 +5971,7 @@ export interface components {
             fail_attempts: number;
         };
         /** @enum {string} */
-        ProjectStatus: "provisioning" | "active" | "promoting" | "demoting" | "restoring" | "deleting" | "error";
+        ProjectStatus: "provisioning" | "active" | "promoting" | "demoting" | "moving" | "upgrading" | "restoring" | "deleting" | "error";
         /** @enum {string} */
         ProjectTier: "shared" | "dedicated";
         ConnectionInfo: {
@@ -3223,6 +5999,28 @@ export interface components {
             session_url: string;
         };
         Project: {
+            /** @description The region the project runs in (V3 §6). */
+            region?: string;
+            /** @description Data, backups and branches stay in the project's region's country (V3 §6.3). */
+            data_residency?: boolean;
+            /** @description After a region move, the old region still routing the old hostname. */
+            forward_region?: string | null;
+            /** Format: date-time */
+            forward_until?: string | null;
+            /**
+             * @description A Free project paused or archived for inactivity (V3 §4).
+             * @enum {string}
+             */
+            lifecycle?: "active" | "paused" | "archived";
+            /**
+             * Format: date-time
+             * @description The last time a client was seen through the poolers.
+             */
+            last_active_at?: string | null;
+            /** Format: date-time */
+            paused_at?: string | null;
+            /** Format: date-time */
+            archived_at?: string | null;
             /**
              * Format: uuid
              * @description Set for a branch (V2 §8).
@@ -3279,11 +6077,115 @@ export interface components {
             /** Format: int64 */
             disk_warn_bytes: number;
             console_read_only: boolean;
+            backup_retention?: components["schemas"]["BackupRetention"];
         };
+        /**
+         * @description How long nightly backups are kept: standard (7 daily, 4 weekly),
+         *     extended (30 daily, 12 weekly) or long (30 daily, 52 weekly). The
+         *     longer two are billed add-ons on Pro and Team (V4.1 §4.2).
+         * @enum {string}
+         */
+        BackupRetention: "standard" | "extended" | "long";
         ProjectList: {
             items: components["schemas"]["Project"][];
         };
+        Region: {
+            /** @example ng-lagos */
+            id: string;
+            /** @example Lagos */
+            name: string;
+            /** @description ISO 3166 two-letter code; empty when not tied to one. */
+            country: string;
+            /** @description Projects here may turn data residency on. */
+            residency: boolean;
+            /** @description The platform's home region, where projects go by default. */
+            home: boolean;
+        };
+        RegionList: {
+            items: components["schemas"]["Region"][];
+        };
+        AdminRegion: {
+            id: string;
+            name: string;
+            country: string;
+            /** @description The hostname in the region's connection strings; empty is the platform's database host. */
+            pooler_host: string;
+            /** @description manual or hetzner. */
+            provider: string;
+            /** @description The provider's location for new servers (e.g. nbg1); empty for manual. */
+            location: string;
+            /**
+             * Format: uuid
+             * @description Where the region's projects back up (platform default when null).
+             */
+            storage_target_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Where backups on platform targets are copied (V3 §2.5).
+             */
+            copy_target_id?: string | null;
+            /** @description The region's pooler floating IP at the provider. */
+            floating_ip_id?: string | null;
+            residency: boolean;
+            /** @enum {string} */
+            status: "active" | "hidden";
+            home: boolean;
+            nodes: number;
+            /** @description The region's own pooler hosts; with none, the home region's poolers serve its projects. */
+            pooler_hosts: number;
+            projects: number;
+            residency_projects: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        AdminRegionList: {
+            items: components["schemas"]["AdminRegion"][];
+            /** @description Cross-region copy status of the last 7 days' backups. */
+            copies: {
+                /** @enum {string} */
+                status: "none" | "pending" | "copied" | "failed" | "skipped";
+                count: number;
+            }[];
+        };
+        RegionReadiness: {
+            /** @description No blocking check fails, so the region can be opened. */
+            ready: boolean;
+            checks: components["schemas"]["RegionCheck"][];
+        };
+        RegionCheck: {
+            name: string;
+            ok: boolean;
+            /** @description Failing, and keeps a hidden region hidden. */
+            blocking: boolean;
+            detail: string;
+        };
+        AdminRegionRequest: {
+            name: string;
+            country?: string;
+            pooler_host?: string;
+            /** @description manual (the default) or hetzner. */
+            provider?: string;
+            location?: string;
+            /** Format: uuid */
+            storage_target_id?: string | null;
+            /** Format: uuid */
+            copy_target_id?: string | null;
+            floating_ip_id?: string | null;
+            residency?: boolean;
+            /** @description Hidden regions take no new projects. */
+            hidden?: boolean;
+        };
+        ProjectResidencyRequest: {
+            enabled: boolean;
+        };
+        ProjectResidencyResult: {
+            project: components["schemas"]["Project"];
+            /** @description Cross-region copies outside the region that were deleted. */
+            removed_copies: number;
+        };
         CreateProjectRequest: {
+            /** @description Allow a Postgres major in preview (V4.1 §6.1). */
+            preview?: boolean;
             /**
              * Format: uuid
              * @description The organisation; your personal organisation when omitted.
@@ -3298,17 +6200,31 @@ export interface components {
              * @description Dedicated only; default is the least loaded dedicated node.
              */
             node_id?: string;
+            /** @description The region (see /regions); the platform's home region by default. A branch is always in its parent's. */
+            region?: string;
+            /** @description Keep the data, backups and branches in the region's country; the region must offer it. */
+            data_residency?: boolean;
             /** @description Dedicated only (see /profiles); default small. */
             profile?: string;
             /** @description Dedicated only; default 20. */
             volume_gb?: number;
+            /** @description Postgres major version (see /profiles); default the newest. */
+            pg_version?: number;
         };
-        /** @description Shown once. PGDock keeps only the SCRAM verifier. */
+        /** @description Shown once. Xenibase keeps only the SCRAM verifier. */
         ProjectCredentials: {
             project: components["schemas"]["Project"];
             operation: components["schemas"]["Operation"];
             password: string;
             connection: components["schemas"]["ConnectionInfo"];
+            api?: components["schemas"]["BranchApi"];
+        };
+        /** @description A branch's own backend services API (V4.1 §9.5), when its parent has them: a new ref and keys, shown once. The parent's keys and tokens don't work on it. */
+        BranchApi: {
+            ref: string;
+            url?: string | null;
+            publishable_key: string;
+            secret_key: string;
         };
         SessionState: {
             authenticated: boolean;
@@ -3317,6 +6233,8 @@ export interface components {
             user?: components["schemas"]["User"];
             /** @enum {string} */
             signup_mode?: "invite_only" | "approval" | "open";
+            /** @description Signing up needs a solved Cloudflare Turnstile challenge with this site key. */
+            turnstile_site_key?: string;
             /** @description A terms version the user must accept before anything else. */
             terms_required?: number | null;
             /** @description Set once, when this sign-in enrolled the authenticator. */
@@ -3431,6 +6349,8 @@ export interface components {
             schema_only?: boolean;
             /** @description Hours until the branch deletes itself (1 to 720; 0 keeps it). Default 168. */
             ttl_hours?: number;
+            /** @description With backend services: copy the parent's stored files into the branch, in the background (counted against the organisation's file storage). Without it, the copied file records have no bytes. */
+            copy_files?: boolean;
         };
         BranchResetRequest: {
             /**
@@ -3464,13 +6384,14 @@ export interface components {
             /** Format: int64 */
             disk_warn_bytes?: number;
             console_read_only?: boolean;
+            backup_retention?: components["schemas"]["BackupRetention"];
         };
         ProjectUpdated: {
             project: components["schemas"]["Project"];
             operation?: components["schemas"]["Operation"];
         };
         /** @enum {string} */
-        BackupKind: "logical" | "base" | "final" | "safety" | "metadata";
+        BackupKind: "logical" | "base" | "final" | "safety" | "metadata" | "archive";
         Backup: {
             /** Format: uuid */
             id: string;
@@ -3739,6 +6660,40 @@ export interface components {
             /** Format: date-time */
             created_at: string;
             agent: components["schemas"]["AgentStatus"];
+            region?: string;
+            /** @description manual (registered by hand) or the cloud provider that created it. */
+            provider?: string;
+            /** @enum {string} */
+            lifecycle?: "active" | "provisioning" | "draining";
+            server_type?: string | null;
+            /** Format: int64 */
+            monthly_cost_minor?: number | null;
+            cost_currency?: string;
+            /** Format: date-time */
+            empty_since?: string | null;
+            /** @description Never deleted for being empty. */
+            keep?: boolean;
+            /** @description What fails with this node (a rack, a host, a power feed), as the admin recorded it. Null when not recorded. */
+            failure_domain?: string | null;
+            /** @description The provider's spread placement group the server is in (Hetzner). */
+            placement_group?: string | null;
+            /** @description The node's failure domain as Xenibase judges it (the recorded one, its placement group, or the node alone). */
+            failure_domain_label?: string;
+        };
+        FailureDomainProblems: {
+            items: components["schemas"]["FailureDomainProblem"][];
+        };
+        FailureDomainProblem: {
+            /** @enum {string} */
+            group: "ha_pair" | "etcd" | "pooler_pair";
+            region: string;
+            /** @description The group's identity (the HA instance, etcd, or the region's pooler pair). */
+            key: string;
+            /** Format: uuid */
+            project_id?: string | null;
+            /** @description The nodes that share a domain. */
+            nodes: string[];
+            detail: string;
         };
         AgentStatus: {
             registered: boolean;
@@ -3780,7 +6735,1026 @@ export interface components {
             cert_pem: string;
             ca_pem: string;
         };
+        /** @description A weekly window, in UTC, in which instances are restarted onto newer Postgres minor releases one at a time. */
+        MaintenanceWindow: {
+            enabled: boolean;
+            /** @description 0 is Sunday. */
+            weekday: number;
+            start_hour: number;
+            hours: number;
+        };
+        MinorUpgrade: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            instance_id: string;
+            /** @enum {string} */
+            kind: "shared" | "dedicated";
+            node_name: string;
+            from_release: string;
+            to_release: string;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** @description How long the poolers held clients. */
+            pause_ms?: number | null;
+            error?: string | null;
+        };
+        MaintenanceStatus: {
+            window: components["schemas"]["MaintenanceWindow"];
+            in_window: boolean;
+            /** Format: date-time */
+            next_window: string;
+            /** @description Running instances whose image has a newer minor release. */
+            behind: components["schemas"]["InstanceSummary"][];
+            history: components["schemas"]["MinorUpgrade"][];
+        };
+        EtcdSetupRequest: {
+            node_ids: string[];
+        };
+        EtcdMember: {
+            /** Format: uuid */
+            node_id: string;
+            node_name: string;
+            name: string;
+            client_url: string;
+            /** @enum {string} */
+            status: "starting" | "healthy" | "unhealthy";
+            error?: string | null;
+            /** Format: date-time */
+            checked_at?: string | null;
+            region?: string;
+        };
+        EtcdReplaceRequest: {
+            /**
+             * Format: uuid
+             * @description Where the new member goes (default the least loaded eligible node in the region).
+             */
+            node_id?: string;
+        };
+        EtcdCluster: {
+            region?: string;
+            /** @description Regions that have an etcd cluster. */
+            regions?: string[];
+            members: components["schemas"]["EtcdMember"][];
+            /** @description Set up, with a quorum of healthy members. */
+            ready: boolean;
+            /** @description Why it isn't ready. */
+            reason?: string;
+        };
+        HAEnableRequest: {
+            /**
+             * Format: uuid
+             * @description Where the standby goes (default the least loaded other node that takes dedicated instances).
+             */
+            node_id?: string;
+            synchronous?: boolean;
+        };
+        HAUpdateRequest: {
+            synchronous: boolean;
+        };
+        SupabaseMigrationRequest: {
+            /** @enum {string} */
+            step: "policies" | "users" | "storage";
+            /** @description The Supabase database's connection string (users and storage). */
+            source_url?: string;
+            s3?: components["schemas"]["SupabaseS3"];
+        };
+        /** @description The Supabase project's S3 connection (Project Settings → Storage). */
+        SupabaseS3: {
+            /** @description e.g. https://<ref>.supabase.co/storage/v1/s3 */
+            endpoint: string;
+            region?: string;
+            access_key: string;
+            secret_key: string;
+        };
+        ReplicaCreateRequest: {
+            /**
+             * Format: uuid
+             * @description Where the replica goes (default the least loaded eligible node in the region).
+             */
+            node_id?: string;
+            /** @description The region it goes in (default the project's). */
+            region?: string;
+        };
+        ReplicaDetachRequest: {
+            /** @description The new project's name. */
+            name: string;
+        };
+        ReadReplica: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            node_id: string;
+            node_name: string;
+            region: string;
+            /** @description The instance profile it runs with (the primary's). */
+            size: string;
+            /** @enum {string} */
+            status: "creating" | "streaming" | "lagging" | "down" | "deleting" | "detaching" | "failed";
+            /** @description The read-only route sends reads to it. */
+            in_rotation: boolean;
+            /** Format: int64 */
+            lag_bytes?: number;
+            /**
+             * Format: int64
+             * @description How long ago the primary wrote what it has not replayed yet.
+             */
+            lag_ms?: number;
+            error?: string;
+            /** Format: date-time */
+            rotation_changed_at?: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ReplicaList: {
+            replicas: components["schemas"]["ReadReplica"][];
+            max_replicas: number;
+            /**
+             * Format: int64
+             * @description A replica further behind leaves rotation until it catches up.
+             */
+            max_lag_ms: number;
+            /** @description The pooler database name of the read-only route (<db>_ro); with no replica in rotation it reaches the primary, read-only. */
+            read_database: string;
+            /** @description The read-only route's connection string, without a password. */
+            read_url?: string;
+        };
+        SwitchoverRequest: {
+            /**
+             * Format: uuid
+             * @description The member to switch to (default the most current standby).
+             */
+            candidate?: string;
+        };
+        HAMember: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            node_id: string;
+            node_name: string;
+            /** @enum {string} */
+            role: "leader" | "replica" | "sync_standby" | "starting" | "stopped" | "unknown";
+            state?: string | null;
+            /** Format: int64 */
+            lag_bytes?: number | null;
+            timeline?: number | null;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        FailoverEvent: {
+            /** @enum {string} */
+            kind: "failover" | "switchover";
+            from_node?: string | null;
+            to_node?: string | null;
+            duration_ms?: number | null;
+            /** Format: date-time */
+            occurred_at: string;
+        };
+        Availability: {
+            /** @description The calendar month (UTC), YYYY-MM. */
+            month: string;
+            measured_minutes: number;
+            unavailable_minutes: number;
+            /** @description Available share of measured minutes, or null before the first probe. */
+            percent?: number | null;
+            recent_outages?: components["schemas"]["OutageMinute"][];
+            /** @description Minutes excluded for maintenance announced at least 72 hours ahead (V3.1 §4.2). */
+            excluded_minutes?: number;
+            exclusions?: components["schemas"]["AvailabilityExclusion"][];
+        };
+        AvailabilityExclusion: {
+            /** Format: uuid */
+            incident_id: string;
+            title: string;
+            /** Format: date-time */
+            scheduled_start?: string | null;
+            /** Format: date-time */
+            scheduled_end?: string | null;
+            minutes: number;
+        };
+        MaintenanceAnnouncementRequest: {
+            title?: string;
+            /** @description What will happen; the window and region are added. */
+            body?: string;
+            /** @description The region it covers (empty for all). */
+            region?: string;
+            /** Format: date-time */
+            start: string;
+            /** Format: date-time */
+            end: string;
+            /** @description Only these projects (with node_ids, either covers). */
+            project_ids?: string[];
+            /** @description Only projects with a member on these nodes. */
+            node_ids?: string[];
+            /**
+             * Format: uuid
+             * @description An announcement this one reschedules; it is cancelled.
+             */
+            replaces?: string;
+        };
+        MaintenanceAnnouncement: {
+            incident: components["schemas"]["Incident"];
+            /** Format: date-time */
+            scheduled_start?: string;
+            /** Format: date-time */
+            scheduled_end?: string;
+            /** Format: date-time */
+            announced_at?: string;
+            /** Format: date-time */
+            cancelled_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When the SLA starts excluding the window's minutes (72 hours after the announcement, or the start).
+             */
+            excluded_from?: string;
+            /** @description Announced less than 72 hours ahead, so minutes before excluded_from count. */
+            short_notice?: boolean;
+            emailed?: number;
+            /** @description Proposed by Xenibase and not announced yet; confirm or discard it. */
+            draft?: boolean;
+            /** @description What Xenibase proposed it for (minor_upgrade). */
+            proposed_for?: string | null;
+            scope_projects: string[];
+            scope_nodes: string[];
+        };
+        MaintenancePreviewRequest: {
+            /**
+             * Format: uuid
+             * @description A draft to preview; the other fields are then ignored.
+             */
+            incident_id?: string;
+            title?: string;
+            body?: string;
+            region?: string;
+            /** Format: date-time */
+            start?: string;
+            /** Format: date-time */
+            end?: string;
+            project_ids?: string[];
+            node_ids?: string[];
+        };
+        MaintenancePreview: {
+            subject: string;
+            body: string;
+            organisations: number;
+            addresses: number;
+        };
+        MaintenanceAnnouncementList: {
+            items: components["schemas"]["MaintenanceAnnouncement"][];
+        };
+        BackendServices: {
+            effective?: components["schemas"]["BackendServicesEffective"];
+            enabled: boolean;
+            /**
+             * @description The project reference in the API hostname.
+             * @example k7f3m2q9
+             */
+            ref?: string;
+            /** @description The API base URL (https://<ref>.<domain>); empty when no API domain is configured. */
+            url?: string;
+            /** Format: date-time */
+            enabled_at?: string | null;
+            keys: components["schemas"]["ApiKey"][];
+            /** @description Origins browsers may call from; empty allows any. */
+            cors_origins: string[];
+            /** @description The schemas the data API serves (default public). */
+            exposed_schemas: string[];
+            /** @description Tables and views anon and signed-in users may read without row-level security ("table" in public, or "schema.table"). */
+            public_tables: string[];
+            settings: components["schemas"]["BackendServicesSettings"];
+            /** @description xenibase-server has an edge secret, so a xenibase-edge can serve the project. */
+            feed_configured: boolean;
+            /** @description The project's request roles, for row-level security policies. */
+            roles?: {
+                anon?: string;
+                user?: string;
+                service?: string;
+            };
+        };
+        /** @description What the edge applies (V4.1 §3) - the project's settings within its plan's ceilings, and the plan's monthly limits. */
+        BackendServicesEffective: {
+            statement_timeout_ms: number;
+            rate_per_ip: number;
+            rate_per_key: number;
+            /** @description The plan's ceiling on the timeout, if it has one. */
+            plan_timeout_ms?: number;
+            plan_rate_per_ip?: number;
+            plan_rate_per_key?: number;
+            /** @description The plan's monthly data API requests are used up (429 plan_limit_reached until the month ends). */
+            requests_blocked: boolean;
+            /** @description The plan's monthly active users are reached (new users get 429 mau_limit_reached). */
+            mau_blocked: boolean;
+            /**
+             * Format: date-time
+             * @description When the plan limits start applying.
+             */
+            limits_from?: string;
+        };
+        BackendServicesSettings: {
+            /** @description Each request's statement timeout (0 for the default, 8000). */
+            statement_timeout_ms?: number;
+            /** @description Requests per minute from one IP address (0 for the default, 600). */
+            rate_per_ip?: number;
+            /** @description Requests per minute with one key (0 for the default, 12000). */
+            rate_per_key?: number;
+            /** @description Accept the secret key from a page (a request with an Origin header). Off by default. */
+            allow_secret_in_browser?: boolean;
+            /** @description Data API reads whose estimated cost (EXPLAIN) is higher are refused (0 for the default, 1000000). */
+            max_query_cost?: number;
+            /** @description Send publishable-key data API GETs to the read replicas without a Read-Replica header (V4 §7). Off by default. */
+            replica_reads?: boolean;
+            /** @description Cache anonymous reads (publishable key, no user token) of these tables ("schema.table") and stable functions ("rpc.name" or "rpc.schema.name") on the edge for up to that many seconds, 1 to 3,600 (V4.1 §10). A TTL is a staleness budget: writes made outside this edge's data API show within it. Sent whole: {} turns caching off. */
+            cache_ttl_seconds?: {
+                [key: string]: number;
+            };
+        };
+        AuthSettings: {
+            /** @description Where links go when a request names no redirect (and the base of allowed redirects). */
+            site_url?: string;
+            redirect_urls?: string[];
+            allow_wildcard_redirects?: boolean;
+            signup_enabled?: boolean;
+            /** @description New addresses must be confirmed before signing in. */
+            email_confirm?: boolean;
+            magic_link_enabled?: boolean;
+            password_min_length?: number;
+            password_require_mixed?: boolean;
+            /** @description Seconds, 300 to 86400. */
+            access_token_ttl?: number;
+            session_max_seconds?: number;
+            session_inactivity_seconds?: number;
+            single_session?: boolean;
+            /** @description How phone codes may go; empty turns phone sign-in off. */
+            phone_channels?: ("sms" | "whatsapp")[];
+            /** @description A phone sign-up must confirm its number by code before signing in with a password. */
+            phone_confirm?: boolean;
+            /** @description ISO country codes numbers may be in (default NG); "*" allows any. */
+            phone_countries?: string[];
+            /** @description SMS and WhatsApp codes a day (default 200). */
+            phone_daily_cap?: number;
+            /** @description The SMS text, with {{.Code}}. */
+            sms_template?: string;
+            anonymous_enabled?: boolean;
+            /**
+             * @description required needs aal2 for the data API from every user; claim from users whose app_metadata.mfa_required is true.
+             * @enum {string}
+             */
+            mfa_policy?: "off" | "optional" | "required" | "claim";
+            /** @description Phone codes as a second factor. */
+            mfa_phone?: boolean;
+            /** @description Signed-in users may link and unlink identities. */
+            manual_linking?: boolean;
+            oauth?: {
+                [key: string]: components["schemas"]["AuthOAuthSetting"];
+            };
+            /** @description A Postgres function "schema.name" (event jsonb) returns jsonb, run as the hook role when a token is issued. */
+            custom_claims_hook?: string;
+            /** @description A Postgres function "schema.name" (event jsonb) returns jsonb that may return {"decision":"reject"}. */
+            before_signup_hook?: string;
+            /** @description A webhook asked before a sign-up (instead of a Postgres hook). */
+            before_signup_url?: string;
+            after_signup_url?: string;
+            after_signin_url?: string;
+            /** @description A webhook that sends the project's emails and codes instead of Xenibase. */
+            send_message_url?: string;
+            captcha_enabled?: boolean;
+            captcha_site_key?: string;
+        };
+        AuthOAuthSetting: {
+            enabled: boolean;
+            client_id: string;
+            scopes?: string[];
+            /** @description Apple only. */
+            team_id?: string;
+            /** @description Apple only. */
+            key_id?: string;
+        };
+        AuthOAuthSecret: {
+            client_secret?: string;
+            /** @description Apple's .p8 key (PEM). */
+            private_key?: string;
+        };
+        /** @description The project's own SMS or WhatsApp provider. Secrets are write only; empty keeps the stored ones. */
+        AuthPhoneProvider: {
+            /** @enum {string} */
+            provider: "termii" | "africastalking" | "twilio" | "whatsapp_cloud";
+            api_key?: string;
+            sender_id?: string;
+            base_url?: string;
+            username?: string;
+            account_sid?: string;
+            auth_token?: string;
+            from?: string;
+            messaging_service_sid?: string;
+            phone_number_id?: string;
+            access_token?: string;
+            template?: string;
+            language?: string;
+        };
+        AuthEmailTemplate: {
+            subject: string;
+            body: string;
+        };
+        AuthSMTP: {
+            host: string;
+            port?: number;
+            username?: string;
+            /** @description Write only; empty keeps the stored one. */
+            password?: string;
+            from: string;
+            /** @enum {string} */
+            tls?: "starttls" | "tls" | "none";
+        };
+        AuthConfig: {
+            settings: components["schemas"]["AuthSettings"];
+            templates: {
+                [key: string]: components["schemas"]["AuthEmailTemplate"];
+            };
+            default_templates: {
+                [key: string]: components["schemas"]["AuthEmailTemplate"];
+            };
+            smtp?: components["schemas"]["AuthSMTP"] | null;
+            email: {
+                own_smtp: boolean;
+                platform_per_hour: number;
+                platform_left: number;
+                sent_24h: number;
+                failed_24h: number;
+            };
+            /** Format: int64 */
+            monthly_active_users: number;
+            /** @description The project's auth API, https://<ref>.<domain>/auth/v1. */
+            auth_url: string;
+            /** @description The redirect URI to register with OAuth providers. */
+            oauth_callback_url?: string;
+            sms?: components["schemas"]["AuthPhoneProvider"] | null;
+            whatsapp?: components["schemas"]["AuthPhoneProvider"] | null;
+            oauth_secret_set?: {
+                [key: string]: boolean;
+            };
+            captcha_secret_set?: boolean;
+            /** @description Signs webhook hooks (Xenibase-Signature); set once a hook URL is. */
+            hook_secret?: string;
+            /** @description The role Postgres hooks run as; grant it what they read. */
+            hook_role?: string;
+            phone?: {
+                /** @description This install sends SMS for projects without their own provider. */
+                platform_sms: boolean;
+                platform_whatsapp: boolean;
+                /** Format: int64 */
+                sent_24h: number;
+                daily_cap: number;
+                month: {
+                    channel: string;
+                    /** Format: int64 */
+                    messages: number;
+                    /** Format: int64 */
+                    cost_minor: number;
+                }[];
+                currency?: string;
+            };
+        };
+        AuthConfigUpdate: {
+            settings?: components["schemas"]["AuthSettings"];
+            /** @description Overrides by kind; an empty subject and body goes back to the default. */
+            templates?: {
+                [key: string]: components["schemas"]["AuthEmailTemplate"];
+            };
+            smtp?: components["schemas"]["AuthSMTP"];
+            clear_smtp?: boolean;
+            sms?: components["schemas"]["AuthPhoneProvider"];
+            whatsapp?: components["schemas"]["AuthPhoneProvider"];
+            clear_sms?: boolean;
+            clear_whatsapp?: boolean;
+            oauth_secrets?: {
+                [key: string]: components["schemas"]["AuthOAuthSecret"];
+            };
+            /** @description The Turnstile secret key; "" removes it. */
+            captcha_secret?: string | null;
+            rotate_hook_secret?: boolean;
+        };
+        AuthHookDelivery: {
+            /** Format: uuid */
+            id: string;
+            event: string;
+            attempts: number;
+            last_status?: number | null;
+            last_error?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            delivered_at?: string | null;
+            /** Format: date-time */
+            failed_at?: string | null;
+        };
+        StorageBucket: {
+            id: string;
+            public: boolean;
+            /** Format: int64 */
+            file_size_limit?: number | null;
+            allowed_mime_types: string[];
+            cache_seconds: number;
+            /** Format: int64 */
+            objects: number;
+            /** Format: int64 */
+            bytes: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        StorageBucketInput: {
+            id: string;
+            public?: boolean;
+            /** Format: int64 */
+            file_size_limit?: number;
+            allowed_mime_types?: string[];
+            cache_seconds?: number;
+        };
+        StorageBucketUpdate: {
+            public?: boolean;
+            /**
+             * Format: int64
+             * @description Bytes; null removes the bucket's limit
+             */
+            file_size_limit?: number | null;
+            allowed_mime_types?: string[];
+            cache_seconds?: number;
+        };
+        RealtimeTable: {
+            schema: string;
+            table: string;
+            enabled: boolean;
+            /** @description Row-level security is on (anon and users can subscribe only then, or when the table is public) */
+            rls: boolean;
+            /** @description Realtime needs one */
+            has_primary_key: boolean;
+        };
+        RealtimeOverview: {
+            tables: components["schemas"]["RealtimeTable"][];
+            persisted_topics: string[];
+            /** @description Concurrent connections per edge process; null is unlimited */
+            max_connections?: number | null;
+            /** @description The month's messages are used up */
+            messages_blocked: boolean;
+            messages_this_month: number;
+            connection_minutes_this_month: number;
+            /** @description Database changes delivered per second before subscribers are told to resync */
+            changes_per_second: number;
+            /** @description Distinct claims groups checked per change */
+            groups_per_change: number;
+        };
+        StorageOverview: {
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            objects: number;
+            /**
+             * Format: int64
+             * @description What the project's files may add up to (its organisation's quota less its other projects'); null is unlimited
+             */
+            quota_bytes?: number | null;
+            /** Format: int64 */
+            upload_max_bytes: number;
+            /** @description The month's file download allowance is used up */
+            egress_blocked: boolean;
+            /** @description The month's image transforms are used up */
+            transforms_blocked: boolean;
+            /** Format: date-time */
+            measured_at?: string | null;
+            /** @description Files whose data the nightly reconciler couldn't find */
+            missing_objects: number;
+            missing_sample: string[];
+            /** Format: date-time */
+            reconciled_at?: string | null;
+            buckets: components["schemas"]["StorageBucket"][];
+        };
+        StorageObject: {
+            /** Format: uuid */
+            id: string;
+            bucket: string;
+            path: string;
+            /** Format: int64 */
+            size: number;
+            mime_type: string;
+            etag: string;
+            checksum?: string | null;
+            /** Format: uuid */
+            owner?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        StorageEntry: {
+            name: string;
+            path: string;
+            folder: boolean;
+            object?: components["schemas"]["StorageObject"];
+        };
+        StorageObjectList: {
+            items: components["schemas"]["StorageEntry"][];
+            next_cursor?: string;
+        };
+        AuthHookDeliveryList: {
+            items: components["schemas"]["AuthHookDelivery"][];
+        };
+        AuthSMTPTest: {
+            to: string;
+            smtp?: components["schemas"]["AuthSMTP"];
+        };
+        AuthTemplatePreview: {
+            /** @enum {string} */
+            kind: "confirmation" | "magic_link" | "recovery" | "invite" | "email_change";
+            subject: string;
+            body: string;
+        };
+        SigningKey: {
+            /** Format: uuid */
+            id: string;
+            kid: string;
+            /** @enum {string} */
+            status: "active" | "verifying" | "retired";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            verify_until?: string | null;
+            public_jwk: {
+                [key: string]: unknown;
+            };
+        };
+        SigningKeyList: {
+            items: components["schemas"]["SigningKey"][];
+        };
+        AuthUser: {
+            /** Format: uuid */
+            id: string;
+            email?: string | null;
+            phone?: string | null;
+            /** Format: date-time */
+            email_confirmed_at?: string | null;
+            /** Format: date-time */
+            phone_confirmed_at?: string | null;
+            /** Format: date-time */
+            invited_at?: string | null;
+            is_anonymous: boolean;
+            app_metadata: {
+                [key: string]: unknown;
+            };
+            user_metadata: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            banned_until?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            last_sign_in_at?: string | null;
+        };
+        AuthUserList: {
+            items: components["schemas"]["AuthUser"][];
+            total: number;
+            stats: {
+                users: number;
+                confirmed: number;
+                banned: number;
+                sessions: number;
+            };
+        };
+        AuthUserCreate: {
+            email: string;
+            password?: string;
+            email_confirm?: boolean;
+            /** @description Send an invitation link instead of setting a password. */
+            invite?: boolean;
+        };
+        AuthUserUpdate: {
+            /** @description "none" lifts a ban; otherwise a duration such as "24h" ("876000h" for good). */
+            ban_duration?: string;
+            email_confirm?: boolean;
+            user_metadata?: {
+                [key: string]: unknown;
+            };
+            app_metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        AuthSession: {
+            /** Format: uuid */
+            id: string;
+            aal: string;
+            user_agent?: string | null;
+            ip?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            refreshed_at: string;
+            /** Format: date-time */
+            not_after?: string | null;
+        };
+        AuthIdentity: {
+            /** Format: uuid */
+            id: string;
+            provider: string;
+            provider_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_sign_in_at?: string | null;
+        };
+        AuthAuditEntry: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            /** Format: uuid */
+            user_id?: string | null;
+            action: string;
+            ip?: string | null;
+            details: {
+                [key: string]: unknown;
+            };
+        };
+        AuthAuditList: {
+            items: components["schemas"]["AuthAuditEntry"][];
+        };
+        AuthUserDetail: {
+            user: components["schemas"]["AuthUser"];
+            identities: components["schemas"]["AuthIdentity"][];
+            sessions: components["schemas"]["AuthSession"][];
+            audit: components["schemas"]["AuthAuditEntry"][];
+        };
+        AuthSignOutResult: {
+            /** Format: int64 */
+            sessions_ended: number;
+        };
+        BackendServicesUpdate: {
+            cors_origins?: string[];
+            exposed_schemas?: string[];
+            public_tables?: string[];
+            settings?: components["schemas"]["BackendServicesSettings"];
+        };
+        BackendServicesEnabled: {
+            services: components["schemas"]["BackendServices"];
+            operation: components["schemas"]["Operation"];
+            /** @description The keys made now (the first time, or after a disable); the secret key is never shown again. */
+            keys: components["schemas"]["CreatedApiKey"][];
+        };
+        AdvisorFinding: {
+            /** @enum {string} */
+            level: "danger" | "warn" | "info";
+            code: string;
+            object: string;
+            message: string;
+            fix?: string;
+        };
+        AdvisorFindings: {
+            items: components["schemas"]["AdvisorFinding"][];
+        };
+        ExploreRequest: {
+            /** @enum {string} */
+            method: "GET" | "POST" | "PATCH" | "DELETE";
+            /** @example /data/v1/todos?select=id,title */
+            path: string;
+            /** @description The request body (JSON), for POST and PATCH. */
+            body?: string;
+            /** @enum {string} */
+            role: "anon" | "user" | "service";
+            /**
+             * Format: uuid
+             * @description With role user, the signed-in user to act as (their id is the sub claim).
+             */
+            user_id?: string;
+        };
+        ExploreResponse: {
+            status: number;
+            content_type?: string;
+            body: string;
+        };
+        ApiKey: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "publishable" | "secret";
+            name: string;
+            /** @description The start of the key, to tell keys apart. */
+            prefix: string;
+            /** @description The whole publishable key (secret keys are only shown when made). */
+            key?: string;
+            /** Format: date-time */
+            last_used_at?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        CreateApiKeyRequest: {
+            /** @enum {string} */
+            kind: "publishable" | "secret";
+            name: string;
+        };
+        CreatedApiKey: {
+            key: components["schemas"]["ApiKey"];
+            /** @description The key itself. For a secret key this is the only time it is shown. */
+            value: string;
+        };
+        ApiRequestLog: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            request_id: string;
+            method: string;
+            path: string;
+            status: number;
+            latency_ms: number;
+            role?: string | null;
+            /** Format: uuid */
+            user_id?: string | null;
+            /** Format: uuid */
+            key_id?: string | null;
+            ip?: string | null;
+            /** Format: int64 */
+            bytes_out: number;
+        };
+        ApiRequestLogList: {
+            items: components["schemas"]["ApiRequestLog"][];
+            /**
+             * Format: int64
+             * @description With after, the cursor to follow from next.
+             */
+            next?: number;
+        };
+        ServicesUsage: {
+            /** @description The month (UTC), as 2006-01. */
+            month: string;
+            metrics: components["schemas"]["ServicesUsageMetric"][];
+            /** @description The month's charges so far, before VAT, that fall to the project: its own lines, and of an allowance's overage the share its usage is of the organisation's. Absent without billing, or to a caller who can't see the organisation's billing. */
+            charges?: components["schemas"]["ServiceCharge"][] | null;
+        };
+        ServicesUsageMetric: {
+            metric: string;
+            /** @enum {string} */
+            service: "data_api" | "auth" | "messages" | "storage" | "realtime";
+            /** @description The project's, this month. */
+            quantity: number;
+            /** @description The organisation's, this month (allowances and limits are shared by its projects). */
+            org_quantity: number;
+            /** @description The plan's allowance this month, above which usage is charged. */
+            included?: number | null;
+            /** @description The plan's hard limit this month, at which the service stops. */
+            limit?: number | null;
+        };
+        ServiceCharge: {
+            /** @enum {string} */
+            service: "plan" | "database" | "data_api" | "auth" | "messages" | "storage" | "realtime" | "read_replicas";
+            /** Format: int64 */
+            amount_minor: number;
+        };
+        ServicesCatalog: {
+            /** @description The project's API ref (its URL's host), when services are on. */
+            ref?: string;
+            api_url?: string | null;
+            schemas: string[];
+            tables: components["schemas"]["CatalogTable"][];
+            functions: components["schemas"]["CatalogFunction"][];
+        };
+        CatalogTable: {
+            schema: string;
+            name: string;
+            /** @enum {string} */
+            kind: "table" | "view" | "materialized_view" | "foreign_table";
+            rls: boolean;
+            /** @description Marked public; anyone with the publishable key reads every row. */
+            public: boolean;
+            columns: components["schemas"]["CatalogColumn"][];
+            primary_key: string[];
+            foreign_keys: components["schemas"]["CatalogForeignKey"][];
+            referenced_by: components["schemas"]["CatalogForeignKey"][];
+            policies: components["schemas"]["CatalogPolicy"][];
+            /** @description The request roles' privileges (anon, user); row-level security then decides which rows. */
+            access: {
+                [key: string]: components["schemas"]["CatalogAccess"];
+            };
+        };
+        CatalogColumn: {
+            name: string;
+            type: string;
+            nullable: boolean;
+            default?: string;
+            identity: boolean;
+            generated: boolean;
+            enum?: string[];
+        };
+        CatalogForeignKey: {
+            name: string;
+            columns: string[];
+            table: string;
+            ref_columns: string[];
+            /** @description The name to embed the other side with in a select. */
+            embed: string;
+            multiple: boolean;
+        };
+        CatalogPolicy: {
+            name: string;
+            command: string;
+            permissive: boolean;
+            /** @description anon, user, service, everyone, or a database role. */
+            roles: string[];
+            using?: string;
+            check?: string;
+        };
+        CatalogAccess: {
+            select: boolean;
+            insert: boolean;
+            update: boolean;
+            delete: boolean;
+        };
+        CatalogFunction: {
+            schema: string;
+            name: string;
+            args: {
+                name: string;
+                type: string;
+                optional: boolean;
+            }[];
+            returns: string;
+            returns_set: boolean;
+            volatility: string;
+            security_definer: boolean;
+        };
+        OutageMinute: {
+            /** Format: date-time */
+            minute: string;
+            internal_ok?: boolean | null;
+            external_ok?: boolean | null;
+        };
+        HAStatus: {
+            /** @description The region whose etcd cluster holds the project's Patroni state. */
+            etcd_region?: string | null;
+            /** @description The project's region has its own ready etcd cluster that the project doesn't use yet. */
+            etcd_move_available?: boolean;
+            enabled: boolean;
+            synchronous: boolean;
+            members: components["schemas"]["HAMember"][];
+            failovers: components["schemas"]["FailoverEvent"][];
+            availability?: components["schemas"]["Availability"];
+        };
+        InstanceUpdate: {
+            /** @enum {integer} */
+            pitr_days?: 7 | 14 | 30;
+            /** @description A size from GET /profiles, in place of cpus and memory_mb. */
+            profile?: string;
+            cpus?: number;
+            memory_mb?: number;
+            /** @description Up only; to shrink, move into a smaller instance. */
+            disk_gb?: number;
+            /** @description Only say what a resize would do (in place, or a move to which node). */
+            dry_run?: boolean;
+        };
+        InstanceUpdated: {
+            instance: components["schemas"]["InstanceSummary"];
+            operation?: components["schemas"]["Operation"];
+            plan?: components["schemas"]["ResizePlan"];
+        };
+        ResizePlan: {
+            from: components["schemas"]["InstanceSize"];
+            to: components["schemas"]["InstanceSize"];
+            /** @description The containers restart (a CPU or memory change); a disk change alone doesn't. */
+            restart: boolean;
+            /** @description The node the project moves to, when its own can't hold the new size. */
+            move_to?: string;
+        };
+        InstanceSize: {
+            cpus: number;
+            memory_mb: number;
+            disk_gb: number;
+        };
         InstanceSummary: {
+            /** @description Postgres major version. */
+            pg_version: number;
+            /** @description A primary and a streaming standby on another node (V3 §2.2). */
+            ha_enabled?: boolean;
+            /** @description Dedicated only. The point-in-time recovery window in days (7, 14 or 30). */
+            pitr_days?: number;
+            /**
+             * @description Where its Postgres major is in its life (V4.1 §6.1).
+             * @enum {string}
+             */
+            pg_version_status?: "preview" | "supported" | "deprecated" | "retired";
+            /**
+             * Format: date-time
+             * @description When its deprecated major retires.
+             */
+            pg_version_retires_at?: string;
+            /** @description The release the instance runs ("18.1"), as its agent last reported. */
+            pg_release?: string | null;
+            /** @description The release its image now holds; a newer minor is applied in the maintenance window. */
+            pg_release_available?: string | null;
             /** Format: uuid */
             id: string;
             /** @enum {string} */
@@ -3828,6 +7802,38 @@ export interface components {
             items: components["schemas"]["Profile"][];
             default_profile: string;
             default_volume_gb: number;
+            /** @description Postgres majors open for new projects, oldest first (V3 §2.4); a preview needs `preview` on the create request. */
+            pg_versions: number[];
+            default_pg_version: number;
+            /** @description Where each major is in its life (V4.1 §6.1). */
+            pg_version_lifecycle?: components["schemas"]["PgVersionInfo"][];
+        };
+        PgVersionInfo: {
+            major: number;
+            /**
+             * @description A deprecated major past its retirement date is retired.
+             * @enum {string}
+             */
+            status: "preview" | "supported" | "deprecated" | "retired";
+            /** Format: date-time */
+            deprecated_at?: string;
+            /** Format: date-time */
+            retires_at?: string;
+            notes: string;
+            /** @description The server has an image for it (XENIBASE_PG_VERSIONS). */
+            installed: boolean;
+            /** @description Live projects on it (the admin list only). */
+            projects?: number;
+        };
+        PgVersionUpdate: {
+            /** @enum {string} */
+            status: "preview" | "supported" | "deprecated" | "retired";
+            /**
+             * Format: date-time
+             * @description Required to deprecate, at least 180 days ahead.
+             */
+            retires_at?: string;
+            notes?: string;
         };
         CreateNodeRequest: {
             /** @example node-b */
@@ -3837,10 +7843,19 @@ export interface components {
              * @example 10.0.0.12
              */
             private_addr: string;
-            /** @enum {string} */
-            role: "shared" | "dedicated" | "both";
+            /**
+             * @description pooler: an edge pooler host (both PgBouncers and keepalived), never given a database. edge: runs xenibase-edge only, its cost split by backend services' use (V4.1 §11).
+             * @enum {string}
+             */
+            role: "shared" | "dedicated" | "both" | "pooler" | "edge";
+            /** @description The region the node is in (default the home region). A pooler host serves that region's projects. */
+            region?: string;
+            /** @description What fails with this node (a rack, a host, a power feed), e.g. lagos-dc1-r3. Letters, digits, dots, colons, dashes and underscores. */
+            failure_domain?: string;
         };
         NodeCreated: {
+            /** @description E.g. a second pooler host in the same failure domain as the first. */
+            warnings?: string[];
             node: components["schemas"]["Node"];
             token: string;
             /** Format: date-time */
@@ -3852,6 +7867,11 @@ export interface components {
             instances: components["schemas"]["NodeInstance"][];
         };
         NodeInstance: {
+            pg_version?: number;
+            /** @description The release the instance runs, as its agent last reported. */
+            pg_release?: string | null;
+            /** @description The release its image now holds. */
+            pg_release_available?: string | null;
             /** Format: uuid */
             id: string;
             kind: string;
@@ -3868,16 +7888,27 @@ export interface components {
         };
         SharedClusterRequest: {
             memory_mb: number;
+            /** @description Postgres major version; default the newest supported. */
+            pg_version?: number;
         };
         UpdateNodeRequest: {
             /** @enum {string} */
-            role: "shared" | "dedicated" | "both";
+            role?: "shared" | "dedicated" | "both";
+            /** @description The node's failure domain; an empty string clears it. */
+            failure_domain?: string;
         };
         PromotionEstimate: {
             /** Format: int64 */
             size_bytes: number;
-            /** @description Roughly dump + restore time, while writes wait. */
+            /** @description How long writes are expected to pause. */
             estimated_downtime_seconds: number;
+            /**
+             * @description logical replication (writes pause for a few seconds whatever the size) or dump/restore (writes pause while it copies).
+             * @enum {string}
+             */
+            copy_mode?: "logical" | "dump";
+            /** @description Why logical replication can't be used. */
+            fallback_reason?: string;
         };
         DemoteRequest: {
             /**
@@ -3889,6 +7920,29 @@ export interface components {
             console_writable?: boolean;
             /** @description Acknowledge the preflight's warnings (peak connections, settings that reset). */
             accept_warnings?: boolean;
+        };
+        UpgradeRequest: {
+            pg_version: number;
+        };
+        UpgradeCheck: {
+            /** @enum {string} */
+            name: "version" | "target" | "replication" | "schema" | "extensions" | "deprecated";
+            /** @enum {string} */
+            status: "ok" | "warning" | "blocked";
+            message: string;
+        };
+        UpgradePreflight: {
+            eligible: boolean;
+            from: number;
+            to: number;
+            checks: components["schemas"]["UpgradeCheck"][];
+            target_node?: string;
+            /** Format: int64 */
+            size_bytes: number;
+            estimated_downtime_seconds: number;
+            /** @enum {string} */
+            copy_mode: "logical" | "dump";
+            fallback_reason?: string;
         };
         DemoteCheck: {
             /** @enum {string} */
@@ -3915,8 +7969,15 @@ export interface components {
             checks: components["schemas"]["DemoteCheck"][];
             /** Format: int64 */
             size_bytes: number;
-            /** @description Roughly dump + restore time, while writes wait. */
+            /** @description How long writes are expected to pause. */
             estimated_downtime_seconds: number;
+            /**
+             * @description logical replication (writes pause for a few seconds whatever the size) or dump/restore (writes pause while it copies).
+             * @enum {string}
+             */
+            copy_mode?: "logical" | "dump";
+            /** @description Why logical replication can't be used. */
+            fallback_reason?: string;
             target?: components["schemas"]["DemoteTarget"];
             settings_after: components["schemas"]["ProjectSettings"];
             /** @description The guardrails that change, e.g. "connection limit 90 → 20". */
@@ -3938,6 +7999,12 @@ export interface components {
             };
             /** @default true */
             enabled: boolean;
+            /** @description Free text for the webhook's owner (one line). */
+            description?: string;
+            /** @description String tags for the webhook's owner, such as the tool that created it (keys 1 to 40 of letters, digits, dots, colons, dashes, underscores; values up to 500 characters). */
+            metadata?: {
+                [key: string]: string;
+            };
         };
         WebhookUpdate: {
             name?: string;
@@ -3950,6 +8017,12 @@ export interface components {
                 [key: string]: string;
             };
             enabled?: boolean;
+            /** @description Free text for the webhook's owner (one line). */
+            description?: string;
+            /** @description String tags for the webhook's owner, replacing the stored ones; {} removes them (keys 1 to 40 of letters, digits, dots, colons, dashes, underscores; values up to 500 characters). */
+            metadata?: {
+                [key: string]: string;
+            };
         };
         Webhook: {
             /** Format: uuid */
@@ -3972,11 +8045,27 @@ export interface components {
              * @description Events waiting in the outbox.
              */
             backlog: number;
+            description: string;
+            metadata: {
+                [key: string]: string;
+            };
+            /**
+             * Format: date-time
+             * @description While a rotation overlaps, until when the previous secret also signs deliveries.
+             */
+            previous_secret_expires_at?: string | null;
             /** Format: date-time */
             created_at: string;
         };
         WebhookList: {
             items: components["schemas"]["Webhook"][];
+        };
+        WebhookRotateSecret: {
+            /**
+             * @description How long the old secret keeps signing beside the new one.
+             * @default 0
+             */
+            overlap_seconds: number;
         };
         WebhookCreated: {
             webhook: components["schemas"]["Webhook"];
@@ -3985,6 +8074,11 @@ export interface components {
         };
         WebhookSecret: {
             secret: string;
+            /**
+             * Format: date-time
+             * @description Until when the old secret also signs, with an overlap.
+             */
+            previous_secret_expires_at?: string | null;
         };
         WebhookTestResult: {
             event_id: string;
@@ -4134,6 +8228,39 @@ export interface components {
             failures: number;
             /** Format: date */
             last_day: string;
+        };
+        MoveProjectRequest: {
+            /** Format: uuid */
+            node_id: string;
+        };
+        Move: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            operation_id: string;
+            /** Format: uuid */
+            source_instance: string;
+            /** Format: uuid */
+            target_instance: string;
+            /** @enum {string} */
+            mode: "logical" | "dump";
+            /** @description Why logical replication wasn't used. */
+            fallback_reason?: string;
+            /** @enum {string} */
+            phase: "preparing" | "copying" | "streaming" | "cutover" | "done" | "failed";
+            tables_total?: number;
+            tables_ready?: number;
+            /** Format: int64 */
+            lag_bytes?: number;
+            /** @description How long writes were paused. */
+            freeze_ms?: number;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at?: string;
+        };
+        MoveList: {
+            items: components["schemas"]["Move"][];
         };
         PromoteRequest: {
             /** Format: uuid */
@@ -4606,6 +8733,132 @@ export interface components {
             /** Format: int64 */
             critical: number;
         };
+        /** @enum {string} */
+        IncidentSeverity: "minor" | "major" | "critical" | "maintenance";
+        /**
+         * @description draft is a maintenance announcement Xenibase proposed and the admin hasn't confirmed.
+         * @enum {string}
+         */
+        IncidentStatus: "draft" | "investigating" | "identified" | "monitoring" | "resolved";
+        Incident: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            components: string[];
+            region?: string;
+            severity: components["schemas"]["IncidentSeverity"];
+            status: components["schemas"]["IncidentStatus"];
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            resolved_at?: string;
+            /** Format: date-time */
+            updated_at: string;
+            /**
+             * Format: date-time
+             * @description When the status page last took this version; unset while a push is due.
+             */
+            pushed_at?: string;
+            push_error?: string;
+            updates: components["schemas"]["IncidentUpdate"][];
+        };
+        OrgIncidentList: {
+            items: components["schemas"]["OrgIncident"][];
+        };
+        OrgIncident: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            components: string[];
+            region?: string | null;
+            severity: components["schemas"]["IncidentSeverity"];
+            status: components["schemas"]["IncidentStatus"];
+            /** Format: date-time */
+            started_at: string;
+            /** @description The newest update's text. */
+            latest_update?: string | null;
+            /** @description The incident on the status page, when one is configured. */
+            url?: string | null;
+        };
+        IncidentUpdate: {
+            /** Format: int64 */
+            id: number;
+            status: components["schemas"]["IncidentStatus"];
+            body: string;
+            /** Format: date-time */
+            posted_at: string;
+            /** @description The poster's email. */
+            posted_by?: string;
+        };
+        IncidentList: {
+            items: components["schemas"]["Incident"][];
+            /** @description Status page components an incident can name. */
+            components: string[];
+            status_page_configured: boolean;
+            status_page_url?: string;
+        };
+        CreateIncidentRequest: {
+            title: string;
+            components: string[];
+            region?: string;
+            severity: components["schemas"]["IncidentSeverity"];
+            status: components["schemas"]["IncidentStatus"];
+            body: string;
+        };
+        UpdateIncidentRequest: {
+            title?: string;
+            components?: string[];
+            severity?: components["schemas"]["IncidentSeverity"];
+        };
+        IncidentUpdateRequest: {
+            status: components["schemas"]["IncidentStatus"];
+            body: string;
+        };
+        PoolerHost: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            private_addr?: string;
+            server_id: string;
+            reachable: boolean;
+            ready: boolean;
+            stale: boolean;
+            /** @description keepalived's state (MASTER, BACKUP, FAULT, STOP), empty before it reports. */
+            vrrp_state: string;
+            /** Format: int64 */
+            generation: number;
+            reason?: string;
+            /** @description The floating IP routes to this host. */
+            holder: boolean;
+        };
+        PoolerEvent: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            kind: "took_ip" | "reassigned" | "split_brain" | "stale" | "push_failed" | "recovered";
+            host?: string;
+            /** Format: date-time */
+            created_at: string;
+            detail: {
+                [key: string]: unknown;
+            };
+        };
+        PoolerHosts: {
+            /** @description Pooler hosts are configured (the arbiter runs). */
+            enabled: boolean;
+            /** Format: date-time */
+            checked_at?: string;
+            /** Format: int64 */
+            generation: number;
+            hosts: components["schemas"]["PoolerHost"][];
+            manages_ip: boolean;
+            holder_server_id?: string;
+            holder_name?: string;
+            holder_error?: string;
+            split_brain: boolean;
+            no_healthy: boolean;
+            events: components["schemas"]["PoolerEvent"][];
+        };
         AlertSmtp: {
             host: string;
             port: number;
@@ -4686,12 +8939,12 @@ export interface components {
             expires_in_days?: number;
         };
         CreatedToken: {
-            /** @description The token itself (`pgd_…`), shown only once. */
+            /** @description The token itself (`xb_…`), shown only once. */
             secret: string;
             token: components["schemas"]["APIToken"];
         };
         DeviceStartRequest: {
-            /** @description Shown on the approval page, e.g. "pgdock CLI on laptop". */
+            /** @description Shown on the approval page, e.g. "xenibase CLI on laptop". */
             client_name?: string;
             /** @description The most the CLI wants; the user may narrow them. Default read and write. */
             scopes?: components["schemas"]["TokenScope"][];
@@ -4754,7 +9007,7 @@ export interface components {
             email: string;
             name?: string | null;
             /** @enum {string} */
-            platform_role: "platform_admin" | "user";
+            platform_role: "platform_admin" | "support" | "user";
             token?: components["schemas"]["TokenGrant"];
         };
         UpdateMeRequest: {
@@ -4768,6 +9021,8 @@ export interface components {
             name?: string;
             /** @description The terms version the user accepted (the current one). */
             terms_version: number;
+            /** @description The Turnstile token from the signup page, when the session state names a site key (V3 §7.4). */
+            challenge?: string;
         };
         TokenRequest: {
             token: string;
@@ -4796,6 +9051,8 @@ export interface components {
             version: number;
             terms_md: string;
             privacy_md: string;
+            /** @description The acceptable use policy, accepted with the terms (V3 §7.3). */
+            aup_md?: string;
             /** Format: date-time */
             published_at: string;
         };
@@ -4805,6 +9062,8 @@ export interface components {
         PublishTermsRequest: {
             terms_md: string;
             privacy_md: string;
+            /** @description The acceptable use policy; left out, the current one is kept. */
+            aup_md?: string;
         };
         SessionInfo: {
             id: string;
@@ -4826,7 +9085,7 @@ export interface components {
             codes: string[];
         };
         /** @enum {string} */
-        OrgRole: "owner" | "admin" | "member";
+        OrgRole: "owner" | "admin" | "member" | "billing";
         /** @enum {string} */
         ProjectRole: "admin" | "developer" | "read_only";
         Org: {
@@ -4851,6 +9110,13 @@ export interface components {
              * @description Set while the organisation is being deleted.
              */
             delete_after?: string | null;
+            /**
+             * @description The organisation's billing standing when it needs attention (V4.1 §7.3), shown to every member; amounts are on the billing page, for owners and billing members.
+             * @enum {string|null}
+             */
+            billing_state?: "overdue" | "restricted" | "suspended" | "payment_failed" | null;
+            /** @description The highest budget threshold (80 or 100) this month's spend has reached; only for owners and billing members. */
+            budget_alert_percent?: number | null;
             /** @description Open break-glass sessions (V2 §2.4), shown to everyone in the organisation. */
             break_glass?: components["schemas"]["BreakGlassSession"][];
             /** Format: date-time */
@@ -5024,7 +9290,7 @@ export interface components {
             email: string;
             name?: string | null;
             /** @enum {string} */
-            platform_role: "platform_admin" | "user";
+            platform_role: "platform_admin" | "support" | "user";
             email_verified: boolean;
             approved: boolean;
             disabled: boolean;
@@ -5050,7 +9316,7 @@ export interface components {
              *     end, and it is emailed.
              * @enum {string}
              */
-            platform_role?: "platform_admin" | "user";
+            platform_role?: "platform_admin" | "support" | "user";
         };
         SignupSettings: {
             /** @enum {string} */
@@ -5100,6 +9366,1119 @@ export interface components {
             disk_gb: number;
             /** @description The Unlimited plan has no allowance to stay within. */
             unlimited?: boolean;
+        };
+        /**
+         * @description An exact decimal, e.g. "34.25" (kobo per unit) or "0.075" (a rate).
+         * @example 34.25
+         */
+        Decimal: string;
+        PricePlan: {
+            name: string;
+            /**
+             * Format: int64
+             * @description The monthly fee in kobo, billed in advance.
+             */
+            monthly_minor: number;
+            /**
+             * Format: int64
+             * @description The fee for a year in advance, in kobo; 0 when the plan has no annual term.
+             */
+            annual_minor: number;
+            /** @description The quota plan (limits) an organisation on this plan gets. */
+            quota_plan: string;
+            /** @description Each metric's monthly allowance, in the metric's unit. */
+            included: {
+                [key: string]: components["schemas"]["Decimal"];
+            };
+            /** @description Kobo per unit above the allowance; a metric with no price isn't charged. */
+            unit: {
+                [key: string]: components["schemas"]["Decimal"];
+            };
+            payment_terms_days: number;
+        };
+        Prices: {
+            /**
+             * @description USD (cents, converted to naira when an invoice is issued) or NGN (kobo).
+             * @enum {string}
+             */
+            currency: "USD" | "NGN";
+            plans: {
+                [key: string]: components["schemas"]["PricePlan"];
+            };
+            dedicated: {
+                vcpu_hour: components["schemas"]["Decimal"];
+                ram_gb_hour: components["schemas"]["Decimal"];
+                disk_gb_hour: components["schemas"]["Decimal"];
+            };
+            addons: {
+                ha_premium_percent: components["schemas"]["Decimal"];
+                sync_replication_hour: components["schemas"]["Decimal"];
+                message_margin_percent?: components["schemas"]["Decimal"];
+                pitr_14_hour?: components["schemas"]["Decimal"];
+                pitr_30_hour?: components["schemas"]["Decimal"];
+                backup_retention_extended_hour?: components["schemas"]["Decimal"];
+                backup_retention_long_hour?: components["schemas"]["Decimal"];
+                /** @description A percentage added to a project's dedicated, HA, read replica and synchronous replication lines, by region ID. */
+                region_premium_percent?: {
+                    [key: string]: components["schemas"]["Decimal"];
+                };
+            };
+        };
+        PriceBook: {
+            version: number;
+            /** Format: date-time */
+            effective_at: string;
+            prices: components["schemas"]["Prices"];
+            notes?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            published_at?: string | null;
+        };
+        Pricing: {
+            version: number;
+            /** Format: date-time */
+            effective_at: string;
+            prices: components["schemas"]["Prices"];
+            vat_rate: components["schemas"]["Decimal"];
+            /** @description The rate dollar prices are shown in naira at, when there is one. */
+            fx?: components["schemas"]["FXQuote"] | null;
+            next?: {
+                version: number;
+                /** Format: date-time */
+                effective_at: string;
+                prices: components["schemas"]["Prices"];
+            };
+        };
+        Ticket: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            number: number;
+            /** @description The reference people quote, e.g. T-1042. */
+            ref: string;
+            /** Format: uuid */
+            org_id?: string | null;
+            org_name?: string | null;
+            requester: string;
+            requester_name?: string | null;
+            /** @enum {string} */
+            channel: "dashboard" | "email" | "whatsapp";
+            subject: string;
+            /** @enum {string} */
+            status: "open" | "pending" | "solved" | "closed";
+            /** @enum {string} */
+            priority: "low" | "normal" | "high" | "urgent";
+            plan?: string | null;
+            /** Format: uuid */
+            assignee?: string | null;
+            /** Format: int64 */
+            messages?: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            first_response_at?: string | null;
+            /**
+             * Format: date-time
+             * @description The plan's response target; null is best effort.
+             */
+            respond_by?: string | null;
+        };
+        TicketList: {
+            items: components["schemas"]["Ticket"][];
+        };
+        TicketMessage: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            direction: "in" | "out" | "note";
+            author: string;
+            body: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        TicketDetail: {
+            ticket: components["schemas"]["Ticket"];
+            messages: components["schemas"]["TicketMessage"][];
+            context?: components["schemas"]["SupportContext"];
+        };
+        /** @description What the support console shows about the organisation. Metadata only; tenant data needs break-glass. */
+        SupportContext: {
+            /** Format: uuid */
+            org_id: string;
+            org_name: string;
+            org_status: string;
+            plan: string;
+            term?: string | null;
+            billing_mode?: string | null;
+            dunning_state?: string | null;
+            /** Format: int64 */
+            owed_minor?: number | null;
+            /** Format: int64 */
+            credit_minor?: number | null;
+            members: number;
+            projects: components["schemas"]["SupportProject"][];
+            recent_operations: components["schemas"]["SupportOperation"][];
+            incidents: components["schemas"]["SupportIncident"][];
+            quotas: components["schemas"]["QuotaItem"][];
+        };
+        SupportProject: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            tier: string;
+            status: string;
+            lifecycle: string;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        SupportOperation: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            status: string;
+            /** Format: uuid */
+            project_id?: string | null;
+            error?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        SupportIncident: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            status: string;
+            severity: string;
+            /** Format: date-time */
+            started_at: string;
+        };
+        TicketOpen: {
+            subject: string;
+            body: string;
+            /** @enum {string} */
+            priority?: "low" | "normal" | "high" | "urgent";
+        };
+        TicketReply: {
+            body: string;
+            /** @description An internal note (support console only), not sent to the customer. */
+            note?: boolean;
+        };
+        TicketUpdate: {
+            /** @enum {string} */
+            status?: "open" | "pending" | "solved" | "closed";
+            /** @enum {string} */
+            priority?: "low" | "normal" | "high" | "urgent";
+            /** Format: uuid */
+            assignee?: string | null;
+            clear_assignee?: boolean;
+            /** Format: uuid */
+            org_id?: string;
+        };
+        SupportPhone: {
+            phone: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        RevenueMonth: {
+            /** @example 2026-10 */
+            month: string;
+            /** Format: int64 */
+            mrr_minor: number;
+            /** Format: int64 */
+            arr_minor: number;
+            /** Format: int64 */
+            new_minor: number;
+            /** Format: int64 */
+            expansion_minor: number;
+            /** Format: int64 */
+            contraction_minor: number;
+            /** Format: int64 */
+            churned_minor: number;
+            paying_orgs: number;
+            /** Format: int64 */
+            arpa_minor: number;
+            /** @description Organisations that moved from Free to a paid plan this month. */
+            conversions: number;
+            /** @description Organisations on Free at the start of the month. */
+            free_orgs: number;
+            /**
+             * Format: int64
+             * @description Metered charges (overage, dedicated, add-ons) on the month's invoices.
+             */
+            usage_revenue_minor: number;
+            /** Format: int64 */
+            invoiced_minor: number;
+            /** Format: int64 */
+            invoices: number;
+            /** Format: int64 */
+            collected_minor: number;
+        };
+        Revenue: {
+            months: components["schemas"]["RevenueMonth"][];
+            ageing: {
+                label: string;
+                /** Format: int64 */
+                amount_minor: number;
+                invoices: number;
+            }[];
+            /** Format: int64 */
+            outstanding_wht_minor: number;
+            /** Format: date-time */
+            as_of: string;
+        };
+        PriceBookInput: {
+            /** Format: date-time */
+            effective_at: string;
+            prices: components["schemas"]["Prices"];
+            notes?: string | null;
+        };
+        BillingSettings: {
+            vat_rate: components["schemas"]["Decimal"];
+            wht_rate: components["schemas"]["Decimal"];
+            /** @description Issue each month's draft invoices automatically on the 1st. */
+            auto_issue: boolean;
+            /** @description Let dunning delete an org's paid resources 47 days after payment was due; off, they are left for the admin. */
+            delete_for_non_payment?: boolean;
+            seller: {
+                legal_name: string;
+                address: string;
+                tin: string;
+                vat_number: string;
+                email: string;
+            };
+        };
+        /** @description The price of a dollar in naira an invoice was converted at. */
+        FXQuote: {
+            from: string;
+            to: string;
+            market_rate: components["schemas"]["Decimal"];
+            effective_rate: components["schemas"]["Decimal"];
+            spread_bps: number;
+            /**
+             * Format: date-time
+             * @description When the provider last priced the pair.
+             */
+            fetched_at: string;
+            /**
+             * Format: date-time
+             * @description When Xenibase asked.
+             */
+            quoted_at: string;
+            sources?: string[];
+            derived?: boolean;
+        };
+        DebitConsent: {
+            /** Format: date-time */
+            at: string;
+            /** Format: uuid */
+            by?: string | null;
+            version: string;
+            /** @description Whether it is to the current wording of the terms. */
+            current: boolean;
+        };
+        DebitConsentRequest: {
+            terms_version: string;
+        };
+        WalletSetup: {
+            business_name: string;
+            email: string;
+            phone?: string;
+            /** @description A director's, 11 digits. Forwarded to the wallet provider and not kept. */
+            bvn: string;
+            tin?: string;
+            cac_number?: string;
+        };
+        Wallet: {
+            /** @description Whether this platform bills through wallets. */
+            available: boolean;
+            wallet_id?: string | null;
+            /**
+             * Format: int64
+             * @description Available now, read from the provider (kobo).
+             */
+            balance_minor?: number | null;
+            /** Format: int64 */
+            pending_minor?: number | null;
+            balance_error?: string | null;
+            /**
+             * Format: int64
+             * @description What Xenibase's books say the wallet holds.
+             */
+            ledger_minor: number;
+            /**
+             * Format: int64
+             * @description Outstanding on issued invoices.
+             */
+            owed_minor: number;
+            account?: components["schemas"]["VirtualAccount"] | null;
+            consent?: components["schemas"]["DebitConsent"] | null;
+            rate?: components["schemas"]["FXQuote"] | null;
+            terms: string;
+            terms_version: string;
+        };
+        WalletCharge: {
+            succeeded: boolean;
+            skipped: boolean;
+            unavailable: boolean;
+            /** Format: int64 */
+            paid_minor: number;
+            message?: string;
+        };
+        InvoiceLine: {
+            unit_price_usd?: components["schemas"]["Decimal"];
+            /**
+             * Format: int64
+             * @description The price in dollars (cents) of a line converted to naira.
+             */
+            amount_usd?: number;
+            /** @enum {string} */
+            kind: "plan" | "overage" | "dedicated" | "addon" | "credit" | "proration";
+            description: string;
+            /** Format: uuid */
+            project_id?: string | null;
+            metric?: string | null;
+            quantity: components["schemas"]["Decimal"];
+            unit_price: components["schemas"]["Decimal"];
+            /**
+             * Format: int64
+             * @description Kobo.
+             */
+            amount: number;
+            /**
+             * @description What the line is for, for the per-service breakdown (V4 §12).
+             * @enum {string}
+             */
+            service?: "plan" | "database" | "data_api" | "auth" | "messages" | "storage" | "realtime" | "read_replicas";
+        };
+        ServiceSpend: {
+            /** @enum {string} */
+            service: "plan" | "database" | "data_api" | "auth" | "messages" | "storage" | "realtime" | "read_replicas";
+            /**
+             * Format: int64
+             * @description The month's charges so far, before VAT.
+             */
+            so_far_minor: number;
+            /**
+             * Format: int64
+             * @description The whole month's, projected from usage so far.
+             */
+            projected_minor: number;
+        };
+        PlanOption: {
+            /** @description The currency of the fees (USD, or NGN on a naira price book), in minor units. */
+            currency?: string;
+            id: string;
+            name: string;
+            /** Format: int64 */
+            monthly_minor: number;
+            /** Format: int64 */
+            annual_minor: number;
+        };
+        BillingAccount: {
+            /** Format: uuid */
+            org_id: string;
+            plan: string;
+            plan_name: string;
+            /** @enum {string} */
+            term: "monthly" | "annual";
+            /** Format: date-time */
+            term_ends_at?: string | null;
+            /** @enum {string} */
+            mode: "postpaid" | "prepaid";
+            price_book_version: number;
+            grandfathered: boolean;
+            legal_name?: string | null;
+            address?: string | null;
+            tin?: string | null;
+            vat_registered: boolean;
+            deducts_wht: boolean;
+            payment_terms_days: number;
+            /** Format: int64 */
+            budget_minor?: number | null;
+            /** Format: int64 */
+            spend_cap_minor?: number | null;
+            dunning_state: string;
+            /** Format: int64 */
+            forecast_minor?: number | null;
+            capped?: boolean;
+            /** @description The currency the price book is in (USD, or NGN). */
+            price_currency?: string;
+            /**
+             * Format: int64
+             * @description In the organisation's wallet, by Xenibase's books (kobo).
+             */
+            wallet_minor?: number;
+            fx?: components["schemas"]["FXQuote"] | null;
+            debit_consent?: components["schemas"]["DebitConsent"] | null;
+            /**
+             * Format: int64
+             * @description On the credit balance (prepaid funds, overpayments).
+             */
+            credit_minor?: number;
+            /**
+             * Format: int64
+             * @description Outstanding on issued invoices.
+             */
+            owed_minor?: number;
+            /** Format: date-time */
+            overdue_since?: string | null;
+            /** Format: date-time */
+            card_failing_since?: string | null;
+            /** Format: date-time */
+            zero_balance_at?: string | null;
+            /** Format: date-time */
+            grace_until?: string | null;
+            /** Format: date-time */
+            deletion_scheduled_at?: string | null;
+            /** @description The payment channels offered. */
+            channels?: {
+                wallet: boolean;
+                transfer: boolean;
+            };
+            pending_change?: {
+                to_plan: string;
+                to_term: string;
+                /** Format: date-time */
+                effective_at: string;
+            } | null;
+            /** @description The plans on the organisation's price book. */
+            plans: components["schemas"]["PlanOption"][];
+        };
+        BillingDetailsUpdate: {
+            legal_name?: string | null;
+            address?: string | null;
+            tin?: string | null;
+            vat_registered: boolean;
+            deducts_wht: boolean;
+            /** Format: int64 */
+            budget_minor?: number | null;
+            /** Format: int64 */
+            spend_cap_minor?: number | null;
+        };
+        AdminBillingUpdate: {
+            grandfathered: boolean;
+            /** @enum {string} */
+            mode: "postpaid" | "prepaid";
+            payment_terms_days: number;
+            price_book_version: number;
+        };
+        BillingContact: {
+            email: string;
+            name?: string | null;
+            /** @description Gets the status page's incident emails while the organisation is on a paid plan (default true). */
+            status_emails?: boolean;
+        };
+        LegalDocument: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "sla" | "dpa" | "order_form";
+            /** Format: uuid */
+            org_id?: string;
+            /** Format: int32 */
+            version: number;
+            title: string;
+            body_md: string;
+            /** Format: date-time */
+            published_at: string;
+        };
+        LegalDocumentList: {
+            items: components["schemas"]["LegalDocument"][];
+        };
+        OrgLegalDocument: {
+            document: components["schemas"]["LegalDocument"];
+            /** Format: date-time */
+            accepted_at?: string;
+            accepted_by?: string;
+        };
+        OrgLegal: {
+            items: components["schemas"]["OrgLegalDocument"][];
+            /** @description Some document in effect isn't accepted yet. */
+            outstanding: boolean;
+        };
+        LegalVersion: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            /** Format: int32 */
+            version: number;
+            title: string;
+            /** Format: date-time */
+            published_at: string;
+            /** Format: int64 */
+            acceptances: number;
+        };
+        LegalVersionList: {
+            items: components["schemas"]["LegalVersion"][];
+        };
+        LegalAcceptance: {
+            /** Format: uuid */
+            org_id: string;
+            org_name: string;
+            /** Format: date-time */
+            accepted_at: string;
+            accepted_by?: string;
+        };
+        LegalDocumentDetail: {
+            document: components["schemas"]["LegalDocument"];
+            acceptances: components["schemas"]["LegalAcceptance"][];
+        };
+        LegalPublish: {
+            /** @enum {string} */
+            kind: "sla" | "dpa";
+            title: string;
+            body_md: string;
+        };
+        OrderFormPublish: {
+            title: string;
+            body_md: string;
+        };
+        TierSettings: {
+            enabled: boolean;
+            disk_threshold?: number;
+            horizon_days?: number;
+            server_type?: string;
+            min_cpus?: number;
+            min_memory_gb?: number;
+            min_disk_gb?: number;
+            cluster_memory_mb?: number;
+            /** @description Edge: propose an edge node when a region's edges average above this percentage of their hosts' CPUs for an hour (70). */
+            cpu_threshold?: number;
+        };
+        CapacitySettings: {
+            auto_apply: boolean;
+            /** Format: int64 */
+            monthly_budget_minor: number;
+            budget_currency: string;
+            shared: components["schemas"]["TierSettings"];
+            dedicated: components["schemas"]["TierSettings"];
+            edge?: components["schemas"]["TierSettings"];
+            auto_rebalance: boolean;
+            rebalance_spread: number;
+            delete_empty_after_hours: number;
+        };
+        CapacityProposal: {
+            /** Format: uuid */
+            id: string;
+            region: string;
+            /** @enum {string} */
+            tier: "shared" | "dedicated" | "edge";
+            reason: string;
+            provider: string;
+            server_type: string;
+            location: string;
+            /** Format: int64 */
+            monthly_cost_minor: number;
+            currency: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "provisioning" | "done" | "rejected" | "failed" | "superseded";
+            auto: boolean;
+            /** Format: uuid */
+            node_id?: string | null;
+            node_name?: string;
+            /** Format: uuid */
+            operation_id?: string | null;
+            error?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CapacityProposalList: {
+            items: components["schemas"]["CapacityProposal"][];
+        };
+        RegionShared: {
+            region: string;
+            nodes: number;
+            total_bytes: number;
+            used_bytes: number;
+            projected_bytes: number;
+            horizon_days: number;
+            threshold: number;
+        };
+        RegionDedicated: {
+            region: string;
+            nodes: number;
+            largest: string;
+            fits_on?: string;
+            free_cpus: number;
+            /** Format: int64 */
+            free_mem_mb: number;
+        };
+        RebalanceMove: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            batch: string;
+            /** @enum {string} */
+            kind: "drain" | "rebalance";
+            /** Format: uuid */
+            project_id: string;
+            project_name: string;
+            /** Format: uuid */
+            org_id: string;
+            /** Format: uuid */
+            from_node: string;
+            from_name: string;
+            /** Format: uuid */
+            to_node?: string | null;
+            to_name?: string | null;
+            reason: string;
+            /** @enum {string} */
+            status: "proposed" | "approved" | "moving" | "done" | "failed" | "skipped" | "rejected";
+            /** Format: uuid */
+            operation_id?: string | null;
+            error?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        Capacity: {
+            provider: string;
+            can_create: boolean;
+            region: string;
+            settings: components["schemas"]["CapacitySettings"];
+            shared: components["schemas"]["RegionShared"][];
+            dedicated: components["schemas"]["RegionDedicated"][];
+            proposals: components["schemas"]["CapacityProposal"][];
+            moves: components["schemas"]["RebalanceMove"][];
+            nodes: components["schemas"]["Node"][];
+            /**
+             * Format: int64
+             * @description The nodes' monthly cost in the budget's currency (where a rate allows).
+             */
+            budget_used_minor: number;
+        };
+        RebalancePlan: {
+            /** Format: uuid */
+            batch?: string | null;
+            /** Format: int64 */
+            moves: number;
+        };
+        BatchDecision: {
+            approve: boolean;
+        };
+        DrainResult: {
+            node: components["schemas"]["Node"];
+            moves: number;
+            /**
+             * Format: uuid
+             * @description The operation moving the node's etcd member to another node (V3.1 §3.2), when it holds one.
+             */
+            etcd_replacement?: string;
+            /** @description E.g. the node holds an etcd member that couldn't be moved yet. */
+            warning?: string;
+        };
+        NodeCost: {
+            /** Format: int64 */
+            monthly_cost_minor?: number | null;
+            currency: string;
+            server_type?: string;
+            region?: string;
+            keep?: boolean;
+        };
+        ServerPrice: {
+            type: string;
+            location: string;
+            cpus: number;
+            memory_gb: number;
+            disk_gb: number;
+            /** Format: int64 */
+            monthly_minor: number;
+            currency: string;
+        };
+        ServerPriceList: {
+            provider: string;
+            items: components["schemas"]["ServerPrice"][];
+        };
+        CategoryCost: {
+            category: string;
+            region: string;
+            native_minor: {
+                [key: string]: number;
+            };
+            /** Format: int64 */
+            ngn_minor: number;
+            /** Format: int64 */
+            ngn_booked_minor: number;
+        };
+        OrgMargin: {
+            /** Format: uuid */
+            org_id: string;
+            name: string;
+            plan: string;
+            /** Format: int64 */
+            revenue_minor: number;
+            /** Format: int64 */
+            cost_minor: number;
+            cost_native_minor: {
+                [key: string]: number;
+            };
+            /** Format: int64 */
+            margin_minor: number;
+            margin_pct?: number;
+        };
+        PlanMargin: {
+            plan: string;
+            orgs: number;
+            /** Format: int64 */
+            revenue_minor: number;
+            /** Format: int64 */
+            cost_minor: number;
+            /** Format: int64 */
+            margin_minor: number;
+            margin_pct?: number;
+        };
+        UnitCost: {
+            unit: string;
+            quantity: number;
+            currency: string;
+            per_unit_minor: number;
+            per_unit_ngn_minor: number;
+        };
+        Margins: {
+            month: string;
+            days: number;
+            rates: {
+                [key: string]: number;
+            };
+            missing_rates?: string[];
+            categories: components["schemas"]["CategoryCost"][];
+            plans: components["schemas"]["PlanMargin"][];
+            orgs: components["schemas"]["OrgMargin"][];
+            units: components["schemas"]["UnitCost"][];
+            /** @description Margins per service (V4.1 §11). */
+            services?: components["schemas"]["ServiceMargin"][];
+            /** Format: int64 */
+            revenue_minor: number;
+            /** Format: int64 */
+            cost_minor: number;
+            /** Format: int64 */
+            cost_booked_minor: number;
+            /** Format: int64 */
+            unallocated_minor: number;
+            /** Format: int64 */
+            free_tier_cost_minor: number;
+            /** Format: int64 */
+            margin_minor: number;
+            /** Format: int64 */
+            fx_erosion_minor: number;
+            margin_pct?: number;
+        };
+        ServiceMargin: {
+            /**
+             * @description database: plans, hosting, backups and replicas; api: the data API, auth and realtime (the edges); files: storage; messages: platform SMS and WhatsApp.
+             * @enum {string}
+             */
+            service: "database" | "api" | "files" | "messages";
+            /** Format: int64 */
+            revenue_minor: number;
+            /** Format: int64 */
+            cost_minor: number;
+            /** Format: int64 */
+            margin_minor: number;
+            margin_pct?: number;
+        };
+        AttributeRequest: {
+            /** Format: date */
+            from: string;
+            /**
+             * Format: date
+             * @description Inclusive.
+             */
+            to: string;
+        };
+        AttributeResult: {
+            days: number;
+        };
+        Overhead: {
+            name: string;
+            /** Format: int64 */
+            monthly_minor: number;
+            currency: string;
+        };
+        CostSettings: {
+            currency: string;
+            object_storage_gb_month_minor: number;
+            egress_gb_minor: number;
+            floating_ips: number;
+            /** Format: int64 */
+            floating_ip_monthly_minor: number;
+            overheads: components["schemas"]["Overhead"][];
+            /** @description The share of shared nodes' cost moved to the edge category, where xenibase-edge runs on them (0 to 100, default 0). */
+            edge_share_percent?: number;
+        };
+        FXRate: {
+            /** Format: int64 */
+            id: number;
+            currency: string;
+            /** Format: double */
+            ngn_per_unit: number;
+            /** Format: date-time */
+            effective_at: string;
+            source: string;
+        };
+        FXRateList: {
+            current: components["schemas"]["FXRate"][];
+            history: components["schemas"]["FXRate"][];
+        };
+        FXRateInput: {
+            currency: string;
+            /** Format: double */
+            ngn_per_unit: number;
+            /** Format: date-time */
+            effective_at?: string;
+        };
+        PlanChangeRequest: {
+            plan: string;
+            /** @enum {string} */
+            term?: "monthly" | "annual";
+            /** @description Apply a downgrade now, with a credit for the unused part. */
+            immediately?: boolean;
+            dry_run?: boolean;
+            /** @description Accept the SLA, DPA and order form in effect on the organisation's behalf (owners). */
+            accept_legal?: boolean;
+        };
+        PlanChange: {
+            from_plan: string;
+            from_term: string;
+            to_plan: string;
+            to_term: string;
+            /** Format: date-time */
+            effective_at: string;
+            upgrade: boolean;
+            /** @description In effect now; otherwise scheduled for effective_at. */
+            applied: boolean;
+            /** Format: date-time */
+            term_ends_at?: string | null;
+            /** @description Lines on the next invoice (before VAT). */
+            lines: components["schemas"]["InvoiceLine"][];
+            /** Format: int64 */
+            total_minor: number;
+            currency?: string;
+            /** Format: int64 */
+            total_usd_minor?: number | null;
+            fx?: components["schemas"]["FXQuote"] | null;
+        };
+        Invoice: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            org_id: string;
+            org_name?: string | null;
+            number?: string | null;
+            /** Format: date */
+            period_start: string;
+            /** Format: date */
+            period_end: string;
+            /** @enum {string} */
+            status: "draft" | "issued" | "paid" | "paid_wht_pending" | "partially_paid" | "void";
+            held: boolean;
+            hold_reason?: string | null;
+            /** Format: int64 */
+            subtotal_minor: number;
+            /** Format: int64 */
+            vat_minor: number;
+            /** Format: int64 */
+            total_minor: number;
+            /** Format: int64 */
+            wht_expected_minor: number;
+            /**
+             * Format: int64
+             * @description The dollar price (cents) the naira amounts were converted from.
+             */
+            usd_subtotal_minor?: number | null;
+            /** Format: int64 */
+            usd_vat_minor?: number | null;
+            /** Format: int64 */
+            usd_total_minor?: number | null;
+            /** @description The rate they were converted at. */
+            fx?: components["schemas"]["FXQuote"] | null;
+            /**
+             * Format: int64
+             * @description Kobo settled against this invoice so far (payments and credit applied).
+             */
+            paid_minor: number;
+            /**
+             * Format: int64
+             * @description Kobo withheld as WHT by the customer, awaiting a certificate.
+             */
+            wht_deducted_minor: number;
+            /** Format: date-time */
+            wht_evidenced_at?: string | null;
+            vat_rate: components["schemas"]["Decimal"];
+            price_book_version: number;
+            /** Format: date-time */
+            issued_at?: string | null;
+            /** Format: date-time */
+            due_at?: string | null;
+            /** Format: date-time */
+            paid_at?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        InvoiceList: {
+            items: components["schemas"]["Invoice"][];
+        };
+        CreditNote: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            invoice_id: string;
+            number: string;
+            /** Format: int64 */
+            amount_minor: number;
+            /** Format: int64 */
+            vat_minor: number;
+            reason: string;
+            /** Format: date-time */
+            issued_at: string;
+        };
+        InvoiceDetail: {
+            invoice: components["schemas"]["Invoice"];
+            lines: components["schemas"]["InvoiceLine"][];
+            credit_notes: components["schemas"]["CreditNote"][];
+        };
+        LedgerCheck: {
+            balanced: boolean;
+            transactions: number;
+            /** Format: int64 */
+            debits_minor: number;
+            /** Format: int64 */
+            credits_minor: number;
+            problems: {
+                /** Format: uuid */
+                txn_id: string;
+                /** Format: int64 */
+                debits_minor: number;
+                /** Format: int64 */
+                credits_minor: number;
+                /**
+                 * @description Set for a ledger that disagrees with what it records (txn_id is then empty): invoice_ledger,
+                 *     invoice_arithmetic, invoice_allocations, invoice_outstanding, credit_note_ledger, payment_ledger,
+                 *     receivable, account_sign.
+                 */
+                kind?: string;
+                /** @description The invoice or credit note number, payment reference, or organisation. */
+                ref?: string;
+                detail?: string;
+            }[];
+            /** @description Each account's balance (debits minus credits) across organisations. */
+            accounts: {
+                account: string;
+                /** Format: int64 */
+                balance_minor: number;
+            }[];
+        };
+        BillingForecast: {
+            /** @description YYYY-MM. */
+            month: string;
+            /**
+             * Format: int64
+             * @description The month's projected cost before VAT.
+             */
+            spend_minor: number;
+            /**
+             * Format: int64
+             * @description Projected usage charges (overage, dedicated, add-ons); the spend cap applies to these.
+             */
+            usage_minor: number;
+            elapsed: components["schemas"]["Decimal"];
+            /** Format: int64 */
+            budget_minor?: number | null;
+            /** Format: int64 */
+            spend_cap_minor?: number | null;
+            capped: boolean;
+            /** @description The month's lines so far (the next invoice, still changing). */
+            so_far: components["schemas"]["InvoiceLine"][];
+            /** @description Charges per service so far and projected for the month (V4 §12). */
+            by_service: components["schemas"]["ServiceSpend"][];
+        };
+        VirtualAccount: {
+            provider: string;
+            account_number: string;
+            bank_name: string;
+            account_name: string;
+        };
+        Payment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            org_id: string;
+            org_name?: string | null;
+            provider: string;
+            channel: string;
+            provider_ref: string;
+            /** Format: int64 */
+            amount_minor: number;
+            /** Format: int64 */
+            fee_minor: number;
+            /** Format: int64 */
+            refunded_minor: number;
+            note?: string | null;
+            /** Format: date-time */
+            received_at: string;
+        };
+        PaymentList: {
+            items: components["schemas"]["Payment"][];
+        };
+        PaymentEvent: {
+            /** Format: int64 */
+            id: number;
+            provider: string;
+            provider_event_id: string;
+            kind: string;
+            /** Format: uuid */
+            org_id?: string | null;
+            provider_ref?: string | null;
+            /** Format: int64 */
+            amount_minor?: number | null;
+            outcome?: string | null;
+            error?: string | null;
+            /** Format: date-time */
+            received_at: string;
+        };
+        OutstandingWht: {
+            /** Format: uuid */
+            invoice_id: string;
+            number?: string | null;
+            /** Format: uuid */
+            org_id: string;
+            org_name: string;
+            tin?: string | null;
+            /** Format: int64 */
+            wht_minor: number;
+            /** Format: date-time */
+            paid_at?: string | null;
+            age_days: number;
+        };
+        Reconciliation: {
+            provider: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            matched: number;
+            /** Format: int64 */
+            gross_minor: number;
+            /** Format: int64 */
+            fees_minor: number;
+            error?: string;
+            /** Format: date-time */
+            ran_at: string;
+            differences: {
+                /** @enum {string} */
+                kind: "missing_in_xenibase" | "missing_at_provider" | "amount" | "fee";
+                provider_ref: string;
+                /** Format: int64 */
+                provider_minor: number;
+                /** Format: int64 */
+                xenibase_minor: number;
+                note?: string;
+            }[];
         };
         OrgQuotas: {
             plan: string;
@@ -5247,6 +10626,199 @@ export interface components {
             limit_bytes?: number | null;
             tables: components["schemas"]["TableFootprint"][];
         };
+        InsightQuery: {
+            /** @description pg_stat_statements' queryid (a 64-bit integer, as a string). */
+            query_id: string;
+            /** @description The normalised text, with $1… for literals. */
+            query: string;
+            has_example: boolean;
+            /** Format: int64 */
+            calls: number;
+            /** Format: double */
+            total_ms: number;
+            /** Format: double */
+            mean_ms: number;
+            /** Format: double */
+            max_ms: number;
+            /** Format: int64 */
+            rows: number;
+            /**
+             * Format: double
+             * @description Share of blocks read from shared buffers.
+             */
+            hit_ratio: number;
+            /**
+             * Format: double
+             * @description Share of the project's total query time.
+             */
+            share: number;
+        };
+        InsightQueryList: {
+            range: string;
+            items: components["schemas"]["InsightQuery"][];
+        };
+        InsightPoint: {
+            /** Format: date-time */
+            ts: string;
+            /** Format: int64 */
+            calls: number;
+            /** Format: double */
+            total_ms: number;
+            /** Format: double */
+            mean_ms: number;
+            /** Format: double */
+            max_ms: number;
+            /** Format: int64 */
+            rows: number;
+        };
+        InsightQueryDetail: {
+            query: components["schemas"]["InsightQuery"];
+            /** @description The latest statement seen with its literals. */
+            example?: string | null;
+            /** Format: date-time */
+            example_at?: string | null;
+            /** Format: date-time */
+            first_seen: string;
+            /** Format: date-time */
+            last_seen: string;
+            step_seconds: number;
+            series: components["schemas"]["InsightPoint"][];
+        };
+        InsightExplainRequest: {
+            query_id: string;
+            generic?: boolean;
+        };
+        InsightPlan: {
+            generic: boolean;
+            statement: string;
+            /** @description EXPLAIN (FORMAT JSON)'s output. */
+            plan: unknown;
+            /** Format: double */
+            total_cost: number;
+            indexes: string[];
+            seq_scans: string[];
+        };
+        SlowQuery: {
+            query_id?: string | null;
+            query: string;
+            /** Format: double */
+            duration_ms: number;
+            /**
+             * @description running - seen running past the threshold; snapshot - a call that slow between two snapshots; reaper - cancelled by the shared tier's hard limit.
+             * @enum {string}
+             */
+            source: "running" | "snapshot" | "reaper";
+            role: string;
+            /** Format: date-time */
+            seen_at: string;
+        };
+        SlowQueryList: {
+            threshold_ms: number;
+            items: components["schemas"]["SlowQuery"][];
+        };
+        IndexEstimate: {
+            /** Format: double */
+            cost_before: number;
+            /** Format: double */
+            cost_after: number;
+            /** Format: double */
+            improvement: number;
+            uses_index: boolean;
+        };
+        IndexSuggestion: {
+            schema: string;
+            table: string;
+            columns: string[];
+            reasons: ("seq_scan_filter" | "unindexed_foreign_key")[];
+            query_ids: string[];
+            statement: string;
+            change: components["schemas"]["SchemaChange"];
+            estimate?: components["schemas"]["IndexEstimate"] | null;
+            /** Format: double */
+            table_rows: number;
+            /** Format: int64 */
+            seq_scans: number;
+        };
+        IndexInfo: {
+            schema: string;
+            table: string;
+            name: string;
+            definition: string;
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            scans: number;
+        };
+        DuplicateIndex: components["schemas"]["IndexInfo"] & {
+            of: string;
+            exact: boolean;
+        };
+        TableScans: {
+            schema: string;
+            table: string;
+            /** Format: double */
+            rows: number;
+            /** Format: int64 */
+            seq_scans: number;
+            /** Format: int64 */
+            seq_tup_read: number;
+            /** Format: int64 */
+            idx_scans: number;
+        };
+        IndexReport: {
+            suggestions: components["schemas"]["IndexSuggestion"][];
+            unused: components["schemas"]["IndexInfo"][];
+            duplicates: components["schemas"]["DuplicateIndex"][];
+            heavy_seq_scans: components["schemas"]["TableScans"][];
+            /** @enum {string} */
+            hypopg: "installed" | "available" | "unavailable";
+            /** Format: date-time */
+            stats_since?: string | null;
+        };
+        TableBloat: {
+            schema: string;
+            table: string;
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            expected_bytes: number;
+            /** Format: int64 */
+            bloat_bytes: number;
+            /** Format: double */
+            bloat_ratio: number;
+            /** Format: int64 */
+            live_rows: number;
+            /** Format: int64 */
+            dead_rows: number;
+            /** Format: date-time */
+            last_vacuum?: string | null;
+            /** Format: date-time */
+            last_autovacuum?: string | null;
+        };
+        BloatList: {
+            items: components["schemas"]["TableBloat"][];
+        };
+        DBSession: {
+            pid: number;
+            role: string;
+            state: string;
+            wait_event: string;
+            query: string;
+            /** Format: int64 */
+            running_ms: number;
+            /** Format: int64 */
+            in_transaction_ms: number;
+            /** @description One of Xenibase's own sessions. */
+            platform: boolean;
+        };
+        LockBlock: {
+            blocked: components["schemas"]["DBSession"];
+            lock: string;
+            blockers: components["schemas"]["DBSession"][];
+        };
+        LockList: {
+            items: components["schemas"]["LockBlock"][];
+        };
         ReclaimSpaceRequest: {
             schema: string;
             table: string;
@@ -5363,6 +10935,8 @@ export interface components {
         };
     };
     parameters: {
+        InsightRange: "1h" | "24h" | "7d" | "30d";
+        InsightQueryID: string;
         SavedQueryID: string;
         SchemaName: string;
         TableName: string;
@@ -5374,6 +10948,10 @@ export interface components {
         TokenID: string;
         RequestID: string;
         OrgID: string;
+        TicketID: string;
+        PaymentID: string;
+        InvoiceID: string;
+        PriceBookVersion: number;
         UserID: string;
         InvitationID: string;
         /** @description The organisation to list; your personal organisation when omitted. */
@@ -5389,9 +10967,14 @@ export interface components {
         /** @description Metrics to return; all when omitted. */
         MetricNames: string[];
         BackupID: string;
+        IncidentID: string;
         NodeID: string;
         ProjectID: string;
+        ReplicaID: string;
         OperationID: string;
+        BucketID: string;
+        /** @description The file's path in the bucket */
+        ObjectPath: string;
     };
     requestBodies: never;
     headers: never;
@@ -5466,6 +11049,27 @@ export interface operations {
                     "application/json": components["schemas"]["Version"];
                 };
             };
+        };
+    };
+    getPricing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current prices. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pricing"];
+                };
+            };
+            default: components["responses"]["Error"];
         };
     };
     postAuthLogin: {
@@ -6586,6 +12190,412 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    moveProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Move queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listProjectMoves: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Moves. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoveList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    upgradePreflight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpgradeRequest"];
+            };
+        };
+        responses: {
+            /** @description The checks. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpgradePreflight"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getProjectHA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description HA state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HAStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    enableProjectHA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HAEnableRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    disableProjectHA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateProjectHA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HAUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HAStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    resumeProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    moveProjectEtcd: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    migrateSupabase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupabaseMigrationRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listProjectReplicas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The replicas. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplicaList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createProjectReplica: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplicaCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteProjectReplica: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                replica_id: components["parameters"]["ReplicaID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    detachProjectReplica: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                replica_id: components["parameters"]["ReplicaID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplicaDetachRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCredentials"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    switchoverProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SwitchoverRequest"];
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    upgradeProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpgradeRequest"];
+            };
+        };
+        responses: {
+            /** @description Upgrade queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     demotePreflight: {
         parameters: {
             query?: never;
@@ -6662,6 +12672,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstanceState"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateProjectInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstanceUpdate"];
+            };
+        };
+        responses: {
+            /** @description The instance, with the queued resize or move if any. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceUpdated"];
                 };
             };
             default: components["responses"]["Error"];
@@ -6972,7 +13009,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The rows; X-PGDock-Truncated is true when there were more. */
+            /** @description The rows; X-Xenibase-Truncated is true when there were more. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -7590,6 +13627,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AlertList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listIncidents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Incidents and the status page connection. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createIncident: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateIncidentRequest"];
+            };
+        };
+        responses: {
+            /** @description The incident. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Incident"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getIncident: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IncidentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The incident. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Incident"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateIncident: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IncidentID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateIncidentRequest"];
+            };
+        };
+        responses: {
+            /** @description The incident. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Incident"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    postIncidentUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["IncidentID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncidentUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description The incident with the new update. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Incident"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPoolerHosts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The arbiter's latest check and events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PoolerHosts"];
                 };
             };
             default: components["responses"]["Error"];
@@ -8803,6 +14984,29 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listOrgIncidents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matching incidents, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgIncidentList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listOrgMembers: {
         parameters: {
             query?: never;
@@ -9162,6 +15366,1150 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PersonalCredentials"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getBackendServices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The project's backend services, or enabled false with nothing else when they were never turned on. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendServices"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    enableBackendServices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Enabling; the keys are live once the operation succeeds. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendServicesEnabled"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    disableBackendServices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disabling. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateBackendServices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackendServicesUpdate"];
+            };
+        };
+        responses: {
+            /** @description Updated; the edge applies it within seconds. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendServices"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createAPIKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApiKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description The key. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedApiKey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeAPIKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                key_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAPIRequestLogs: {
+        parameters: {
+            query?: {
+                /** @description A log id from the previous page. */
+                before?: number;
+                /** @description Follow from this log id. */
+                after?: number;
+                /** @description With after, seconds to wait for a new log (at most 25). */
+                wait?: number;
+                /** @description A status (404) or class (5xx, 4xx). */
+                status?: string;
+                /** @description Only requests whose path starts with this. */
+                path?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiRequestLogList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getServicesCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The catalog. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicesCatalog"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getServicesUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The month so far. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServicesUsage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getServiceTypes: {
+        parameters: {
+            query: {
+                lang: "ts" | "dart" | "go";
+                /** @description Go's package name (default pgdtypes). */
+                package?: string;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The source. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSecurityAdvisor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Findings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdvisorFindings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    exploreDataAPI: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExploreRequest"];
+            };
+        };
+        responses: {
+            /** @description The data API's response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExploreResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    edgeConfig: {
+        parameters: {
+            query?: {
+                since?: number;
+                /** @description Seconds to wait for a change (at most 30). */
+                wait?: number;
+                region?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the feed (see internal/edgeapi). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    edgeReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Recorded (or already recorded). */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    edgeWake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Resuming. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    edgeAuthMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    edgeAuthHook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description The decision (before_signup) or queued. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    edgeStorageEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Done. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getProjectRealtime: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RealtimeOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setRealtimeTable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                schema: string;
+                table: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enabled: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setRealtimePersistedTopics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    topics: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getProjectFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createStorageBucket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageBucketInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageBucket"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteStorageBucket: {
+        parameters: {
+            query?: {
+                empty?: boolean;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                bucket: components["parameters"]["BucketID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateStorageBucket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                bucket: components["parameters"]["BucketID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageBucketUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageBucket"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listStorageObjects: {
+        parameters: {
+            query?: {
+                prefix?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                bucket: components["parameters"]["BucketID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageObjectList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteStorageObjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                bucket: components["parameters"]["BucketID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    paths: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        deleted: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadStorageObject: {
+        parameters: {
+            query: {
+                /** @description The file's path in the bucket */
+                path: components["parameters"]["ObjectPath"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                bucket: components["parameters"]["BucketID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    uploadStorageObject: {
+        parameters: {
+            query: {
+                /** @description The file's path in the bucket */
+                path: components["parameters"]["ObjectPath"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                bucket: components["parameters"]["BucketID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageObject"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    signStorageObject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                bucket: components["parameters"]["BucketID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    path: string;
+                    /** @description Seconds (1 hour by default, at most 7 days) */
+                    expires_in?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        signed_url: string;
+                        /** Format: date-time */
+                        expires_at: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAuthHookDeliveries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthHookDeliveryList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAuthConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthConfig"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateAuthConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthConfigUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthConfig"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testAuthSMTP: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthSMTPTest"];
+            };
+        };
+        responses: {
+            /** @description Sent. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewAuthTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthTemplatePreview"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthEmailTemplate"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSigningKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SigningKeyList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rotateSigningKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SigningKeyList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAuthUsers: {
+        parameters: {
+            query?: {
+                q?: string;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthUserList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createAuthUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthUserCreate"];
+            };
+        };
+        responses: {
+            /** @description Added. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthUser"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAuthUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthUserDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteAuthUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateAuthUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthUserUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthUser"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    signOutAuthUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSignOutResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAuthAudit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthAuditList"];
                 };
             };
             default: components["responses"]["Error"];
@@ -9535,6 +16883,555 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    getOrgBilling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The billing account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingAccount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateOrgBilling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BillingDetailsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The billing account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingAccount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    changeOrgPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description The change and its prorated lines. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanChange"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listBillingContacts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contacts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["BillingContact"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    addBillingContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BillingContact"];
+            };
+        };
+        responses: {
+            /** @description Added. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingContact"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeBillingContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                email: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateBillingContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                email: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    status_emails: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingContact"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrgInvoices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invoices, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The invoice. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgInvoicePdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The PDF. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgForecast: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The forecast. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingForecast"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    estimateOrgCost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cpus?: number;
+                    /** Format: int64 */
+                    memory_mb?: number;
+                    /** Format: int64 */
+                    disk_gb?: number;
+                    ha?: boolean;
+                    synchronous?: boolean;
+                    /** @description Price only what enabling HA adds to a running instance. */
+                    standby_only?: boolean;
+                    /**
+                     * @description A dedicated instance's point-in-time recovery window (14 and 30 are add-ons).
+                     * @enum {integer}
+                     */
+                    pitr_days?: 7 | 14 | 30;
+                    backup_retention?: components["schemas"]["BackupRetention"];
+                    /** @description The region, for its premium if the price book has one. */
+                    region?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The estimate (before VAT). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        hourly_minor: number;
+                        /**
+                         * Format: int64
+                         * @description For 730 hours.
+                         */
+                        monthly_minor: number;
+                        lines: components["schemas"]["InvoiceLine"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    orgVirtualAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VirtualAccount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wallet. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wallet"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createOrgWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WalletSetup"];
+            };
+        };
+        responses: {
+            /** @description The wallet. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wallet"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    acceptDebitTerms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DebitConsentRequest"];
+            };
+        };
+        responses: {
+            /** @description The consent as recorded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DebitConsent"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    withdrawDebitTerms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Withdrawn. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    payInvoiceFromWallet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What the debit did. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletCharge"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrgPayments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Payments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPaymentReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                payment_id: components["parameters"]["PaymentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The PDF. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    uploadWhtCertificate: {
+        parameters: {
+            query: {
+                filename: string;
+            };
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Stored; the WHT is evidenced. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getOrgUsage: {
         parameters: {
             query?: {
@@ -9704,6 +17601,180 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listInsightQueries: {
+        parameters: {
+            query?: {
+                range?: components["parameters"]["InsightRange"];
+                sort?: "total" | "mean" | "calls" | "rows";
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Most expensive first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightQueryList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getInsightQuery: {
+        parameters: {
+            query?: {
+                range?: components["parameters"]["InsightRange"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+                query_id: components["parameters"]["InsightQueryID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The query. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightQueryDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    explainInsightQuery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InsightExplainRequest"];
+            };
+        };
+        responses: {
+            /** @description The plan. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightPlan"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSlowQueries: {
+        parameters: {
+            query?: {
+                range?: components["parameters"]["InsightRange"];
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlowQueryList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getInsightIndexes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexReport"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getInsightBloat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Most bloated first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BloatList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getInsightLocks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Blocked sessions, longest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LockList"];
                 };
             };
             default: components["responses"]["Error"];
@@ -10009,7 +18080,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["WebhookRotateSecret"];
+            };
+        };
         responses: {
             /** @description The new secret. */
             200: {
@@ -10524,6 +18599,2375 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformUsage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getBillingSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putBillingSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BillingSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listPriceBooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Price books. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        current_version: number;
+                        items: components["schemas"]["PriceBook"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createPriceBook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceBookInput"];
+            };
+        };
+        responses: {
+            /** @description The draft. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceBook"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPriceBook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: components["parameters"]["PriceBookVersion"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The price book. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceBook"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePriceBook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: components["parameters"]["PriceBookVersion"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceBookInput"];
+            };
+        };
+        responses: {
+            /** @description The draft. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceBook"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deletePriceBook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: components["parameters"]["PriceBookVersion"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    publishPriceBook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: components["parameters"]["PriceBookVersion"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        price_book: components["schemas"]["PriceBook"];
+                        /** @description Organisations emailed about the change. */
+                        notified: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminGetOrgBilling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The billing account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingAccount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminUpdateOrgBilling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminBillingUpdate"];
+            };
+        };
+        responses: {
+            /** @description The billing account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingAccount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminListInvoices: {
+        parameters: {
+            query?: {
+                status?: "draft" | "issued" | "paid" | "paid_wht_pending" | "partially_paid" | "void";
+                /** @description The usage month, YYYY-MM. */
+                period?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invoices. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminDraftInvoices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    period: string;
+                    /** Format: uuid */
+                    org_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description How many drafts there are. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        drafts: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminGetInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The invoice. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminGetInvoicePdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The PDF. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminHoldInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    held: boolean;
+                    reason?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description The invoice. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminIssueInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The issued invoice. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invoice"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminCreateCreditNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: int64 */
+                    amount_minor: number;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The credit note. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditNote"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminLedgerCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The check. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LedgerCheck"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewPriceBook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: components["parameters"]["PriceBookVersion"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description The usage month (default the last complete one). */
+                    period?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Estimates (before VAT). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        period: string;
+                        /** Format: int64 */
+                        current_total_minor: number;
+                        /** Format: int64 */
+                        projected_total_minor: number;
+                        items: {
+                            /** Format: uuid */
+                            org_id: string;
+                            org_name: string;
+                            plan: string;
+                            /** Format: int64 */
+                            current_minor: number;
+                            /** Format: int64 */
+                            projected_minor: number;
+                        }[];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    paymentWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "iswallet";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Accepted (including duplicates and events Xenibase doesn't act on). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The signature didn't verify. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOrgTickets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tickets, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    openOrgTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketOpen"];
+            };
+        };
+        responses: {
+            /** @description Opened. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                ticket_id: components["parameters"]["TicketID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ticket. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    replyOrgTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                ticket_id: components["parameters"]["TicketID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketReply"];
+            };
+        };
+        responses: {
+            /** @description Added. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSupportPhones: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Numbers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description WhatsApp support is set up on this server and the plan includes it. */
+                        available: boolean;
+                        items: components["schemas"]["SupportPhone"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    addSupportPhone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    phone: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Registered. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportPhone"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeSupportPhone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                phone: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    supportInboundEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Threaded into a ticket (or ignored as a duplicate). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    supportWhatsAppVerify: {
+        parameters: {
+            query?: {
+                "hub.mode"?: string;
+                "hub.verify_token"?: string;
+                "hub.challenge"?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The challenge, echoed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wrong verify token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    supportWhatsAppWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Accepted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The signature didn't verify. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminListTickets: {
+        parameters: {
+            query?: {
+                status?: "open" | "pending" | "solved" | "closed";
+                assignee?: string;
+                org_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Open tickets first, by response target. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        open: number;
+                        /** Format: int64 */
+                        pending: number;
+                        /** Format: int64 */
+                        overdue: number;
+                        items: components["schemas"]["Ticket"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminGetTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: components["parameters"]["TicketID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The ticket. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminUpdateTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: components["parameters"]["TicketID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketUpdate"];
+            };
+        };
+        responses: {
+            /** @description The ticket. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminReplyTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: components["parameters"]["TicketID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketReply"];
+            };
+        };
+        responses: {
+            /** @description Added. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminSupportStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Staff. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            email: string;
+                            name?: string | null;
+                            role: string;
+                        }[];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getLegal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The documents in effect. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getOrgLegal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The documents. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgLegal"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    acceptOrgLegal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The documents, with the acceptance recorded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgLegal"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminListLegal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Versions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalVersionList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminPublishLegal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalPublish"];
+            };
+        };
+        responses: {
+            /** @description Published. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocument"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminGetLegal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The document. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminPublishOrderForm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderFormPublish"];
+            };
+        };
+        responses: {
+            /** @description Published. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocument"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminCapacity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The capacity page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Capacity"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listRegions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active regions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listPgVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The majors. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["PgVersionInfo"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePgVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                major: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PgVersionUpdate"];
+            };
+        };
+        responses: {
+            /** @description The major. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PgVersionInfo"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAdminRegions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Regions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRegionList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putAdminRegion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRegionRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRegion"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAdminRegionReadiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The checks. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionReadiness"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAdminRegionOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The region. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    moveAllToRegionEtcd: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                region_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setProjectResidency: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectResidencyRequest"];
+            };
+        };
+        responses: {
+            /** @description Changed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectResidencyResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putCapacitySettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CapacitySettings"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapacitySettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    evaluateCapacity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The proposals made. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapacityProposalList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    approveCapacityProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The proposal, provisioning. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapacityProposal"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rejectCapacityProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rejected. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapacityProposal"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    planRebalance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The batch, if any moves are needed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RebalancePlan"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    decideRebalanceBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchDecision"];
+            };
+        };
+        responses: {
+            /** @description The moves decided. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RebalancePlan"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cloudCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The catalog. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerPriceList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    drainNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["NodeID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Draining. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DrainResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    stopDrain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["NodeID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Back in service. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Node"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setNodeCost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["NodeID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NodeCost"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Node"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminCosts: {
+        parameters: {
+            query?: {
+                month?: string;
+                format?: "json" | "csv";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The month. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Margins"];
+                    "text/csv": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    attributeCosts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttributeRequest"];
+            };
+        };
+        responses: {
+            /** @description The days attributed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttributeResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getCostSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putCostSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CostSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listFXRates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rates. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXRateList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setFXRate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FXRateInput"];
+            };
+        };
+        responses: {
+            /** @description Recorded. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXRate"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminRevenue: {
+        parameters: {
+            query?: {
+                months?: number;
+                format?: "json" | "csv";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dashboard (CSV for the accountant with format=csv). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Revenue"];
+                    "text/csv": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminListPayments: {
+        parameters: {
+            query?: {
+                provider?: string;
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Payments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminRecordPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    org_id: string;
+                    /** Format: int64 */
+                    amount_minor: number;
+                    reference: string;
+                    note?: string;
+                    /** Format: uuid */
+                    invoice_id?: string;
+                    topup?: boolean;
+                    /** Format: date-time */
+                    received_at?: string;
+                    /** @description From POST /api/v1/admin/billing/documents. */
+                    proof_key?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The payment. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminUploadBillingDocument: {
+        parameters: {
+            query: {
+                org_id: string;
+                filename: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Stored. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        key: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminRefundPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: components["parameters"]["PaymentID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: int64 */
+                    amount_minor: number;
+                    reason: string;
+                    /** @description When the organisation's credit doesn't cover the refund, take the rest back off the invoices this payment settled, which are owed again. */
+                    reopen_invoices?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The refund (pending until the provider confirms). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        status: string;
+                        /** Format: int64 */
+                        amount_minor: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminListPaymentEvents: {
+        parameters: {
+            query?: {
+                outcome?: "posted" | "duplicate" | "unmatched" | "rejected" | "failed" | "ignored";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["PaymentEvent"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminAttributePaymentEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    org_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The payment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminOutstandingWht: {
+        parameters: {
+            query?: {
+                format?: "json" | "csv";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Outstanding WHT. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["OutstandingWht"][];
+                    };
+                    "text/csv": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminUploadWhtCertificate: {
+        parameters: {
+            query: {
+                filename: string;
+            };
+            header?: never;
+            path: {
+                invoice_id: components["parameters"]["InvoiceID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Stored; the WHT is evidenced. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminLastReconciliation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Per provider. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Reconciliation"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminRunReconciliation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    from?: string;
+                    /** Format: date-time */
+                    to?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Per provider. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Reconciliation"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adminSetGrace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org: components["parameters"]["OrgID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    until?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Set. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMaintenanceAnnouncements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Announcements, newest window first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceAnnouncementList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    announceMaintenance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaintenanceAnnouncementRequest"];
+            };
+        };
+        responses: {
+            /** @description Announced. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceAnnouncement"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewMaintenanceAnnouncement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaintenancePreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description The email. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenancePreview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    confirmMaintenanceDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Announced. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceAnnouncement"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    discardMaintenanceDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Discarded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceAnnouncement"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelMaintenance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancelled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceAnnouncement"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMaintenance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Maintenance state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putMaintenanceWindow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaintenanceWindow"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceWindow"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    minorUpgradeInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instance_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The upgrade ran; error is set if it failed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinorUpgrade"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listFailureDomainProblems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The groups that break the rule; empty when none do. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FailureDomainProblems"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getEtcdCluster: {
+        parameters: {
+            query?: {
+                /** @description The region (default the home region). */
+                region?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The cluster. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EtcdCluster"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setupEtcdCluster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EtcdSetupRequest"];
+            };
+        };
+        responses: {
+            /** @description The setup operation. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    replaceEtcdMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EtcdReplaceRequest"];
+            };
+        };
+        responses: {
+            /** @description The replacement operation. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
                 };
             };
             default: components["responses"]["Error"];

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/store/storetest"
 )
 
 // clock advances 30s per TOTP use, so consecutive logins get fresh steps.

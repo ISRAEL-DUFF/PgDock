@@ -88,10 +88,10 @@ function ProjectPicker({ org, value, onChange }: { org: string; value: string[] 
 export function TokenSecret({ created }: { created: CreatedToken }) {
   return (
     <div className="flex flex-col gap-3" data-testid="token-created">
-      <Alert tone="warn">Copy the token now: PGDock shows it once and keeps only a hash.</Alert>
+      <Alert tone="warn">Copy the token now: Xenibase shows it once and keeps only a hash.</Alert>
       <CopyField label={`Token “${created.token.name}”`} value={created.secret} secret testId="token-secret" />
       <p className="text-sm text-muted">Use it from CI or scripts:</p>
-      <CodeBlock code={`export PGDOCK_SERVER=${window.location.origin}\nexport PGDOCK_TOKEN=<the token>\npgdock projects list`} />
+      <CodeBlock code={`export XENIBASE_SERVER=${window.location.origin}\nexport XENIBASE_TOKEN=<the token>\nxenibase projects list`} />
     </div>
   );
 }
@@ -134,7 +134,7 @@ function NewTokenModal({ open, onClose }: { open: boolean; onClose: () => void }
   return (
     <SidePanel
       title="New API token"
-      description="For the pgdock CLI, CI jobs and scripts."
+      description="For the xenibase CLI, CI jobs and scripts."
       open={open}
       onOpenChange={(o) => !o && close()}
       footer={
@@ -254,8 +254,8 @@ export function TokensCard() {
     >
       <div id="tokens" className="flex flex-col gap-3">
         <p className="text-sm text-muted">
-          For the <span className="font-mono">pgdock</span> CLI, CI jobs and scripts. A token acts in one organisation, never with more than you can do, and
-          stops when you leave it. <span className="font-mono">pgdock login</span> creates one for you.
+          For the <span className="font-mono">xenibase</span> CLI, CI jobs and scripts. A token acts in one organisation, never with more than you can do, and
+          stops when you leave it. <span className="font-mono">xenibase login</span> creates one for you.
         </p>
         {q.data && q.data.items.length > 0 && <TokenRows items={q.data.items} revoke={revoke} showOrg />}
         {err && <Alert>{err}</Alert>}

@@ -9,13 +9,20 @@ export function CredentialPanel({ creds, onDismiss, ready }: { creds: ProjectCre
   return (
     <div className="flex flex-col gap-4" data-testid="credential-panel">
       <Alert tone="warn" title="Save these now">
-        This is the only time PGDock shows the password. It stores only a SCRAM verifier, so it cannot show it again;
+        This is the only time Xenibase shows the password. It stores only a SCRAM verifier, so it cannot show it again;
         rotate the password if you lose it.
       </Alert>
       {!ready && <Alert tone="accent">The connection strings start working when provisioning finishes.</Alert>}
       <CopyField label="Password" value={creds.password} secret testId="credential-password" />
       <CopyField label="Pooled URL (transaction mode, for apps)" value={creds.connection.pooled_url} secret testId="credential-pooled-url" />
       <CopyField label="Session URL (for migrations and session features)" value={creds.connection.session_url} secret testId="credential-session-url" />
+      {creds.api && (
+        <>
+          {creds.api.url && <CopyField label="API URL (the branch's own)" value={creds.api.url} testId="credential-api-url" />}
+          <CopyField label="Publishable key" value={creds.api.publishable_key} testId="credential-publishable-key" />
+          <CopyField label="Secret key (shown once)" value={creds.api.secret_key} secret testId="credential-secret-key" />
+        </>
+      )}
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} />
         I've saved the password somewhere safe

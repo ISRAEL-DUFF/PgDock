@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/xenibase/internal/provision"
 )
 
 // The grid (V2 §4.1): filters compiled to parameterised WHERE clauses,
@@ -28,7 +28,7 @@ const (
 	MaxExport = 100_000
 	// LargeOffset is where offset pagination warns.
 	LargeOffset = 10_000
-	xminCol     = "__pgdock_xmin"
+	xminCol     = "__xenibase_xmin"
 )
 
 // ErrBadQuery is an invalid filter or sort.

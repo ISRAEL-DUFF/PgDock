@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/israel-duff/pgdock/internal/backupfmt"
-	"github.com/israel-duff/pgdock/internal/pgpstream"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/backupfmt"
+	"github.com/israel-duff/xenibase/internal/pgpstream"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // ErrNotExportable: only a project's finished logical backups (nightly,

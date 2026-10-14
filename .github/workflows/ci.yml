@@ -18,18 +18,18 @@ jobs:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_USER: pgdock
-          POSTGRES_PASSWORD: pgdock
-          POSTGRES_DB: pgdock
+          POSTGRES_USER: xenibase
+          POSTGRES_PASSWORD: xenibase
+          POSTGRES_DB: xenibase
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U pgdock"
+          --health-cmd "pg_isready -U xenibase"
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
     env:
-      PGDOCK_TEST_DATABASE_URL: postgres://pgdock:pgdock@127.0.0.1:5432/pgdock?sslmode=disable
+      XENIBASE_TEST_DATABASE_URL: postgres://xenibase:xenibase@127.0.0.1:5432/xenibase?sslmode=disable
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,13 +52,32 @@ jobs:
       - name: Go lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.5
+          version: v2.14
 
       - name: Go tests (including Postgres-backed)
         run: make test-go
 
+      - name: Deploy scripts (upgrade.sh, deploy-ssh.sh)
+        run: make test-deploy
+
       - name: Frontend type-check and tests
         run: make test-web
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.9.4
+
+      - name: SDK tests (TypeScript, Go, Dart)
+        run: make test-sdk
+
+      - name: Documentation site
+        run: make docs-site
+
+      - name: Upload the documentation site
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-site
+          path: dist/docs
 
       - name: Generated code is up to date
         run: make check-generated
@@ -73,6 +92,9 @@ jobs:
       # connect through the poolers -> rotate -> delete, rollback, and the
       # tenant-isolation suite (spec §7.1, §13).
       - name: Integration and isolation suites
+        env:
+          # M18's move under load, at 1 GB (make test-move runs 20).
+          XENIBASE_TEST_MOVE_GB: "1"
         run: |
           set -o pipefail
           make test-integration 2>&1 | tee "$RUNNER_TEMP/integration.log"
@@ -143,6 +165,25 @@ jobs:
       - name: Install from the docs
         run: make test-docs
 
+  # upgrade.sh for real (docs/deploying.md): install the previous release with
+  # the bundle, prove that a release whose migration fails is rolled back with
+  # its data intact, then upgrade to this commit. Slow, so it runs weekly, on
+  # demand, on tags, and on branches that touch deployment.
+  upgrade:
+    if: >-
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/') ||
+      startsWith(github.head_ref || github.ref_name, 'feat/deploy')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Upgrade the previous release, with a rollback in between
+        run: make test-upgrade
+
   # Dependency audit (spec §14 M7): known vulnerabilities in Go modules and
   # the standard library actually called, and in npm packages.
   audit:
@@ -155,16 +196,19 @@ jobs:
           go-version-file: go.mod
 
       - name: Go vulnerabilities (govulncheck)
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+        run: |
+          go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+          (cd sdk/go && go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...)
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: npm audit (web UI and e2e harness)
+      - name: npm audit (web UI, e2e harness, JS SDK)
         run: |
           (cd web && npm audit --audit-level=high)
           (cd test/e2e && npm audit --audit-level=high)
+          (cd sdk/js && npm audit --audit-level=high)
 
   # 150 shared projects with pgbench on 10 (spec §13), weekly and on demand.
   load:

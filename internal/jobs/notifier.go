@@ -14,7 +14,7 @@ import (
 
 // Channel is the Postgres NOTIFY channel the operations table trigger
 // publishes to on inserts, log appends, and status changes.
-const Channel = "pgdock_operations"
+const Channel = "xenibase_operations"
 
 type event struct {
 	ID     uuid.UUID `json:"id"`

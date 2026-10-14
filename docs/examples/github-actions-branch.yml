@@ -1,10 +1,10 @@
-# A database branch per pull request (PGDock V2 §8): copy this file to
+# A database branch per pull request (Xenibase V2 §8): copy this file to
 # .github/workflows/ in your app's repository.
 #
-# Needs a repository variable PGDOCK_SERVER (your PGDock's URL) and a
-# secret PGDOCK_TOKEN: an API token with the write scope, restricted to
+# Needs a repository variable XENIBASE_SERVER (your Xenibase's URL) and a
+# secret XENIBASE_TOKEN: an API token with the write scope, restricted to
 # the project (Organisation → API tokens, or
-# `pgdock tokens create --name "GitHub Actions" --scopes read,write --project my-app`).
+# `xenibase tokens create --name "GitHub Actions" --scopes read,write --project my-app`).
 #
 # Each push to the pull request replaces its branch with a fresh copy of
 # the project's latest backup; the branch deletes itself 72 hours after
@@ -16,12 +16,12 @@ on:
     types: [opened, synchronize, reopened, closed]
 
 env:
-  PGDOCK_SERVER: ${{ vars.PGDOCK_SERVER }}
-  PGDOCK_TOKEN: ${{ secrets.PGDOCK_TOKEN }}
-  PGDOCK_PROJECT: my-app
+  XENIBASE_SERVER: ${{ vars.XENIBASE_SERVER }}
+  XENIBASE_TOKEN: ${{ secrets.XENIBASE_TOKEN }}
+  XENIBASE_PROJECT: my-app
   BRANCH: pr-${{ github.event.number }}
   # The CLI release matching your server (Settings shows its version).
-  PGDOCK_CLI_VERSION: v1.2.0
+  XENIBASE_CLI_VERSION: v1.2.0
 
 jobs:
   test:
@@ -31,15 +31,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - id: install
-        name: Install the pgdock CLI
+        name: Install the xenibase CLI
         run: |
-          curl -fsSL -o /usr/local/bin/pgdock "https://github.com/ISRAEL-DUFF/PgDock/releases/download/$PGDOCK_CLI_VERSION/pgdock-cli-$PGDOCK_CLI_VERSION-linux-amd64"
-          chmod +x /usr/local/bin/pgdock
+          curl -fsSL -o /usr/local/bin/xenibase "https://github.com/ISRAEL-DUFF/Xenibase/releases/download/$XENIBASE_CLI_VERSION/xenibase-cli-$XENIBASE_CLI_VERSION-linux-amd64"
+          chmod +x /usr/local/bin/xenibase
 
       - id: branch
         name: Create the pull request's database branch
         run: |
-          pgdock branch create "$PGDOCK_PROJECT" "$BRANCH" --from backup --ttl 72h --replace --env > branch.env
+          xenibase branch create "$XENIBASE_PROJECT" "$BRANCH" --from backup --ttl 72h --replace --env > branch.env
           # Keep the password out of the logs, then hand the URLs to later steps.
           while IFS='=' read -r key value; do echo "::add-mask::$value"; done < branch.env
           cat branch.env >> "$GITHUB_ENV"
@@ -48,7 +48,10 @@ jobs:
       - id: migrate
         name: Migrate and test against the branch
         run: |
-          # DATABASE_URL (pooled) and DATABASE_URL_SESSION are set.
+          # DATABASE_URL (pooled) and DATABASE_URL_SESSION are set; with
+          # backend services on the project, so are the branch's own
+          # XENIBASE_API_URL, XENIBASE_PUBLISHABLE_KEY and XENIBASE_SECRET_KEY
+          # (add --copy-files above to copy its stored files too).
           npm ci
           npm run migrate
           npm test
@@ -58,12 +61,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: install
-        name: Install the pgdock CLI
+        name: Install the xenibase CLI
         run: |
-          curl -fsSL -o /usr/local/bin/pgdock "https://github.com/ISRAEL-DUFF/PgDock/releases/download/$PGDOCK_CLI_VERSION/pgdock-cli-$PGDOCK_CLI_VERSION-linux-amd64"
-          chmod +x /usr/local/bin/pgdock
+          curl -fsSL -o /usr/local/bin/xenibase "https://github.com/ISRAEL-DUFF/Xenibase/releases/download/$XENIBASE_CLI_VERSION/xenibase-cli-$XENIBASE_CLI_VERSION-linux-amd64"
+          chmod +x /usr/local/bin/xenibase
 
       - id: delete
         name: Delete the pull request's database branch
         run: |
-          pgdock branch delete "$PGDOCK_PROJECT/$BRANCH" --confirm "$BRANCH" || echo "no branch to delete"
+          xenibase branch delete "$XENIBASE_PROJECT/$BRANCH" --confirm "$BRANCH" || echo "no branch to delete"

@@ -1,6 +1,6 @@
 // Package version exposes build information injected at link time.
 //
-//	go build -ldflags "-X github.com/israel-duff/pgdock/internal/version.Version=1.2.3 ..."
+//	go build -ldflags "-X github.com/israel-duff/xenibase/internal/version.Version=1.2.3 ..."
 package version
 
 import "runtime"

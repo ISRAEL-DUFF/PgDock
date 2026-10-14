@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 func quotaUsed(t *testing.T, e *testenv.Env, org string, limit string) (float32, *int64) {
@@ -76,7 +76,7 @@ func TestOrgTargetRestoreWithStandardTools(t *testing.T) {
 	}
 
 	// The org's own bucket: a second S3 the agent can reach.
-	gw := os.Getenv("PGDOCK_TEST_DOCKER_GATEWAY")
+	gw := os.Getenv("XENIBASE_TEST_DOCKER_GATEWAY")
 	addr := ""
 	if gw != "" {
 		addr = net.JoinHostPort(gw, "0")
@@ -87,7 +87,7 @@ func TestOrgTargetRestoreWithStandardTools(t *testing.T) {
 	}
 	t.Cleanup(own.Close)
 	tgt := own.Target("acme-backups")
-	region, prefix, pathStyle := tgt.Region, "pgdock/", true
+	region, prefix, pathStyle := tgt.Region, "xenibase/", true
 	req := gen.StorageTargetRequest{
 		Name: "Acme bucket", Endpoint: tgt.Endpoint, Region: &region, Bucket: tgt.Bucket, Prefix: &prefix,
 		AccessKey: &tgt.AccessKey, SecretKey: &tgt.SecretKey, PathStyle: &pathStyle,
@@ -163,7 +163,7 @@ func TestOrgTargetRestoreWithStandardTools(t *testing.T) {
 	if sw.Storage.Target.Id == nil || *sw.Storage.Target.Id != target.Id || sw.Storage.CountsTowardQuota {
 		t.Fatalf("project storage after switch: %+v", sw.Storage)
 	}
-	if objs, _ := e.S3.Objects("pgdock-test"); hasPrefix(objs, "pgdock/projects/"+p.Id.String()) {
+	if objs, _ := e.S3.Objects("xenibase-test"); hasPrefix(objs, "xenibase/projects/"+p.Id.String()) {
 		t.Fatalf("the original stayed on the platform target: %v", objs)
 	}
 	if used, _ := quotaUsed(t, e, org, store.LimitBackupStorageMB); used != 0 {
@@ -207,7 +207,7 @@ func TestOrgTargetRestoreWithStandardTools(t *testing.T) {
 			gpgObject = o
 		}
 	}
-	if gpgObject == "" || !hasPrefix(objs, "pgdock/projects/"+p.Id.String()+"/logical/") {
+	if gpgObject == "" || !hasPrefix(objs, "xenibase/projects/"+p.Id.String()+"/logical/") {
 		t.Fatalf("org bucket objects: %v", objs)
 	}
 
@@ -270,15 +270,15 @@ func TestOrgTargetRestoreWithStandardTools(t *testing.T) {
 	t.Cleanup(func() {
 		_, _ = admin.Exec(context.Background(), `DROP DATABASE IF EXISTS standard_tools_restore WITH (FORCE)`)
 	})
-	network := os.Getenv("PGDOCK_TEST_DOCKER_NETWORK")
+	network := os.Getenv("XENIBASE_TEST_DOCKER_NETWORK")
 	if network == "" {
-		network = "pgdock-dev_default"
+		network = "xenibase-dev_default"
 	}
 	script := `set -e
 export GNUPGHOME=$(mktemp -d)
 gpg --batch --quiet --import /work/key.asc
 gpg --batch --quiet --decrypt /work/backup.dump.gpg > /tmp/backup.dump
-pg_restore --no-owner --no-acl -d "postgres://pgdock_admin:pgdock_admin@shared-pg:5432/standard_tools_restore" /tmp/backup.dump`
+pg_restore --no-owner --no-acl -d "postgres://xenibase_admin:xenibase_admin@shared-pg:5432/standard_tools_restore" /tmp/backup.dump`
 	cmd := exec.Command("docker", "run", "--rm", "--network", network, "-v", dir+":/work:ro", "postgres:18", "sh", "-c", script)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("restore with gpg and pg_restore: %v\n%s", err, out)
@@ -355,7 +355,7 @@ func TestDedicatedStorageSwitch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gw := os.Getenv("PGDOCK_TEST_DOCKER_GATEWAY")
+	gw := os.Getenv("XENIBASE_TEST_DOCKER_GATEWAY")
 	addr := ""
 	if gw != "" {
 		addr = net.JoinHostPort(gw, "0")
@@ -366,7 +366,7 @@ func TestDedicatedStorageSwitch(t *testing.T) {
 	}
 	t.Cleanup(own.Close)
 	tgt := own.Target("ledger-backups")
-	region, prefix, pathStyle := tgt.Region, "pgdock", true
+	region, prefix, pathStyle := tgt.Region, "xenibase", true
 	var res gen.StorageTargetSaveResult
 	org := c.Project.OrgId.String()
 	if code := e.Do("POST", "/api/v1/orgs/"+org+"/storage-targets", gen.StorageTargetRequest{
@@ -393,7 +393,7 @@ func TestDedicatedStorageSwitch(t *testing.T) {
 		}
 	}
 	objs, err := own.Objects("ledger-backups")
-	if err != nil || !hasPrefix(objs, "pgdock/instances/") {
+	if err != nil || !hasPrefix(objs, "xenibase/instances/") {
 		t.Fatalf("org bucket after the switch: %v %v", objs, err)
 	}
 	var backups gen.BackupList

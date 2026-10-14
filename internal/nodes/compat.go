@@ -6,12 +6,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/version"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/version"
 )
 
 // ErrIncompatibleAgent means a node's agent runs a different major version
-// than pgdock-server, or an older minor (spec §11.3: no work is scheduled on it).
+// than xenibase-server, or an older minor (spec §11.3: no work is scheduled on it).
 var ErrIncompatibleAgent = errors.New("incompatible agent version")
 
 // parse returns the major and minor of a release like "v1.2.3" or "1.2.3",
@@ -45,7 +45,7 @@ func checkVersion(n store.Node) error {
 	}
 	server := version.Get().Version
 	if !Compatible(server, *n.AgentVersion) {
-		return fmt.Errorf("%w: the agent on %s runs %s and pgdock-server runs %s; upgrade the agent (docs/upgrade.md)",
+		return fmt.Errorf("%w: the agent on %s runs %s and xenibase-server runs %s; upgrade the agent (docs/upgrade.md)",
 			ErrIncompatibleAgent, n.Name, *n.AgentVersion, server)
 	}
 	return nil

@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // ErrNotAllowed means an extension is not on the project tier's allow-list
@@ -37,6 +37,9 @@ func (s *Service) Extensions(ctx context.Context, projectID uuid.UUID) ([]Extens
 	}
 	if p.Status != provision.StatusActive {
 		return nil, fmt.Errorf("%w (it is %s)", ErrNotActive, p.Status)
+	}
+	if err := asleep(p); err != nil {
+		return nil, err
 	}
 	return s.extensions(ctx, p)
 }
@@ -85,6 +88,9 @@ func (s *Service) EnableExtension(ctx context.Context, projectID uuid.UUID, name
 	}
 	if p.Status != provision.StatusActive {
 		return nil, fmt.Errorf("%w (it is %s)", ErrNotActive, p.Status)
+	}
+	if err := asleep(p); err != nil {
+		return nil, err
 	}
 	if !slices.Contains(provision.AllowedExtensions(p.Tier), name) {
 		if slices.Contains(provision.DedicatedExtensions, name) {

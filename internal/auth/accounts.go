@@ -17,8 +17,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	pgmail "github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/store"
+	pgmail "github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Account email lifetimes (V2 §3.1, §3.6).
@@ -46,7 +46,7 @@ func normalizeRecoveryCode(c string) string {
 func looksLikeRecoveryCode(c string) bool { return len(normalizeRecoveryCode(c)) == 10 }
 
 func hashRecoveryCode(c string) string {
-	sum := sha256.Sum256([]byte("pgdock-recovery:" + normalizeRecoveryCode(c)))
+	sum := sha256.Sum256([]byte("xenibase-recovery:" + normalizeRecoveryCode(c)))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -221,6 +221,8 @@ type SignupParams struct {
 	// current one.
 	TermsVersion int
 	IP           *netip.Addr
+	// Challenge is the anti-bot token from the signup page.
+	Challenge string
 }
 
 // Signup creates an unverified account (inactive until approved, in
@@ -242,6 +244,23 @@ func (s *Service) Signup(ctx context.Context, p SignupParams) error {
 	if !policy.allows(email) {
 		return ErrDomainNotAllowed
 	}
+	if s.guard.Check != nil {
+		if err := s.guard.Check.Verify(ctx, p.Challenge, p.IP); err != nil {
+			if !errors.Is(err, ErrChallengeFailed) {
+				s.log.Warn("signup challenge", "err", err)
+			}
+			return ErrChallengeFailed
+		}
+	}
+	if s.guard.PerIP > 0 && p.IP != nil {
+		n, err := store.New(s.db).CountSignupsFrom(ctx, store.CountSignupsFromParams{Ip: p.IP, Since: s.cfg.Now().Add(-24 * time.Hour)})
+		if err != nil {
+			return err
+		}
+		if n >= int64(s.guard.PerIP) {
+			return fmt.Errorf("%w: too many accounts were created from this address today", ErrRateLimited)
+		}
+	}
 	if err := CheckPasswordPolicy(p.Password); err != nil {
 		return err
 	}
@@ -254,8 +273,8 @@ func (s *Service) Signup(ctx context.Context, p SignupParams) error {
 	}
 	q := store.New(s.db)
 	if existing, err := q.GetUserByEmail(ctx, email); err == nil {
-		return s.send(ctx, existing.Email, "Your PGDock account",
-			"Someone (hopefully you) tried to sign up to PGDock with this address, which already has an account.\n\n"+
+		return s.send(ctx, existing.Email, "Your Xenibase account",
+			"Someone (hopefully you) tried to sign up to Xenibase with this address, which already has an account.\n\n"+
 				"Sign in at "+s.cfg.PublicURL+"/login, or reset your password at "+s.cfg.PublicURL+"/reset-password.\n\n"+
 				"If this wasn't you, you can ignore this message.")
 	} else if !errors.Is(err, pgx.ErrNoRows) {
@@ -279,7 +298,7 @@ func (s *Service) Signup(ctx context.Context, p SignupParams) error {
 		}
 		var err error
 		u, err = qt.InsertUser(ctx, store.InsertUserParams{
-			Email: email, PasswordHash: hash, Name: namePtr, PlatformRole: RoleUser, ApprovedAt: approved,
+			Email: email, PasswordHash: hash, Name: namePtr, PlatformRole: RoleUser, ApprovedAt: approved, SignupIp: p.IP,
 		})
 		if err != nil {
 			return err
@@ -361,8 +380,8 @@ func (s *Service) SendVerification(ctx context.Context, u store.User) error {
 	if err != nil {
 		return err
 	}
-	return s.send(ctx, u.Email, "Confirm your email for PGDock",
-		"Confirm this address to finish creating your PGDock account:\n\n"+
+	return s.send(ctx, u.Email, "Confirm your email for Xenibase",
+		"Confirm this address to finish creating your Xenibase account:\n\n"+
 			s.cfg.PublicURL+"/verify-email?token="+token+"\n\n"+
 			"The link works for 48 hours. If you didn't sign up, you can ignore this message.")
 }
@@ -416,8 +435,8 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) error 
 	if err != nil {
 		return err
 	}
-	return s.send(ctx, u.Email, "Reset your PGDock password",
-		"Choose a new password for your PGDock account:\n\n"+
+	return s.send(ctx, u.Email, "Reset your Xenibase password",
+		"Choose a new password for your Xenibase account:\n\n"+
 			s.cfg.PublicURL+"/reset-password?token="+token+"\n\n"+
 			"The link works for one hour, once. Resetting signs you out everywhere.\n"+
 			"If you didn't ask for this, you can ignore this message.")
@@ -542,21 +561,30 @@ func (s *Service) EnsureTerms(ctx context.Context) error {
 	if err != nil || cur.Version != 0 {
 		return err
 	}
-	_, err = store.New(s.db).InsertTerms(ctx, store.InsertTermsParams{TermsMd: DefaultTerms, PrivacyMd: DefaultPrivacy})
+	_, err = store.New(s.db).InsertTerms(ctx, store.InsertTermsParams{TermsMd: DefaultTerms, PrivacyMd: DefaultPrivacy, AupMd: DefaultAUP})
 	return err
 }
 
 // PublishTerms publishes a new version; every user accepts it at their
 // next request.
-func (s *Service) PublishTerms(ctx context.Context, terms, privacy string, by uuid.UUID) (store.TermsVersion, error) {
-	terms, privacy = strings.TrimSpace(terms), strings.TrimSpace(privacy)
+func (s *Service) PublishTerms(ctx context.Context, terms, privacy, aup string, by uuid.UUID) (store.TermsVersion, error) {
+	terms, privacy, aup = strings.TrimSpace(terms), strings.TrimSpace(privacy), strings.TrimSpace(aup)
 	if terms == "" || privacy == "" {
 		return store.TermsVersion{}, errors.New("both the terms of use and the privacy notice are required")
 	}
-	if len(terms) > 200_000 || len(privacy) > 200_000 {
+	if len(terms) > 200_000 || len(privacy) > 200_000 || len(aup) > 200_000 {
 		return store.TermsVersion{}, errors.New("terms text is too long")
 	}
-	return store.New(s.db).InsertTerms(ctx, store.InsertTermsParams{TermsMd: terms, PrivacyMd: privacy, PublishedBy: &by})
+	if aup == "" {
+		// Unchanged unless given: the acceptable use policy of the version
+		// in effect (V3 §7.3).
+		cur, err := s.CurrentTerms(ctx)
+		if err != nil {
+			return store.TermsVersion{}, err
+		}
+		aup = cur.AupMd
+	}
+	return store.New(s.db).InsertTerms(ctx, store.InsertTermsParams{TermsMd: terms, PrivacyMd: privacy, AupMd: aup, PublishedBy: &by})
 }
 
 // ---- Account administration ---------------------------------------------------
@@ -567,8 +595,8 @@ func (s *Service) ApproveUser(ctx context.Context, id uuid.UUID) (store.User, er
 	if err != nil {
 		return u, err
 	}
-	if err := s.send(ctx, u.Email, "Your PGDock account is approved",
-		"Your PGDock account is ready. Sign in at "+s.cfg.PublicURL+"/login"); err != nil {
+	if err := s.send(ctx, u.Email, "Your Xenibase account is approved",
+		"Your Xenibase account is ready. Sign in at "+s.cfg.PublicURL+"/login"); err != nil {
 		s.log.Warn("approval email", "user_id", id, "err", err)
 	}
 	return u, nil
@@ -610,8 +638,8 @@ func (s *Service) ResetTOTP(ctx context.Context, id uuid.UUID) error {
 	if err := q.DeleteUserSessions(ctx, store.DeleteUserSessionsParams{UserID: id}); err != nil {
 		return err
 	}
-	if err := s.send(ctx, u.Email, "Your PGDock two-factor authentication was reset",
-		"The platform admin reset two-factor authentication on your PGDock account. "+
+	if err := s.send(ctx, u.Email, "Your Xenibase two-factor authentication was reset",
+		"The platform admin reset two-factor authentication on your Xenibase account. "+
 			"Your next sign-in will ask you to set up an authenticator app again.\n\n"+
 			"If you didn't ask for this, contact the platform admin now."); err != nil {
 		s.log.Warn("2FA reset email", "user_id", id, "err", err)

@@ -1,6 +1,6 @@
 # Pebble (Let's Encrypt's test CA) and its DNS helper, built from source.
 ARG REGISTRY=
-FROM ${REGISTRY}golang:1.25-alpine AS build
+FROM ${REGISTRY}golang:1.26-alpine AS build
 ARG PEBBLE_VERSION=v2.10.1
 RUN --mount=type=secret,id=ca_bundle,required=false \
     if [ -f /run/secrets/ca_bundle ]; then export SSL_CERT_FILE=/run/secrets/ca_bundle; fi; \

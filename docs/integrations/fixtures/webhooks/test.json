@@ -1,0 +1,12 @@
+{
+  "description": "The event POST /projects/{id}/webhooks/{id}/test sends: type TEST, no table or row.",
+  "secret": "whsec_XAV-Im6uAXpO0hJfe2DTF8mj1c9I7wVTGmq-VVXLs7w",
+  "headers": {
+    "Content-Type": "application/json",
+    "Xenibase-Event-Id": "evt_test_2ae453fab2c74b6a",
+    "Xenibase-Signature": "t=1791581570,v1=0ed4d76e97faff6d5de2328c7fcb7899f93167dcc60b06950988a79e4bfb29a3",
+    "Xenibase-Webhook": "taskiem-wf_sample",
+    "User-Agent": "Xenibase-Webhooks/1"
+  },
+  "body": "{\"id\":\"evt_test_2ae453fab2c74b6a\",\"webhook\":\"taskiem-wf_sample\",\"project\":\"p_r7trlpni7h\",\"project_id\":\"bf497edb-3bf5-4189-a124-52731c45d74a\",\"table\":\"\",\"type\":\"TEST\",\"record\":{\"message\":\"A test event from Xenibase\"},\"old_record\":null,\"committed_at\":\"2026-10-09T21:32:50.388500662Z\"}"
+}

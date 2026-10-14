@@ -13,11 +13,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
-// AdminSecret is the per-node pgdock_admin credential, stored encrypted in
+// AdminSecret is the per-node xenibase_admin credential, stored encrypted in
 // nodes.pg_admin_secret (spec §7.3).
 type AdminSecret struct {
 	User     string `json:"user"`
@@ -131,9 +131,9 @@ func (s *Service) adminConfig(ctx context.Context, instanceID uuid.UUID, databas
 		return nil, "", err
 	}
 	cfg.User, cfg.Password, cfg.Database = t.Secret.User, t.Secret.Password, database
-	cfg.RuntimeParams["application_name"] = "pgdock-server"
+	cfg.RuntimeParams["application_name"] = "xenibase-server"
 	// A soft storage lock makes the database read-only by default (V2
-	// §10.4); PGDock's own work, and the console, must still write.
+	// §10.4); Xenibase's own work, and the console, must still write.
 	cfg.RuntimeParams["default_transaction_read_only"] = "off"
 	cfg.ConnectTimeout = 10 * time.Second
 	return cfg, t.NodeName, nil

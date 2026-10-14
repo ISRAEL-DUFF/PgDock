@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/settings"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/settings"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
 func (s *Server) generalSettings() gen.GeneralSettings {
@@ -105,6 +105,16 @@ func (s *Server) UpdateProject(w http.ResponseWriter, r *http.Request, id gen.Pr
 				writeQuotaError(w, &tenancy.QuotaError{Limit: store.LimitProjectConnections, Used: int64(*p.Settings.ConnectionLimit), Max: int64(connMax)})
 				return
 			}
+		}
+	}
+	if p.Settings != nil && p.Settings.BackupRetention != nil {
+		level, ok := store.BackupRetentionLevel(*p.Settings.BackupRetention)
+		if !ok {
+			writeError(w, http.StatusBadRequest, "bad_request", "backup_retention must be standard, extended or long")
+			return
+		}
+		if level > 0 && !s.addonAllowed(w, r, store.LimitBackupRetentionMax, level, "longer backup retention") {
+			return
 		}
 	}
 	upd, err := s.projects.Update(r.Context(), id, p, userID(r.Context()))

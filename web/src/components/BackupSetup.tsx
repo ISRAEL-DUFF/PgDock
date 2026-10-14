@@ -21,7 +21,7 @@ export function StorageForm({ onSaved, submitLabel = "Test and save" }: { onSave
     endpoint: c?.endpoint ?? "",
     region: c?.region ?? "",
     bucket: c?.bucket ?? "",
-    prefix: c?.prefix ?? "pgdock",
+    prefix: c?.prefix ?? "xenibase",
     access_key: c?.access_key ?? "",
     secret_key: "",
     path_style: c?.path_style ?? false,
@@ -131,21 +131,21 @@ export function StorageForm({ onSaved, submitLabel = "Test and save" }: { onSave
 // ---- Backup key --------------------------------------------------------------
 
 function downloadKey(key: string, fingerprint: string) {
-  const text = `# PGDock backup encryption key (fingerprint ${fingerprint}).
-# Without it, PGDock's backups cannot be decrypted. Store it offline,
+  const text = `# Xenibase backup encryption key (fingerprint ${fingerprint}).
+# Without it, Xenibase's backups cannot be decrypted. Store it offline,
 # away from this server (a password manager, printed in a safe).
 ${key}
 `;
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
-  a.download = `pgdock-backup-key-${fingerprint}.txt`;
+  a.download = `xenibase-backup-key-${fingerprint}.txt`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
 }
 
 /** Pulls the key line out of a pasted or uploaded key file. */
 export function extractKey(text: string): string {
-  const line = text.split(/\r?\n/).find((l) => l.trim().startsWith("pgdock-backup-key-v1:"));
+  const line = text.split(/\r?\n/).find((l) => l.trim().startsWith("xenibase-backup-key-v1:"));
   return (line ?? text).trim();
 }
 
@@ -184,7 +184,7 @@ export function BackupKeyPanel({ onConfirmed }: { onConfirmed?: () => void }) {
     return (
       <div className="flex flex-col gap-3">
         <p className="text-sm text-muted">
-          Backups are encrypted before upload with a key PGDock generates. Losing it means losing the backups, so you download it now and keep it offline.
+          Backups are encrypted before upload with a key Xenibase generates. Losing it means losing the backups, so you download it now and keep it offline.
         </p>
         {err && <Alert>{err}</Alert>}
         <div>
@@ -309,7 +309,7 @@ function ConfirmKeyForm({ disabled, onConfirmed }: { disabled: boolean; onConfir
             }}
             disabled={disabled}
             className="w-full rounded-md border border-line bg-surface px-2.5 py-1.5 font-mono text-xs text-fg focus:border-accent focus:outline-none disabled:opacity-50"
-            placeholder="pgdock-backup-key-v1:…"
+            placeholder="xenibase-backup-key-v1:…"
             data-testid="confirm-backup-key"
           />
         )}

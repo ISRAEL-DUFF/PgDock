@@ -1,4 +1,4 @@
-// Command pgdock is the PGDock command-line tool (V2 §7.1).
+// Command xenibase is the Xenibase command-line tool (V2 §7.1).
 package main
 
 import (
@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/israel-duff/pgdock/internal/cli"
+	"github.com/israel-duff/xenibase/internal/cli"
 )
 
 func main() {

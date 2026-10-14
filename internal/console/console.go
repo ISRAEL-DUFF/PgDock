@@ -22,9 +22,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 const (
@@ -39,7 +39,7 @@ const (
 	maxCell = 64 << 10
 	// appPrefix tags console sessions in pg_stat_activity, so a cancel can
 	// find the backend from any server.
-	appPrefix = "pgdock-console "
+	appPrefix = "xenibase-console "
 )
 
 // Errors the API maps to client responses.
@@ -132,7 +132,38 @@ func (s *Service) active(ctx context.Context, projectID uuid.UUID) (store.Projec
 	if p.Status != provision.StatusActive {
 		return p, fmt.Errorf("%w (it is %s)", ErrNotActive, p.Status)
 	}
+	if err := asleep(p); err != nil {
+		return p, err
+	}
+	// Working in the console keeps a Free project awake too (V3 §4.2).
+	if p.LastActiveAt == nil || time.Since(*p.LastActiveAt) > time.Minute {
+		if err := store.New(s.db).TouchProjectsActive(ctx, []uuid.UUID{p.ID}); err != nil {
+			s.log.Warn("console: mark project active", "project_id", p.ID, "err", err)
+		}
+	}
 	return p, nil
+}
+
+// AsleepError is a Free project paused or archived for inactivity (V3 §4):
+// its database accepts no connections until it is resumed. It is also an
+// ErrNotActive.
+type AsleepError struct {
+	ProjectID uuid.UUID
+	Lifecycle string // paused or archived
+}
+
+func (e *AsleepError) Error() string {
+	return fmt.Sprintf("%s: it is %s for inactivity", ErrNotActive, e.Lifecycle)
+}
+
+func (e *AsleepError) Is(target error) bool { return target == ErrNotActive }
+
+// asleep refuses a Free project paused or archived for inactivity.
+func asleep(p store.Project) error {
+	if p.Lifecycle != "" && p.Lifecycle != "active" {
+		return &AsleepError{ProjectID: p.ID, Lifecycle: p.Lifecycle}
+	}
+	return nil
 }
 
 // open connects as the console role and assumes the owner role. A login
@@ -193,7 +224,7 @@ func (s *Service) connect(ctx context.Context, p store.Project, queryID uuid.UUI
 	if m == modeJob {
 		// The admin connection's read_only=off would override the database's
 		// soft-lock default.
-		cfg.RuntimeParams["application_name"] = "pgdock-job"
+		cfg.RuntimeParams["application_name"] = "xenibase-job"
 		delete(cfg.RuntimeParams, "default_transaction_read_only")
 	}
 	sess := &session{}

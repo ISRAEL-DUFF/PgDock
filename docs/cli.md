@@ -1,40 +1,40 @@
-# The pgdock CLI and API tokens
+# The xenibase CLI and API tokens
 
-`pgdock` works with your PGDock from a terminal, a script or a CI job. It
+`xenibase` works with your Xenibase from a terminal, a script or a CI job. It
 talks to the same API as the web UI, with an **API token** in place of a
 browser session.
 
 ## Install
 
 Download the binary for your system from the release
-(`pgdock-cli-<version>-<os>-<arch>`, for linux, darwin and windows on
+(`xenibase-cli-<version>-<os>-<arch>`, for linux, darwin and windows on
 amd64 and arm64), check it against `SHA256SUMS`, and put it on your
-`PATH` as `pgdock`. Or build it from source with `go build -o pgdock ./cmd/cli`.
+`PATH` as `xenibase`. Or build it from source with `go build -o xenibase ./cmd/cli`.
 
 ## Log in
 
 ```sh
-pgdock login --server https://pgdock.example.com
+xenibase login --server https://xenibase.example.com
 ```
 
 The CLI prints a code and opens your browser. Sign in if you aren't
 already, check the code matches, choose the **organisation** the CLI
 will act in and its **scopes**, and approve. The CLI saves the token in
-`~/.config/pgdock/config.toml` (readable only by you) as a **context**.
-Logging in to another organisation, or another PGDock, adds another
+`~/.config/xenibase/config.toml` (readable only by you) as a **context**.
+Logging in to another organisation, or another Xenibase, adds another
 context:
 
 ```sh
-pgdock context list
-pgdock context use pgdock.example.com/acme
+xenibase context list
+xenibase context use xenibase.example.com/acme
 ```
 
 Without a browser on the machine, use `--no-browser` and open the link
 elsewhere, or paste a token made under **Account → API tokens**:
-`pgdock login --server … --token -` (reads it from stdin). For a server
+`xenibase login --server … --token -` (reads it from stdin). For a server
 whose certificate isn't publicly trusted, add `--ca-file ca.pem`.
 
-`pgdock logout` revokes the context's token and forgets it.
+`xenibase logout` revokes the context's token and forgets it.
 
 ## Tokens
 
@@ -58,7 +58,7 @@ confirmation (`--confirm <name>` in the CLI, a `confirm` field in the
 API), in place of the browser's password-and-code step.
 
 Manage your tokens under **Account → API tokens** or with
-`pgdock tokens list | create | revoke`. Organisation owners and admins
+`xenibase tokens list | create | revoke`. Organisation owners and admins
 see and can revoke every token scoped to their organisation
 (**Organisation → API tokens**). You get an email when a token is
 created and a week before it expires.
@@ -69,10 +69,10 @@ Make a token for the job: `write` scope, restricted to the project it
 deploys, expiring when you'd want to rotate it.
 
 ```sh
-pgdock tokens create --name "GitHub Actions — blog" --scopes read,write --project blog --expires 90d
+xenibase tokens create --name "GitHub Actions — blog" --scopes read,write --project blog --expires 90d
 ```
 
-Store it as a secret and set `PGDOCK_SERVER` and `PGDOCK_TOKEN`; they
+Store it as a secret and set `XENIBASE_SERVER` and `XENIBASE_TOKEN`; they
 take priority over any saved context:
 
 ```yaml
@@ -81,13 +81,13 @@ jobs:
   migrate:
     runs-on: ubuntu-latest
     env:
-      PGDOCK_SERVER: https://pgdock.example.com
-      PGDOCK_TOKEN: ${{ secrets.PGDOCK_TOKEN }}
+      XENIBASE_SERVER: https://xenibase.example.com
+      XENIBASE_TOKEN: ${{ secrets.XENIBASE_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      - run: curl -fsSL -o pgdock https://github.com/…/releases/download/v1.1.0/pgdock-cli-v1.1.0-linux-amd64 && chmod +x pgdock
-      - run: ./pgdock sql blog -f migrations/latest.sql
-      - run: ./pgdock backup create blog
+      - run: curl -fsSL -o xenibase https://github.com/…/releases/download/v1.1.0/xenibase-cli-v1.1.0-linux-amd64 && chmod +x xenibase
+      - run: ./xenibase sql blog -f migrations/latest.sql
+      - run: ./xenibase backup create blog
 ```
 
 ### A database branch per pull request
@@ -101,42 +101,69 @@ token needs only the `write` scope restricted to the project (it covers
 the project's branches):
 
 ```yaml
-- run: pgdock branch create my-app "pr-${{ github.event.number }}" --ttl 72h --replace --env >> "$GITHUB_ENV"
+- run: xenibase branch create my-app "pr-${{ github.event.number }}" --ttl 72h --replace --env >> "$GITHUB_ENV"
 ```
 
 The example also masks the URLs in the job log. To keep one branch per
 pull request with stable credentials instead, create it once and run
-`pgdock branch reset <branch>` on each push: a reset keeps the
+`xenibase branch reset <branch>` on each push: a reset keeps the
 database name, URL and password.
 
 ## Commands
 
 ```
-pgdock login | logout | context list | context use <name> | whoami
-pgdock orgs list | create <name>
-pgdock org members | invite <email> --role <r> | remove <email> | usage | quotas
+xenibase login | logout | context list | context use <name> | whoami
+xenibase orgs list | create <name>
+xenibase org members | invite <email> --role <r> | remove <email> | usage | quotas
 
-pgdock projects list | info <p> | create <name> [--tier] | delete <p> --confirm <name>
-pgdock connect <p> [--pooled|--session] [--psql]
-pgdock creds <p> [--rotate]
-pgdock sql <p> -c "select …" | -f file.sql [--json|--csv]
+xenibase projects list | info <p> | create <name> [--tier] [--pg-version 17] | delete <p> --confirm <name>
+xenibase connect <p> [--pooled|--session] [--psql]
+xenibase creds <p> [--rotate]
+xenibase sql <p> -c "select …" | -f file.sql [--json|--csv]
 
-pgdock branch list <p> | create <p> <name> [--from backup|live] [--schema-only|--with-data] [--ttl 72h] [--env] [--replace]
-pgdock branch reset <branch> [--from backup|live] | extend <branch> [--ttl 7d] | detach <branch> | delete <branch> --confirm <name>
+xenibase branch list <p> | create <p> <name> [--from backup|live] [--schema-only|--with-data] [--ttl 72h] [--env] [--replace]
+xenibase branch reset <branch> [--from backup|live] | extend <branch> [--ttl 7d] | detach <branch> | delete <branch> --confirm <name>
 
-pgdock backup list <p> | create <p> | restore <p> --backup <id> [--into <name>]
-pgdock backup download <p> [--backup <id>] [-o file]   # organisation owners: a pg_dump file (a fresh backup by default)
-pgdock promote <p> [--node <id>] [--profile <size>]
-pgdock demote <p> [--node <id>] [--check] [--accept-warnings] [--console-writable]
+xenibase backup list <p> | create <p> | restore <p> --backup <id> [--into <name>]
+xenibase backup download <p> [--backup <id>] [-o file]   # organisation owners: a pg_dump file (a fresh backup by default)
+xenibase promote <p> [--node <id>] [--profile <size>]
+xenibase demote <p> [--node <id>] [--check] [--accept-warnings] [--console-writable]
+xenibase upgrade <p> --to <major> [--check]        # a newer Postgres major
+xenibase moves <p>                                  # recent moves, with the pause each took
+xenibase ha status <p> | enable <p> [--node <id>] [--sync] | disable <p>
+xenibase ha switchover <p> [--to <member>] | sync <p> on|off
+xenibase replicas list <p> | create <p> [--node <id>] [--region <r>] | delete <p> <replica>
+xenibase replicas detach <p> <replica> --name <new project>
+xenibase move <p> --node <id>                       # platform admins: put the project on another node
 
-pgdock webhooks list <p> | create <p> <name> --tables orders --url https://… [--events INSERT,UPDATE] [--columns c] [--header K=V]
-pgdock webhooks delete <p> <webhook> | deliveries <p> <webhook> [--dead] | replay <p> <webhook> --all | --ids 1,2
-pgdock jobs list <p> | create <p> <name> --cron '0 3 * * *' [--tz Europe/Berlin] (--sql '…' | --sql @file.sql | --url https://…)
-pgdock jobs pause|resume|run|history <p> <job>
+xenibase webhooks list <p> | create <p> <name> --tables orders --url https://… [--events INSERT,UPDATE] [--columns c] [--header K=V]
+xenibase webhooks delete <p> <webhook> | deliveries <p> <webhook> [--dead] | replay <p> <webhook> --all | --ids 1,2
+xenibase jobs list <p> | create <p> <name> --cron '0 3 * * *' [--tz Europe/Berlin] (--sql '…' | --sql @file.sql | --url https://…)
+xenibase jobs pause|resume|run|history <p> <job>
 
-pgdock members list <p> | invite <p> <email> --role <r> | remove <p> <email>
-pgdock tokens list | create --name … --scopes … [--project <p>] [--expires 90d] | revoke <id>
-pgdock operations get <id> [--follow]
+xenibase resume <p>   # wake a paused Free project, or restore an archived one
+
+xenibase services status <p> | enable <p> | disable <p>   # backend services: the project's API (docs/backend-services.md)
+xenibase keys list <p> | create <p> --name … [--kind publishable|secret] | revoke <p> <key id>
+xenibase gen types --lang ts|dart|go --project <p> [-o file] [--package name]   # types for the data API
+xenibase auth users list <p> [--search …] | show <p> <user> | invite <p> <email>   # the app's users
+xenibase auth users ban <p> <user> [--for 24h] | unban <p> <user> | signout <p> <user> | delete <p> <user>
+xenibase auth rotate-key <p>   # sign access tokens with a new key
+xenibase auth config <p>       # sign-in methods, phone caps and this month's spend
+xenibase auth set <p> '{"settings":{"phone_channels":["whatsapp"],"mfa_policy":"optional"}}'   # any AuthConfigUpdate
+xenibase auth hooks <p>        # recent auth webhook deliveries
+xenibase migrate supabase <p> [--step all|policies|users|storage] [--source <url>] \
+  [--s3-endpoint https://<ref>.supabase.co/storage/v1/s3 --s3-region <r> --s3-access-key <id> --s3-secret-key <secret>]
+                             # after importing a Supabase database (docs/migrate-from-supabase.md);
+                             # XENIBASE_SUPABASE_DB_URL and XENIBASE_SUPABASE_S3_SECRET keep secrets out of shell history
+
+xenibase billing show | plan free|pro|team [--annual] [--now] [--dry-run]   # owners and billing members
+xenibase billing invoices | invoice <number|id> [--pdf file.pdf]
+xenibase billing pay <number|id> | wallet | transfer | payments   # pay the invoice from the wallet now, the wallet's balance / amount owed / debit consent, the bank account to transfer to, payments received
+
+xenibase members list <p> | invite <p> <email> --role <r> | remove <p> <email>
+xenibase tokens list | create --name … --scopes … [--project <p>] [--expires 90d] | revoke <id>
+xenibase operations get <id> [--follow]
 ```
 
 `demote` runs the eligibility checks first and prints them; `--check`
@@ -146,21 +173,35 @@ connections, database settings that reset) need `--accept-warnings`.
 `--node` picks the shared cluster by its node's id (by default the one
 with the most free capacity, or the organisation's own).
 
+`upgrade` prints its preflight first (including the trial restore of the
+schema on the new version) and stops there with `--check`; a blocked check
+refuses. See [moves and Postgres versions](moves.md).
+
 `webhooks create` and an HTTP `jobs create` print the signing secret
 once. See [webhooks and scheduled jobs](webhooks.md) for the payload, the
 signature, and delivery.
 
 `<p>` is a project's name or id; `<branch>` is a branch's id, its name,
 or `<parent>/<name>`. `branch create --env` prints `DATABASE_URL=…`,
-`DATABASE_URL_SESSION=…`, `PGDOCK_BRANCH_ID=…` and `PGDOCK_BRANCH=…`
-lines for `$GITHUB_ENV` or a `.env` file; `--replace` deletes a branch
-of the same name first. `connect` prints a URL with your
+`DATABASE_URL_SESSION=…`, `XENIBASE_BRANCH_ID=…` and `XENIBASE_BRANCH=…`
+lines for `$GITHUB_ENV` or a `.env` file, and, when the parent has
+backend services, the branch's own `XENIBASE_API_URL=…`,
+`XENIBASE_PUBLISHABLE_KEY=…` and `XENIBASE_SECRET_KEY=…`; `--copy-files`
+copies the parent's stored files into the branch in the background;
+`--replace` deletes a branch of the same name first.
+
+`policies list <p> [--table t]` shows each table's row-level security
+and policies, with the roles as `anon`, `user`, `service` or `everyone`.
+`policies lint <p>` prints the security advisor's findings and exits 1
+when one is marked danger, for CI (`--json` for the list). `logs api <p>
+[--follow] [--status 5xx|404] [--path /data/v1/…]` prints the API's
+request log; `--follow` keeps printing new requests. `connect` prints a URL with your
 **personal** database login for the project (issuing one the first
-time, and remembering it in `~/.config/pgdock/credentials.toml`); `creds
+time, and remembering it in `~/.config/xenibase/credentials.toml`); `creds
 --rotate` issues a new password.
 
 Every command takes `--json` for scripts. Long operations (create,
-backup, restore, promote, demote, delete) stream their progress; `--no-wait`
+backup, restore, promote, demote, upgrade, move, delete) stream their progress; `--no-wait`
 returns the operation at once.
 
 Exit codes: `0` success, `1` error (including "not found"), `2` usage

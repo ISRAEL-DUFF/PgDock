@@ -8,10 +8,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/orgs"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/orgs"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func (s *Server) genOrg(r *http.Request, o store.Organization, role string, members, projects int) (gen.Org, error) {
@@ -40,7 +40,7 @@ func (s *Server) genOrg(r *http.Request, o store.Organization, role string, memb
 		sessions = append(sessions, gen.BreakGlassSession{Id: b.ID, OrgId: b.OrgID, AdminEmail: b.AdminEmail, Reason: b.Reason, StartsAt: b.StartsAt, ExpiresAt: b.ExpiresAt})
 	}
 	g.BreakGlass = &sessions
-	return g, nil
+	return g, s.billingStanding(r, &g, role)
 }
 
 func (s *Server) planName(r *http.Request, id uuid.UUID) (string, error) {
@@ -237,6 +237,11 @@ func (s *Server) InviteOrgMember(w http.ResponseWriter, r *http.Request, org gen
 	a.set("role", string(req.Role))
 	if req.Role == gen.OrgRoleOwner && acc.OrgRole != authz.OrgOwner {
 		writeError(w, http.StatusForbidden, "forbidden", "only owners can invite owners")
+		return
+	}
+	if req.Role == gen.OrgRoleBilling && acc.OrgRole != authz.OrgOwner {
+		// Admins can't see billing, so they can't hand out access to it.
+		writeError(w, http.StatusForbidden, "forbidden", "only owners can invite billing members")
 		return
 	}
 	p := orgs.InviteParams{OrgID: &org, Email: string(req.Email), OrgRole: string(req.Role), InvitedBy: sess.UserID, InviterName: displayName(sess.Name, sess.Email)}

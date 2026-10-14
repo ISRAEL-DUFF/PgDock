@@ -1,10 +1,10 @@
 // Package storetest provides throwaway, fully migrated metadata databases
 // for tests.
 //
-// Tests that need Postgres are skipped unless PGDOCK_TEST_DATABASE_URL points
+// Tests that need Postgres are skipped unless XENIBASE_TEST_DATABASE_URL points
 // at a server where that user may create databases, e.g.
 //
-//	PGDOCK_TEST_DATABASE_URL=postgres://postgres@127.0.0.1:5432/postgres
+//	XENIBASE_TEST_DATABASE_URL=postgres://postgres@127.0.0.1:5432/postgres
 package storetest
 
 import (
@@ -20,11 +20,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // EnvVar names the admin connection string used to create test databases.
-const EnvVar = "PGDOCK_TEST_DATABASE_URL"
+const EnvVar = "XENIBASE_TEST_DATABASE_URL"
 
 // New creates a fresh database, migrates it, and returns a pool connected to
 // it. The database is dropped when the test ends.
@@ -55,7 +55,7 @@ func NewEmpty(t testing.TB) *pgxpool.Pool {
 
 	b := make([]byte, 6)
 	_, _ = rand.Read(b)
-	name := "pgdock_test_" + hex.EncodeToString(b)
+	name := "xenibase_test_" + hex.EncodeToString(b)
 	if _, err := admin.Exec(ctx, "CREATE DATABASE "+name); err != nil {
 		t.Fatalf("create test database: %v", err)
 	}
@@ -65,6 +65,9 @@ func NewEmpty(t testing.TB) *pgxpool.Pool {
 		t.Fatal(err)
 	}
 	cfg.ConnConfig.Database = name
+	// As xenibase-server sizes its pool (cmd/server connect): the test
+	// environment runs the same workers, two of which keep a connection.
+	cfg.MaxConns = max(cfg.MaxConns, 16)
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		t.Fatal(err)

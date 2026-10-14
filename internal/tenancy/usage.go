@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Usage metrics (V2 §10.9). GB is 10^9 bytes.
@@ -28,6 +28,43 @@ const (
 	MetricWebhookSent   = "webhook_deliveries"
 	MetricJobRunsSQL    = "job_runs_sql"
 	MetricJobRunsHTTP   = "job_runs_http"
+	// HA standbys' resources and synchronous replication (V3 §2.2, §3.1).
+	MetricHACPU           = "ha_vcpu_hours"
+	MetricHARAM           = "ha_ram_gb_hours"
+	MetricHADisk          = "ha_disk_gb_hours"
+	MetricSyncReplication = "sync_replication_hours"
+	// Billing add-ons (V4.1 §4): hours with a longer PITR window or
+	// backup retention.
+	MetricPITR14Hours            = "pitr_14_hours"
+	MetricPITR30Hours            = "pitr_30_hours"
+	MetricRetentionExtendedHours = "backup_retention_extended_hours"
+	MetricRetentionLongHours     = "backup_retention_long_hours"
+	// Backend services (V4 §11.1), reported by xenibase-edge.
+	MetricAPIRequests = "api_requests"
+	MetricAPIEgress   = "api_egress_gb"
+	// MetricAuthMAU counts each user once a month, when first active.
+	MetricAuthMAU = "auth_mau"
+	// Auth codes sent over the platform's SMS and WhatsApp (V4 §6.2).
+	MetricMessagesSMS      = "messages_sms"
+	MetricMessagesWhatsApp = "messages_whatsapp"
+	// Their provider cost in kobo, which they are billed at plus a margin
+	// (V4 §12).
+	MetricMessagesSMSCost      = "messages_sms_cost_kobo"
+	MetricMessagesWhatsAppCost = "messages_whatsapp_cost_kobo"
+
+	// Backend services' storage (V4 §5, §11.1).
+	MetricStorageGBHours  = "storage_gb_hours"
+	MetricStorageEgress   = "storage_egress_gb"
+	MetricImageTransforms = "image_transforms"
+	// Backend services' realtime (V4 §6, §11.1).
+	MetricRealtimeConnMinutes = "realtime_connection_minutes"
+	MetricRealtimeMessages    = "realtime_messages"
+	// Read replicas (V4 §7, §11.1): each bills like a dedicated instance
+	// of its size.
+	MetricReplicaHours = "replica_hours"
+	MetricReplicaCPU   = "replica_vcpu_hours"
+	MetricReplicaRAM   = "replica_ram_gb_hours"
+	MetricReplicaDisk  = "replica_disk_gb_hours"
 )
 
 // UsageMetrics lists them with their units, for the API and UI.
@@ -44,6 +81,30 @@ var UsageMetrics = []struct{ Name, Unit, Granularity string }{
 	{MetricWebhookSent, "deliveries", "hour"},
 	{MetricJobRunsSQL, "runs", "hour"},
 	{MetricJobRunsHTTP, "runs", "hour"},
+	{MetricHACPU, "vCPU-hours", "hour"},
+	{MetricHARAM, "GB-RAM-hours", "hour"},
+	{MetricHADisk, "GB-disk-hours", "hour"},
+	{MetricSyncReplication, "hours", "hour"},
+	{MetricPITR14Hours, "hours", "hour"},
+	{MetricPITR30Hours, "hours", "hour"},
+	{MetricRetentionExtendedHours, "hours", "hour"},
+	{MetricRetentionLongHours, "hours", "hour"},
+	{MetricAPIRequests, "requests", "hour"},
+	{MetricAPIEgress, "GB", "hour"},
+	{MetricAuthMAU, "users", "hour"},
+	{MetricMessagesSMS, "messages", "hour"},
+	{MetricMessagesWhatsApp, "messages", "hour"},
+	{MetricMessagesSMSCost, "kobo", "hour"},
+	{MetricMessagesWhatsAppCost, "kobo", "hour"},
+	{MetricStorageGBHours, "GB-hours", "hour"},
+	{MetricStorageEgress, "GB", "hour"},
+	{MetricImageTransforms, "transforms", "hour"},
+	{MetricRealtimeConnMinutes, "connection-minutes", "hour"},
+	{MetricRealtimeMessages, "messages", "hour"},
+	{MetricReplicaHours, "replica-hours", "hour"},
+	{MetricReplicaCPU, "vCPU-hours", "hour"},
+	{MetricReplicaRAM, "GB-RAM-hours", "hour"},
+	{MetricReplicaDisk, "GB-disk-hours", "hour"},
 }
 
 const (
@@ -184,12 +245,74 @@ func (s *Service) recordHours(ctx context.Context, from, to time.Time) error {
 	}
 	for _, r := range ded {
 		f := max(0, min(1, r.Fraction))
-		for metric, v := range map[string]float64{
+		vals := map[string]float64{
 			MetricDedicatedCPU:  r.Cpus * f,
 			MetricDedicatedRAM:  float64(r.MemMb) / 1000 * f,
 			MetricDedicatedDisk: float64(r.DiskGb) * f,
-		} {
+		}
+		if n := float64(r.Standbys); n > 0 {
+			vals[MetricHACPU] = r.Cpus * f * n
+			vals[MetricHARAM] = float64(r.MemMb) / 1000 * f * n
+			vals[MetricHADisk] = float64(r.DiskGb) * f * n
+		}
+		if r.SyncReplication {
+			vals[MetricSyncReplication] = f
+		}
+		switch r.PitrDays {
+		case 14:
+			vals[MetricPITR14Hours] = f
+		case 30:
+			vals[MetricPITR30Hours] = f
+		}
+		for metric, v := range vals {
 			if err := s.upsertUsage(ctx, q, r.OrgID, r.ProjectID, r.PlanID, metric, "hour", r.PeriodStart, v); err != nil {
+				return err
+			}
+		}
+	}
+	// Longer backup retention (V4.1 §4.2).
+	ret, err := q.HourlyBackupRetention(ctx, store.HourlyBackupRetentionParams{FromTs: from, LastHour: to.Add(-time.Hour)})
+	if err != nil {
+		return fmt.Errorf("backup retention: %w", err)
+	}
+	for _, r := range ret {
+		metric := MetricRetentionExtendedHours
+		if r.Retention == "long" {
+			metric = MetricRetentionLongHours
+		}
+		if err := s.upsertUsage(ctx, q, r.OrgID, r.ProjectID, r.PlanID, metric, "hour", r.PeriodStart, max(0, min(1, r.Fraction))); err != nil {
+			return err
+		}
+	}
+	// Read replicas, summed per project and hour.
+	reps, err := q.HourlyReplicas(ctx, store.HourlyReplicasParams{FromTs: from, LastHour: to.Add(-time.Hour)})
+	if err != nil {
+		return fmt.Errorf("read replicas: %w", err)
+	}
+	type hourKey struct {
+		project uuid.UUID
+		at      time.Time
+	}
+	sums := map[hourKey]map[string]float64{}
+	who := map[uuid.UUID]store.HourlyReplicasRow{}
+	var order []hourKey
+	for _, r := range reps {
+		f := max(0, min(1, r.Fraction))
+		k := hourKey{r.ProjectID, r.PeriodStart}
+		if sums[k] == nil {
+			sums[k] = map[string]float64{}
+			order = append(order, k)
+		}
+		who[r.ProjectID] = r
+		sums[k][MetricReplicaHours] += f
+		sums[k][MetricReplicaCPU] += r.Cpus * f
+		sums[k][MetricReplicaRAM] += float64(r.MemMb) / 1000 * f
+		sums[k][MetricReplicaDisk] += float64(r.DiskGb) * f
+	}
+	for _, k := range order {
+		r := who[k.project]
+		for metric, v := range sums[k] {
+			if err := s.upsertUsage(ctx, q, r.OrgID, k.project, r.PlanID, metric, "hour", k.at, v); err != nil {
 				return err
 			}
 		}

@@ -11,14 +11,15 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/faildomain"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func (s *Server) requireBackups(w http.ResponseWriter) bool {
@@ -564,7 +565,7 @@ func (s *Server) CreateNodeRegistrationToken(w http.ResponseWriter, r *http.Requ
 		s.backupError(w, "registration token", err)
 		return
 	}
-	cmd := fmt.Sprintf("pgdock-agent register --server https://%s --token %s --advertise <this node's address>:7070", r.Host, tok)
+	cmd := fmt.Sprintf("xenibase-agent register --server https://%s --token %s --advertise <this node's address>:7070", r.Host, tok)
 	writeJSON(w, http.StatusCreated, gen.RegistrationToken{Token: tok, ExpiresAt: exp, Command: cmd})
 }
 
@@ -613,8 +614,13 @@ func (s *Server) toAPINode(n store.Node) gen.Node {
 	gn := gen.Node{
 		Id: n.ID, Name: n.Name, PrivateAddr: n.PrivateAddr, Role: n.Role, Status: n.Status,
 		LastHeartbeat: n.LastHeartbeat, CreatedAt: n.CreatedAt,
-		Agent: gen.AgentStatus{Registered: n.AgentCertFp != nil, CertFingerprint: n.AgentCertFp, Version: n.AgentVersion},
+		Agent:  gen.AgentStatus{Registered: n.AgentCertFp != nil, CertFingerprint: n.AgentCertFp, Version: n.AgentVersion},
+		Region: &n.Region, Provider: &n.Provider, ServerType: n.ServerType, MonthlyCostMinor: n.MonthlyCostMinor,
+		CostCurrency: &n.CostCurrency, EmptySince: n.EmptySince, Keep: &n.Keep,
+		FailureDomain: n.FailureDomain, PlacementGroup: n.PlacementGroup, FailureDomainLabel: ptrTo(faildomain.Label(n)),
 	}
+	lc := gen.NodeLifecycle(n.Lifecycle)
+	gn.Lifecycle = &lc
 	if n.AgentCertFp != nil {
 		host := n.PrivateAddr
 		if n.AgentHost != nil && *n.AgentHost != "" {
@@ -684,7 +690,7 @@ func (s *Server) DownloadBackup(w http.ResponseWriter, r *http.Request, id gen.B
 	}()
 	cw := &startWriter{w: w, start: func() {
 		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="pgdock-%s-%s.dump"`, b.ID, b.StartedAt.UTC().Format("20060102-1504")))
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="xenibase-%s-%s.dump"`, b.ID, b.StartedAt.UTC().Format("20060102-1504")))
 		w.Header().Set("Cache-Control", "no-store")
 		w.WriteHeader(http.StatusOK)
 	}}

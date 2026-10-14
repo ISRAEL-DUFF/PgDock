@@ -13,9 +13,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/tenancy"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/tenancy"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // teamWithAllowance is an organisation with its own shared cluster (the
@@ -148,7 +148,7 @@ func TestDemotionLiveWriter(t *testing.T) {
 	if !pf.Eligible || len(pf.Checks) != 7 || pf.Target == nil || !pf.Target.OrgCluster || pf.RetainHours != 48 || pf.SizeBytes == 0 {
 		t.Fatalf("preflight: %+v", pf)
 	}
-	if c := check(pf, gen.Allowance); !strings.Contains(c.Message, "releases a small instance") {
+	if c := check(pf, gen.DemoteCheckNameAllowance); !strings.Contains(c.Message, "releases a small instance") {
 		t.Fatalf("allowance check: %+v", c)
 	}
 	if !strings.Contains(strings.Join(pf.Resets, "; "), "connection limit 90 → 20") || pf.SettingsAfter.ConnectionLimit != 20 ||
@@ -168,8 +168,8 @@ func TestDemotionLiveWriter(t *testing.T) {
 		}
 	}
 	pf = preflight(t, e, pid)
-	if pf.Eligible || check(pf, gen.Extensions).Status != gen.DemoteCheckStatusBlocked || !strings.Contains(check(pf, gen.Extensions).Message, "postgres_fdw") ||
-		check(pf, gen.Roles).Status != gen.DemoteCheckStatusBlocked || !strings.Contains(check(pf, gen.Roles).Message, "reporting") {
+	if pf.Eligible || check(pf, gen.DemoteCheckNameExtensions).Status != gen.DemoteCheckStatusBlocked || !strings.Contains(check(pf, gen.DemoteCheckNameExtensions).Message, "postgres_fdw") ||
+		check(pf, gen.DemoteCheckNameRoles).Status != gen.DemoteCheckStatusBlocked || !strings.Contains(check(pf, gen.DemoteCheckNameRoles).Message, "reporting") {
 		t.Fatalf("preflight with postgres_fdw and a custom role: %+v", pf.Checks)
 	}
 	var apiErr gen.Error
@@ -188,7 +188,7 @@ func TestDemotionLiveWriter(t *testing.T) {
 	}
 	_ = app.Close(ctx)
 	pf = preflight(t, e, pid)
-	if !pf.Eligible || check(pf, gen.Settings).Status != gen.DemoteCheckStatusWarning || !strings.Contains(check(pf, gen.Settings).Message, "work_mem=64MB") {
+	if !pf.Eligible || check(pf, gen.DemoteCheckNameSettings).Status != gen.DemoteCheckStatusWarning || !strings.Contains(check(pf, gen.DemoteCheckNameSettings).Message, "work_mem=64MB") {
 		t.Fatalf("preflight with a database setting: %+v", pf.Checks)
 	}
 	if code := e.Do("POST", "/api/v1/projects/"+pid+"/demote", gen.DemoteRequest{}, &apiErr); code != http.StatusConflict || !strings.Contains(apiErr.Message, "acknowledge") {
@@ -243,7 +243,7 @@ func TestDemotionLiveWriter(t *testing.T) {
 	t.Logf("demotion log:\n%s", log)
 	t.Logf("tx writer: %d commits, %d errors %v; session writer: %d commits, %d errors %v",
 		len(tx.acked), len(tx.errs), tx.errs, len(session.acked), len(session.errs), session.errs)
-	for _, want := range []string{"checks passed", "writes frozen", "verified:", "route switched to the shared cluster", "writes were frozen for",
+	for _, want := range []string{"checks passed", "writes frozen", "logical replication", "match", "route switched to the shared cluster", "writes were paused for",
 		"dedicated instance stopped", "point-in-time recovery ends here"} {
 		if !strings.Contains(log, want) {
 			t.Errorf("demotion log lacks %q", want)
@@ -429,7 +429,7 @@ func TestDemotionRollback(t *testing.T) {
 	failDemotion.Store(false)
 	bin := buildCLI(t)
 	token := e.CreateToken(map[string]any{"name": "ops", "org_id": e.OrgID, "scopes": []string{"write", "admin"}})
-	env := []string{"PGDOCK_SERVER=" + e.URL, "PGDOCK_TOKEN=" + token, "PGDOCK_CONFIG_DIR=" + t.TempDir()}
+	env := []string{"XENIBASE_SERVER=" + e.URL, "XENIBASE_TOKEN=" + token, "XENIBASE_CONFIG_DIR=" + t.TempDir()}
 	r := runCLI(t, bin, env, "demote", "Demote rollback", "--check")
 	if r.code != 0 || !strings.Contains(r.stdout, "ok      capacity") || !strings.Contains(r.stdout, "connection limit 90 → 20") {
 		t.Fatalf("demote --check: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)

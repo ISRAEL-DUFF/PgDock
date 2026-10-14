@@ -8,10 +8,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/pooler"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Building blocks for flows outside this package (restore, import) that
@@ -122,6 +123,9 @@ func (s *Service) RecreateDatabase(ctx context.Context, p store.Project, log *jo
 	if err := s.ensureDatabase(ctx, p, log); err != nil {
 		return err
 	}
+	if s.DatabaseRecreated != nil {
+		s.DatabaseRecreated(ctx, p)
+	}
 	return s.hardenDatabase(ctx, p, log)
 }
 
@@ -137,7 +141,7 @@ func (s *Service) SyncPooler(ctx context.Context, log *jobs.StepLogger, step, ms
 func Ident(name string) string { return ident(name) }
 
 // ResetWebhooks runs after a project's database was filled from a copy (a
-// restore, a branch, an import): PGDock's webhook schema that came with
+// restore, a branch, an import): Xenibase's webhook schema that came with
 // the data is dropped and, for a project with webhooks, rebuilt from its
 // configuration (V2 §9.3).
 func (s *Service) ResetWebhooks(ctx context.Context, p store.Project, _ *jobs.StepLogger) error {
@@ -152,7 +156,7 @@ func (s *Service) ResetWebhooks(ctx context.Context, p store.Project, _ *jobs.St
 		return err
 	}
 	defer conn.Close(context.Background())
-	_, err = conn.Exec(ctx, "DROP SCHEMA IF EXISTS pgdock CASCADE")
+	_, err = conn.Exec(ctx, "DROP SCHEMA IF EXISTS xenibase CASCADE")
 	return err
 }
 
@@ -164,3 +168,28 @@ func (s *Service) DropAutomation(ctx context.Context, p store.Project) error {
 	}
 	return q.DeleteProjectJobs(ctx, p.ID)
 }
+
+// PooledAddr is host:port of a transaction-mode pooler serving region, as
+// xenibase-server reaches it (the provisioning smoke test's address).
+func (s *Service) PooledAddr(region string) string {
+	if s.pooler != nil {
+		if _, rp, ok := s.pooler.SmokeAddrs(region); ok {
+			return rp
+		}
+	}
+	return s.cfg.SmokePooledAddr
+}
+
+// SessionAddr is host:port of a session-mode pooler serving region, as
+// xenibase-server reaches it.
+func (s *Service) SessionAddr(region string) string {
+	if s.pooler != nil {
+		if sp, _, ok := s.pooler.SmokeAddrs(region); ok {
+			return sp
+		}
+	}
+	return s.cfg.SmokeSessionAddr
+}
+
+// Keyring is the master keyring.
+func (s *Service) Keyring() *crypto.Keyring { return s.keyring }

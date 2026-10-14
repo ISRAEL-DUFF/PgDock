@@ -1,9 +1,9 @@
-// Package rotate re-encrypts every secret PGDock stores under the primary
+// Package rotate re-encrypts every secret Xenibase stores under the primary
 // master key (spec §7.3: "The master key can be rotated with a CLI command
 // that re-encrypts the stored secrets").
 //
-// Rotation: start pgdock-server once with -rotate-master-key, the new key
-// as PGDOCK_MASTER_KEY and the old one in PGDOCK_MASTER_KEY_PREVIOUS. When
+// Rotation: start xenibase-server once with -rotate-master-key, the new key
+// as XENIBASE_MASTER_KEY and the old one in XENIBASE_MASTER_KEY_PREVIOUS. When
 // it reports success, drop the old key from the environment.
 package rotate
 
@@ -18,7 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/crypto"
 )
 
 // The associated data each secret is sealed with. They must match the
@@ -29,6 +29,9 @@ func recoveryAAD(id uuid.UUID) []byte { return []byte("users.recovery_codes:" + 
 func storageAAD(id uuid.UUID) []byte  { return []byte("storage_targets.credentials:" + id.String()) }
 func nodeAAD(id uuid.UUID) []byte     { return []byte("nodes.pg_admin_secret:" + id.String()) }
 func instanceAAD(id uuid.UUID) []byte { return []byte("instances.admin_secret:" + id.String()) }
+
+// jwtKeyAAD matches services.JWTKeyAAD.
+func jwtKeyAAD(id uuid.UUID) []byte { return []byte("project_jwt_keys.private_enc:" + id.String()) }
 func opAAD(kind string, p uuid.UUID) []byte {
 	return []byte("operations.secrets.password:" + kind + ":" + p.String())
 }
@@ -89,7 +92,7 @@ func walk(ctx context.Context, db *pgxpool.Pool, k *crypto.Keyring, m mode) (Res
 			}
 			nb, err := k.Reencrypt(s.blob, s.aad)
 			if err != nil {
-				return fmt.Errorf("%s: %w (is the old key in PGDOCK_MASTER_KEY_PREVIOUS?)", s.what, err)
+				return fmt.Errorf("%s: %w (is the old key in XENIBASE_MASTER_KEY_PREVIOUS?)", s.what, err)
 			}
 			if err := s.save(tx, nb); err != nil {
 				return fmt.Errorf("%s: save: %w", s.what, err)
@@ -147,6 +150,8 @@ func collect(ctx context.Context, tx pgx.Tx) ([]secret, error) {
 			`UPDATE nodes SET pg_admin_secret = $2 WHERE id = $1`},
 		{"instance admin credential", `SELECT id, admin_secret FROM instances WHERE admin_secret IS NOT NULL FOR UPDATE`, instanceAAD,
 			`UPDATE instances SET admin_secret = $2 WHERE id = $1`},
+		{"project signing key", `SELECT id, private_enc FROM project_jwt_keys FOR UPDATE`, jwtKeyAAD,
+			`UPDATE project_jwt_keys SET private_enc = $2 WHERE id = $1`},
 	} {
 		if err := add(c.what, c.query, c.aad, c.update); err != nil {
 			return nil, err

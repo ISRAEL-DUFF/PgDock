@@ -17,13 +17,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/services"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Operation kinds.
@@ -62,8 +63,17 @@ type Config struct {
 	PublicURL string
 }
 
+// API gives branches of projects with backend services their own API
+// (the services service, V4.1 §9.5).
+type API interface {
+	PrepareBranch(ctx context.Context, parentID, branchID uuid.UUID, by *uuid.UUID) (*services.BranchAPI, error)
+	EnableBranch(ctx context.Context, branch store.Project, parentID uuid.UUID, copyFiles bool, log *jobs.StepLogger) error
+}
+
 // Service manages branches.
 type Service struct {
+	// API, when set, gives branches backend services like their parent's.
+	API      API
 	db       *pgxpool.Pool
 	projects *provision.Service
 	backups  *backup.Service
@@ -104,6 +114,9 @@ type CreateParams struct {
 	MayCopySensitive bool
 	CreatedBy        *uuid.UUID
 	CreatorRole      string
+	// CopyFiles copies the parent's stored files into the branch (backend
+	// services) in the background.
+	CopyFiles bool
 }
 
 // fillParams are a create or reset operation's "branch" params.
@@ -111,6 +124,7 @@ type fillParams struct {
 	Parent     uuid.UUID `json:"parent"`
 	Source     string    `json:"source"`
 	SchemaOnly bool      `json:"schema_only"`
+	CopyFiles  bool      `json:"copy_files,omitempty"`
 }
 
 // Resolved is what a create request turns into, for quota checks first.
@@ -141,6 +155,11 @@ func (s *Service) Resolve(ctx context.Context, p CreateParams) (Resolved, error)
 	default:
 		return r, fmt.Errorf("%w: source must be backup or live", ErrInvalid)
 	}
+	// A sleeping Free project's database refuses connections (V3 §4); its
+	// backups still branch.
+	if r.Source == SourceLive && parent.Lifecycle != "" && parent.Lifecycle != "active" {
+		return r, fmt.Errorf("%w: %s is %s for inactivity; resume it to branch from live, or branch from its backup", ErrConflict, parent.Name, parent.Lifecycle)
+	}
 	r.SchemaOnly = parent.SensitiveData
 	if p.SchemaOnly != nil {
 		r.SchemaOnly = *p.SchemaOnly
@@ -170,14 +189,28 @@ func (s *Service) Resolve(ctx context.Context, p CreateParams) (Resolved, error)
 }
 
 // Create queues a branch of r.Parent (always on the shared tier) and
-// returns its one-time credentials.
-func (s *Service) Create(ctx context.Context, p CreateParams, r Resolved) (provision.Created, error) {
-	return s.projects.Create(ctx, provision.CreateParams{
-		OrgID: r.Parent.OrgID, CreatorRole: p.CreatorRole, Name: p.Name, CreatedBy: p.CreatedBy,
+// returns its one-time credentials, and its API's keys when the parent has
+// backend services.
+func (s *Service) Create(ctx context.Context, p CreateParams, r Resolved) (provision.Created, *services.BranchAPI, error) {
+	// The parent's Postgres version, so the branch behaves like it.
+	parentInst, err := store.New(s.db).GetInstance(ctx, r.Parent.InstanceID)
+	if err != nil {
+		return provision.Created{}, nil, err
+	}
+	c, err := s.projects.Create(ctx, provision.CreateParams{
+		PgVersion: int(parentInst.PgVersion),
+		OrgID:     r.Parent.OrgID, CreatorRole: p.CreatorRole, Name: p.Name, CreatedBy: p.CreatedBy,
 		Kind: KindCreate, Tier: provision.TierShared, Sensitive: r.Parent.SensitiveData,
-		Params: map[string]any{"branch": fillParams{Parent: r.Parent.ID, Source: r.Source, SchemaOnly: r.SchemaOnly}},
+		Params: map[string]any{"branch": fillParams{Parent: r.Parent.ID, Source: r.Source, SchemaOnly: r.SchemaOnly, CopyFiles: p.CopyFiles}},
 		Branch: &provision.BranchSpec{ParentID: r.Parent.ID, Source: r.Source, SchemaOnly: r.SchemaOnly, ExpiresAt: r.ExpiresAt},
 	})
+	if err != nil || s.API == nil {
+		return c, nil, err
+	}
+	// The create operation is queued: it turns the API on once the copy is
+	// in, so the keys made here work as soon as it finishes.
+	api, err := s.API.PrepareBranch(ctx, r.Parent.ID, c.Project.ID, p.CreatedBy)
+	return c, api, err
 }
 
 func opFill(op store.Operation) (fillParams, error) {
@@ -218,6 +251,11 @@ func (s *Service) runCreate(ctx context.Context, op store.Operation, log *jobs.S
 	}
 	if err := s.projects.Publish(ctx, p, password, log); err != nil {
 		return err
+	}
+	if s.API != nil {
+		if err := s.API.EnableBranch(ctx, p, params.Parent, params.CopyFiles, log); err != nil {
+			return fmt.Errorf("backend services: %w", err)
+		}
 	}
 	return log.Info(ctx, "done", "branch %s ready", p.Name)
 }
@@ -409,6 +447,13 @@ func (s *Service) runReset(ctx context.Context, op store.Operation, log *jobs.St
 	if err := s.projects.SyncMemberRoles(ctx, p, log); err != nil {
 		return err
 	}
+	// The branch's API, if it has one, keeps its ref and keys; the copy's
+	// sessions go and its roles and schemas are checked again.
+	if s.API != nil {
+		if err := s.API.EnableBranch(ctx, p, params.Parent, false, log); err != nil {
+			return fmt.Errorf("backend services: %w", err)
+		}
+	}
 	if err := s.reopen(ctx, p, provision.StatusActive); err != nil {
 		return err
 	}
@@ -490,7 +535,7 @@ func (s *Service) Sweep(ctx context.Context) error {
 		return errors.Join(append(errs, err)...)
 	}
 	for _, b := range soon {
-		body := fmt.Sprintf("Your branch %q of %s will be deleted at %s.\n\nTo keep it longer, extend it under %s/projects/%s/branches, or with `pgdock branch extend`.\nTo keep it for good, detach it from its parent.\n",
+		body := fmt.Sprintf("Your branch %q of %s will be deleted at %s.\n\nTo keep it longer, extend it under %s/projects/%s/branches, or with `xenibase branch extend`.\nTo keep it for good, detach it from its parent.\n",
 			b.Name, b.ParentName, b.ExpiresAt.UTC().Format("2006-01-02 15:04 MST"), s.cfg.PublicURL, b.ID)
 		err := s.mail.Send(ctx, mail.Message{To: []string{b.Email}, Subject: fmt.Sprintf("Branch %s expires in less than a day", b.Name), Body: body})
 		if err != nil && !errors.Is(err, mail.ErrNotConfigured) {

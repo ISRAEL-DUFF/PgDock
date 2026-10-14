@@ -402,9 +402,68 @@ func (q *Queries) GetPlan(ctx context.Context, id uuid.UUID) (QuotaPlan, error) 
 	return i, err
 }
 
+const hourlyBackupRetention = `-- name: HourlyBackupRetention :many
+SELECT p.id AS project_id, p.org_id, o.plan_id, g.h::timestamptz AS period_start, (p.settings->>'backup_retention')::text AS retention,
+       (extract(epoch FROM LEAST(g.h + '1 hour'::interval, COALESCE(p.deleted_at, 'infinity'::timestamptz)) - GREATEST(g.h, p.created_at)) / 3600)::float8 AS fraction
+FROM projects p
+JOIN organizations o ON o.id = p.org_id
+CROSS JOIN generate_series($1::timestamptz, $2::timestamptz, '1 hour'::interval) AS g(h)
+WHERE p.settings->>'backup_retention' IN ('extended', 'long')
+  AND p.created_at < g.h + '1 hour'::interval AND (p.deleted_at IS NULL OR p.deleted_at > g.h)
+`
+
+type HourlyBackupRetentionParams struct {
+	FromTs   time.Time
+	LastHour time.Time
+}
+
+type HourlyBackupRetentionRow struct {
+	ProjectID   uuid.UUID
+	OrgID       uuid.UUID
+	PlanID      uuid.UUID
+	PeriodStart time.Time
+	Retention   string
+	Fraction    float64
+}
+
+// tenant: system - usage recording; rows carry org_id.
+// Projects on a longer backup retention (V4.1 §4.2), for each hour from
+// @from_ts to @last_hour they existed, with the fraction of the hour.
+func (q *Queries) HourlyBackupRetention(ctx context.Context, arg HourlyBackupRetentionParams) ([]HourlyBackupRetentionRow, error) {
+	rows, err := q.db.Query(ctx, hourlyBackupRetention, arg.FromTs, arg.LastHour)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []HourlyBackupRetentionRow
+	for rows.Next() {
+		var i HourlyBackupRetentionRow
+		if err := rows.Scan(
+			&i.ProjectID,
+			&i.OrgID,
+			&i.PlanID,
+			&i.PeriodStart,
+			&i.Retention,
+			&i.Fraction,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const hourlyDedicated = `-- name: HourlyDedicated :many
 SELECT p.id AS project_id, p.org_id, o.plan_id, g.h::timestamptz AS period_start,
        COALESCE(i.cpu_limit, 0)::float8 AS cpus, COALESCE(i.mem_limit_mb, 0)::int AS mem_mb, COALESCE(i.volume_gb, 0)::int AS disk_gb,
+       -- HA standbys (V3 §2.2): the members besides the primary, each the instance's size
+       -- (read replicas are recorded on their own, V4 §7).
+       (CASE WHEN i.ha_enabled THEN GREATEST((SELECT count(*) FROM instance_members m WHERE m.instance_id = i.id AND m.deleted_at IS NULL AND NOT m.replica) - 1, 0) ELSE 0 END)::int AS standbys,
+       (i.ha_enabled AND i.sync_replication)::bool AS sync_replication,
+       i.pitr_days,
        (extract(epoch FROM LEAST(g.h + '1 hour'::interval, COALESCE(p.deleted_at, 'infinity'::timestamptz)) - GREATEST(g.h, p.created_at)) / 3600)::float8 AS fraction
 FROM projects p
 JOIN instances i ON i.id = p.instance_id
@@ -420,14 +479,17 @@ type HourlyDedicatedParams struct {
 }
 
 type HourlyDedicatedRow struct {
-	ProjectID   uuid.UUID
-	OrgID       uuid.UUID
-	PlanID      uuid.UUID
-	PeriodStart time.Time
-	Cpus        float64
-	MemMb       int32
-	DiskGb      int32
-	Fraction    float64
+	ProjectID       uuid.UUID
+	OrgID           uuid.UUID
+	PlanID          uuid.UUID
+	PeriodStart     time.Time
+	Cpus            float64
+	MemMb           int32
+	DiskGb          int32
+	Standbys        int32
+	SyncReplication bool
+	PitrDays        int32
+	Fraction        float64
 }
 
 // tenant: system - usage recording; rows carry org_id.
@@ -450,6 +512,9 @@ func (q *Queries) HourlyDedicated(ctx context.Context, arg HourlyDedicatedParams
 			&i.Cpus,
 			&i.MemMb,
 			&i.DiskGb,
+			&i.Standbys,
+			&i.SyncReplication,
+			&i.PitrDays,
 			&i.Fraction,
 		); err != nil {
 			return nil, err
@@ -1031,7 +1096,7 @@ func (q *Queries) OrgLargestProject(ctx context.Context, orgID uuid.UUID) (float
 }
 
 const orgLiveProjects = `-- name: OrgLiveProjects :many
-SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id, parent_project_id, branch_source, branch_schema_only, expires_at, expiry_notified_at, branch_backups, sensitive_data FROM projects WHERE org_id = $1 AND deleted_at IS NULL ORDER BY created_at
+SELECT id, name, slug, db_name, owner_role, scram_verifier, tier, instance_id, status, settings, storage_target_id, extensions, description, created_by, created_at, deleted_at, org_id, alias_db_name, legacy_owner_role, legacy_scram_verifier, legacy_until, storage_state, storage_state_at, backup_key_id, parent_project_id, branch_source, branch_schema_only, expires_at, expiry_notified_at, branch_backups, sensitive_data, probe_verifier, lifecycle, last_active_at, pause_warned_at, paused_at, archived_at, archive_backup_id, archive_notice_days, region, data_residency, forward_region, forward_until FROM projects WHERE org_id = $1 AND deleted_at IS NULL ORDER BY created_at
 `
 
 func (q *Queries) OrgLiveProjects(ctx context.Context, orgID uuid.UUID) ([]Project, error) {
@@ -1075,6 +1140,18 @@ func (q *Queries) OrgLiveProjects(ctx context.Context, orgID uuid.UUID) ([]Proje
 			&i.ExpiryNotifiedAt,
 			&i.BranchBackups,
 			&i.SensitiveData,
+			&i.ProbeVerifier,
+			&i.Lifecycle,
+			&i.LastActiveAt,
+			&i.PauseWarnedAt,
+			&i.PausedAt,
+			&i.ArchivedAt,
+			&i.ArchiveBackupID,
+			&i.ArchiveNoticeDays,
+			&i.Region,
+			&i.DataResidency,
+			&i.ForwardRegion,
+			&i.ForwardUntil,
 		); err != nil {
 			return nil, err
 		}

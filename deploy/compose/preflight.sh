@@ -1,25 +1,25 @@
 #!/bin/sh
-# Check a server before installing PGDock on it (docs/install.md).
+# Check a server before installing Xenibase on it (docs/install.md).
 #
 #   cd deploy/compose
-#   ./preflight.sh pgdock.example.com db.example.com
+#   ./preflight.sh xenibase.example.com db.example.com
 #
 # The two names are the web UI's hostname and the database hostname your apps
 # will use; both must already point at this server. Optional environment:
 #
-#   PGDOCK_S3_ENDPOINT  the backup bucket's endpoint URL, to check it is reachable
-#   PGDOCK_SMTP_HOST    your mail server, with PGDOCK_SMTP_PORT (default 587)
+#   XENIBASE_S3_ENDPOINT  the backup bucket's endpoint URL, to check it is reachable
+#   XENIBASE_SMTP_HOST    your mail server, with XENIBASE_SMTP_PORT (default 587)
 #
 # It changes nothing. Each line is PASS, WARN (works, but look at it) or FAIL
 # (the install will not work until this is fixed); the exit status is 1 if
 # anything FAILed.
 set -u
 
-ui=${1:-${PGDOCK_UI_DOMAIN:-}}
-db=${2:-${PGDOCK_DB_DOMAIN:-}}
+ui=${1:-${XENIBASE_UI_DOMAIN:-}}
+db=${2:-${XENIBASE_DB_DOMAIN:-}}
 if [ -z "$ui" ] || [ -z "$db" ]; then
 	echo "usage: $0 <ui-hostname> <database-hostname>" >&2
-	echo "e.g.   $0 pgdock.example.com db.example.com" >&2
+	echo "e.g.   $0 xenibase.example.com db.example.com" >&2
 	exit 2
 fi
 
@@ -35,7 +35,7 @@ have() { command -v "$1" >/dev/null 2>&1; }
 # --- The machine -----------------------------------------------------------
 section "Server"
 if [ "$(uname -s)" != "Linux" ]; then
-	fail "this is $(uname -s); PGDock's install needs Linux (Ubuntu 24.04 or Debian 12)"
+	fail "this is $(uname -s); Xenibase's install needs Linux (Ubuntu 24.04 or Debian 12)"
 else
 	os=unknown
 	id=
@@ -177,7 +177,7 @@ for p in 80 443 5432 6543; do
 	0)
 		who=
 		have ss && who=$(ss -H -ltnp "sport = :$p" 2>/dev/null | sed -n 's/.*users:(("\([^"]*\)".*/\1/p' | head -1)
-		fail "port $p is already in use${who:+ by $who}: stop it, or PGDock's ${p} listener can't start"
+		fail "port $p is already in use${who:+ by $who}: stop it, or Xenibase's ${p} listener can't start"
 		;;
 	1) pass "port $p is free" ;;
 	*) warn "can't tell whether port $p is free (no ss or nc)" ;;
@@ -190,7 +190,7 @@ if have ufw && ufw status 2>/dev/null | grep -q "Status: active"; then
 	done
 	if [ -z "$missing" ]; then pass "ufw allows 80, 443, 5432 and 6543"; else warn "ufw is on and doesn't list${missing}: sudo ufw allow <port>/tcp for each (and allow OpenSSH first)"; fi
 fi
-note "From your own laptop, once PGDock is running, these must connect (a cloud firewall can block them even when ufw doesn't):"
+note "From your own laptop, once Xenibase is running, these must connect (a cloud firewall can block them even when ufw doesn't):"
 note "  nc -vz ${public_ip:-<server address>} 80   443   5432   6543"
 
 # --- Outbound --------------------------------------------------------------
@@ -203,27 +203,27 @@ if have curl; then
 		*) fail "can't reach ${url#https://}: the installer builds images and Caddy gets certificates over this" ;;
 		esac
 	done
-	if [ -n "${PGDOCK_S3_ENDPOINT:-}" ]; then
-		code=$(curl -s -o /dev/null -m 8 -w '%{http_code}' "$PGDOCK_S3_ENDPOINT" 2>/dev/null)
+	if [ -n "${XENIBASE_S3_ENDPOINT:-}" ]; then
+		code=$(curl -s -o /dev/null -m 8 -w '%{http_code}' "$XENIBASE_S3_ENDPOINT" 2>/dev/null)
 		case "$code" in
-		000 | "") fail "can't reach the backup endpoint $PGDOCK_S3_ENDPOINT" ;;
+		000 | "") fail "can't reach the backup endpoint $XENIBASE_S3_ENDPOINT" ;;
 		*) pass "reach the backup endpoint (HTTP $code)" ;;
 		esac
 	else
-		note "set PGDOCK_S3_ENDPOINT=https://… to check your backup bucket is reachable from here"
+		note "set XENIBASE_S3_ENDPOINT=https://… to check your backup bucket is reachable from here"
 	fi
 fi
-if [ -n "${PGDOCK_SMTP_HOST:-}" ]; then
-	port=${PGDOCK_SMTP_PORT:-587}
-	if have nc && nc -z -w 6 "$PGDOCK_SMTP_HOST" "$port" 2>/dev/null; then
-		pass "reach $PGDOCK_SMTP_HOST:$port"
+if [ -n "${XENIBASE_SMTP_HOST:-}" ]; then
+	port=${XENIBASE_SMTP_PORT:-587}
+	if have nc && nc -z -w 6 "$XENIBASE_SMTP_HOST" "$port" 2>/dev/null; then
+		pass "reach $XENIBASE_SMTP_HOST:$port"
 	elif have nc; then
-		fail "can't reach $PGDOCK_SMTP_HOST:$port: many hosts block outbound mail ports (25, sometimes 465/587); use your provider's submission port, or ask them to unblock it"
+		fail "can't reach $XENIBASE_SMTP_HOST:$port: many hosts block outbound mail ports (25, sometimes 465/587); use your provider's submission port, or ask them to unblock it"
 	else
-		warn "nc isn't installed: can't test $PGDOCK_SMTP_HOST:$port"
+		warn "nc isn't installed: can't test $XENIBASE_SMTP_HOST:$port"
 	fi
 else
-	note "set PGDOCK_SMTP_HOST (and PGDOCK_SMTP_PORT) to check your mail server is reachable from here"
+	note "set XENIBASE_SMTP_HOST (and XENIBASE_SMTP_PORT) to check your mail server is reachable from here"
 fi
 
 # --- A previous attempt ----------------------------------------------------
@@ -231,10 +231,10 @@ section "This directory"
 if [ -f .env ]; then
 	warn ".env already exists here: install.sh keeps it (and its secrets). Remove it only for a clean first install"
 fi
-if have docker && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^pgdock\|compose-pgdock'; then
-	warn "PGDock containers are already running on this host"
+if have docker && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^xenibase\|compose-xenibase'; then
+	warn "Xenibase containers are already running on this host"
 fi
-[ -f install.sh ] || warn "install.sh isn't in this directory: run this from deploy/compose in a PGDock checkout"
+[ -f install.sh ] || warn "install.sh isn't in this directory: run this from deploy/compose in a Xenibase checkout"
 
 printf '\n'
 if [ "$fails" -gt 0 ]; then

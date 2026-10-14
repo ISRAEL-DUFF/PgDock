@@ -5,17 +5,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net"
 	"net/http"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/docker"
-	"github.com/israel-duff/pgdock/internal/walg"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/docker"
+	"github.com/israel-duff/xenibase/internal/walg"
 )
 
 // InstanceConfig configures instance management (dedicated tier, spec §4.2).
@@ -33,6 +36,13 @@ type InstanceConfig struct {
 	// HBAAllow are the CIDRs new instances accept network logins from
 	// (written to pg_hba.conf at initdb; spec §7.1).
 	HBAAllow []string
+	// MoveAllow are the CIDRs other instances connect from to replicate a
+	// project during a move (V3 §2.3). Only the moves' own logins
+	// (xenibase_move_<id>) may use them; added to pg_hba.conf on every start,
+	// so instances created before V3 get them too.
+	MoveAllow []string
+	// EtcdImage is the image of the node's etcd member (V3 §2.2).
+	EtcdImage string
 }
 
 // instances manages Postgres containers.
@@ -47,7 +57,7 @@ type instances struct {
 func newInstances(cfg InstanceConfig) *instances {
 	in := &instances{cfg: cfg, locks: map[string]*sync.Mutex{}}
 	if cfg.Image == "" {
-		in.err = errors.New("no instance image configured (PGDOCK_AGENT_PG_IMAGE)")
+		in.err = errors.New("no instance image configured (XENIBASE_AGENT_PG_IMAGE)")
 		return in
 	}
 	in.dc, in.err = docker.New(cfg.Docker)
@@ -83,16 +93,15 @@ func (in *instances) lock(id string) func() {
 var instanceID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 func names(id string) (container, volume, restore string) {
-	return "pgdock-" + id, "pgdock-" + id, "pgdock-" + id + "-restore"
+	return "xenibase-" + id, "xenibase-" + id, "xenibase-" + id + "-restore"
 }
 
 const (
 	pgPort   = "5432/tcp"
-	pgdata   = "/var/lib/postgresql/18/docker"
 	dataRoot = "/var/lib/postgresql"
 	// recoveryEnv holds a point-in-time recovery's source archive settings
 	// until recovery ends.
-	recoveryEnv = dataRoot + "/pgdock-recovery.env"
+	recoveryEnv = dataRoot + "/xenibase-recovery.env"
 )
 
 // validSetting keeps settings to plain parameter names and values that
@@ -111,7 +120,9 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 	defer in.lock(spec.ID)()
 	name, vol, restoreName := names(spec.ID)
 
-	if _, err := in.dc.InspectContainer(ctx, name); err == nil && spec.Recreate && spec.Restore == nil {
+	var prev memberPorts
+	if old, err := in.dc.InspectContainer(ctx, name); err == nil && spec.Recreate && spec.Restore == nil {
+		prev = portsOf(old)
 		if err := in.dc.StopContainer(ctx, name, 60*time.Second); err != nil {
 			return agentapi.Instance{}, fmt.Errorf("stop for recreate: %w", err)
 		}
@@ -123,7 +134,7 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 		if err := in.dc.StartContainer(ctx, name); err != nil {
 			return agentapi.Instance{}, err
 		}
-		if err := in.waitReady(ctx, name); err != nil {
+		if err := in.ready(ctx, name); err != nil {
 			return agentapi.Instance{}, err
 		}
 		return in.info(ctx, spec.ID)
@@ -131,14 +142,15 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 		return agentapi.Instance{}, err
 	}
 
-	if ok, err := in.dc.ImageExists(ctx, in.cfg.Image); err != nil {
+	image := agentapi.ImageFor(in.cfg.Image, spec.PGVersion)
+	if ok, err := in.dc.ImageExists(ctx, image); err != nil {
 		return agentapi.Instance{}, err
 	} else if !ok {
-		if err := in.dc.Pull(ctx, in.cfg.Image); err != nil {
+		if err := in.dc.Pull(ctx, image); err != nil {
 			return agentapi.Instance{}, err
 		}
 	}
-	labels := map[string]string{"pgdock.instance": spec.ID, "pgdock.kind": spec.Kind}
+	labels := map[string]string{"xenibase.instance": spec.ID, "xenibase.kind": spec.Kind}
 	if spec.Restore != nil {
 		// A half-finished earlier attempt may have left data behind.
 		_ = in.dc.RemoveContainer(ctx, restoreName)
@@ -156,12 +168,13 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 	}
 
 	cmd := []string{"postgres"}
-	settings := map[string]string{"listen_addresses": "*", "password_encryption": "scram-sha-256"}
+	// wal_level=logical: moves replicate out of any instance (V3 §2.3);
+	// WAL-G archives it as it would replica.
+	settings := map[string]string{"listen_addresses": "*", "password_encryption": "scram-sha-256", "wal_level": "logical"}
 	if spec.WALG != nil {
 		settings["archive_mode"] = "on"
 		settings["archive_command"] = "wal-g wal-push %p"
 		settings["archive_timeout"] = "60"
-		settings["wal_level"] = "replica"
 	}
 	for k, v := range spec.Settings {
 		if !settingName.MatchString(k) || strings.ContainsAny(v, "\x00\n") {
@@ -182,9 +195,10 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 		"POSTGRES_PASSWORD=" + spec.AdminPassword,
 		"POSTGRES_DB=postgres",
 		"POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256 --auth-local=trust",
+		"PGDATA=" + pgdataFor(spec.PGVersion),
 	}
 	if len(in.cfg.HBAAllow) > 0 {
-		env = append(env, "PGDOCK_HBA_ALLOW="+strings.Join(in.cfg.HBAAllow, ","))
+		env = append(env, "XENIBASE_HBA_ALLOW="+strings.Join(in.cfg.HBAAllow, ","))
 	}
 	if spec.WALG != nil {
 		env = append(env, walg.Env(*spec.WALG)...)
@@ -193,7 +207,7 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 	shm := min(max(mem/4, 64<<20), 1<<30)
 	stop := 60
 	cc := docker.ContainerConfig{
-		Image: in.cfg.Image, Cmd: cmd, Env: env, Labels: labels,
+		Image: image, Cmd: cmd, Env: env, Labels: labels,
 		ExposedPorts: map[string]struct{}{pgPort: {}},
 		StopSignal:   "SIGINT", // Postgres fast shutdown
 		StopTimeout:  &stop,
@@ -212,16 +226,135 @@ func (in *instances) Create(ctx context.Context, spec agentapi.InstanceSpec) (ag
 		cc.HostConfig.NetworkMode = in.cfg.Network
 		cc.Networking = &docker.NetworkingConfig{EndpointsConfig: map[string]docker.EndpointSettings{in.cfg.Network: {Aliases: []string{name}}}}
 	}
+	if spec.Patroni != nil {
+		if err := in.applyPatroni(&cc, spec, name, settings, prev); err != nil {
+			return agentapi.Instance{}, err
+		}
+	}
 	if _, err := in.dc.CreateContainer(ctx, name, cc); err != nil {
 		return agentapi.Instance{}, err
 	}
 	if err := in.dc.StartContainer(ctx, name); err != nil {
 		return agentapi.Instance{}, err
 	}
-	if err := in.waitReady(ctx, name); err != nil {
+	if err := in.ready(ctx, name); err != nil {
+		return agentapi.Instance{}, err
+	}
+	if err := in.checkMajor(ctx, name, image, spec.PGVersion); err != nil {
 		return agentapi.Instance{}, err
 	}
 	return in.info(ctx, spec.ID)
+}
+
+var serverVersion = regexp.MustCompile(`PostgreSQL\) (\d+)`)
+
+// checkMajor refuses an instance whose image runs another Postgres major
+// than asked: an agent image without {major} serves one version only.
+func (in *instances) checkMajor(ctx context.Context, name, image string, want int) error {
+	if want == 0 {
+		return nil
+	}
+	r, err := in.dc.Exec(ctx, name, "postgres", nil, []string{"postgres", "-V"})
+	if err != nil {
+		return err
+	}
+	m := serverVersion.FindStringSubmatch(r.Stdout)
+	if m == nil {
+		return fmt.Errorf("instance %s: unexpected postgres -V output %q", name, strings.TrimSpace(r.Stdout))
+	}
+	if got, _ := strconv.Atoi(m[1]); got != want {
+		return fmt.Errorf("image %s runs Postgres %d, not %d: set the agent's image to a template with {major} (XENIBASE_AGENT_PG_IMAGE)", image, got, want)
+	}
+	return nil
+}
+
+var releaseRe = regexp.MustCompile(`^(\d+)\.(\d+)`)
+
+// pgRelease trims a PG_VERSION value to major.minor.
+func pgRelease(v string) string { return releaseRe.FindString(v) }
+
+// pgdataFor is the data directory for a major, inside the instance's
+// volume (mounted at dataRoot). Postgres 18's image uses this layout; older
+// images default to dataRoot/data, which they also declare as an anonymous
+// volume: data there would be lost when the container is recreated, so
+// PGDATA is always set.
+func pgdataFor(major int) string {
+	if major == 0 {
+		major = agentapi.DefaultPGVersion
+	}
+	return dataRoot + "/" + strconv.Itoa(major) + "/docker"
+}
+
+// ready waits for the instance to accept connections and makes sure its
+// pg_hba.conf lets move logins in.
+func (in *instances) ready(ctx context.Context, name string) error {
+	if c, err := in.dc.InspectContainer(ctx, name); err == nil && c.Config.Labels[patroniLabel] != "" {
+		// Patroni owns pg_hba.conf (the move rules are in its
+		// configuration), and a new standby may restore for a long time:
+		// ready is Patroni answering. xenibase-server follows the member's
+		// role and state through the REST API.
+		return in.waitPatroni(ctx, name)
+	}
+	if err := in.waitReady(ctx, name); err != nil {
+		return err
+	}
+	return in.ensureMoveHBA(ctx, name)
+}
+
+// ensureMoveRules adds the move rules to every running instance, for those
+// started before this agent knew them (instances created before V3).
+func (in *instances) ensureMoveRules(ctx context.Context, log *slog.Logger) {
+	if in.err != nil || len(in.cfg.MoveAllow) == 0 {
+		return
+	}
+	cs, err := in.dc.ListContainers(ctx, "xenibase.instance")
+	if err != nil {
+		log.Warn("listing instances for the move rules", "err", err)
+		return
+	}
+	for _, c := range cs {
+		id := c.Labels["xenibase.instance"]
+		name, _, _ := names(id)
+		if c.State != "running" || !instanceID.MatchString(id) || !slices.Contains(c.Names, "/"+name) {
+			continue // stopped, or a restore's one-off container
+		}
+		unlock := in.lock(id)
+		if err := in.ensureMoveHBA(ctx, name); err != nil {
+			log.Warn("adding the move rules to pg_hba.conf", "instance", id, "err", err)
+		}
+		unlock()
+	}
+}
+
+// moveHBAMark heads the rules ensureMoveHBA adds.
+const moveHBAMark = "# xenibase: logical-replication moves (V3 §2.3)"
+
+// ensureMoveHBA appends, once, rules letting only the moves' logins in
+// from MoveAllow, and reloads the configuration.
+func (in *instances) ensureMoveHBA(ctx context.Context, name string) error {
+	if len(in.cfg.MoveAllow) == 0 {
+		return nil
+	}
+	var rules strings.Builder
+	rules.WriteString(moveHBAMark + "\n")
+	for _, c := range in.cfg.MoveAllow {
+		if _, _, err := net.ParseCIDR(c); err != nil {
+			return fmt.Errorf("move CIDR %q: %w", c, err)
+		}
+		fmt.Fprintf(&rules, "host all /^xenibase_move_[0-9a-f]+$ %s scram-sha-256\n", c)
+	}
+	r, err := in.dc.Exec(ctx, name, "postgres", []string{"XENIBASE_MOVE_RULES=" + rules.String(), "XENIBASE_MOVE_MARK=" + moveHBAMark}, []string{"sh", "-c",
+		`f="$(psql -XAtq -U "${POSTGRES_USER:-${XENIBASE_ADMIN_USER:-xenibase_admin}}" -h /var/run/postgresql -d postgres -c 'SHOW hba_file')" || exit 1
+grep -qxF "$XENIBASE_MOVE_MARK" "$f" && exit 0
+printf '%s' "$XENIBASE_MOVE_RULES" >> "$f" || exit 1
+psql -XAtq -U "${POSTGRES_USER:-${XENIBASE_ADMIN_USER:-xenibase_admin}}" -h /var/run/postgresql -d postgres -c 'SELECT pg_reload_conf()' >/dev/null`})
+	if err != nil {
+		return err
+	}
+	if r.ExitCode != 0 {
+		return fmt.Errorf("instance %s: add the move rules to pg_hba.conf: %s", name, strings.TrimSpace(r.Stderr+r.Stdout))
+	}
+	return nil
 }
 
 // restore fills vol from a WAL-G base backup and sets up recovery, in a
@@ -256,14 +389,14 @@ func (in *instances) restore(ctx context.Context, spec agentapi.InstanceSpec, vo
 mkdir -p "$PGDATA" && chmod 700 "$PGDATA"
 wal-g backup-fetch "$PGDATA" "$BACKUP_NAME"
 touch "$PGDATA/recovery.signal"
-printf '\n# PGDock point-in-time recovery\n%s\n' "$RECOVERY_CONF" >> "$PGDATA/postgresql.auto.conf"
+printf '\n# Xenibase point-in-time recovery\n%s\n' "$RECOVERY_CONF" >> "$PGDATA/postgresql.auto.conf"
 (umask 077; printf '%s\n' "$RECOVERY_ENV" > "$RECOVERY_ENV_FILE")
 echo restored`
-	env := append(walg.Env(r.Source), "BACKUP_NAME="+r.BackupName, "RECOVERY_CONF="+strings.Join(conf, "\n"), "PGDATA="+pgdata,
+	env := append(walg.Env(r.Source), "BACKUP_NAME="+r.BackupName, "RECOVERY_CONF="+strings.Join(conf, "\n"), "PGDATA="+pgdataFor(spec.PGVersion),
 		"RECOVERY_ENV="+shellExports(walg.Env(r.Source)), "RECOVERY_ENV_FILE="+recoveryEnv)
 	id, err := in.dc.CreateContainer(ctx, name, docker.ContainerConfig{
-		Image: in.cfg.Image, Entrypoint: []string{"sh", "-c"}, Cmd: []string{script}, Env: env, User: "postgres",
-		Labels: map[string]string{"pgdock.instance": spec.ID, "pgdock.role": "restore"},
+		Image: agentapi.ImageFor(in.cfg.Image, spec.PGVersion), Entrypoint: []string{"sh", "-c"}, Cmd: []string{script}, Env: env, User: "postgres",
+		Labels: map[string]string{"xenibase.instance": spec.ID, "xenibase.role": "restore"},
 		HostConfig: docker.HostConfig{
 			Mounts:      []docker.Mount{{Type: "volume", Source: vol, Target: dataRoot}},
 			NetworkMode: in.cfg.Network,
@@ -333,6 +466,14 @@ func (in *instances) info(ctx context.Context, id string) (agentapi.Instance, er
 		ID: id, ContainerID: c.ID, Container: name, Volume: vol, State: c.State.Status, Running: c.State.Running,
 		Image: c.Config.Image,
 	}
+	// The official image records its release in PG_VERSION
+	// ("18.1-1.pgdg13+1"); a lookup that fails leaves the field empty.
+	if img, err := in.dc.InspectImage(ctx, c.ImageID); err == nil {
+		out.Version = pgRelease(img.Env("PG_VERSION"))
+	}
+	if img, err := in.dc.InspectImage(ctx, c.Config.Image); err == nil {
+		out.ImageVersion = pgRelease(img.Env("PG_VERSION"))
+	}
 	if b := c.NetworkSettings.Ports[pgPort]; len(b) > 0 {
 		out.PublishedHost = b[0].HostIP
 		out.PublishedPort, _ = strconv.Atoi(b[0].HostPort)
@@ -342,6 +483,14 @@ func (in *instances) info(ctx context.Context, id string) (agentapi.Instance, er
 		out.Host, out.Port = name, 5432
 	case out.PublishedPort != 0:
 		out.Host, out.Port = out.PublishedHost, out.PublishedPort
+	}
+	if c.Config.Labels[patroniLabel] != "" {
+		out.Patroni = true
+		out.PublishedRestPort = portsOf(c).rest
+		out.RestPort = 8008
+		if in.cfg.Network == "" {
+			out.RestPort = out.PublishedRestPort
+		}
 	}
 	return out, nil
 }
@@ -362,7 +511,7 @@ func (in *instances) Destroy(ctx context.Context, id string) error {
 func (in *instances) walgShell(ctx context.Context, id, script string) (docker.ExecResult, error) {
 	name, _, _ := names(id)
 	r, err := in.dc.Exec(ctx, name, "postgres", nil, []string{"sh", "-c",
-		`export PGUSER="$POSTGRES_USER" PGHOST=/var/run/postgresql PGDATABASE=postgres; ` + script})
+		`export PGUSER="${POSTGRES_USER:-${XENIBASE_ADMIN_USER:-xenibase_admin}}" PGHOST=/var/run/postgresql PGDATABASE=postgres; ` + script})
 	if err != nil {
 		return r, err
 	}
@@ -485,7 +634,7 @@ func (s *Service) instanceAction(action string) http.HandlerFunc {
 		switch action {
 		case "start":
 			if err = s.inst.dc.StartContainer(r.Context(), name); err == nil {
-				err = s.inst.waitReady(r.Context(), name)
+				err = s.inst.ready(r.Context(), name)
 			}
 		case "stop":
 			err = s.inst.dc.StopContainer(r.Context(), name, time.Minute)

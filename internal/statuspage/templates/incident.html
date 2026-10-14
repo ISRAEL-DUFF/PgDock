@@ -1,0 +1,19 @@
+{{define "pagetitle"}}{{.Incident.Title}} · {{.Title}}{{end}}
+{{define "content"}}
+<p><a href="/">← All systems</a></p>
+<article class="incident-page {{.Incident.Severity}}">
+  <h1>{{.Incident.Title}}</h1>
+  <p class="muted">
+    {{if .Incident.ResolvedAt}}Resolved{{else}}{{title .Incident.Status}}{{end}} ·
+    Affects {{range $i, $c := .Incident.Components}}{{if $i}}, {{end}}{{with index $.Names $c}}{{.}}{{else}}{{$c}}{{end}}{{end}}
+    {{if .Incident.Region}} in {{.Incident.Region}}{{end}} ·
+    Started {{when .Incident.StartedAt}}{{with .Incident.ResolvedAt}} · Resolved {{when .}}{{end}}
+    {{if .Incident.Auto}} · Opened automatically{{end}}
+  </p>
+  <ol class="updates">
+  {{range .Incident.Updates}}
+    <li><strong>{{title .Status}}</strong> <span class="muted">{{when .PostedAt}}</span><p>{{.Body}}</p></li>
+  {{end}}
+  </ol>
+</article>
+{{end}}

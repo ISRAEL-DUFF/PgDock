@@ -9,11 +9,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/console"
-	"github.com/israel-duff/pgdock/internal/schemaedit"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/console"
+	"github.com/israel-duff/xenibase/internal/schemaedit"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // The table editor (V2 §4): the grid, row edits, and schema changes.
@@ -220,7 +220,7 @@ func (s *Server) ExportTableRows(w http.ResponseWriter, r *http.Request, id gen.
 		ctype = "application/json"
 	}
 	// Whether rows were left out is only known at the end: a trailer.
-	w.Header().Set("Trailer", "X-PGDock-Truncated")
+	w.Header().Set("Trailer", "X-Xenibase-Truncated")
 	w.Header().Set("Content-Type", ctype)
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, safeFilename(table)+"."+format))
 	n, more, err := s.console.Export(r.Context(), id, schema, table, q, format, w)
@@ -233,7 +233,7 @@ func (s *Server) ExportTableRows(w http.ResponseWriter, r *http.Request, id gen.
 	if err != nil {
 		s.log.Warn("export ended early", "project_id", id, "err", err)
 	}
-	w.Header().Set("X-PGDock-Truncated", fmt.Sprint(more))
+	w.Header().Set("X-Xenibase-Truncated", fmt.Sprint(more))
 }
 
 func safeFilename(s string) string {

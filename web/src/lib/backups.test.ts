@@ -11,9 +11,9 @@ describe("backups", () => {
   });
 
   it("finds the key line in a downloaded key file", () => {
-    const file = "# PGDock backup encryption key (fingerprint abc).\n# Store it offline.\npgdock-backup-key-v1:AAAA\n";
-    expect(extractKey(file)).toBe("pgdock-backup-key-v1:AAAA");
-    expect(extractKey("  pgdock-backup-key-v1:BBBB  ")).toBe("pgdock-backup-key-v1:BBBB");
+    const file = "# Xenibase backup encryption key (fingerprint abc).\n# Store it offline.\nxenibase-backup-key-v1:AAAA\n";
+    expect(extractKey(file)).toBe("xenibase-backup-key-v1:AAAA");
+    expect(extractKey("  xenibase-backup-key-v1:BBBB  ")).toBe("xenibase-backup-key-v1:BBBB");
   });
 });
 
