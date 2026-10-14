@@ -5,6 +5,8 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+## v4.1.0
+
 ### Renamed: Xenibase
 - The product is now **Xenibase** (it was PGDock). Everything follows, as a clean
   break: the `xenibase-server`, `xenibase-agent`, `xenibase-edge` and
