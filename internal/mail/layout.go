@@ -287,3 +287,20 @@ const htmlTemplate = `<!doctype html>
 </td></tr>
 </table></td></tr></table></body></html>
 `
+
+// Compose is a message written as Content: Body is its plain-text form, so
+// the text part and anything that reads Body see the same words.
+func Compose(to []string, subject string, c Content) Message {
+	return Message{To: to, Subject: subject, Body: c.Text(), Content: &c}
+}
+
+// Hi is a greeting by first name, or "Hello," when there is no name.
+func Hi(name string) string {
+	if f := strings.Fields(name); len(f) > 0 {
+		return "Hi " + f[0] + ","
+	}
+	return "Hello,"
+}
+
+// SignOff closes a message that Xenibase writes in its own voice.
+const SignOff = "Warmly,\nThe Xenibase team"
