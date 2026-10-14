@@ -53,6 +53,10 @@ type AuthSettings struct {
 	PhoneCountries []string `json:"phone_countries,omitempty"`
 	PhoneDailyCap  *int     `json:"phone_daily_cap,omitempty"`
 	SMSTemplate    *string  `json:"sms_template,omitempty"`
+	// EmailLayout wraps the project's emails (confirmation, magic link,
+	// password reset, invitation) in a clean layout under the project's name;
+	// off sends the template's text as it is. On when unset.
+	EmailLayout *bool `json:"email_layout,omitempty"`
 	// Anonymous users, MFA, identity linking.
 	AnonymousEnabled *bool   `json:"anonymous_enabled,omitempty"`
 	MFAPolicy        *string `json:"mfa_policy,omitempty"`

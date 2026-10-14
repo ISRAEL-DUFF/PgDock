@@ -10786,6 +10786,9 @@ components:
           description: New addresses must be confirmed before signing in.
         magic_link_enabled:
           type: boolean
+        email_layout:
+          type: boolean
+          description: Wrap the project's emails (confirmation, magic link, password reset, invitation) in a clean layout under the project's name. On unless set to false.
         password_min_length:
           type: integer
         password_require_mixed:

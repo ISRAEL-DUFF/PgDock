@@ -143,3 +143,44 @@ func TestFromTextFindsListsAndLinks(t *testing.T) {
 		t.Errorf("blocks %v title %q", kinds, c.Title)
 	}
 }
+
+func TestNeutralLayoutCarriesNoXenibaseBranding(t *testing.T) {
+	SetPublicURL("https://app.example.com")
+	t.Cleanup(func() { SetPublicURL("") })
+	c := FromText("Confirm your email", "Confirm your email address for PayQuick:\n\nhttps://payquick.ng/confirm?t=1\n\nIt expires in 10 minutes.")
+	c.Neutral, c.BrandName = true, "PayQuick <Ltd>"
+	html := c.HTML()
+	for _, bad := range []string{"Xenibase", "xenibase", "<img", "looked after", "app.example.com", brandTeal} {
+		if strings.Contains(html, bad) {
+			t.Errorf("a neutral message mentions %q", bad)
+		}
+	}
+	if !strings.Contains(html, "PayQuick &lt;Ltd&gt;") || !strings.Contains(html, "Sent by PayQuick") || !strings.Contains(html, neutralAccent) {
+		t.Error("the project's name (escaped) or the neutral accent is missing")
+	}
+	c.Accent = "#ff0000"
+	if !strings.Contains(c.HTML(), "#ff0000") {
+		t.Error("a valid accent isn't used")
+	}
+	c.Accent = "red;} body{display:none"
+	if strings.Contains(c.HTML(), "body{display:none") {
+		t.Error("an accent that isn't a colour reached the CSS")
+	}
+}
+
+const brandTeal = "#0f766e"
+
+func TestEverySampleRendersInBothFormats(t *testing.T) {
+	SetPublicURL("https://app.example.com")
+	t.Cleanup(func() { SetPublicURL("") })
+	for _, s := range Samples() {
+		text, html := parts(t, Render("Xenibase <hello@example.com>", s.Message, time.Unix(0, 0)))
+		if strings.TrimSpace(text) == "" || !strings.Contains(html, "<h1") {
+			t.Errorf("%s: text %d bytes, html %d bytes", s.Name, len(text), len(html))
+		}
+	}
+	dir := t.TempDir()
+	if n, err := WritePreviews(dir); err != nil || n != len(Samples()) {
+		t.Errorf("wrote %d, %v", n, err)
+	}
+}

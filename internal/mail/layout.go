@@ -84,6 +84,13 @@ type Content struct {
 	SignOff string
 	// Note is the small print: why the recipient got this.
 	Note string
+	// Neutral lays the message out under someone else's name instead of
+	// Xenibase's, with no Xenibase logo, tagline or link: for a customer's own
+	// app sending to its own users. BrandName is that name; Accent (#rrggbb)
+	// is the colour of its button and links, a neutral slate when empty.
+	Neutral   bool
+	BrandName string
+	Accent    string
 }
 
 // Text renders c as plain text.
@@ -119,6 +126,12 @@ func (c Content) Text() string {
 	}
 	return strings.TrimRight(b.String(), "\n") + "\n"
 }
+
+// neutralAccent is the button colour of a message that isn't Xenibase's:
+// a quiet slate, so nothing in it looks like our brand.
+const neutralAccent = "#1f2937"
+
+var hexRe = regexp.MustCompile(`^[0-9a-fA-F]{6}$`)
 
 var urlLine = regexp.MustCompile(`^https?://\S+$`)
 
@@ -234,6 +247,15 @@ func (c Content) HTML() string {
 	if base != "" {
 		v.LogoURL = base + brand.LogoPath
 	}
+	if c.Neutral {
+		v.LogoURL, v.Base, v.Tagline = "", "", ""
+		v.Brand = strings.TrimSpace(c.BrandName)
+		accent := neutralAccent
+		if a := c.Accent; len(a) == 7 && a[0] == '#' && hexRe.MatchString(a[1:]) {
+			accent = a
+		}
+		v.Teal, v.TealDeep, v.Mint = accent, accent, "#f4f5f7"
+	}
 	var b bytes.Buffer
 	if err := tmpl.Execute(&b, v); err != nil {
 		// The template is fixed and the data is strings; a failure is a bug,
@@ -279,11 +301,11 @@ const htmlTemplate = `<!doctype html>
 <p class="muted" style="margin:-6px 0 18px 0;font-size:13px;line-height:1.5;color:{{$.Muted}}">If the button doesn’t work, copy this address into your browser:<br><a class="link" href="{{.}}" style="color:{{$.Teal}};word-break:break-all">{{.}}</a></p>{{end}}
 {{end}}
 {{end}}
-{{if .SignOff}}<p class="ink" style="margin:8px 0 0 0;color:{{.Ink}}">{{.SignOff}}</p>{{end}}
+{{if .SignOff}}<p class="ink" style="margin:8px 0 0 0;white-space:pre-line;color:{{.Ink}}">{{.SignOff}}</p>{{end}}
 </td></tr>
 <tr><td style="padding:18px 8px 0 8px;text-align:center;font:400 12.5px/1.6 -apple-system,'Segoe UI',Inter,Helvetica,Arial,sans-serif" class="muted">
  {{if .Note}}<div class="muted" style="color:{{.Muted}};margin-bottom:6px">{{.Note}}</div>{{end}}
- <div class="muted" style="color:{{.Muted}}">{{.Brand}} · {{.Tagline}}{{if .Base}} · <a class="link" href="{{.Base}}" style="color:{{.Muted}}">{{.Base}}</a>{{end}}</div>
+ <div class="muted" style="color:{{.Muted}}">{{if .Neutral}}{{if .Brand}}Sent by {{.Brand}}{{end}}{{else}}{{.Brand}} · {{.Tagline}}{{if .Base}} · <a class="link" href="{{.Base}}" style="color:{{.Muted}}">{{.Base}}</a>{{end}}{{end}}</div>
 </td></tr>
 </table></td></tr></table></body></html>
 `

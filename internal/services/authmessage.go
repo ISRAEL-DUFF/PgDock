@@ -476,9 +476,17 @@ func (s *Service) sendOne(ctx context.Context, d store.AuthMessageOutbox) (sendR
 		}
 		return res, nil
 	}
-	// Plain until the project emails have their own layout (docs/v4.2-plan.md).
 	msg := mail.Message{To: []string{m.To}, Subject: m.Subject, Body: m.Body, Plain: true,
 		Headers: map[string]string{"X-Xenibase-Event": "auth." + d.Kind, "Auto-Submitted": "auto-generated"}}
+	if st.EmailLayout == nil || *st.EmailLayout {
+		// The project's own text, laid out under its own name: no Xenibase
+		// logo or footer, since these go to the project's users.
+		name := ""
+		if p, err := store.New(s.db).GetProject(ctx, d.ProjectID); err == nil {
+			name = p.Name
+		}
+		msg.Plain, msg.Content = false, authEmailContent(d.Kind, m.Subject, m.Body, name)
+	}
 	if d.Via == "project" {
 		res.provider = "smtp"
 		if prov.SMTP == nil {
@@ -490,6 +498,28 @@ func (s *Service) sendOne(ctx context.Context, d store.AuthMessageOutbox) (sendR
 		return res, mail.ErrNotConfigured
 	}
 	return res, s.Mail.Send(sctx, msg)
+}
+
+// authEmailContent lays out a project's email: its template's text, with the
+// link as a button labelled for what it does.
+func authEmailContent(kind, subject, body, projectName string) *mail.Content {
+	c := mail.FromText(subject, body)
+	c.Neutral, c.BrandName = true, projectName
+	label := map[string]string{
+		edgeapi.EmailConfirmation: "Confirm my email",
+		edgeapi.EmailMagicLink:    "Sign in",
+		edgeapi.EmailRecovery:     "Reset my password",
+		edgeapi.EmailInvite:       "Accept the invitation",
+		edgeapi.EmailChange:       "Confirm my new email",
+	}[kind]
+	if label != "" {
+		for i := range c.Blocks {
+			if c.Blocks[i].Kind == mail.BlockButton {
+				c.Blocks[i].Text = label
+			}
+		}
+	}
+	return &c
 }
 
 // provider is the messaging client for a project's own provider.
