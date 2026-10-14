@@ -50,8 +50,8 @@ const hex = (v: string) => v.replace("#", "");
 export function applyMonacoTheme() {
   const dark = getComputedStyle(document.documentElement).colorScheme.includes("dark");
   const name = dark ? "xenibase-dark" : "xenibase-light";
-  const accent = cssVar("--accent", "#7c3aed");
-  const accentText = cssVar("--accent-text", dark ? "#a78bfa" : "#6d28d9");
+  const accent = cssVar("--accent", "#0f766e");
+  const accentText = cssVar("--accent-text", dark ? "#5eead4" : "#115e59");
   monaco.editor.defineTheme(name, {
     base: dark ? "vs-dark" : "vs",
     inherit: true,

@@ -5,6 +5,11 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### New brand
+- A new logo, the doorway, and a teal accent in both themes, replacing the
+  purple. The browser tab icon was still PGDock's: it is Xenibase's now,
+  with app icons and a sharing card for link previews. See [Brand](docs/brand.md).
+
 ## v4.1.0
 
 ### Renamed: Xenibase
