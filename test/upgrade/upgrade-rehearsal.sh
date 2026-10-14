@@ -1,7 +1,7 @@
 #!/bin/sh
 # A real upgrade with the compose bundle, using deploy/compose/upgrade.sh:
 #
-#   1. install an older release (UPGRADE_FROM, default v2.1.0) as a user would;
+#   1. install an older release (UPGRADE_FROM, default 3510e9d, the first Xenibase commit) as a user would;
 #   2. try a "release" whose migration is broken: upgrade.sh must fail, restore
 #      the metadata backup and bring the older release back, healthy;
 #   3. upgrade to this commit: it must come up healthy at the new version and
@@ -14,7 +14,12 @@
 #   make test-upgrade
 set -eu
 repo=$(cd "$(dirname "$0")/../.." && pwd)
-from=${UPGRADE_FROM:-v2.1.0}
+# The release to upgrade from. It must already be Xenibase: v2.1.0 and earlier
+# are PGDock (PGDOCK_* settings, pgdock containers and database user), and an
+# upgrade across the rename is not supported (install fresh and import).
+# 3510e9d is the first Xenibase commit; once v4.1.0 exists, the next release
+# should default to the previous tag instead.
+from=${UPGRADE_FROM:-3510e9d}
 work=$(mktemp -d)
 cleanup() { cd "$work/deploy/compose" 2>/dev/null && docker compose down -v --remove-orphans >/dev/null 2>&1; cd /; rm -rf "$work"; }
 trap cleanup EXIT
@@ -55,7 +60,7 @@ step "a release with a broken migration is rolled back"
 cd "$work"
 git checkout -q -b broken "$head_commit"
 last=$(ls internal/store/migrations/*.sql | sed -E 's#.*/([0-9]+)_.*#\1#' | sort -n | tail -1)
-next=$(printf '%05d' $((10#$last + 1)))
+next=$(printf '%05d' $(( $(echo "$last" | sed 's/^0*//') + 1 )))
 printf -- '-- +goose Up\nSELECT this_is_not_valid_sql FROM nowhere;\n\n-- +goose Down\nSELECT 1;\n' > "internal/store/migrations/${next}_broken.sql"
 git add -A && git commit -q -m "a release that cannot migrate" && git tag v9.9.9-broken
 git checkout -q "$from"
