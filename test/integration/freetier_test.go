@@ -151,7 +151,7 @@ func TestFreeProjectPausesAndArchives(t *testing.T) {
 	if err := e.SharedAdmin("postgres").QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)`, c.Project.DbName).Scan(&exists); err != nil || exists {
 		t.Fatalf("the archived database is still there: %v %v", exists, err)
 	}
-	if n := e.SMTP.Count(testenv.OwnerEmail, "[Xenibase] Hobby is archived"); n != 1 {
+	if n := e.SMTP.Count(testenv.OwnerEmail, "Hobby is archived"); n != 1 {
 		t.Errorf("archive notices: %d", n)
 	}
 

@@ -791,7 +791,7 @@ func (s *Service) notify(ctx context.Context, p store.Project, subject, body str
 		return
 	}
 	link := strings.TrimRight(s.cfg.PublicURL, "/") + "/projects/" + p.ID.String() + "/webhooks"
-	if err := s.mail.Send(ctx, mail.Message{To: addrs, Subject: subject, Body: body + "\n\n" + link}); err != nil {
+	if err := s.mail.Send(ctx, mail.Notice(addrs, subject, body, "Open the webhooks in Xenibase", link)); err != nil {
 		s.log.Warn("send webhook email", "err", err)
 	}
 }

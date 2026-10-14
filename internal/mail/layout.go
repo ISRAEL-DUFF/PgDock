@@ -304,3 +304,14 @@ func Hi(name string) string {
 
 // SignOff closes a message that Xenibase writes in its own voice.
 const SignOff = "Warmly,\nThe Xenibase team"
+
+// Notice is a plain-text notice with one link: the text is laid out as
+// FromText does, and the link is the button at the end.
+func Notice(to []string, subject, body, buttonLabel, link string) Message {
+	c := FromText(subject, body)
+	if link != "" {
+		c.Blocks = append(c.Blocks, Button(buttonLabel, link))
+	}
+	c.SignOff = SignOff
+	return Compose(to, subject, c)
+}

@@ -120,7 +120,7 @@ func (s *Service) now() time.Time { return s.cfg.Now() }
 func (s *Service) link(path string) string { return strings.TrimRight(s.cfg.PublicURL, "/") + path }
 
 // notify emails the org's owners and the project's admins.
-func (s *Service) notify(ctx context.Context, p store.Project, subject, body string) {
+func (s *Service) notify(ctx context.Context, p store.Project, subject string, c mail.Content) {
 	if s.mail == nil {
 		return
 	}
@@ -128,7 +128,10 @@ func (s *Service) notify(ctx context.Context, p store.Project, subject, body str
 	if err != nil || len(to) == 0 {
 		return
 	}
-	if err := s.mail.Send(ctx, mail.Message{To: to, Subject: subject, Body: body, Headers: map[string]string{"X-Xenibase-Event": "free_tier"}}); err != nil {
+	c.Note = "You're getting this because you look after " + p.Name + " on Xenibase's Free plan."
+	m := mail.Compose(to, subject, c)
+	m.Headers = map[string]string{"X-Xenibase-Event": "free_tier"}
+	if err := s.mail.Send(ctx, m); err != nil {
 		s.log.Warn("free tier notice", "project_id", p.ID, "err", err)
 	}
 }

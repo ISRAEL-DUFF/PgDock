@@ -718,11 +718,25 @@ func (s *Service) Invite(ctx context.Context, p InviteParams) (Invited, error) {
 	if orgName != "" {
 		what = "the " + orgName + " organisation on Xenibase"
 	}
-	body := fmt.Sprintf("%s invited you to %s.\n\nAccept the invitation:\n\n%s\n\nThe link works for 7 days, once.",
-		p.InviterName, what, out.URL)
+	who := p.InviterName
+	if strings.TrimSpace(who) == "" {
+		who = "Someone"
+	}
+	invite := mail.Content{
+		Preheader: who + " invited you to " + what + ".",
+		Title:     "You're invited to " + what,
+		Blocks: []mail.Block{
+			mail.P("Hello,"),
+			mail.P(fmt.Sprintf("%s invited you to %s. Accept the invitation to get started.", who, what)),
+			mail.Button("Accept the invitation", out.URL),
+			mail.P("The link works for 7 days, and only once."),
+		},
+		SignOff: mail.SignOff,
+		Note:    "If you weren't expecting this, you can safely ignore it. Nothing happens unless you accept.",
+	}
 	if s.mailer == nil {
 		out.EmailError = mail.ErrNotConfigured
-	} else if err := s.mailer.Send(ctx, mail.Message{To: []string{email}, Subject: "You're invited to " + what, Body: body}); err != nil {
+	} else if err := s.mailer.Send(ctx, mail.Compose([]string{email}, "You're invited to "+what, invite)); err != nil {
 		out.EmailError = err
 		s.log.Warn("invitation email", "invitation_id", inv.ID, "err", err)
 	}

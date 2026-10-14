@@ -10,6 +10,7 @@ import (
 
 	"github.com/israel-duff/xenibase/internal/backup"
 	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/mail"
 	"github.com/israel-duff/xenibase/internal/provision"
 	"github.com/israel-duff/xenibase/internal/store"
 )
@@ -61,11 +62,18 @@ func (s *Service) runPause(ctx context.Context, op store.Operation, log *jobs.St
 	if err := log.Info(ctx, "database", "%s no longer accepts connections; its data is kept", p.DbName); err != nil {
 		return err
 	}
-	s.notify(ctx, p, fmt.Sprintf("[Xenibase] %s is paused", p.Name), fmt.Sprintf(
-		"%s had no client connections for %d days, so it is paused. Its data is kept.\n\n"+
-			"It resumes by itself the next time a client connects (the first connection is refused with a message; retry after about 30 seconds), or resume it now:\n%s\n\n"+
-			"A Free project paused for %d days is archived; paid plans are never paused.",
-		p.Name, days(s.cfg.PauseAfter), s.projectLink(p), days(s.cfg.ArchiveAfter)))
+	s.notify(ctx, p, fmt.Sprintf("%s is paused", p.Name), mail.Content{
+		Preheader: "Its data is safe. It wakes up on the next connection.",
+		Title:     fmt.Sprintf("%s is paused", p.Name),
+		Blocks: []mail.Block{
+			mail.P("Hello,"),
+			mail.P(fmt.Sprintf("%s had no client connections for %d days, so we've paused it. Its data is kept safe.", p.Name, days(s.cfg.PauseAfter))),
+			mail.P("It wakes up by itself the next time a client connects. The first connection is refused with a message, and a retry after about 30 seconds works. Or you can resume it now:"),
+			mail.Button("Resume the project", s.projectLink(p)),
+			mail.P(fmt.Sprintf("A Free project that stays paused for %d days is archived. Paid plans are never paused.", days(s.cfg.ArchiveAfter))),
+		},
+		SignOff: mail.SignOff,
+	})
 	return nil
 }
 
@@ -154,11 +162,18 @@ func (s *Service) runArchive(ctx context.Context, op store.Operation, log *jobs.
 	if err := log.Info(ctx, "database", "dropped %s; it is restored from the archive on the next connection", p.DbName); err != nil {
 		return err
 	}
-	s.notify(ctx, p, fmt.Sprintf("[Xenibase] %s is archived", p.Name), fmt.Sprintf(
-		"%s was paused for %d days, so it is archived: its data is in a verified backup and its database is removed. Its connection string and credentials are kept.\n\n"+
-			"The next connection restores it from the archive (minutes, not seconds), or restore it now:\n%s\n\n"+
-			"An archived Free project is deleted after %d days archived; you will be told %d and %d days before.",
-		p.Name, days(s.cfg.ArchiveAfter), s.projectLink(p), days(s.cfg.DeleteAfter), s.cfg.NoticeDays[0], s.cfg.NoticeDays[len(s.cfg.NoticeDays)-1]))
+	s.notify(ctx, p, fmt.Sprintf("%s is archived", p.Name), mail.Content{
+		Preheader: "Its data is in a verified backup, and it restores on the next connection.",
+		Title:     fmt.Sprintf("%s is archived", p.Name),
+		Blocks: []mail.Block{
+			mail.P("Hello,"),
+			mail.P(fmt.Sprintf("%s was paused for %d days, so we've archived it. Its data is in a verified backup and its database is removed. Its connection string and credentials are kept.", p.Name, days(s.cfg.ArchiveAfter))),
+			mail.P("The next connection restores it from the archive, which takes minutes rather than seconds. Or you can restore it now:"),
+			mail.Button("Restore the project", s.projectLink(p)),
+			mail.P(fmt.Sprintf("An archived Free project is deleted after %d days. We'll tell you %d and %d days before.", days(s.cfg.DeleteAfter), s.cfg.NoticeDays[0], s.cfg.NoticeDays[len(s.cfg.NoticeDays)-1])),
+		},
+		SignOff: mail.SignOff,
+	})
 	return nil
 }
 
@@ -210,8 +225,16 @@ func (s *Service) runUnarchive(ctx context.Context, op store.Operation, log *job
 	if err := s.projects.SyncPooler(ctx, log, "pooler", "the route points at the database again"); err != nil {
 		return err
 	}
-	s.notify(ctx, p, fmt.Sprintf("[Xenibase] %s is restored", p.Name), fmt.Sprintf(
-		"%s is restored from its archive and accepts connections again.\n\n%s", p.Name, s.projectLink(p)))
+	s.notify(ctx, p, fmt.Sprintf("%s is restored", p.Name), mail.Content{
+		Preheader: "It accepts connections again.",
+		Title:     fmt.Sprintf("%s is back", p.Name),
+		Blocks: []mail.Block{
+			mail.P("Hello,"),
+			mail.P(fmt.Sprintf("%s is restored from its archive and accepts connections again.", p.Name)),
+			mail.Button("Open the project", s.projectLink(p)),
+		},
+		SignOff: mail.SignOff,
+	})
 	return log.Info(ctx, "done", "%s restored from its archive", p.Name)
 }
 
