@@ -69,7 +69,7 @@ docker compose version
 ```sh
 git clone https://github.com/israel-duff/xenibase.git
 cd xenibase
-git checkout v2.1.0
+git checkout v4.1.0
 ```
 
 ## Check the server first
