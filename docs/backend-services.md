@@ -997,9 +997,41 @@ Run one xenibase-edge per region, on the region's nodes. It keeps no state.
 | `XENIBASE_EDGE_RENDER_IN_PROCESS` | Optional: set to render images inside the edge process instead of in workers (not recommended; a bad image can then take the edge down). |
 
 `deploy/edge/Dockerfile` builds the image, and `deploy/edge/edge.env.example`
-lists the settings. With the compose install, set `XENIBASE_API_DOMAIN` and
-`XENIBASE_EDGE_SECRET` in its `.env` (the compose file passes them to
-xenibase-server).
+lists the settings.
+
+### With the compose install
+
+The bundle can run the edge on the same server, behind its Caddy, with the
+wildcard certificate that Caddy gets and renews with a Cloudflare DNS
+challenge. (A wildcard certificate can only be proved with a DNS challenge,
+and Cloudflare's API is the one the plugin supports; if your DNS is elsewhere,
+move the zone's nameservers to Cloudflare, which is free. The registrar can
+stay where it is.)
+
+1. **DNS on Cloudflare.** Copy every record to Cloudflare first (mail records
+   too), switch the nameservers, and set the records **DNS only**. Add `*.api`
+   (or your API domain's name), an A record to the server.
+2. **An API token** in Cloudflare, limited to the zone, with *Edit zone DNS*.
+   Put it in `deploy/compose/.env` by hand: `CLOUDFLARE_API_TOKEN=…`.
+3. Run it:
+
+   ```sh
+   cd deploy/compose
+   ./enable-services.sh api.example.com
+   ```
+
+   It adds `XENIBASE_API_DOMAIN`, a generated `XENIBASE_EDGE_SECRET` and the
+   `services` profile to `.env`, builds Caddy with the Cloudflare plugin
+   (`caddy-cf/`), writes `caddy.d/api.caddy` (the wildcard site, proxied to the
+   edge over plain HTTP), and starts `xenibase-edge`. It is safe to run again.
+4. Wait a minute for the certificate (`docker compose logs caddy | grep -i
+   "certificate obtained"`), then enable a project (Settings → API) and try
+   its address as in [Turning it on](#turning-it-on).
+
+The edge is limited to 1 GB of memory (`XENIBASE_EDGE_MEMORY`); image
+transforms run in workers of up to 512 MB each. To turn it off again, remove
+`COMPOSE_PROFILES=services` from `.env`, delete `caddy.d/api.caddy`, and run
+`docker compose up -d --remove-orphans`.
 
 - **DNS:** a wildcard record `*.<domain>` pointing at the region's edge.
 - **TLS:** get the wildcard certificate with a DNS-01 client for your DNS

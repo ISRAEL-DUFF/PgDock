@@ -5,6 +5,13 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Backend services in the install bundle
+- `deploy/compose/enable-services.sh <api-domain>` turns on backend services
+  on a compose install: it runs `xenibase-edge` behind Caddy, with the
+  wildcard certificate for `*.<api-domain>` obtained and renewed through a
+  Cloudflare DNS challenge. Existing installs are unchanged until it is run.
+  See [Running xenibase-edge](docs/backend-services.md#running-xenibase-edge).
+
 ## v4.1.0
 
 ### Renamed: Xenibase

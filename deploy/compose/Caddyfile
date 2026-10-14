@@ -12,6 +12,10 @@
 	reverse_proxy xenibase-server:8080
 }
 
+# Backend services' wildcard API domain, written by enable-services.sh. Nothing
+# matches (and nothing is served) until then.
+import /etc/caddy/caddy.d/*.caddy
+
 # Any other host on port 80: ACME challenges go to xenibase-server (for the
 # DB hostname's certificate); everything else is sent to the UI.
 http:// {
