@@ -30,6 +30,11 @@ bundle share one version (spec §11.5).
 - The editors have a Preview tab, so what readers will see is seen before a
   new version is published.
 
+### Sign-in screens
+- A new look for sign-in, sign-up, verification, password reset, invitation
+  and the setup wizard: larger headings and a brand panel of receding
+  doorways. The words on the screens are unchanged.
+
 ### New brand
 - A new logo, the doorway, and a teal accent in both themes, replacing the
   purple. The browser tab icon was still PGDock's: it is Xenibase's now,
