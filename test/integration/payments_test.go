@@ -279,7 +279,8 @@ func TestPaymentsThroughWallets(t *testing.T) {
 	// 7. Receipts, the ledger, and reconciliation against the provider.
 	var pays gen.PaymentList
 	e.Do("GET", "/api/v1/orgs/"+hid+"/billing/payments", nil, &pays)
-	if len(pays.Items) != 1 {
+	// The deposit, and the debit that paid its invoice.
+	if len(pays.Items) != 2 {
 		t.Fatalf("the wallet org's payments: %+v", pays)
 	}
 	if code, body := e.DoBytes("GET", "/api/v1/orgs/"+hid+"/billing/payments/"+pays.Items[0].Id.String()+"/receipt", "", nil); code != http.StatusOK || !strings.HasPrefix(string(body), "%PDF") {
