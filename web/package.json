@@ -30,6 +30,8 @@
     "react": "^19.3.0",
     "react-data-grid": "^7.0.0-beta.61",
     "react-dom": "^19.3.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "sonner": "^2.0.8",
     "sql-formatter": "^15.9.0",
     "tailwind-merge": "^3.7.0"

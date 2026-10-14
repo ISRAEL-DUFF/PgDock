@@ -6,6 +6,7 @@ import { api, errorMessage, type Terms } from "../api/client";
 import { useCurrentOrg } from "../lib/org";
 import { refreshSession } from "../lib/session";
 import { nextTheme, useTheme } from "../lib/theme";
+import { LegalDocument } from "./LegalDocument";
 import { Logo, LogoMark } from "./shell/Logo";
 import { Alert, Button, cx } from "./ui";
 
@@ -44,14 +45,8 @@ export function TermsGate({ version }: { version: number }) {
 
 /** The terms of use and privacy notice, as published. */
 export function TermsText({ terms }: { terms: Terms }) {
-  return (
-    <div tabIndex={0} className="max-h-80 overflow-y-auto rounded-md border border-line bg-surface-2 p-3 text-xs whitespace-pre-wrap" data-testid="terms-text">
-      {terms.terms_md}
-      {"\n\n"}
-      {terms.privacy_md}
-      {terms.aup_md ? `\n\n${terms.aup_md}` : ""}
-    </div>
-  );
+  const md = [terms.terms_md, terms.privacy_md, terms.aup_md].filter(Boolean).join("\n\n---\n\n");
+  return <LegalDocument md={md} testId="terms-text" meta={`Version ${terms.version}`} maxHeight="22rem" contents="never" />;
 }
 
 /**

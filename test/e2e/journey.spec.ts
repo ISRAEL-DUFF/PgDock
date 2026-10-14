@@ -1279,6 +1279,10 @@ test.describe("with the saved session", () => {
     await page.goto("/org/legal");
     await expect(page.getByTestId("legal-sla")).toContainText("Accepted ");
     await expect(page.getByTestId("legal-dpa")).toContainText("Accepted ");
+    // The documents are read as documents: a heading and a table, not Markdown source.
+    await expect(page.getByTestId("legal-text-sla").getByRole("heading", { name: "Service level agreement" })).toBeVisible();
+    await expect(page.getByTestId("legal-text-sla").getByRole("table").first()).toBeVisible();
+    await expect(page.getByTestId("legal-text-sla")).not.toContainText("| ---");
 
     // A ticket from the dashboard.
     await page.goto("/org/support");
