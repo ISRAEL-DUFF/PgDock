@@ -201,3 +201,30 @@ select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+
+/* Printing a legal document (components/LegalDocument.tsx): only the
+   document, on white paper, whatever the theme. */
+@media print {
+  body.printing-doc * {
+    visibility: hidden;
+  }
+  body.printing-doc .print-doc,
+  body.printing-doc .print-doc * {
+    visibility: visible;
+    color: #111 !important;
+    background: transparent !important;
+    border-color: #ccc !important;
+  }
+  body.printing-doc .print-doc {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-height: none !important;
+    overflow: visible !important;
+    border: 0 !important;
+  }
+  body.printing-doc .print-doc nav {
+    display: none;
+  }
+}

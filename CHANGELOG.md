@@ -5,6 +5,15 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Legal documents
+- The service level agreement, data processing agreement, order forms and the
+  terms of use and privacy notice are shown as documents: headings, lists and
+  tables in the app's type, with a contents list for a long one and a button
+  to print it or save it as a PDF. They were the Markdown source. Raw HTML in a
+  document is never shown, and only web, mail and phone links are linked.
+- The editors have a Preview tab, so what readers will see is seen before a
+  new version is published.
+
 ### New brand
 - A new logo, the doorway, and a teal accent in both themes, replacing the
   purple. The browser tab icon was still PGDock's: it is Xenibase's now,
