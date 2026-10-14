@@ -328,8 +328,8 @@ services:
       supa-auth:
         condition: service_healthy
     environment:
-      ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzAwMDAwMDAwLCJleHAiOjIwMDAwMDAwMDB9.BQiPH0yV7vzWKM64tfeTZvmyDQ9D2di_K6r9Q-s5_jk
-      SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MjAwMDAwMDAwMH0._dKTsO2xm0IZae52aCMJnhBsvWs9nsSZi4cDQfWdDjQ
+      ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzAwMDAwMDAwLCJleHAiOjIwMDAwMDAwMDB9.oLDe_M2CG8AR4fn8rVAlv7Bsr-8u6hn-S5BX4_xEsIU
+      SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MjAwMDAwMDAwMH0.Eo0P_HXfmjYHj1yMLc1ZxvzEixWGXvbVzBQzUHyIXLQ
       AUTH_JWT_SECRET: xenibase-dev-supabase-jwt-secret-0123456789abcdef
       PGRST_JWT_SECRET: xenibase-dev-supabase-jwt-secret-0123456789abcdef
       DATABASE_URL: postgres://supabase_storage_admin:supabase-hobby@supa-db:5432/postgres

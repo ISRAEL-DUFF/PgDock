@@ -126,7 +126,7 @@ func TestPaymentsThroughWallets(t *testing.T) {
 		t.Fatalf("before the wallet is opened: %+v", w)
 	}
 	w := openWallet(t, e, held.id, "Wallet Co")
-	const gross = 2_000_000
+	const gross = 5_000_000
 	_, _, credited, err := e.ISWallet.Deposit(w.Account.AccountNumber, gross)
 	if err != nil {
 		t.Fatal(err)

@@ -318,7 +318,7 @@ func TestCLIBilling(t *testing.T) {
 	if r.code != 0 || !strings.Contains(r.stdout, "Transfer to "+w.Account.AccountNumber) {
 		t.Fatalf("transfer: exit %d\n%s\n%s", r.code, r.stdout, r.stderr)
 	}
-	_, _, credited, err := e.ISWallet.Deposit(w.Account.AccountNumber, 2_000_000)
+	_, _, credited, err := e.ISWallet.Deposit(w.Account.AccountNumber, 5_000_000)
 	if err != nil {
 		t.Fatal(err)
 	}
