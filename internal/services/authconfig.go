@@ -703,7 +703,7 @@ func (s *Service) TestSMTP(ctx context.Context, projectID uuid.UUID, m *SMTPSett
 	if err := c.Validate(); err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
-	return mail.Send(ctx, c, mail.Message{To: []string{to}, Subject: "Xenibase test email",
+	return mail.Send(ctx, c, mail.Message{To: []string{to}, Subject: "Xenibase test email", Plain: true,
 		Body: "This is a test email from your project's SMTP settings in Xenibase. They work.\n"})
 }
 

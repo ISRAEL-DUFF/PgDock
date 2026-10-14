@@ -249,6 +249,8 @@ func run() error {
 		go func() { defer bg.Done(); backups.Dedicated.RunMaintenance(bgCtx, 5*time.Minute) }()
 	}
 
+	// Email carries the logo from, and links to, the web app.
+	mail.SetPublicURL(cfg.Insight.PublicURL)
 	orgSvc := orgs.New(pool, authSvc, projects, mailSvc, cfg.Insight.PublicURL, log)
 	authSvc.SetHooks(orgSvc.Hooks())
 

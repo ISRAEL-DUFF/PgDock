@@ -476,7 +476,8 @@ func (s *Service) sendOne(ctx context.Context, d store.AuthMessageOutbox) (sendR
 		}
 		return res, nil
 	}
-	msg := mail.Message{To: []string{m.To}, Subject: m.Subject, Body: m.Body,
+	// Plain until the project emails have their own layout (docs/v4.2-plan.md).
+	msg := mail.Message{To: []string{m.To}, Subject: m.Subject, Body: m.Body, Plain: true,
 		Headers: map[string]string{"X-Xenibase-Event": "auth." + d.Kind, "Auto-Submitted": "auto-generated"}}
 	if d.Via == "project" {
 		res.provider = "smtp"
