@@ -55,17 +55,19 @@ export function TermsText({ terms }: { terms: Terms }) {
 }
 
 /**
- * The sign-in pages' layout, as Supabase's: the form on the left under the
- * logo, a quiet brand panel on the right on wide screens.
+ * The sign-in pages' layout: the form on the left under the logo, and on wide
+ * screens a brand panel on the right: the doorway, repeated, receding into
+ * the distance (docs/brand.md). The pages' own text is theirs; this is the
+ * frame around it.
  */
 export function AuthShell({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
   const [theme, setTheme] = useTheme();
   const Icon = theme === "light" ? Sun : theme === "dark" ? Moon : Monitor;
   return (
     <div className="flex min-h-screen bg-bg">
-      <div className="flex flex-1 flex-col border-line px-6 py-6 lg:max-w-[36rem] lg:border-r lg:bg-surface lg:px-10">
+      <div className="flex flex-1 flex-col border-line px-6 py-6 lg:max-w-[36rem] lg:border-r lg:bg-surface lg:px-12">
         <header className="flex items-center justify-between">
-          <Logo />
+          <Logo className="text-[17px]" />
           <button
             type="button"
             onClick={() => setTheme(nextTheme(theme))}
@@ -77,11 +79,11 @@ export function AuthShell({ children, wide }: { children: React.ReactNode; wide?
           </button>
         </header>
         <main className="flex flex-1 items-center justify-center py-10">
-          <div className={cx("w-full", wide ? "max-w-xl" : "max-w-sm")}>{children}</div>
+          <div className={cx("auth-card w-full", wide ? "max-w-xl" : "max-w-sm")}>{children}</div>
         </main>
       </div>
-      <aside className="relative hidden flex-1 items-center justify-center overflow-hidden lg:flex" aria-hidden>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,var(--accent-soft),transparent_60%)]" />
+      <aside className="auth-aside relative hidden flex-1 items-center justify-center overflow-hidden lg:flex" aria-hidden>
+        <Doorways />
         <div className="relative max-w-md px-10">
           <LogoMark className="mb-6 h-12 w-12" />
           <p className="text-2xl leading-snug font-medium tracking-tight">Postgres you run yourself, with the console you already know.</p>
@@ -89,6 +91,39 @@ export function AuthShell({ children, wide }: { children: React.ReactNode; wide?
         </div>
       </aside>
     </div>
+  );
+}
+
+/** Doorways receding into the distance: the brand panel's backdrop. */
+function Doorways() {
+  const arches = [0, 1, 2, 3, 4, 5];
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0 h-full w-full text-accent-text"
+      viewBox="0 0 800 900"
+      preserveAspectRatio="xMidYMax slice"
+      fill="none"
+      // The lines fade out behind the text so it stays easy to read.
+      style={{ maskImage: "radial-gradient(ellipse 34% 26% at 50% 50%, transparent 55%, #000 100%)", WebkitMaskImage: "radial-gradient(ellipse 34% 26% at 50% 50%, transparent 55%, #000 100%)" }}
+      aria-hidden
+    >
+      {arches.map((i) => {
+        // Each arch is smaller than the last and sits higher: a hall seen from its end.
+        const w = 620 - i * 92;
+        const x = 400 - w / 2;
+        const top = 150 + i * 62;
+        const r = w / 2;
+        return (
+          <path
+            key={i}
+            d={`M${x} 900V${top + r}a${r} ${r} 0 0 1 ${w} 0V900`}
+            stroke="currentColor"
+            strokeWidth={2}
+            opacity={0.5 - i * 0.07}
+          />
+        );
+      })}
+    </svg>
   );
 }
 

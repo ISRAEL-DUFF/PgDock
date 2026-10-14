@@ -201,3 +201,18 @@ select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+
+/* The sign-in screens (components/Layout.tsx AuthShell): larger headings, and
+   a brand panel with a soft glow of the accent behind the doorways. */
+.auth-card h1 {
+  font-size: 1.625rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.25rem;
+}
+.auth-aside {
+  background:
+    radial-gradient(ellipse at 28% 18%, var(--accent-soft), transparent 62%),
+    radial-gradient(ellipse at 80% 90%, var(--accent-soft), transparent 55%),
+    var(--bg);
+}
