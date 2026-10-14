@@ -5,6 +5,22 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Email
+- Every email now goes out with an HTML part in one branded layout (the logo,
+  a card, a button for the link, a footer), and the plain text as before.
+  Light and dark, and on a phone.
+- The messages are written in a warmer voice: sign-up, verification,
+  password reset, approval, two-factor and role changes; invitations; API
+  tokens; invoices, receipts, wallet and overdue notices, prepaid, budget and
+  spend-cap alerts, price changes; branches, jobs and webhooks; the Free
+  tier's pause, archive and delete notices. Subjects keep their key words.
+- Your projects' own emails (confirmation, magic link, password reset,
+  invitation, email change) are laid out under the project's name, with no
+  Xenibase branding. Project → Auth has a **Clean email layout** switch to
+  send a template's text exactly as written instead.
+- `xenibase-server mail-preview <dir> [public-url]` writes sample emails
+  as HTML and text files to look at in a browser.
+
 ### New brand
 - A new logo, the doorway, and a teal accent in both themes, replacing the
   purple. The browser tab icon was still PGDock's: it is Xenibase's now,

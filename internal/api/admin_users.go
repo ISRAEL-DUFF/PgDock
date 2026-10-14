@@ -249,10 +249,16 @@ func (s *Server) PutMailSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
-	if err := mail.Send(ctx, cfg, mail.Message{
-		To: []string{string(req.TestTo)}, Subject: "Xenibase email works",
-		Body: "This is a test from Xenibase's email settings. Account email, invitations, and alerts will arrive like this.",
-	}); err != nil {
+	if err := mail.Send(ctx, cfg, mail.Compose([]string{string(req.TestTo)}, "Xenibase email works", mail.Content{
+		Preheader: "Account email, invitations and alerts will arrive like this.",
+		Title:     "Email is working",
+		Blocks: []mail.Block{
+			mail.P("Hello,"),
+			mail.P("This is a test from your Xenibase email settings, and it got through. Account emails, invitations, invoices and alerts will arrive just like this one."),
+			mail.Facts(mail.Fact{Label: "Sent from", Value: cfg.From}, mail.Fact{Label: "Mail server", Value: cfg.Host}),
+		},
+		SignOff: mail.SignOff,
+	})); err != nil {
 		writeError(w, http.StatusBadGateway, "smtp_test_failed", "the test email could not be sent: "+err.Error())
 		return
 	}

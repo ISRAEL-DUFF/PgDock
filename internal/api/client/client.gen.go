@@ -4591,7 +4591,10 @@ type AuthSettings struct {
 	CustomClaimsHook *string `json:"custom_claims_hook,omitempty"`
 
 	// EmailConfirm New addresses must be confirmed before signing in.
-	EmailConfirm     *bool `json:"email_confirm,omitempty"`
+	EmailConfirm *bool `json:"email_confirm,omitempty"`
+
+	// EmailLayout Wrap the project's emails (confirmation, magic link, password reset, invitation) in a clean layout under the project's name. On unless set to false.
+	EmailLayout      *bool `json:"email_layout,omitempty"`
 	MagicLinkEnabled *bool `json:"magic_link_enabled,omitempty"`
 
 	// ManualLinking Signed-in users may link and unlink identities.

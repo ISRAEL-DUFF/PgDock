@@ -418,13 +418,20 @@ func (s *Service) notifyRepricing(ctx context.Context, b Book) int {
 		if err != nil || len(to) == 0 {
 			continue
 		}
-		msg := mail.Message{
-			To:      to,
-			Subject: "Xenibase prices are changing on " + b.EffectiveAt.UTC().Format("2 January 2006"),
-			Body: fmt.Sprintf("Prices for %s's plan change from %s.\n\n%s\nThe full price list: %s/pricing\n",
-				a.OrgName, when, body, s.publicURL),
-			Headers: map[string]string{"X-Xenibase-Event": "billing.repricing"},
-		}
+		msg := mail.Compose(to, "Xenibase prices are changing on "+b.EffectiveAt.UTC().Format("2 January 2006"), mail.Content{
+			Preheader: "Here is what changes for " + a.OrgName + "'s plan, and when.",
+			Title:     "A change to our prices",
+			Blocks: []mail.Block{
+				mail.P("Hello,"),
+				mail.P(fmt.Sprintf("We're updating our prices. Here is what changes for %s's plan, from %s:", a.OrgName, when)),
+				mail.P(strings.TrimSpace(body)),
+				mail.Button("See the full price list", s.publicURL+"/pricing"),
+				mail.P("We give at least 30 days' notice of any price change. If you have questions, just reply to this email."),
+			},
+			SignOff: mail.SignOff,
+			Note:    billingNote(a.OrgName),
+		})
+		msg.Headers = map[string]string{"X-Xenibase-Event": "billing.repricing"}
 		if err := s.mail.Send(ctx, msg); err != nil {
 			s.log.Warn("repricing notice", "org", a.OrgID, "err", err)
 			continue
