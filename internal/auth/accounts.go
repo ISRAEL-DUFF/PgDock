@@ -358,13 +358,6 @@ func (s *Service) CreateVerifiedUser(ctx context.Context, tx pgx.Tx, email, pass
 	return u, q.AcceptTerms(ctx, store.AcceptTermsParams{UserID: u.ID, Version: int32(termsVersion), Ip: ip})
 }
 
-func (s *Service) send(ctx context.Context, to, subject, body string) error {
-	if s.mailer == nil {
-		return pgmail.ErrNotConfigured
-	}
-	return s.mailer.Send(ctx, pgmail.Message{To: []string{to}, Subject: subject, Body: body})
-}
-
 // sendContent sends a message written as structured content.
 func (s *Service) sendContent(ctx context.Context, to, subject string, c pgmail.Content) error {
 	if s.mailer == nil {
