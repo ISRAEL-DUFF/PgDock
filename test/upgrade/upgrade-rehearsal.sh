@@ -60,7 +60,7 @@ step "a release with a broken migration is rolled back"
 cd "$work"
 git checkout -q -b broken "$head_commit"
 last=$(ls internal/store/migrations/*.sql | sed -E 's#.*/([0-9]+)_.*#\1#' | sort -n | tail -1)
-next=$(printf '%05d' $((10#$last + 1)))
+next=$(printf '%05d' $(( $(echo "$last" | sed 's/^0*//') + 1 )))
 printf -- '-- +goose Up\nSELECT this_is_not_valid_sql FROM nowhere;\n\n-- +goose Down\nSELECT 1;\n' > "internal/store/migrations/${next}_broken.sql"
 git add -A && git commit -q -m "a release that cannot migrate" && git tag v9.9.9-broken
 git checkout -q "$from"
