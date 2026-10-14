@@ -227,6 +227,7 @@ select:focus-visible {
   body.printing-doc .print-doc nav {
     display: none;
   }
+}
 
 /* The sign-in screens (components/Layout.tsx AuthShell): larger headings, and
    a brand panel with a soft glow of the accent behind the doorways. */
