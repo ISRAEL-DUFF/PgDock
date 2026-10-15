@@ -5,6 +5,12 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Docs
+- [Building on Xenibase: a team guide](docs/guides/storefront.md): a domain
+  storefront from nothing to a safe backend, for people new to backend services
+  (the model, keys, row-level security, auth, orders through a webhook, files,
+  live updates, a launch checklist, how to report problems).
+
 ## v4.2.1
 
 ### Backend services in the install bundle
