@@ -36,7 +36,7 @@ func (s *Server) OrgVirtualAccount(w http.ResponseWriter, r *http.Request, org g
 		s.billingError(w, "virtual account", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, gen.VirtualAccount{Provider: va.Provider, AccountNumber: va.AccountNumber, BankName: va.BankName, AccountName: va.AccountName})
+	writeJSON(w, http.StatusOK, toAPIAccount(va))
 }
 
 // ListOrgPayments implements GET /api/v1/orgs/{org}/billing/payments.

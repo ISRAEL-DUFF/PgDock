@@ -5,6 +5,21 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Fixed
+- The app's text and layout were about 12% smaller than intended (the page's
+  root font size was 14px, and Tailwind sizes are in rem): text-xs rendered at
+  10.5px and text-sm at 12.25px. The root is the browser default now.
+- The wallet's bank account is shown as bank details: the account number large,
+  then the bank and the account name, each with a copy button, and *Copy all
+  details*. The account name no longer carries the provider's instruction
+  ("Please make a bank transfer to …"). The API's wallet lists every account
+  (`accounts`), and the page shows each, though a wallet has one today.
+- An upload through xenibase-edge whose object store failed (unreachable,
+  bad credential) was answered `400 incomplete_body` ("the upload ended
+  before its length"), blaming the client and logging nothing. Only a body
+  that really ended early is now `incomplete_body`; a store failure is
+  `503 storage_unavailable` and the edge logs the cause.
+
 ### SDK
 - `@xenibase/client` 0.1.0 is on npm (`npm install @xenibase/client`), under the
   Apache-2.0 licence.
@@ -18,12 +33,6 @@ bundle share one version (spec §11.5).
   (the model, keys, row-level security, auth, orders through a webhook, files,
   live updates, a launch checklist, how to report problems).
 
-### Fixed
-- An upload through xenibase-edge whose object store failed (unreachable,
-  bad credential) was answered `400 incomplete_body` ("the upload ended
-  before its length"), blaming the client and logging nothing. Only a body
-  that really ended early is now `incomplete_body`; a store failure is
-  `503 storage_unavailable` and the edge logs the cause.
 
 ## v4.2.1
 

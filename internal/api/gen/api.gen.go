@@ -9711,7 +9711,11 @@ type VirtualAccount struct {
 
 // Wallet defines model for Wallet.
 type Wallet struct {
+	// Account The wallet's first bank account (the same as accounts[0]); kept for older clients.
 	Account *VirtualAccount `json:"account,omitempty"`
+
+	// Accounts The bank accounts that top the wallet up, oldest first. A transfer to any of them is credited to the wallet.
+	Accounts *[]VirtualAccount `json:"accounts,omitempty"`
 
 	// Available Whether this platform bills through wallets.
 	Available    bool    `json:"available"`

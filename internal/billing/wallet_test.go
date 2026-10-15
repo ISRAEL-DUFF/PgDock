@@ -469,3 +469,20 @@ func TestInvoicePDFInDollars(t *testing.T) {
 		t.Fatalf("pdf: %d bytes, %v", len(pdf), err)
 	}
 }
+
+func TestCleanAccountName(t *testing.T) {
+	for in, want := range map[string]string{
+		"Please make a bank transfer to Ispend Ops":  "Ispend Ops",
+		"please make bank transfer to ACME LTD":      "ACME LTD",
+		"  Please transfer to Ada Obi  ":             "Ada Obi",
+		"Please make a payment to Xenibase / ORG 42": "Xenibase / ORG 42",
+		"Ispend Ops":                                 "Ispend Ops",
+		"XENIBASE / XENIBASE:PROD:ORG:1":             "XENIBASE / XENIBASE:PROD:ORG:1",
+		"Please make a bank transfer to":             "Please make a bank transfer to", // nothing after the instruction: as it came
+		"":                                           "",
+	} {
+		if got := billing.CleanAccountName(in); got != want {
+			t.Errorf("CleanAccountName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
