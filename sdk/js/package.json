@@ -3,6 +3,25 @@
   "version": "0.1.0",
   "description": "Xenibase's client: data, auth, storage and realtime for web, React Native and Node apps",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ISRAEL-DUFF/Xenibase.git",
+    "directory": "sdk/js"
+  },
+  "homepage": "https://github.com/ISRAEL-DUFF/Xenibase/tree/main/sdk/js#readme",
+  "bugs": {
+    "url": "https://github.com/ISRAEL-DUFF/Xenibase/issues"
+  },
+  "keywords": [
+    "xenibase",
+    "postgres",
+    "database",
+    "auth",
+    "storage",
+    "realtime",
+    "client",
+    "sdk"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -23,10 +42,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "devDependencies": {
     "typescript": "5.9.3",
     "vitest": "5.0.3"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
