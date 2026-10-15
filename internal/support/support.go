@@ -246,7 +246,7 @@ func (s *Service) sendEmail(ctx context.Context, t store.Ticket, body string) {
 	if s.cfg.Address != "" {
 		h["Reply-To"] = s.cfg.Address
 	}
-	err := s.mail.Send(ctx, mail.Message{To: []string{t.Requester}, Subject: fmt.Sprintf("[%s] %s", Ref(t.Number), t.Subject), Body: body, Headers: h})
+	err := s.mail.Send(ctx, mail.Message{To: []string{t.Requester}, Subject: fmt.Sprintf("[%s] %s", Ref(t.Number), t.Subject), Body: body, Plain: true, Headers: h})
 	if err != nil {
 		s.log.Warn("support email", "ticket", Ref(t.Number), "err", err)
 		return

@@ -55,11 +55,19 @@ type Config struct {
 	TLS      string
 }
 
-// Message is one email. Body is plain text.
+// Message is one email. Body is plain text. Unless Plain is set, it is sent
+// with an HTML part in Xenibase's layout as well: from Content if there is
+// one (then Body may be empty), and otherwise laid out from Body.
 type Message struct {
 	To      []string
 	Subject string
 	Body    string
+	// Content is the message as structured text; its plain-text form is Body
+	// when Body is empty.
+	Content *Content
+	// Plain sends Body as it is, with no HTML part: for text written by a
+	// person, or by a customer for their own users.
+	Plain bool
 	// Headers are extra headers (e.g. X-Xenibase-Event).
 	Headers map[string]string
 }
@@ -157,25 +165,55 @@ func Render(from string, m Message, now time.Time) []byte {
 	hdr := func(k, v string) {
 		b.WriteString(k + ": " + strings.NewReplacer("\r", " ", "\n", " ").Replace(v) + "\r\n")
 	}
+	text, html := m.Body, ""
+	switch {
+	case m.Content != nil:
+		if text == "" {
+			text = m.Content.Text()
+		}
+		html = m.Content.HTML()
+	case !m.Plain && strings.TrimSpace(m.Body) != "":
+		html = FromText(m.Subject, m.Body).HTML()
+	}
+	boundary := "xb-" + hex.EncodeToString(id)
 	hdr("From", from)
 	hdr("To", strings.Join(m.To, ", "))
 	hdr("Subject", mimeHeader(m.Subject))
 	hdr("Date", now.Format(time.RFC1123Z))
 	hdr("Message-ID", "<"+hex.EncodeToString(id)+"@"+host+">")
 	hdr("MIME-Version", "1.0")
-	hdr("Content-Type", "text/plain; charset=utf-8")
-	hdr("Content-Transfer-Encoding", "8bit")
+	if html == "" {
+		hdr("Content-Type", "text/plain; charset=utf-8")
+	} else {
+		hdr("Content-Type", `multipart/alternative; boundary="`+boundary+`"`)
+	}
+	if html == "" {
+		hdr("Content-Transfer-Encoding", "8bit")
+	}
 	for k, v := range m.Headers {
 		hdr(k, v)
 	}
 	b.WriteString("\r\n")
-	for _, l := range strings.Split(strings.ReplaceAll(m.Body, "\r\n", "\n"), "\n") {
-		// A lone "." would end the DATA section early.
-		if strings.HasPrefix(l, ".") {
-			l = "." + l
+	body := func(s string) {
+		for _, l := range strings.Split(strings.ReplaceAll(s, "\r\n", "\n"), "\n") {
+			// A lone "." would end the DATA section early.
+			if strings.HasPrefix(l, ".") {
+				l = "." + l
+			}
+			b.WriteString(l + "\r\n")
 		}
-		b.WriteString(l + "\r\n")
 	}
+	if html == "" {
+		body(text)
+		return []byte(b.String())
+	}
+	// The plain text comes first: clients that can't show HTML, and anything
+	// reading a message for its text, get it exactly as written.
+	b.WriteString("--" + boundary + "\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n")
+	body(text)
+	b.WriteString("--" + boundary + "\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n")
+	body(html)
+	b.WriteString("--" + boundary + "--\r\n")
 	return []byte(b.String())
 }
 

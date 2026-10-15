@@ -1,1 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#336791"/><path d="M9 23V9h7a5 5 0 0 1 0 10h-4v4z" fill="#fff"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Xenibase">
+  <defs>
+    <linearGradient id="xb-g" x1="10" y1="2" x2="54" y2="62" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2dd4bf"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+  </defs>
+  <path d="M12 30a20 20 0 0 1 40 0v23a5 5 0 0 1-5 5H17a5 5 0 0 1-5-5z" fill="url(#xb-g)"/>
+  <rect x="21" y="30" width="22" height="5.5" rx="2.75" fill="#fff"/>
+  <rect x="21" y="40" width="22" height="5.5" rx="2.75" fill="#fff" opacity=".75"/>
+  <rect x="21" y="50" width="22" height="5.5" rx="2.75" fill="#fff" opacity=".5"/>
+  <circle cx="32" cy="18" r="3.2" fill="#fef3c7"/>
+</svg>

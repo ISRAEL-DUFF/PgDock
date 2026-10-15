@@ -55,9 +55,48 @@ export function StandingBanner({ a }: { a: BillingAccount }) {
 }
 
 /** The wallet's bank account, with what a transfer to it does. */
-function BankAccount({ wallet }: { wallet: Wallet }) {
+function BankAccount({
+  org,
+  wallet,
+  onChange,
+}: {
+  org: string;
+  wallet: Wallet;
+  onChange: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   const va = wallet.account;
-  if (!va) return null;
+  if (!va) {
+    // The wallet exists but the provider didn't give its bank account (an
+    // outage, say, when it was opened): ask again.
+    const ask = async () => {
+      setBusy(true);
+      setErr(null);
+      try {
+        await api.virtualAccount(org);
+        onChange();
+      } catch (e) {
+        setErr(errorMessage(e));
+      } finally {
+        setBusy(false);
+      }
+    };
+    return (
+      <div className="rounded-md border border-line p-3" data-testid="virtual-account-missing">
+        <div className="flex items-center gap-2 font-medium">
+          <Landmark className="h-4 w-4" /> Top up by bank transfer
+        </div>
+        <p className="mt-1 text-[12px] text-muted">
+          The wallet&apos;s bank account isn&apos;t ready yet.
+        </p>
+        {err && <Alert tone="warn">{err}</Alert>}
+        <Button className="mt-2" onClick={ask} disabled={busy}>
+          {busy ? "Asking…" : "Get the bank account"}
+        </Button>
+      </div>
+    );
+  }
   return (
     <div className="rounded-md border border-line p-3" data-testid="virtual-account">
       <div className="flex items-center gap-2 font-medium">
@@ -374,7 +413,7 @@ export function WalletPanel({
             Xenibase&apos;s own record of it.
           </Alert>
         )}
-        <BankAccount wallet={w} />
+        <BankAccount org={org} wallet={w} onChange={refresh} />
         <DebitConsentBlock org={org} wallet={w} onChange={refresh} />
         {r && (
           <p className="text-[12px] text-muted" data-testid="fx-rate">

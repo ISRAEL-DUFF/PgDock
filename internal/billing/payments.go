@@ -88,9 +88,8 @@ func (s *Service) RecordPayment(ctx context.Context, p PaymentIn) (Settlement, e
 		if p.Provider == ProviderISwallet {
 			s.afterDeposit(p.OrgID)
 		}
-		s.notifyOrg(ctx, p.OrgID, "billing.receipt", fmt.Sprintf("Xenibase: payment of %s received", Naira(p.AmountMinor)),
-			fmt.Sprintf("Thank you: %s received from %s on %s (reference %s).\n\nThe receipt: %s/org/billing?org=%s\n",
-				Naira(p.AmountMinor), s.orgName(ctx, p.OrgID), p.ReceivedAt.UTC().Format("2 January 2006"), p.ProviderRef, s.publicURL, p.OrgID))
+		subject, content := s.receiptEmail(s.orgName(ctx, p.OrgID), p.OrgID, p)
+		s.notifyContent(ctx, p.OrgID, "billing.receipt", subject, content)
 	}
 	return out, err
 }

@@ -336,34 +336,46 @@ func (s *Service) mailInvoice(ctx context.Context, inv store.Invoice) {
 	if s.mail == nil || inv.Number == nil {
 		return
 	}
-	to, err := store.New(s.db).BillingRecipients(ctx, inv.OrgID)
-	if err != nil || len(to) == 0 {
-		return
-	}
+	org := s.orgName(ctx, inv.OrgID)
 	month := inv.PeriodStart.Time.Format("January 2006")
-	var b strings.Builder
-	fmt.Fprintf(&b, "Invoice %s for %s's usage in %s.\n\n", *inv.Number, s.orgName(ctx, inv.OrgID), month)
+	facts := []mail.Fact{{Label: "Invoice", Value: *inv.Number}}
 	if inv.UsdTotalMinor != nil {
-		fmt.Fprintf(&b, "Priced in dollars: %s before VAT, %s with VAT.\n", Money(CurrencyUSD, deref64(inv.UsdSubtotalMinor)), Money(CurrencyUSD, *inv.UsdTotalMinor))
+		facts = append(facts,
+			mail.Fact{Label: "Priced in dollars", Value: Money(CurrencyUSD, deref64(inv.UsdSubtotalMinor)) + " before VAT, " + Money(CurrencyUSD, *inv.UsdTotalMinor) + " with VAT"})
 		var fx FXQuote
 		if json.Unmarshal(inv.Fx, &fx) == nil && !fx.Effective.IsZero() {
-			fmt.Fprintf(&b, "Converted to naira at NGN %s per USD 1.\n", fx.Effective.Round2())
+			facts = append(facts, mail.Fact{Label: "Exchange rate", Value: "NGN " + fx.Effective.Round2() + " per USD 1"})
 		}
 	}
-	fmt.Fprintf(&b, "Subtotal: %s\nVAT: %s\nTotal: %s\n", Naira(inv.SubtotalMinor), Naira(inv.VatMinor), Naira(inv.TotalMinor))
-	if inv.WhtExpectedMinor > 0 {
-		fmt.Fprintf(&b, "Withholding tax you may deduct: %s (please send the WHT credit note)\n", Naira(inv.WhtExpectedMinor))
-	}
+	facts = append(facts,
+		mail.Fact{Label: "Subtotal", Value: Naira(inv.SubtotalMinor)},
+		mail.Fact{Label: "VAT", Value: Naira(inv.VatMinor)},
+		mail.Fact{Label: "Total", Value: Naira(inv.TotalMinor)})
 	if inv.TotalMinor > 0 && inv.DueAt != nil {
-		fmt.Fprintf(&b, "Due: %s\n", inv.DueAt.UTC().Format("2 January 2006"))
+		facts = append(facts, mail.Fact{Label: "Due", Value: inv.DueAt.UTC().Format("2 January 2006")})
 	}
-	fmt.Fprintf(&b, "\nView and download it: %s/org/billing?org=%s&invoice=%s\n", s.publicURL, inv.OrgID, inv.ID)
-	if err := s.mail.Send(ctx, mail.Message{
-		To: to, Subject: fmt.Sprintf("Xenibase invoice %s for %s", *inv.Number, month), Body: b.String(),
-		Headers: map[string]string{"X-Xenibase-Event": "billing.invoice"},
-	}); err != nil {
-		s.log.Warn("invoice email", "invoice", *inv.Number, "err", err)
+	c := mail.Content{
+		Preheader: invoicePreheader(inv),
+		Title:     "Your invoice for " + month,
+		Blocks: []mail.Block{
+			mail.P("Hello,"),
+			mail.P(fmt.Sprintf("Thank you for building with Xenibase. Here is the invoice for %s's usage in %s.", org, month)),
+			mail.Facts(facts...),
+		},
+		SignOff: mail.SignOff,
 	}
+	if inv.WhtExpectedMinor > 0 {
+		c.Blocks = append(c.Blocks, mail.P(fmt.Sprintf("If you withhold tax, you may deduct %s. Please send us the WHT credit note.", Naira(inv.WhtExpectedMinor))))
+	}
+	c.Blocks = append(c.Blocks, mail.Button("View and download the invoice", fmt.Sprintf("%s/org/billing?org=%s&invoice=%s", s.publicURL, inv.OrgID, inv.ID)))
+	s.notifyContent(ctx, inv.OrgID, "billing.invoice", fmt.Sprintf("Xenibase invoice %s for %s", *inv.Number, month), c)
+}
+
+func invoicePreheader(inv store.Invoice) string {
+	if inv.TotalMinor > 0 && inv.DueAt != nil {
+		return fmt.Sprintf("Invoice %s: %s, due %s.", *inv.Number, Naira(inv.TotalMinor), inv.DueAt.UTC().Format("2 January 2006"))
+	}
+	return fmt.Sprintf("Invoice %s: %s.", *inv.Number, Naira(inv.TotalMinor))
 }
 
 func deref64(v *int64) int64 {

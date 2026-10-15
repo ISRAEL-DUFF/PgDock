@@ -345,11 +345,11 @@ func newSecret() (string, error) {
 
 // ---- Email ------------------------------------------------------------------
 
-func (s *Service) send(ctx context.Context, to, subject, body string) {
+func (s *Service) send(ctx context.Context, to, subject string, c mail.Content) {
 	if s.mail == nil || to == "" {
 		return
 	}
-	if err := s.mail.Send(ctx, mail.Message{To: []string{to}, Subject: subject, Body: body}); err != nil && !errors.Is(err, mail.ErrNotConfigured) {
+	if err := s.mail.Send(ctx, mail.Compose([]string{to}, subject, c)); err != nil && !errors.Is(err, mail.ErrNotConfigured) {
 		s.log.Warn("send token email", "subject", subject, "err", err)
 	}
 }
@@ -361,10 +361,23 @@ func (s *Service) notifyCreated(ctx context.Context, q *store.Queries, t store.A
 	if err != nil {
 		return
 	}
-	s.send(ctx, u.Email, "New Xenibase API token: "+t.Name,
-		fmt.Sprintf("An API token named %q (%s…) was created for your account, with scopes %s. It expires %s.\n\n"+
-			"If this wasn't you, revoke it now: %s\n",
-			t.Name, t.Prefix, strings.Join(t.Scopes, ", "), t.ExpiresAt.UTC().Format("2 January 2006"), s.link("/account#tokens")))
+	s.send(ctx, u.Email, "New Xenibase API token: "+t.Name, mail.Content{
+		Preheader: "If this wasn't you, revoke it now.",
+		Title:     "A new API token was created",
+		Blocks: []mail.Block{
+			mail.P("Hello,"),
+			mail.P("An API token was just created for your Xenibase account."),
+			mail.Facts(
+				mail.Fact{Label: "Name", Value: t.Name},
+				mail.Fact{Label: "Starts with", Value: t.Prefix + "…"},
+				mail.Fact{Label: "Scopes", Value: strings.Join(t.Scopes, ", ")},
+				mail.Fact{Label: "Expires", Value: t.ExpiresAt.UTC().Format("2 January 2006")},
+			),
+			mail.P("If this was you, there's nothing to do. If it wasn't, revoke it right away:"),
+			mail.Button("Review your tokens", s.link("/account#tokens")),
+		},
+		Note: "We send this whenever an API token is created on your account.",
+	})
 }
 
 // Sweep emails owners of tokens expiring within a week and clears expired
@@ -377,9 +390,16 @@ func (s *Service) Sweep(ctx context.Context) error {
 		return err
 	}
 	for _, t := range rows {
-		s.send(ctx, t.Email, "Your Xenibase API token expires soon: "+t.Name,
-			fmt.Sprintf("Your API token %q (%s…) for %s expires %s. Create a new one before then: %s\n",
-				t.Name, t.Prefix, t.OrgName, t.ExpiresAt.UTC().Format("2 January 2006 15:04 MST"), s.link("/account#tokens")))
+		s.send(ctx, t.Email, "Your Xenibase API token expires soon: "+t.Name, mail.Content{
+			Preheader: "Create a new one before then so nothing stops working.",
+			Title:     "An API token is about to expire",
+			Blocks: []mail.Block{
+				mail.P("Hello,"),
+				mail.P(fmt.Sprintf("Your API token %q for %s expires on %s. Create a new one before then, so nothing that uses it stops working.", t.Name, t.OrgName, t.ExpiresAt.UTC().Format("2 January 2006 at 15:04 MST"))),
+				mail.Button("Create a new token", s.link("/account#tokens")),
+			},
+			SignOff: mail.SignOff,
+		})
 		if err := q.MarkTokenExpiryNotified(ctx, store.MarkTokenExpiryNotifiedParams{ID: t.ID, OrgID: t.OrgID}); err != nil {
 			return err
 		}

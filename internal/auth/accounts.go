@@ -273,10 +273,17 @@ func (s *Service) Signup(ctx context.Context, p SignupParams) error {
 	}
 	q := store.New(s.db)
 	if existing, err := q.GetUserByEmail(ctx, email); err == nil {
-		return s.send(ctx, existing.Email, "Your Xenibase account",
-			"Someone (hopefully you) tried to sign up to Xenibase with this address, which already has an account.\n\n"+
-				"Sign in at "+s.cfg.PublicURL+"/login, or reset your password at "+s.cfg.PublicURL+"/reset-password.\n\n"+
-				"If this wasn't you, you can ignore this message.")
+		return s.sendContent(ctx, existing.Email, "You already have a Xenibase account", pgmail.Content{
+			Preheader: "Someone tried to sign up with this address. You can sign in instead.",
+			Title:     "Welcome back",
+			Blocks: []pgmail.Block{
+				pgmail.P(pgmail.Hi(nameOf(existing))),
+				pgmail.P("Someone, hopefully you, just tried to sign up to Xenibase with this email address. It already has an account, so there is nothing new to set up."),
+				pgmail.Button("Sign in", s.cfg.PublicURL+"/login"),
+				pgmail.P("Forgotten your password? You can choose a new one at " + s.cfg.PublicURL + "/reset-password."),
+			},
+			Note: "If this wasn't you, you can ignore this email. Nothing has changed on your account.",
+		})
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
@@ -351,11 +358,19 @@ func (s *Service) CreateVerifiedUser(ctx context.Context, tx pgx.Tx, email, pass
 	return u, q.AcceptTerms(ctx, store.AcceptTermsParams{UserID: u.ID, Version: int32(termsVersion), Ip: ip})
 }
 
-func (s *Service) send(ctx context.Context, to, subject, body string) error {
+// sendContent sends a message written as structured content.
+func (s *Service) sendContent(ctx context.Context, to, subject string, c pgmail.Content) error {
 	if s.mailer == nil {
 		return pgmail.ErrNotConfigured
 	}
-	return s.mailer.Send(ctx, pgmail.Message{To: []string{to}, Subject: subject, Body: body})
+	return s.mailer.Send(ctx, pgmail.Compose([]string{to}, subject, c))
+}
+
+func nameOf(u store.User) string {
+	if u.Name != nil {
+		return *u.Name
+	}
+	return ""
 }
 
 // ---- Email verification and password reset -------------------------------
@@ -380,10 +395,18 @@ func (s *Service) SendVerification(ctx context.Context, u store.User) error {
 	if err != nil {
 		return err
 	}
-	return s.send(ctx, u.Email, "Confirm your email for Xenibase",
-		"Confirm this address to finish creating your Xenibase account:\n\n"+
-			s.cfg.PublicURL+"/verify-email?token="+token+"\n\n"+
-			"The link works for 48 hours. If you didn't sign up, you can ignore this message.")
+	return s.sendContent(ctx, u.Email, "Confirm your email to finish setting up Xenibase", pgmail.Content{
+		Preheader: "One quick step and your Xenibase account is ready.",
+		Title:     "One quick step to get started",
+		Blocks: []pgmail.Block{
+			pgmail.P(pgmail.Hi(nameOf(u))),
+			pgmail.P("Welcome to Xenibase. Please confirm your email address to finish creating your account."),
+			pgmail.Button("Confirm my email", s.cfg.PublicURL+"/verify-email?token="+token),
+			pgmail.P("This link works for 48 hours."),
+		},
+		SignOff: pgmail.SignOff,
+		Note:    "If you didn't sign up, you can safely ignore this email.",
+	})
 }
 
 // ResendVerification sends a new link to an unverified address; it says
@@ -435,11 +458,18 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) error 
 	if err != nil {
 		return err
 	}
-	return s.send(ctx, u.Email, "Reset your Xenibase password",
-		"Choose a new password for your Xenibase account:\n\n"+
-			s.cfg.PublicURL+"/reset-password?token="+token+"\n\n"+
-			"The link works for one hour, once. Resetting signs you out everywhere.\n"+
-			"If you didn't ask for this, you can ignore this message.")
+	return s.sendContent(ctx, u.Email, "Reset your Xenibase password", pgmail.Content{
+		Preheader: "Choose a new password. The link works once, for one hour.",
+		Title:     "Let's get you back in",
+		Blocks: []pgmail.Block{
+			pgmail.P(pgmail.Hi(nameOf(u))),
+			pgmail.P("We got a request to reset the password on your Xenibase account. You can choose a new one here:"),
+			pgmail.Button("Choose a new password", s.cfg.PublicURL+"/reset-password?token="+token),
+			pgmail.P("For your security, the link works once and expires in one hour. Resetting your password signs you out everywhere."),
+		},
+		SignOff: pgmail.SignOff,
+		Note:    "If you didn't ask for this, you can ignore this email. Your password stays as it is.",
+	})
 }
 
 // ResetPassword sets a new password from a reset link and ends every
@@ -595,8 +625,16 @@ func (s *Service) ApproveUser(ctx context.Context, id uuid.UUID) (store.User, er
 	if err != nil {
 		return u, err
 	}
-	if err := s.send(ctx, u.Email, "Your Xenibase account is approved",
-		"Your Xenibase account is ready. Sign in at "+s.cfg.PublicURL+"/login"); err != nil {
+	if err := s.sendContent(ctx, u.Email, "Your Xenibase account is approved", pgmail.Content{
+		Preheader: "Good news: you can sign in now.",
+		Title:     "You're in",
+		Blocks: []pgmail.Block{
+			pgmail.P(pgmail.Hi(nameOf(u))),
+			pgmail.P("Good news: your Xenibase account has been approved, and it is ready to use."),
+			pgmail.Button("Sign in", s.cfg.PublicURL+"/login"),
+		},
+		SignOff: pgmail.SignOff,
+	}); err != nil {
 		s.log.Warn("approval email", "user_id", id, "err", err)
 	}
 	return u, nil
@@ -638,10 +676,16 @@ func (s *Service) ResetTOTP(ctx context.Context, id uuid.UUID) error {
 	if err := q.DeleteUserSessions(ctx, store.DeleteUserSessionsParams{UserID: id}); err != nil {
 		return err
 	}
-	if err := s.send(ctx, u.Email, "Your Xenibase two-factor authentication was reset",
-		"The platform admin reset two-factor authentication on your Xenibase account. "+
-			"Your next sign-in will ask you to set up an authenticator app again.\n\n"+
-			"If you didn't ask for this, contact the platform admin now."); err != nil {
+	if err := s.sendContent(ctx, u.Email, "Two-factor sign-in was reset on your Xenibase account", pgmail.Content{
+		Preheader: "You'll set up your authenticator app again the next time you sign in.",
+		Title:     "Two-factor sign-in was reset",
+		Blocks: []pgmail.Block{
+			pgmail.P(pgmail.Hi(nameOf(u))),
+			pgmail.P("A Xenibase administrator reset two-factor authentication on your account. The next time you sign in, you'll be asked to set up your authenticator app again."),
+			pgmail.P("If you didn't ask for this, please contact your administrator right away."),
+		},
+		Note: "We send this whenever two-factor sign-in changes on your account.",
+	}); err != nil {
 		s.log.Warn("2FA reset email", "user_id", id, "err", err)
 	}
 	return nil

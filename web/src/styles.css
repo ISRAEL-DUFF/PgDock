@@ -3,7 +3,7 @@
 
 /* Theme tokens (docs/ui-redesign.md). Dark is the default; data-theme on
    <html> pins light or dark, and "system" follows the OS. Neutrals follow
-   Supabase Studio's greys; the accent is Xenibase's purple. */
+   Supabase Studio's greys; the accent is Xenibase's teal (brand/, docs/brand.md). */
 :root,
 :root[data-theme="dark"] {
   --bg: #121212; /* the app */
@@ -17,11 +17,11 @@
   --muted: #9b9b9b;
   /* Fills take white text; the -text colours are for text on the
      surfaces. Every pair meets WCAG AA (4.5:1). */
-  --accent: #7c3aed;
-  --accent-strong: #6d28d9;
-  --accent-text: #a78bfa;
+  --accent: #0f766e;
+  --accent-strong: #115e59;
+  --accent-text: #5eead4;
   --accent-fg: #ffffff;
-  --accent-soft: rgb(139 92 246 / 0.14);
+  --accent-soft: rgb(45 212 191 / 0.14);
   --ok: #3ecf8e;
   --ok-text: #3ecf8e;
   --warn: #f5a524;
@@ -43,11 +43,11 @@
   --fg: #171717;
   --fg-light: #4d4d4d;
   --muted: #5f5f5f;
-  --accent: #7c3aed;
-  --accent-strong: #6d28d9;
-  --accent-text: #6d28d9;
+  --accent: #0f766e;
+  --accent-strong: #115e59;
+  --accent-text: #115e59;
   --accent-fg: #ffffff;
-  --accent-soft: rgb(124 58 237 / 0.1);
+  --accent-soft: rgb(15 118 110 / 0.1);
   --ok: #18a058;
   --ok-text: #0b6b38;
   --warn: #b26b00;
@@ -70,11 +70,11 @@
     --fg: #171717;
     --fg-light: #4d4d4d;
     --muted: #5f5f5f;
-    --accent: #7c3aed;
-    --accent-strong: #6d28d9;
-    --accent-text: #6d28d9;
+    --accent: #0f766e;
+    --accent-strong: #115e59;
+    --accent-text: #115e59;
     --accent-fg: #ffffff;
-    --accent-soft: rgb(124 58 237 / 0.1);
+    --accent-soft: rgb(15 118 110 / 0.1);
     --ok: #18a058;
     --ok-text: #0b6b38;
     --warn: #b26b00;
@@ -200,4 +200,46 @@ select:focus-visible {
 .rdg.xenibase-grid input[type="checkbox"]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+/* Printing a legal document (components/LegalDocument.tsx): only the
+   document, on white paper, whatever the theme. */
+@media print {
+  body.printing-doc * {
+    visibility: hidden;
+  }
+  body.printing-doc .print-doc,
+  body.printing-doc .print-doc * {
+    visibility: visible;
+    color: #111 !important;
+    background: transparent !important;
+    border-color: #ccc !important;
+  }
+  body.printing-doc .print-doc {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-height: none !important;
+    overflow: visible !important;
+    border: 0 !important;
+  }
+  body.printing-doc .print-doc nav {
+    display: none;
+  }
+}
+
+/* The sign-in screens (components/Layout.tsx AuthShell): larger headings, and
+   a brand panel with a soft glow of the accent behind the doorways. */
+.auth-card h1 {
+  font-size: 1.625rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.25rem;
+}
+.auth-aside {
+  background:
+    radial-gradient(ellipse at 28% 18%, var(--accent-soft), transparent 62%),
+    radial-gradient(ellipse at 80% 90%, var(--accent-soft), transparent 55%),
+    var(--bg);
 }

@@ -16,6 +16,8 @@ import {
   Table,
   TableSkeleton,
 } from "../components/ui";
+import { LegalDocument as LegalDocumentView } from "../components/LegalDocument";
+import { MarkdownField } from "../components/Markdown";
 import { formatDate } from "../lib/format";
 import { useCurrentOrg } from "../lib/org";
 
@@ -29,13 +31,12 @@ const textarea =
 
 function DocumentText({ d }: { d: LegalDocument }) {
   return (
-    <div
-      tabIndex={0}
-      className="max-h-96 overflow-y-auto rounded-md border border-line bg-surface-2 p-3 text-xs whitespace-pre-wrap"
-      data-testid={`legal-text-${d.kind}`}
-    >
-      {d.body_md}
-    </div>
+    <LegalDocumentView
+      md={d.body_md}
+      testId={`legal-text-${d.kind}`}
+      meta={`Version ${d.version}, published ${formatDate(d.published_at)}`}
+      maxHeight="38rem"
+    />
   );
 }
 
@@ -276,11 +277,11 @@ function PublishLegal({
         </Field>
         <Field label="Text (Markdown)">
           {(id) => (
-            <textarea
+            <MarkdownField
               id={id}
               className={textarea}
               value={body}
-              onChange={(e) => setBody(e.target.value)}
+              onChange={setBody}
             />
           )}
         </Field>
@@ -390,11 +391,11 @@ export function OrderFormCard({ org }: { org: string }) {
           </Field>
           <Field label="Text (Markdown)">
             {(id) => (
-              <textarea
+              <MarkdownField
                 id={id}
                 className={textarea}
                 value={body}
-                onChange={(e) => setBody(e.target.value)}
+                onChange={setBody}
               />
             )}
           </Field>

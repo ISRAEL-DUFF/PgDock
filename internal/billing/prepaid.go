@@ -175,17 +175,16 @@ func (s *Service) CheckPrepaid(ctx context.Context, orgID uuid.UUID) error {
 	switch {
 	case bal <= 0 && zero == nil:
 		zero = &now
-		s.notifyOrg(ctx, orgID, "billing.prepaid_empty", fmt.Sprintf("Xenibase: %s's prepaid balance has run out", s.orgName(ctx, orgID)),
-			fmt.Sprintf("The prepaid balance is %s. Top up within %d days to avoid restrictions; projects keep running meanwhile.\n\nTop up: %s/org/billing?org=%s\n",
-				Naira(bal), GraceDays, s.publicURL, orgID))
+		subject, content := s.prepaidEmptyEmail(s.orgName(ctx, orgID), orgID, bal)
+		s.notifyContent(ctx, orgID, "billing.prepaid_empty", subject, content)
 	case bal > 0:
 		zero = nil
 	}
 	next := alerted
 	if crossed > 0 {
 		next = crossed
-		s.notifyOrg(ctx, orgID, "billing.prepaid_low", fmt.Sprintf("Xenibase: %s's prepaid balance is low", s.orgName(ctx, orgID)),
-			fmt.Sprintf("The prepaid balance of %s covers %s.\n\nTop up: %s/org/billing?org=%s\n", Naira(bal), why, s.publicURL, orgID))
+		subject, content := s.prepaidLowEmail(s.orgName(ctx, orgID), orgID, bal, why)
+		s.notifyContent(ctx, orgID, "billing.prepaid_low", subject, content)
 	}
 	return store.New(s.db).SetBalanceAlert(ctx, store.SetBalanceAlertParams{OrgID: orgID, BalanceAlerted: next, BalanceMonth: pgDate(month), ZeroBalanceAt: zero})
 }

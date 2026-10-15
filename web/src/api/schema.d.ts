@@ -7079,6 +7079,8 @@ export interface components {
             /** @description New addresses must be confirmed before signing in. */
             email_confirm?: boolean;
             magic_link_enabled?: boolean;
+            /** @description Wrap the project's emails (confirmation, magic link, password reset, invitation) in a clean layout under the project's name. On unless set to false. */
+            email_layout?: boolean;
             password_min_length?: number;
             password_require_mixed?: boolean;
             /** @description Seconds, 300 to 86400. */

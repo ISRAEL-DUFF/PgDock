@@ -91,6 +91,19 @@ func run() error {
 	if len(os.Args) > 1 && os.Args[1] == "admin" {
 		return runAdmin(os.Args[2:])
 	}
+	if len(os.Args) > 1 && os.Args[1] == "mail-preview" {
+		// xenibase-server mail-preview <dir> [https://app.example.com]: write sample
+		// emails as HTML and text files to look at in a browser.
+		if len(os.Args) < 3 {
+			return errors.New("usage: xenibase-server mail-preview <dir> [public-url]")
+		}
+		if len(os.Args) > 3 {
+			mail.SetPublicURL(os.Args[3])
+		}
+		n, err := mail.WritePreviews(os.Args[2])
+		fmt.Printf("wrote %d samples to %s\n", n, os.Args[2])
+		return err
+	}
 	showVersion := flag.Bool("version", false, "print version and exit")
 	requireUI := flag.Bool("require-ui", false, "exit with an error if only the placeholder UI is embedded")
 	genKey := flag.Bool("gen-master-key", false, "print a new random master key for XENIBASE_MASTER_KEY and exit")
@@ -249,6 +262,8 @@ func run() error {
 		go func() { defer bg.Done(); backups.Dedicated.RunMaintenance(bgCtx, 5*time.Minute) }()
 	}
 
+	// Email carries the logo from, and links to, the web app.
+	mail.SetPublicURL(cfg.Insight.PublicURL)
 	orgSvc := orgs.New(pool, authSvc, projects, mailSvc, cfg.Insight.PublicURL, log)
 	authSvc.SetHooks(orgSvc.Hooks())
 
