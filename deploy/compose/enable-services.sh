@@ -1,59 +1,83 @@
 #!/bin/sh
 # Turn on backend services (docs/backend-services.md) on this install: run
 # xenibase-edge, and serve every project's API at https://<ref>.<api-domain>
-# under one wildcard certificate that Caddy gets and renews with a Cloudflare
-# DNS challenge.
+# under one wildcard certificate that Caddy gets and renews with a DNS
+# challenge (the only way to get a wildcard).
 #
 #   cd deploy/compose
-#   ./enable-services.sh api.example.com
+#   ./enable-services.sh api.example.com [cloudflare|desec]
 #
-# Before it: the domain's DNS is on Cloudflare, with a record `*.api` (an A
-# record to this server, DNS only), and a Cloudflare API token limited to the
-# zone with "Edit zone DNS" is in .env as CLOUDFLARE_API_TOKEN (put it there by
-# hand; this script never asks for it). It is safe to run again.
+# Before it, in .env (put them there by hand; this script never asks for a
+# token): the DNS provider's API token as CLOUDFLARE_API_TOKEN or DESEC_TOKEN. If the domain's DNS can't be on that provider, point the
+# challenge at a zone that is: add a CNAME
+#   _acme-challenge.<api-domain>  ->  _acme-challenge.<zone you control there>
+# and set ACME_CHALLENGE_DOMAIN=<that zone name> in .env. DNS also needs
+# `*.<api-domain>` as an A record to this server. Safe to run again.
 set -eu
 cd "$(dirname "$0")"
 
 die() { echo "enable-services: $*" >&2; exit 1; }
 rand_url() { head -c "$1" /dev/urandom | base64 | tr -d '\n' | tr '+/' '-_' | tr -d '='; }
+env_get() { grep "^$1=" .env | head -1 | cut -d= -f2- || true; }
 
 [ -f .env ] || die "no .env here: run ./install.sh first"
-api=${1:-$(grep '^XENIBASE_API_DOMAIN=' .env | cut -d= -f2- || true)}
-[ -n "$api" ] || die "usage: ./enable-services.sh <api-domain>   (for example api.example.com)"
+api=${1:-$(env_get XENIBASE_API_DOMAIN)}
+[ -n "$api" ] || die "usage: ./enable-services.sh <api-domain> [cloudflare|desec]"
 case "$api" in
 *[!A-Za-z0-9.-]* | .* | *. | *..*) die "invalid domain: '$api'" ;;
 esac
-ui=$(grep '^XENIBASE_UI_DOMAIN=' .env | cut -d= -f2-)
+ui=$(env_get XENIBASE_UI_DOMAIN)
 [ "$api" != "$ui" ] || die "the API domain can't be the web UI's name ($ui): projects are at <ref>.$api"
 
-token=$(grep '^CLOUDFLARE_API_TOKEN=' .env | cut -d= -f2- || true)
-[ -n "$token" ] || die "set CLOUDFLARE_API_TOKEN in .env first (a token limited to this zone, 'Edit zone DNS')"
+provider=${2:-$(env_get DNS_PROVIDER)}
+provider=${provider:-cloudflare}
+case "$provider" in
+cloudflare) plugin=github.com/caddy-dns/cloudflare tokenvar=CLOUDFLARE_API_TOKEN ;;
+desec) plugin=github.com/caddy-dns/desec tokenvar=DESEC_TOKEN ;;
+*) die "unknown DNS provider '$provider': use cloudflare or desec" ;;
+esac
+[ -n "$(env_get "$tokenvar")" ] || die "set $tokenvar in .env first (the $provider API token, limited to the zone)"
+
+challenge=$(env_get ACME_CHALLENGE_DOMAIN)
+case "$challenge" in
+*[!A-Za-z0-9.-]*) die "invalid ACME_CHALLENGE_DOMAIN: '$challenge'" ;;
+esac
 
 # Settings: add what's missing, keep what the operator set.
 set_env() { grep -q "^$1=" .env || echo "$1=$2" >> .env; }
 set_env XENIBASE_API_DOMAIN "$api"
 set_env XENIBASE_EDGE_SECRET "$(rand_url 40)"
-set_env CADDY_IMAGE xenibase-caddy-cf:local
+set_env DNS_PROVIDER "$provider"
+set_env CADDY_IMAGE "xenibase-caddy-$provider:local"
 set_env COMPOSE_PROFILES services
-secret=$(grep '^XENIBASE_EDGE_SECRET=' .env | cut -d= -f2-)
+secret=$(env_get XENIBASE_EDGE_SECRET)
 [ "${#secret}" -ge 32 ] || die "XENIBASE_EDGE_SECRET in .env must be at least 32 characters"
 
-echo "Building Caddy with the Cloudflare DNS plugin..."
-docker build -q -t "$(grep '^CADDY_IMAGE=' .env | cut -d= -f2-)" caddy-cf >/dev/null
+echo "Building Caddy with the $provider DNS plugin..."
+docker build -q --build-arg "DNS_PLUGIN=$plugin" -t "$(env_get CADDY_IMAGE)" caddy-dns >/dev/null
 
 # The wildcard site: Caddy terminates TLS and hands plain HTTP to the edge.
-cat > caddy.d/api.caddy <<'CADDY'
-# Written by enable-services.sh: backend services' API domain.
-*.{$XENIBASE_API_DOMAIN} {
-	tls {
-		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
-	}
-	# No compression or buffering: realtime and large downloads stream.
-	reverse_proxy xenibase-edge:8443 {
-		flush_interval -1
-	}
-}
-CADDY
+{
+	echo "# Written by enable-services.sh: backend services' API domain."
+	echo '*.{$XENIBASE_API_DOMAIN} {'
+	echo '	tls {'
+	# Each plugin has its own Caddyfile syntax.
+	case "$provider" in
+	desec)
+		echo "		dns desec {"
+		echo "			token {env.$tokenvar}"
+		echo "		}"
+		;;
+	*) echo "		dns $provider {env.$tokenvar}" ;;
+	esac
+	[ -z "$challenge" ] || echo "		dns_challenge_override_domain $challenge"
+	echo '	}'
+	echo '	# No compression or buffering: realtime and large downloads stream.'
+	echo '	reverse_proxy xenibase-edge:8443 {'
+	echo '		flush_interval -1'
+	echo '	}'
+	echo '}'
+} > caddy.d/api.caddy
 
 echo "Starting xenibase-edge and reloading Caddy..."
 docker compose up -d --build

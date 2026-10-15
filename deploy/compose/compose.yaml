@@ -39,6 +39,7 @@ services:
       # Backend services (./enable-services.sh), read by caddy.d/api.caddy.
       XENIBASE_API_DOMAIN: ${XENIBASE_API_DOMAIN:-}
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      DESEC_TOKEN: ${DESEC_TOKEN:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./caddy.d:/etc/caddy/caddy.d:ro
