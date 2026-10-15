@@ -77,7 +77,10 @@ echo "rolled back cleanly to $old_version"
 # --- the real upgrade ------------------------------------------------------------
 step "upgrade to this commit"
 cd "$work"
-git tag v9.9.9-test "$head_commit"
+# Annotated, like a release tag: git describe prefers an annotated tag over a
+# lightweight one, so on a commit that carries a real release tag (CI on a tag)
+# a lightweight test tag would lose, and the server would report the release name.
+git tag -a v9.9.9-test -m "rehearsal" "$head_commit"
 cd deploy/compose
 docker compose exec -T metadata-db psql -U xenibase -d xenibase -Atc "insert into upgrade_canary values ('between')" >/dev/null
 XENIBASE_DIR=$PWD sh "$upgrade" v9.9.9-test --yes
