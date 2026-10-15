@@ -9714,7 +9714,10 @@ export interface components {
              * @description Outstanding on issued invoices.
              */
             owed_minor: number;
+            /** @description The wallet's first bank account (the same as accounts[0]); kept for older clients. */
             account?: components["schemas"]["VirtualAccount"] | null;
+            /** @description The bank accounts that top the wallet up, oldest first. A transfer to any of them is credited to the wallet. */
+            accounts?: components["schemas"]["VirtualAccount"][];
             consent?: components["schemas"]["DebitConsent"] | null;
             rate?: components["schemas"]["FXQuote"] | null;
             terms: string;

@@ -46,6 +46,22 @@ func (s *Service) ownerRef(orgID uuid.UUID) string {
 	return s.walletOwner + ":org:" + orgID.String()
 }
 
+// transferInstruction is the sentence some providers put in a bank account's
+// name field ("Please make a bank transfer to Acme Ops"): an instruction for
+// the payer, where the name of the account belongs.
+var transferInstruction = regexp.MustCompile(`(?i)^\s*please\s+(?:make\s+(?:a\s+)?)?(?:bank\s+)?(?:transfer|payment)\s+(?:of\s+funds\s+)?to\s+`)
+
+// CleanAccountName is an account's name as a bank shows it: without the
+// instruction a provider may prefix it with. A name that is nothing but an
+// instruction is returned as it came.
+func CleanAccountName(name string) string {
+	name = strings.TrimSpace(name)
+	if clean := strings.TrimSpace(transferInstruction.ReplaceAllString(name, "")); clean != "" {
+		return clean
+	}
+	return name
+}
+
 // walletID is the id of an org's wallet, from the account.
 func walletID(a store.BillingAccount) string { return walletIDOf(a.ProviderCustomers) }
 
@@ -162,9 +178,13 @@ type WalletView struct {
 	Balance      *WalletBalance
 	BalanceError string
 	// Ledger is what Xenibase's books say the wallet holds.
-	Ledger  int64
-	Account *store.VirtualAccount
-	Consent *Consent
+	Ledger int64
+	// Accounts are the bank accounts that top the wallet up, oldest first.
+	// Account is the first. A deposit to any of them is credited to the wallet
+	// (it is attributed by the wallet id, not by the account).
+	Accounts []store.VirtualAccount
+	Account  *store.VirtualAccount
+	Consent  *Consent
 	// Rate is the current indicative price of a dollar in naira.
 	Rate *FXQuote
 	// Owed is what the org's open invoices still need, in kobo.
@@ -187,9 +207,11 @@ func (s *Service) Wallet(ctx context.Context, orgID uuid.UUID) (WalletView, erro
 	if vas, err := q.ListVirtualAccounts(ctx, orgID); err == nil {
 		for _, va := range vas {
 			if va.Provider == ProviderISwallet {
-				va := va
-				v.Account = &va
+				v.Accounts = append(v.Accounts, va)
 			}
+		}
+		if len(v.Accounts) > 0 {
+			v.Account = &v.Accounts[0]
 		}
 	}
 	if invs, err := q.OpenInvoices(ctx, orgID); err == nil {

@@ -11,7 +11,7 @@ import {
 } from "../api/client";
 import { bps, channelLabel, naira, nairaRate, rate } from "../lib/billing";
 import { formatDate } from "../lib/format";
-import { Alert, Button, Field, Input, Panel, Table } from "./ui";
+import { Alert, Button, CopyButton, Field, Input, Panel, Table, cx } from "./ui";
 
 /** What the org owes or is restricted for (V3 §3.8), with a way to pay. */
 export function StandingBanner({ a }: { a: BillingAccount }) {
@@ -54,8 +54,51 @@ export function StandingBanner({ a }: { a: BillingAccount }) {
   return null;
 }
 
-/** The wallet's bank account, with what a transfer to it does. */
-function BankAccount({
+/** One line of a bank account's details: what it is, the value, and a button to copy it. */
+function DetailRow({
+  label,
+  value,
+  big,
+  mono,
+  testId,
+}: {
+  label: string;
+  value: string;
+  big?: boolean;
+  mono?: boolean;
+  testId?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-3">
+      <div className="min-w-0">
+        <div className="text-xs text-muted">{label}</div>
+        <div
+          data-testid={testId}
+          className={cx(
+            "mt-0.5 break-words",
+            mono && "font-mono tracking-wider",
+            big ? "text-xl font-semibold" : "text-sm font-medium",
+          )}
+        >
+          {value}
+        </div>
+      </div>
+      <CopyButton value={value} name={label.toLowerCase()} />
+    </div>
+  );
+}
+
+/** A bank account written as a person would send it to someone. */
+function accountText(a: { bank_name: string; account_number: string; account_name: string }) {
+  return `Bank: ${a.bank_name}\nAccount number: ${a.account_number}\nAccount name: ${a.account_name}`;
+}
+
+/**
+ * The wallet's bank account(s): the details to enter in a bank app, each with
+ * its own copy button. A wallet has one today; a transfer to any account the
+ * API lists is credited to the same wallet, so several are shown the same way.
+ */
+export function BankAccount({
   org,
   wallet,
   onChange,
@@ -66,8 +109,12 @@ function BankAccount({
 }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const va = wallet.account;
-  if (!va) {
+  const accounts = wallet.accounts?.length
+    ? wallet.accounts
+    : wallet.account
+      ? [wallet.account]
+      : [];
+  if (accounts.length === 0) {
     // The wallet exists but the provider didn't give its bank account (an
     // outage, say, when it was opened): ask again.
     const ask = async () => {
@@ -97,20 +144,48 @@ function BankAccount({
       </div>
     );
   }
+  const many = accounts.length > 1;
   return (
-    <div className="rounded-md border border-line p-3" data-testid="virtual-account">
+    <div className="rounded-md border border-line p-4" data-testid="virtual-account">
       <div className="flex items-center gap-2 font-medium">
         <Landmark className="h-4 w-4" /> Top up by bank transfer
       </div>
-      <div className="mt-1 font-mono text-base" data-testid="account-number">
-        {va.account_number}
+      <p className="mt-1 text-muted">
+        Send money from any bank app or USSD to{" "}
+        {many ? "any of these accounts" : "this account"}. Your bank shows the
+        account name before you confirm: check it matches what&apos;s below.
+        {many ? " A transfer to any of them reaches the same wallet." : ""}
+      </p>
+      <div className="mt-3 flex flex-col gap-3">
+        {accounts.map((a, i) => (
+          <div
+            key={a.account_number}
+            className="divide-y divide-line rounded-md border border-line-strong bg-surface-2 px-4"
+            data-testid={i === 0 ? "bank-details" : `bank-details-${i + 1}`}
+          >
+            {many && (
+              <div className="py-2 text-xs font-medium text-muted">
+                Account {i + 1} of {accounts.length}
+              </div>
+            )}
+            <DetailRow
+              label="Account number"
+              value={a.account_number}
+              big
+              mono
+              testId={i === 0 ? "account-number" : `account-number-${i + 1}`}
+            />
+            <DetailRow label="Bank" value={a.bank_name} />
+            <DetailRow label="Account name" value={a.account_name} />
+            <div className="flex justify-end py-2.5">
+              <CopyButton value={accountText(a)} label="Copy all details" name="bank details" />
+            </div>
+          </div>
+        ))}
       </div>
-      <div className="text-muted">
-        {va.bank_name} · {va.account_name}
-      </div>
-      <p className="mt-2 text-[12px] text-muted">
-        This account is yours alone. Transfers to it top up the wallet within
-        minutes.{" "}
+      <p className="mt-3 text-[12px] text-muted">
+        {many ? "These accounts are" : "This account is"} yours alone. Transfers
+        top up the wallet within minutes.{" "}
         <strong className="font-medium text-fg">
           The bank&apos;s collection fee (1.4%, at most ₦2,000) comes off the
           amount you send.

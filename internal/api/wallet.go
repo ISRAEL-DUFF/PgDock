@@ -6,6 +6,7 @@ import (
 
 	"github.com/israel-duff/xenibase/internal/api/gen"
 	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func toAPIQuote(q billing.FXQuote) gen.FXQuote {
@@ -18,6 +19,12 @@ func toAPIConsent(c *billing.Consent) *gen.DebitConsent {
 		return nil
 	}
 	return &gen.DebitConsent{At: c.At, By: c.By, Version: c.Version, Current: c.Current}
+}
+
+// toAPIAccount is a bank account as the API shows it: the account's name is
+// the name, without any instruction the provider put in front of it.
+func toAPIAccount(va store.VirtualAccount) gen.VirtualAccount {
+	return gen.VirtualAccount{Provider: va.Provider, AccountNumber: va.AccountNumber, BankName: va.BankName, AccountName: billing.CleanAccountName(va.AccountName)}
 }
 
 func toAPIWallet(v billing.WalletView) gen.Wallet {
@@ -33,8 +40,14 @@ func toAPIWallet(v billing.WalletView) gen.Wallet {
 		out.BalanceError = &v.BalanceError
 	}
 	if v.Account != nil {
-		out.Account = &gen.VirtualAccount{Provider: v.Account.Provider, AccountNumber: v.Account.AccountNumber, BankName: v.Account.BankName, AccountName: v.Account.AccountName}
+		a := toAPIAccount(*v.Account)
+		out.Account = &a
 	}
+	accounts := make([]gen.VirtualAccount, 0, len(v.Accounts))
+	for _, va := range v.Accounts {
+		accounts = append(accounts, toAPIAccount(va))
+	}
+	out.Accounts = &accounts
 	if v.Rate != nil {
 		fx := toAPIQuote(*v.Rate)
 		out.Rate = &fx

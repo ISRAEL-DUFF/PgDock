@@ -90,9 +90,17 @@ tier 2; its limits are the provider's (see
 nothing: the owner reference is unique, and the provider returns the wallet
 it already has.
 
-**Topping it up.** The organisation transfers naira to the account number
-shown on its Billing page (`xenibase billing transfer`). The account is its
-alone and permanent. A few things to know, and to tell customers:
+**Topping it up.** The organisation transfers naira to the bank account shown
+on its Billing page (`xenibase billing transfer`): the bank, the account number
+and the account name, each with a copy button, and a *Copy all details* button.
+The account is its alone and permanent. A wallet has one account today (the
+provider returns the same one when asked again). A deposit is credited to the
+wallet by the wallet's id, not by which account it arrived at, so if the
+provider ever gives a wallet more than one, a transfer to any of them reaches
+the same wallet; the API lists them all (`accounts`) and the page shows each.
+Some providers put an instruction in the account's name ("Please make a bank
+transfer to Acme Ops"); the page and the API show only the name. A few things to
+know, and to tell customers:
 
 - the provider's **collection fee (1.4%, at most ₦2,000) comes off** the
   amount sent, and the wallet is credited the rest: ₦100,000 sent is

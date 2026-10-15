@@ -114,13 +114,24 @@
   --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, monospace;
 }
 
+/* The root is the browser's default (16px): Tailwind's sizes (text-xs, text-sm,
+   spacing, widths) are all in rem, so setting the root to 14px made every one of
+   them 12.5% smaller than intended (text-xs was 10.5px, text-sm 12.25px) and the
+   whole app look zoomed out. Body text is 14px (docs/ui-redesign.md). */
+html {
+  font-size: 100%;
+}
+
 html,
 body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-sans);
-  font-size: 14px;
   -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-size: 14px;
 }
 
 :focus-visible {

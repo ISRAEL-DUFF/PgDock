@@ -15730,6 +15730,12 @@ components:
           allOf:
             - $ref: "#/components/schemas/VirtualAccount"
           nullable: true
+          description: The wallet's first bank account (the same as accounts[0]); kept for older clients.
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/VirtualAccount"
+          description: The bank accounts that top the wallet up, oldest first. A transfer to any of them is credited to the wallet.
         consent:
           allOf:
             - $ref: "#/components/schemas/DebitConsent"

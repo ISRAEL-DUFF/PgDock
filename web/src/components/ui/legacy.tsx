@@ -154,7 +154,8 @@ export function Alert({ tone = "danger", title, children }: { tone?: Tone; title
   );
 }
 
-export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
+/** A button that copies value. name says what, for screen readers, when a page has several. */
+export function CopyButton({ value, label = "Copy", name }: { value: string; label?: string; name?: string }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -169,7 +170,7 @@ export function CopyButton({ value, label = "Copy" }: { value: string; label?: s
         await navigator.clipboard.writeText(value);
         setCopied(true);
       }}
-      aria-label={`${label}: copied ${copied ? "yes" : "no"}`}
+      aria-label={`${name ? `${label} ${name}` : label}: copied ${copied ? "yes" : "no"}`}
     >
       {copied ? "Copied" : label}
     </Button>
