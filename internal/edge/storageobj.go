@@ -492,14 +492,26 @@ type countingHash struct {
 	r io.Reader
 	h hash.Hash
 	n int64
+	// srcErr is why the source stopped when it didn't deliver everything:
+	// io.EOF for a body shorter than declared, or the read error (the client
+	// went away). Nil while the source is still intact, so a failed Put with
+	// srcErr nil is the object store's doing, not the client's.
+	srcErr error
 }
 
 func (c *countingHash) Read(p []byte) (int, error) {
 	n, err := c.r.Read(p)
 	c.h.Write(p[:n])
 	c.n += int64(n)
+	if err != nil {
+		c.srcErr = err
+	}
 	return n, err
 }
+
+// cutShort reports that the source stopped before size bytes, so a failed
+// Put is the client's body ending early rather than the object store failing.
+func (c *countingHash) cutShort(size int64) bool { return c.n < size && c.srcErr != nil }
 
 // putObject stores a direct upload's bytes and writes its row. req nil is a
 // signed upload URL (policies already checked); owner is who it's for.
@@ -571,10 +583,14 @@ func (e *Edge) putObject(c *call, req *Request, bucket, path string, upsert bool
 	ch := &countingHash{r: io.LimitReader(r, size), h: sha256.New()}
 	etag, err := cl.Put(ctx, objectKey(sc, u.version), ch, size, mt)
 	if err != nil {
-		if ch.n < size {
+		// A body that ended early is the client's: say so. Anything else is
+		// the object store refusing or being unreachable, and saying
+		// "incomplete body" for that hides it from the caller and the log.
+		if ch.cutShort(size) {
 			c.fail(http.StatusBadRequest, "incomplete_body", "the upload ended before its length")
 			return
 		}
+		e.cfg.Log.Warn("edge object store put", "project", c.p.cfg.Ref, "err", err)
 		e.storageError(c, storeErr(err))
 		return
 	}

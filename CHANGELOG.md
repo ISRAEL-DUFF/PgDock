@@ -11,6 +11,13 @@ bundle share one version (spec §11.5).
   (the model, keys, row-level security, auth, orders through a webhook, files,
   live updates, a launch checklist, how to report problems).
 
+### Fixed
+- An upload through xenibase-edge whose object store failed (unreachable,
+  bad credential) was answered `400 incomplete_body` ("the upload ended
+  before its length"), blaming the client and logging nothing. Only a body
+  that really ended early is now `incomplete_body`; a store failure is
+  `503 storage_unavailable` and the edge logs the cause.
+
 ## v4.2.1
 
 ### Backend services in the install bundle
