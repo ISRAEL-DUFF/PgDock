@@ -40,10 +40,9 @@ services:
       XENIBASE_API_DOMAIN: ${XENIBASE_API_DOMAIN:-}
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
       DESEC_TOKEN: ${DESEC_TOKEN:-}
-      ACMEDNS_USERNAME: ${ACMEDNS_USERNAME:-}
+      # acme-dns: only the password is read from the environment by the plugin;
+      # the username, subdomain and server URL are written into caddy.d/api.caddy.
       ACMEDNS_PASSWORD: ${ACMEDNS_PASSWORD:-}
-      ACMEDNS_SUBDOMAIN: ${ACMEDNS_SUBDOMAIN:-}
-      ACMEDNS_SERVER_URL: ${ACMEDNS_SERVER_URL:-https://auth.acme-dns.io}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./caddy.d:/etc/caddy/caddy.d:ro
@@ -219,7 +218,8 @@ services:
       XENIBASE_EDGE_SESSION_ADDR: pooler-session:5432
       XENIBASE_EDGE_LOG_FORMAT: ${XENIBASE_LOG_FORMAT:-json}
       # Caddy is the only thing in front of it.
-      XENIBASE_EDGE_TRUSTED_PROXIES: 172.31.250.10
+      # A network range: the edge refuses a bare address and exits.
+      XENIBASE_EDGE_TRUSTED_PROXIES: 172.31.250.10/32
       XENIBASE_EDGE_CACHE_MB: ${XENIBASE_EDGE_CACHE_MB:-64}
       XENIBASE_EDGE_RENDER_MEMORY_MB: ${XENIBASE_EDGE_RENDER_MEMORY_MB:-512}
 

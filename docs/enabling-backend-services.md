@@ -346,10 +346,11 @@ pieces work; if you hit something else, `docker compose logs caddy` and
 | The script stops with "set … in .env first" | The three `ACMEDNS_*` values (or the provider's token) must be in `.env` before running it. |
 | `dig +short test.api.<domain>` prints nothing | The wildcard A record isn't live: check its name was entered relative to the zone (`*.api`), that it is an A record, and ask the DNS host's own nameserver directly: `dig +short test.api.<domain> @<its nameserver>`. |
 | `dig CNAME _acme-challenge.api.<domain>` prints nothing or a different name | The CNAME is missing, misspelt, or points at an old registration. It must equal the `fulldomain` in `.env`'s registration. |
+| The Caddy log says `unsupported protocol scheme ""` or `%7Benv.ACMEDNS_…%7D` | The acme-dns plugin was given an `{env.…}` placeholder where it only accepts the value: it expands them in the password only. `caddy.d/api.caddy` must have the username, subdomain and server URL written out. Re-run `./enable-services.sh` from release 4.2.2 or later, which writes them. |
 | No "certificate obtained" line after a few minutes | `docker compose logs caddy` shows why: an acme-dns authentication error means the username, password or subdomain in `.env` is wrong; a timeout or NXDOMAIN on the challenge name means the CNAME. Let's Encrypt limits repeated failures, so fix the cause before retrying. |
 | `curl https://…/healthz` fails with a certificate error | The certificate isn't issued yet, or Caddy is still serving the old configuration: `docker compose restart caddy`. |
 | `503 starting` from the edge | It hasn't loaded its configuration from xenibase-server yet. It answers once it has; if it never does, the edge secret in `.env` doesn't match the server's, or the server is down. |
-| `xenibase-edge` exits or restarts | `docker compose logs xenibase-edge`. Out of memory during image transforms is the usual one: raise `XENIBASE_EDGE_MEMORY`. |
+| `xenibase-edge` is `Restarting` | `docker compose logs xenibase-edge`: it prints why it exits. A setting it refuses (`XENIBASE_EDGE_TRUSTED_PROXIES` must be a network range such as `172.31.250.10/32`, not a bare address; `XENIBASE_EDGE_SECRET` at least 32 characters) exits at once. Out of memory during image transforms is the other usual one: raise `XENIBASE_EDGE_MEMORY`. |
 | Project APIs stopped answering after an upgrade | See [after an upgrade](#after-an-upgrade): the release you moved to may not include the edge. |
 
 ## Security notes

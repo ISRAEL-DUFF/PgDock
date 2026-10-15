@@ -57,8 +57,11 @@ jobs:
       - name: Go tests (including Postgres-backed)
         run: make test-go
 
-      - name: Deploy scripts (upgrade.sh, deploy-ssh.sh)
+      - name: Deploy scripts (upgrade.sh, deploy-ssh.sh, enable-services.sh)
         run: make test-deploy
+
+      - name: Caddy's acme-dns plugin with the config enable-services.sh writes
+        run: make test-acmedns
 
       - name: Frontend type-check and tests
         run: make test-web

@@ -6,6 +6,14 @@ bundle share one version (spec §11.5).
 ## Unreleased
 
 ### Fixed
+- Backend services through the install bundle didn't work at all: the edge exited at
+  once (its trusted-proxy setting was a bare address, and the edge wants a network range),
+  and Caddy couldn't get the wildcard certificate with acme-dns (the plugin only
+  expands `{env.…}` in the password, but the script used it for the username, subdomain
+  and server URL as well). `enable-services.sh` now writes those three out and reloads
+  Caddy, the compose file uses `172.31.250.10/32`, and tests check both: the script's
+  output for each provider, and the real plugin against a fake acme-dns server
+  (`make test-deploy`, `make test-acmedns`).
 - The app's text and layout were about 12% smaller than intended (the page's
   root font size was 14px, and Tailwind sizes are in rem): text-xs rendered at
   10.5px and text-sm at 12.25px. The root is the browser default now.

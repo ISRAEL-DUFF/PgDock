@@ -25,6 +25,10 @@
 set -eu
 cd "$(dirname "$0")"
 
+# --config-only writes caddy.d/api.caddy and stops: no build, no containers (tests).
+config_only=0
+if [ "${1:-}" = "--config-only" ]; then config_only=1; shift; fi
+
 die() { echo "enable-services: $*" >&2; exit 1; }
 rand_url() { head -c "$1" /dev/urandom | base64 | tr -d '\n' | tr '+/' '-_' | tr -d '='; }
 env_get() { grep "^$1=" .env | head -1 | cut -d= -f2- || true; }
@@ -43,7 +47,8 @@ provider=${provider:-cloudflare}
 case "$provider" in
 cloudflare) plugin=github.com/caddy-dns/cloudflare tokenvar=CLOUDFLARE_API_TOKEN ;;
 desec) plugin=github.com/caddy-dns/desec tokenvar=DESEC_TOKEN ;;
-acmedns) plugin=github.com/caddy-dns/acmedns tokenvar=ACMEDNS_USERNAME ;;
+# Pinned: test/acmedns checks what this version does with the config below.
+acmedns) plugin=github.com/caddy-dns/acmedns@v0.7.0 tokenvar=ACMEDNS_USERNAME ;;
 *) die "unknown DNS provider '$provider': use cloudflare, desec or acmedns" ;;
 esac
 if [ "$provider" = acmedns ]; then
@@ -52,6 +57,19 @@ if [ "$provider" = acmedns ]; then
 	done
 else
 	[ -n "$(env_get "$tokenvar")" ] || die "set $tokenvar in .env first (the $provider API token, limited to the zone)"
+fi
+
+ad_user=$(env_get ACMEDNS_USERNAME)
+ad_sub=$(env_get ACMEDNS_SUBDOMAIN)
+ad_url=$(env_get ACMEDNS_SERVER_URL)
+ad_url=${ad_url:-https://auth.acme-dns.io}
+if [ "$provider" = acmedns ]; then
+	# These go into a Caddyfile as they are: no spaces, quotes or braces.
+	for v in "$ad_user" "$ad_sub" "$ad_url"; do
+		case "$v" in
+		"" | *[!A-Za-z0-9._:/-]*) die "an acme-dns username, subdomain or server URL has a character that can't go in the Caddyfile: '$v'" ;;
+		esac
+	done
 fi
 
 challenge=$(env_get ACME_CHALLENGE_DOMAIN)
@@ -70,8 +88,10 @@ set_env COMPOSE_PROFILES services
 secret=$(env_get XENIBASE_EDGE_SECRET)
 [ "${#secret}" -ge 32 ] || die "XENIBASE_EDGE_SECRET in .env must be at least 32 characters"
 
-echo "Building Caddy with the $provider DNS plugin..."
-docker build -q --build-arg "DNS_PLUGIN=$plugin" -t "$(env_get CADDY_IMAGE)" caddy-dns >/dev/null
+if [ "$config_only" = 0 ]; then
+	echo "Building Caddy with the $provider DNS plugin..."
+	docker build -q --build-arg "DNS_PLUGIN=$plugin" -t "$(env_get CADDY_IMAGE)" caddy-dns >/dev/null
+fi
 
 # The wildcard site: Caddy terminates TLS and hands plain HTTP to the edge.
 {
@@ -86,11 +106,14 @@ docker build -q --build-arg "DNS_PLUGIN=$plugin" -t "$(env_get CADDY_IMAGE)" cad
 		echo "		}"
 		;;
 	acmedns)
+		# The plugin expands {env.X} only in the password: the username, the
+		# subdomain and the server URL are used exactly as written, so they are
+		# written out here (none of them is secret; the password stays in .env).
 		echo "		dns acmedns {"
-		echo "			username {env.ACMEDNS_USERNAME}"
+		echo "			username $ad_user"
 		echo "			password {env.ACMEDNS_PASSWORD}"
-		echo "			subdomain {env.ACMEDNS_SUBDOMAIN}"
-		echo "			server_url {env.ACMEDNS_SERVER_URL}"
+		echo "			subdomain $ad_sub"
+		echo "			server_url $ad_url"
 		echo "		}"
 		;;
 	*) echo "		dns $provider {env.$tokenvar}" ;;
@@ -103,9 +126,18 @@ docker build -q --build-arg "DNS_PLUGIN=$plugin" -t "$(env_get CADDY_IMAGE)" cad
 	echo '	}'
 	echo '}'
 } > caddy.d/api.caddy
+[ "$config_only" = 0 ] || exit 0
 
 echo "Starting xenibase-edge and reloading Caddy..."
 docker compose up -d --build
+# A changed caddy.d/api.caddy doesn't recreate the container: make Caddy read it
+# (and try the certificate again now, not at the end of its back-off).
+if docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --force >/dev/null 2>&1; then
+	echo "Caddy reloaded."
+else
+	docker compose restart caddy >/dev/null
+	echo "Caddy restarted."
+fi
 echo
 echo "Backend services are on for *.$api. The first certificate takes a minute."
 echo "Check:   docker compose logs caddy | grep -i 'certificate obtained'"

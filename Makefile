@@ -29,7 +29,7 @@ DEV_ENV := deploy/dev/server.env
 # Loads $(DEV_ENV); XENIBASE_* variables already set by the caller win.
 LOAD_DEV_ENV := saved="$$(export -p | grep ' XENIBASE_' || true)"; set -a; . ./$(DEV_ENV); set +a; eval "$$saved"
 
-.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-move test-agent-bin pg-image pooler-host-images status-image edge-image test-acme test-e2e test-docs test-deploy test-upgrade test-load test-payments-sandbox e2e-images generate check-generated build build-ui build-go test test-go test-web test-sdk docs-site lint release-check release clean clean-ui
+.PHONY: all dev run-dev dev-up dev-down dev-key pooler-seed test-db test-integration test-move test-agent-bin pg-image pooler-host-images status-image edge-image test-acme test-e2e test-docs test-deploy test-acmedns test-upgrade test-load test-payments-sandbox e2e-images generate check-generated build build-ui build-go test test-go test-web test-sdk docs-site lint release-check release clean clean-ui
 
 all: build
 
@@ -202,6 +202,12 @@ test-e2e: e2e-images
 ## test-deploy: upgrade.sh and deploy-ssh.sh against a fake docker (no Docker).
 test-deploy:
 	sh test/deploy/upgrade_test.sh
+	sh test/deploy/enable_services_test.sh
+
+## test-acmedns: what Caddy's acme-dns plugin does with the config enable-services.sh
+## writes (a fake acme-dns server; needs Go and network access).
+test-acmedns:
+	sh test/acmedns/run.sh
 
 ## test-upgrade: a real upgrade with the compose bundle: install an older
 ## release, upgrade to this commit with upgrade.sh, and prove a release whose
