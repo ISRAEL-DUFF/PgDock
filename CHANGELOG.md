@@ -5,6 +5,11 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### Docs
+- [Enabling backend services](docs/enabling-backend-services.md): the full method for
+  a compose install, with the routes that were tried (Cloudflare, NS delegation,
+  deSEC, a registrar's reseller API, acme-dns) and why production uses acme-dns.
+
 ## v4.2.1
 
 ### Backend services in the install bundle
