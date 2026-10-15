@@ -5,6 +5,8 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+## v4.2.0
+
 ### Fixed
 - The wallet panel has a **Get the bank account** button when the provider
   didn't return the wallet's bank account as it was opened (it showed
