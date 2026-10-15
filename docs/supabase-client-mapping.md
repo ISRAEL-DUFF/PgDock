@@ -1,4 +1,4 @@
-# From supabase-js to @pgdock/client
+# From supabase-js to @xenibase/client
 
 The [migration helper](migrate-from-supabase.md) moves your data, users
 and files. Your client code changes as below.
@@ -8,22 +8,22 @@ tokens refresh on their own. The main differences:
 
 - filters and ordering take the operator as a word: `.where("done", "eq", false)`
   or `.eq(…)`, and `.order("col", "desc")`;
-- tables are under `pgd.data`, not on the client;
+- tables are under `xb.data`, not on the client;
 - realtime is `onChange` instead of `on("postgres_changes", …)`.
 
 ## Setup
 
-| supabase-js | @pgdock/client |
+| supabase-js | @xenibase/client |
 | --- | --- |
-| `createClient(SUPABASE_URL, SUPABASE_ANON_KEY)` | `createClient(PGDOCK_URL, PGDOCK_PUBLISHABLE_KEY)` |
-| `createClient<Database>(…)` with `supabase gen types` | `createClient<Database>(…)` with `pgdock gen types --lang ts` |
-| service role key on servers | secret key (`pgd_sec_…`) on servers |
+| `createClient(SUPABASE_URL, SUPABASE_ANON_KEY)` | `createClient(XENIBASE_URL, XENIBASE_PUBLISHABLE_KEY)` |
+| `createClient<Database>(…)` with `supabase gen types` | `createClient<Database>(…)` with `xenibase gen types --lang ts` |
+| service role key on servers | secret key (`xb_sec_…`) on servers |
 
 ## Data
 
-| supabase-js | @pgdock/client |
+| supabase-js | @xenibase/client |
 | --- | --- |
-| `supabase.from("todos").select("id, title")` | `pgd.data.from("todos").select("id, title")` |
+| `supabase.from("todos").select("id, title")` | `xb.data.from("todos").select("id, title")` |
 | `.select("*, list:lists(name)")` | `.select("*, list:lists(name)")` |
 | `.eq("done", false)`, `.neq`, `.gt`, `.gte`, `.lt`, `.lte` | the same |
 | `.in("id", [1, 2])` | `.in("id", [1, 2])` |
@@ -43,15 +43,15 @@ tokens refresh on their own. The main differences:
 | `.upsert(row, { ignoreDuplicates: true })` | `.upsert(row, { onConflict: […], ignore: true })` |
 | `.update({ done: true }).eq("id", 7)` | the same |
 | `.delete().eq("id", 7)` | the same, or `.delete().byKey(7)` |
-| `supabase.rpc("fn", args)` | `pgd.data.rpc("fn", args)` (`{ get: true }` for a cacheable GET) |
-| `supabase.schema("api").from("items")` | `pgd.data.schema("api").from("items")` or `pgd.data.from("api.items")` |
+| `supabase.rpc("fn", args)` | `xb.data.rpc("fn", args)` (`{ get: true }` for a cacheable GET) |
+| `supabase.schema("api").from("items")` | `xb.data.schema("api").from("items")` or `xb.data.from("api.items")` |
 
 Updates and deletes need a filter or a key. Without one the API refuses
 with `filter_required`.
 
 ## Auth
 
-| supabase-js | @pgdock/client |
+| supabase-js | @xenibase/client |
 | --- | --- |
 | `auth.signUp({ email, password, options: { data } })` | `auth.signUp({ email, password, data })` |
 | `auth.signInWithPassword({ email, password })` | the same (also `{ phone, password }`) |
@@ -71,14 +71,14 @@ with `filter_required`.
 | `auth.mfa.enroll/challenge/verify/unenroll` | the same, with `{ factorType: "totp" }` |
 | `auth.admin.*` (service role) | the admin API with the secret key ([docs](backend-services.md#managing-users)) |
 
-In SQL, policies use `pgd_auth.uid()`, and the roles are `<db>_anon`,
+In SQL, policies use `xb_auth.uid()`, and the roles are `<db>_anon`,
 `<db>_user` and `<db>_service`. The
 [policies step](migrate-from-supabase.md#3-policies) rewrites imported
 policies for you.
 
 ## Storage
 
-| supabase-js | @pgdock/client |
+| supabase-js | @xenibase/client |
 | --- | --- |
 | `storage.from("avatars")` | `storage.bucket("avatars")` |
 | `.upload(path, file, { contentType, upsert })` | the same |
@@ -94,16 +94,16 @@ policies for you.
 | resumable (TUS) uploads | `.uploadLarge(path, file, { onProgress })` (presigned parts) |
 | `storage.createBucket(id, { public })` | `storage.createBucket(id, { public, allowedMimeTypes })` |
 
-In policies, `storage.objects` becomes `pgd_storage.objects`. Its columns
+In policies, `storage.objects` becomes `xb_storage.objects`. Its columns
 `bucket_id` and `name` are `bucket` and `path`, and `storage.foldername()`
-is `pgd_storage.foldername()`. The storage step rewrites these when it
+is `xb_storage.foldername()`. The storage step rewrites these when it
 copies the policies.
 
 ## Realtime
 
-| supabase-js | @pgdock/client |
+| supabase-js | @xenibase/client |
 | --- | --- |
-| `supabase.channel("x")` | `pgd.realtime.channel("x")` |
+| `supabase.channel("x")` | `xb.realtime.channel("x")` |
 | `.on("postgres_changes", { event, schema, table, filter }, cb)` | `.onChange({ event, schema, table, filter }, cb)` |
 | `.on("broadcast", { event }, cb)` | `.onBroadcast(event, cb)` |
 | `.on("presence", { event: "sync" }, cb)` | `.onPresenceSync(cb)`, `.onPresenceJoin`, `.onPresenceLeave` |
@@ -121,12 +121,12 @@ There are two additions with no supabase-js equivalent:
   both.
 
 Realtime still speaks Supabase's protocol, so an unchanged supabase-js
-realtime client also connects. Moving to `@pgdock/client` gets you token
+realtime client also connects. Moving to `@xenibase/client` gets you token
 refresh and the live queries.
 
 ## Errors
 
-| supabase-js | @pgdock/client |
+| supabase-js | @xenibase/client |
 | --- | --- |
 | `error.message`, `error.code` (PostgREST codes like `PGRST116`) | `error.message`, `error.code` (`not_found`, `rls_required`, `unique_violation`, …), `error.status`, `error.requestId` |
-| `AuthApiError` | `PgdockError` with an auth code (`invalid_credentials`, `otp_expired`, `user_locked`, …) |
+| `AuthApiError` | `XenibaseError` with an auth code (`invalid_credentials`, `otp_expired`, `user_locked`, …) |

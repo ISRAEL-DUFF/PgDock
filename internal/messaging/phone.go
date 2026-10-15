@@ -1,6 +1,6 @@
 // Package messaging sends one-time codes by SMS and WhatsApp (V4 §4.6):
 // phone numbers normalised to E.164, the country they belong to, and the
-// providers PGDock or a project sends through (Termii, the WhatsApp
+// providers Xenibase or a project sends through (Termii, the WhatsApp
 // Business Platform's Cloud API, Twilio, Africa's Talking).
 package messaging
 
@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// ErrBadPhone is a number that isn't a phone number PGDock can send to.
+// ErrBadPhone is a number that isn't a phone number Xenibase can send to.
 var ErrBadPhone = errors.New("not a valid phone number: use international format, e.g. +2348031234567")
 
 // Normalize returns raw as E.164 (+<country code><number>). Numbers

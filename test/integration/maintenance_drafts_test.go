@@ -2,29 +2,50 @@ package integration
 
 import (
 	"context"
+	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
+	netmail "net/mail"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/incidents"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/incidents"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // mailParts splits a received message (its lines joined with newlines)
 // into its Subject header and its body.
 func mailParts(m testenv.Mail) (subject, body string) {
-	head, body, _ := strings.Cut(m.Data, "\n\n")
+	head, rest, _ := strings.Cut(m.Data, "\n\n")
 	for _, l := range strings.Split(head, "\n") {
 		if v, ok := strings.CutPrefix(l, "Subject: "); ok {
 			subject = v
 		}
 	}
-	return subject, strings.TrimRight(body, "\n")
+	// A message with an HTML part is multipart/alternative; its text is the first part.
+	if msg, err := netmail.ReadMessage(strings.NewReader(m.Data)); err == nil {
+		if mt, params, err := mime.ParseMediaType(msg.Header.Get("Content-Type")); err == nil && strings.HasPrefix(mt, "multipart/") {
+			mr := multipart.NewReader(msg.Body, params["boundary"])
+			for {
+				part, err := mr.NextPart()
+				if err != nil {
+					break
+				}
+				if strings.HasPrefix(part.Header.Get("Content-Type"), "text/plain") {
+					text, _ := io.ReadAll(part)
+					rest = string(text)
+					break
+				}
+			}
+		}
+	}
+	return subject, strings.TrimRight(strings.ReplaceAll(rest, "\r\n", "\n"), "\n")
 }
 
 // TestMaintenanceProposals is V4.1-M7's done-when (V4.1 §8.2, §8.3): an
@@ -154,7 +175,7 @@ func TestMaintenanceProposals(t *testing.T) {
 	waitFor(t, 20*time.Second, "the announcement email", func() bool { return e.SMTP.Count(testenv.OwnerEmail, "Scheduled for") > 0 })
 	var sent testenv.Mail
 	for _, m := range e.SMTP.Mail() {
-		if strings.Contains(m.Data, "X-PGDock-Event: maintenance") {
+		if strings.Contains(m.Data, "X-Xenibase-Event: maintenance") {
 			sent = m
 		}
 	}

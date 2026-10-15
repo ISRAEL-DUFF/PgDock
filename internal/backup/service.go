@@ -17,16 +17,16 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/backupfmt"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/dedicated"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/walg"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/backupfmt"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/walg"
 )
 
 // Operation kinds.
@@ -121,7 +121,7 @@ func (s *Service) Kinds() map[string]jobs.Kind {
 }
 
 // objectKey is where a backup object lives under the target's prefix:
-// ".dump.enc" for the PGDock format, ".dump.gpg" for an OpenPGP message
+// ".dump.enc" for the Xenibase format, ".dump.gpg" for an OpenPGP message
 // (a project's own key).
 func objectKey(kind string, projectID *uuid.UUID, at time.Time, pgp bool) string {
 	b := make([]byte, 3)
@@ -149,7 +149,7 @@ func (s *Service) defaultPlacement(ctx context.Context) (Placement, error) {
 }
 
 // sealing is how an upload is encrypted under pl: an OpenPGP message to
-// the project's key, or the PGDock format under the instance key.
+// the project's key, or the Xenibase format under the instance key.
 func (s *Service) sealing(ctx context.Context, pl Placement) (agentapi.Upload, error) {
 	up := agentapi.Upload{Storage: pl.Target}
 	if pl.KeyID != nil {
@@ -469,7 +469,7 @@ func (s *Service) Schedule(ctx context.Context, now time.Time) error {
 	}
 	return pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		var got bool
-		if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock(hashtext('pgdock_backup_scheduler'))`).Scan(&got); err != nil || !got {
+		if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock(hashtext('xenibase_backup_scheduler'))`).Scan(&got); err != nil || !got {
 			return err
 		}
 		q := store.New(tx)

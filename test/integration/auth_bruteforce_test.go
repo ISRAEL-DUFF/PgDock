@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/edge"
-	"github.com/israel-duff/pgdock/internal/totp"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/edge"
+	"github.com/israel-duff/xenibase/internal/totp"
 )
 
 // TestAuthCodeBruteForce is V4.1-M11's code brute-force check (V4.1 §12.3):

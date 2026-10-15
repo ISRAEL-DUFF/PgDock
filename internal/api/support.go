@@ -11,11 +11,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/support"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/support"
 )
 
 func (s *Server) supportSvc(w http.ResponseWriter) *support.Service {
@@ -239,7 +239,7 @@ func (s *Server) SupportInboundEmail(w http.ResponseWriter, r *http.Request) {
 	secret := svc.InboundSecret()
 	// The basic-auth password (providers put it in the webhook URL) or a
 	// header: a bearer token would be taken for an API token.
-	got := r.Header.Get("X-PGDock-Inbound-Secret")
+	got := r.Header.Get("X-Xenibase-Inbound-Secret")
 	if _, pw, ok := r.BasicAuth(); ok {
 		got = pw
 	}

@@ -45,7 +45,7 @@ jobs:
       - name: Move under load
         env:
           SIZE_GB: ${{ inputs.size_gb }}
-        run: set -o pipefail; make test-move PGDOCK_TEST_MOVE_GB="$SIZE_GB" 2>&1 | tee move.log
+        run: set -o pipefail; make test-move XENIBASE_TEST_MOVE_GB="$SIZE_GB" 2>&1 | tee move.log
 
       - name: Upload the log
         if: always()

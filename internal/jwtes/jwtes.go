@@ -1,6 +1,6 @@
 // Package jwtes signs and verifies ES256 JSON Web Tokens and handles their
-// public keys as JWKs (V4 §4.4). It holds no state: pgdock-server signs
-// with a project's private key, pgdock-edge verifies with the public keys
+// public keys as JWKs (V4 §4.4). It holds no state: xenibase-server signs
+// with a project's private key, xenibase-edge verifies with the public keys
 // it was sent.
 package jwtes
 

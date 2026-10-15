@@ -20,7 +20,7 @@ var (
 	edgeBinErr  error
 )
 
-// EdgeProcess is pgdock-edge running as its own process, for failure
+// EdgeProcess is xenibase-edge running as its own process, for failure
 // injection: Kill ends it with SIGKILL, as a crash would, mid-request.
 type EdgeProcess struct {
 	URL  string
@@ -46,19 +46,19 @@ func (l *lockedBuffer) String() string {
 	return l.b.String()
 }
 
-// EdgeBinary builds pgdock-edge once per test binary and returns its path
+// EdgeBinary builds xenibase-edge once per test binary and returns its path
 // (render workers run it, V4.1 §12.4).
 func (e *Env) EdgeBinary() string {
 	e.t.Helper()
 	edgeBinOnce.Do(func() {
 		_, file, _, _ := runtime.Caller(0)
 		root := filepath.Join(filepath.Dir(file), "..", "..")
-		edgeBin = filepath.Join(root, "tmp", "bin", "pgdock-edge-test")
+		edgeBin = filepath.Join(root, "tmp", "bin", "xenibase-edge-test")
 		cmd := exec.Command("go", "build", "-o", edgeBin, "./cmd/edge")
 		cmd.Dir = root
 		cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 		if out, err := cmd.CombinedOutput(); err != nil {
-			edgeBinErr = fmt.Errorf("build pgdock-edge: %w\n%s", err, out)
+			edgeBinErr = fmt.Errorf("build xenibase-edge: %w\n%s", err, out)
 		}
 	})
 	if edgeBinErr != nil {
@@ -67,7 +67,7 @@ func (e *Env) EdgeBinary() string {
 	return edgeBin
 }
 
-// StartEdgeProcess builds pgdock-edge (once per test binary) and runs it
+// StartEdgeProcess builds xenibase-edge (once per test binary) and runs it
 // against this environment, waiting until it serves.
 func (e *Env) StartEdgeProcess(name string) *EdgeProcess {
 	e.t.Helper()
@@ -80,8 +80,8 @@ func (e *Env) StartEdgeProcess(name string) *EdgeProcess {
 	_ = ln.Close()
 	p := &EdgeProcess{URL: "http://" + addr, logs: &lockedBuffer{}, done: make(chan struct{})}
 	p.cmd = exec.Command(edgeBin)
-	p.cmd.Env = append(os.Environ(), "PGDOCK_EDGE_NAME="+name, "PGDOCK_EDGE_CONTROL_URL="+e.URL, "PGDOCK_EDGE_SECRET="+EdgeSecret,
-		"PGDOCK_EDGE_DOMAIN="+EdgeDomain, "PGDOCK_EDGE_LISTEN="+addr, "PGDOCK_EDGE_POOLER_SSLMODE=require", "PGDOCK_EDGE_LOG_FORMAT=text")
+	p.cmd.Env = append(os.Environ(), "XENIBASE_EDGE_NAME="+name, "XENIBASE_EDGE_CONTROL_URL="+e.URL, "XENIBASE_EDGE_SECRET="+EdgeSecret,
+		"XENIBASE_EDGE_DOMAIN="+EdgeDomain, "XENIBASE_EDGE_LISTEN="+addr, "XENIBASE_EDGE_POOLER_SSLMODE=require", "XENIBASE_EDGE_LOG_FORMAT=text")
 	p.cmd.Stdout, p.cmd.Stderr = p.logs, p.logs
 	if err := p.cmd.Start(); err != nil {
 		e.t.Fatal(err)
@@ -99,11 +99,11 @@ func (e *Env) StartEdgeProcess(name string) *EdgeProcess {
 		}
 		select {
 		case <-p.done:
-			e.t.Fatalf("pgdock-edge exited:\n%s", p.logs)
+			e.t.Fatalf("xenibase-edge exited:\n%s", p.logs)
 		default:
 		}
 		if time.Now().After(deadline) {
-			e.t.Fatalf("pgdock-edge never became ready:\n%s", p.logs)
+			e.t.Fatalf("xenibase-edge never became ready:\n%s", p.logs)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}

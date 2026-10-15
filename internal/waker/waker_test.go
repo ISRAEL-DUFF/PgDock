@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/israel-duff/pgdock/internal/waker"
+	"github.com/israel-duff/xenibase/internal/waker"
 )
 
 type fakeWaker struct {

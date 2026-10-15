@@ -1,8 +1,8 @@
 # Regions and data residency
 
-PGDock V3 runs projects in more than one region (V3 §6). The control
-plane (pgdock-server and its metadata database) stays in one place, the
-**home region** (`PGDOCK_REGION`, default `eu-central`). A region groups:
+Xenibase V3 runs projects in more than one region (V3 §6). The control
+plane (xenibase-server and its metadata database) stays in one place, the
+**home region** (`XENIBASE_REGION`, default `eu-central`). A region groups:
 
 - **nodes** (`nodes.region`), on Hetzner or on machines you register by
   hand (colocation, or a local provider);
@@ -53,7 +53,7 @@ can't offer HA.
 ## Projects and regions
 
 - **At creation** a project chooses its region (New project → Region,
-  `pgdock projects create --region ng-lagos`, or `region` in
+  `xenibase projects create --region ng-lagos`, or `region` in
   `POST /api/v1/projects`). The default is the home region. Its node, its
   HA standby, its backups and its branches are all in that region.
   Restores into a new project stay in the source's region.
@@ -88,7 +88,7 @@ needs a fresh step-up (password and code), and is audited. With it on:
 - **Exports** (backup downloads by owners) stay available: the customer
   decides where their own copy goes.
 
-What it guarantees: PGDock stores the project's data, WAL archive and
+What it guarantees: Xenibase stores the project's data, WAL archive and
 backups only on machines and buckets in the region. Whether a regulator
 requires in-country hosting is the customer's determination. A residency
 region should have its own pooler hosts, or client connections pass

@@ -325,7 +325,7 @@ type InsertProvisionedNodeParams struct {
 	CostCurrency          string
 }
 
-// A node for a server PGDock is creating; its agent registers with the
+// A node for a server Xenibase is creating; its agent registers with the
 // token in the server's cloud-init.
 func (q *Queries) InsertProvisionedNode(ctx context.Context, arg InsertProvisionedNodeParams) (Node, error) {
 	row := q.db.QueryRow(ctx, insertProvisionedNode,

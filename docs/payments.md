@@ -1,214 +1,250 @@
 # Payments
 
-How PGDock takes money (V3 §3.4–§3.8, milestone M21): cards through
-Flutterwave, bank transfers into per-organisation virtual accounts
-(iSpend, with Flutterwave as the fallback), Pay with iSpend and wallet
-mandates, optional USDT top-ups, and manual payments. It also covers
-prepaid balances, withholding tax, dunning and reconciliation. The prices,
-invoices and ledger they pay into are in [Billing](billing.md).
+How Xenibase takes money (V4.1): every organisation has a **wallet** at the
+wallet provider (iswallet). It holds the organisation's naira, it is
+funded by bank transfer into the organisation's own account number, and
+Xenibase **debits it for each invoice**. Manual payments recorded by the
+platform admin remain for anything outside it. This page also covers
+withholding tax, dunning and reconciliation. The prices and invoices the
+wallet pays are in [Billing](billing.md); the contract with the provider
+is in [the wallet provider](iswallet.md).
 
-## Setting up the providers
+```
+customer's bank ──transfer──▶ the org's account number ──▶ the org's wallet (naira)
+                                                                │
+                      invoice issued (dollars ▶ naira at the rate)
+                                                                ▼
+                                     Xenibase's operating wallet ◀─ debit
+```
 
-Each provider is off until its credentials are set. With none set,
-organisations can still pay by transfer to PGDock's own bank account,
-which the platform admin then records by hand.
+## Setting up the wallet provider
+
+The wallet provider is off until it is configured. Without it, a new
+platform prices in naira and organisations pay by transfer to Xenibase's own
+bank account, which the platform admin records by hand.
 
 | Variable | |
 | --- | --- |
-| `PGDOCK_FLW_SECRET_KEY` (or `_FILE`) | Flutterwave secret key. Use a test key against the Flutterwave sandbox. |
-| `PGDOCK_FLW_WEBHOOK_HASH` (or `_FILE`) | The "secret hash" set in Flutterwave → Settings → Webhooks, at least 16 characters. |
-| `PGDOCK_FLW_BVN` | The BVN Flutterwave needs to issue permanent virtual accounts. |
-| `PGDOCK_FLW_BASE_URL` | Defaults to `https://api.flutterwave.com`. |
-| `PGDOCK_ISPEND_BASE_URL` | iSpend's merchant API (sandbox or live). |
-| `PGDOCK_ISPEND_API_KEY` (or `_FILE`) | iSpend merchant API key. |
-| `PGDOCK_ISPEND_WEBHOOK_SECRET` (or `_FILE`) | Shared secret iSpend uses to sign webhooks, at least 16 characters. |
-| `PGDOCK_PAY_CARDS` | Card provider: `flutterwave` (default). |
-| `PGDOCK_PAY_VA_PRIMARY` | Virtual-account provider: `ispend` (default) or `flutterwave`. |
-| `PGDOCK_PAY_VA_FALLBACK` | Used when the primary can't issue an account: `flutterwave` (default) or `none`. |
-| `PGDOCK_PAY_WALLET` | Wallet provider: `ispend` (default). |
+| `XENIBASE_ISWALLET_BASE_URL` | The provider's API (sandbox or live). |
+| `XENIBASE_ISWALLET_API_KEY` (or `_FILE`) | Xenibase's API key. It can move money between any two of Xenibase's wallets: treat it as a payment credential. |
+| `XENIBASE_ISWALLET_WEBHOOK_SECRET` (or `_FILE`) | The signing secret of the webhook subscription, at least 16 characters. It is shown once, when the subscription is made. |
+| `XENIBASE_ISWALLET_OWNER_PREFIX` | Required. Wallet owner references are unique across everyone who uses the provider, so each installation needs its own prefix: `xenibase:prod`, `xenibase:staging`. A rebuilt development database under an old prefix finds its old wallets. |
+| `XENIBASE_ISWALLET_CLIENT_ID` | Optional: Xenibase's client id, if the key doesn't imply it. |
 
-A route only counts when its provider is configured. The org's Billing
-page offers exactly the channels that work.
+Subscribe the provider's webhooks to
+`https://<your Xenibase>/api/v1/payments/webhooks/iswallet` for
+`wallet.credit.posted` (a deposit). That is the only event Xenibase acts on:
+it books its own debits as it makes them.
 
-Point each provider's webhooks at:
-
-- `https://<your PGDock>/api/v1/payments/webhooks/flutterwave`
-- `https://<your PGDock>/api/v1/payments/webhooks/ispend`
-
-The API iSpend implements for PGDock is in
-[the iSpend contract](ispend-contract.md).
-
-**Testing without the sandboxes.** The test suite runs both providers
-against fakes of their sandboxes (`internal/billing/flutterwave/fake.go`
-and `internal/billing/ispend/fake.go`), which send real signed webhooks to
-the API. The done-when test drives the fakes directly (it "pays" their
-hosted pages), so against the real sandboxes it is replaced by the
-rehearsal below.
+**Testing without the sandbox.** The test suite and the local demo run
+against a fake of the provider (`internal/billing/iswallet/fake.go`): it
+holds wallets and balances, takes the collection fee off deposits, makes
+transfers synchronous and idempotent, answers a lookup by key, quotes a
+rate that is never refused however old, and sends real signed webhooks. It
+can lose the answer to a debit, drop or repeat a webhook, go down, freeze a
+wallet and go stale, which is how the failure cases are tested.
 
 ## Sandbox rehearsal
 
-Before the paid launch, run PGDock's provider clients against the real
-sandboxes, then do the steps that need a person.
-
-**1. The clients on their own** (a few seconds, no server needed):
-
-```sh
-PGDOCK_FLW_SECRET_KEY=FLWSECK_TEST-… PGDOCK_FLW_BVN=… \
-PGDOCK_ISPEND_BASE_URL=https://sandbox.… PGDOCK_ISPEND_API_KEY=… \
-make test-payments-sandbox
-```
-
-It creates a customer, starts a checkout (and prints its hosted page),
-checks an unpaid checkout doesn't verify as paid, issues a virtual account
-(printed), and lists the last day's transactions, for each provider whose
-keys are set. It refuses a Flutterwave key that isn't a test key. The same
-checks run against the fakes in CI (`TestChecksAgainstFakes`).
-
-**2. With a person**, on a staging PGDock reachable from the internet
-(the providers must reach its webhook URLs; a tunnel is enough), with
-both providers' sandbox webhooks pointed at it:
+Before the paid launch, run Xenibase against the provider's sandbox. Ask the
+provider to provision yours (it returns your keys once, a funded operating
+wallet and some customer wallets); use a distinct `XENIBASE_ISWALLET_OWNER_PREFIX`,
+because the sandbox is not routinely reset and owner references are unique
+across tenants. Point the sandbox webhook at a staging Xenibase reachable from
+the internet (a tunnel is enough). The sandbox can simulate a bank transfer
+into a virtual account (`POST /v1/sandbox/simulate/deposit`) and a clawed
+back credit; it can't simulate a failed debit (use too little money, or
+freeze the wallet), a delayed webhook or an unanswered call (drop the
+connection with a proxy).
 
 | Step | Expect |
 | --- | --- |
-| Pay an invoice by card on Flutterwave's hosted page with one of [Flutterwave's test cards](https://developer.flutterwave.com/docs/integration-guides/testing-helpers) | The invoice is paid and the card is saved (Org → Billing) |
-| Issue the next invoice | The saved card is charged on issue |
-| Pay with a test card that declines | The payment fails; the card retry schedule starts; nothing is posted |
-| Transfer into the org's iSpend virtual account (the sandbox's simulated transfer): the full amount, then on another invoice the amount less exactly its WHT, then less, then more | Paid; paid (WHT pending evidence); partially paid; paid with the rest as credit |
-| The same into a Flutterwave virtual account (turn iSpend's off, or use an org issued one by the fallback) | The same four results |
-| Pay with iSpend's wallet, once with a mandate; then revoke the mandate in iSpend | Paid; the mandate is saved, charged on the next invoice, then retired with an email asking for another method |
-| Redeliver a webhook from each dashboard | Nothing changes (one payment) |
-| Stop the staging server for ten minutes during a payment, then start it | Within the hour, the hourly re-query records the payment once |
-| Admin → Billing → Reconciliation → Run now | No differences for either provider |
+| Open a wallet for an organisation (Billing → Wallet) with a director's BVN | The wallet and its bank account appear; nothing of the BVN is stored |
+| Simulate a transfer of ₦100,000 into the account | The wallet shows the amount net of the 1.4% fee; a receipt is emailed; Xenibase's books and the provider agree |
+| Agree to debits, issue an invoice | The wallet is debited the invoice's naira total once; the invoice is paid and shows its rate |
+| Issue another with less in the wallet than owed | Nothing is debited; the organisation is emailed; a transfer then pays it |
+| Press **Pay from wallet** on an organisation that hasn't agreed | That invoice is paid |
+| Turn debits off, issue an invoice | It stays open |
+| Redeliver the webhook from the provider's dashboard | Nothing changes (one payment) |
+| Stop the staging server for ten minutes during a deposit, then start it | Within the hour, the hourly re-query records the deposit once |
+| Kill the connection after a debit is sent (a proxy that drops the answer) | The invoice is paid once; the provider shows one transfer |
+| Admin → Billing → Reconciliation → Run now | No differences, including the wallet balances |
 | Admin → Billing → Ledger | No findings |
 
-Then rerun step 1 with `PGDOCK_SANDBOX_FLW_PAID_REF` and
-`PGDOCK_SANDBOX_ISPEND_PAID_REF` set to a paid reference from step 2: each
-must verify as a succeeded NGN payment with its fee.
+Check the open items in [the wallet provider](iswallet.md#handled-and-still-open)
+against what the sandbox does, and record the date, who ran it and any
+differences below; the paid launch waits on a run with none.
 
-Record the date, who ran it and any differences in the table below; the
-paid launch waits on a run with none.
+| Date | By | Notes |
+| --- | --- | --- |
+| 13 Oct 2026 | Claude, with the sandbox's dev key | Client check and the money path without webhooks (`TestEndToEndAgainstTheSandbox`): wallet at tier 2, virtual account, simulated ₦100,000 deposit credited ₦98,600, found by the re-query, invoice converted at the provider's rate and debited, books equal the provider, ledger check and reconciliation clean. Found: the wallet request needs `client_id`. Not yet run: live webhooks and their signature, the lost-answer case, a simulated reversal. |
 
-| Date | By | Flutterwave | iSpend | Notes |
-| --- | --- | --- | --- | --- |
-| | | | | |
+## An organisation's wallet
 
-## How a payment is recorded
+**Opening it.** Org → Billing → Wallet. The owner gives the business name,
+an email and **a director's BVN**, which the provider needs before it
+issues the organisation's bank account. Xenibase forwards the BVN and keeps
+nothing of it (it isn't logged or audited). The wallet is opened at KYC
+tier 2; its limits are the provider's (see
+[the wallet provider](iswallet.md#limits)). Opening it twice changes
+nothing: the owner reference is unique, and the provider returns the wallet
+it already has.
 
-1. The provider sends a webhook. PGDock checks its signature: Flutterwave's
-   `verif-hash`, or iSpend's HMAC with a 5-minute replay window.
-2. PGDock stores the event once. A redelivered event with the same id is
-   acknowledged and ignored.
-3. PGDock never trusts the webhook body. It fetches the transaction from
-   the provider and posts only what the provider confirms: amount,
-   currency, status and fee.
-4. The payment is attributed to an organisation by PGDock's reference
-   (checkouts and charges), or by the virtual account it arrived in
-   (transfers). If neither matches, the event waits under Admin → Billing
-   → Events to be attributed by hand.
-5. Settlement follows (below), all in one ledger transaction. The payer
-   gets a receipt by email, and can download it from Billing → Payments.
+**Topping it up.** The organisation transfers naira to the account number
+shown on its Billing page (`xenibase billing transfer`). The account is its
+alone and permanent. A few things to know, and to tell customers:
 
-Missed webhooks are not lost. Every hour PGDock lists the last two hours
-of transactions at each provider, and every night the previous day, and
+- the provider's **collection fee (1.4%, at most ₦2,000) comes off** the
+  amount sent, and the wallet is credited the rest: ₦100,000 sent is
+  ₦98,600 in the wallet (a transfer over ₦142,857 costs ₦2,000);
+- the credit usually posts within minutes of the bank's;
+- any amount is credited as sent: the account is an address, not an
+  invoice;
+- a deposit can exceed what the tier lets the wallet pay out; that only
+  matters for withdrawals.
+
+**Balance.** The page reads the balance from the provider, and shows what
+Xenibase's books say next to it. They are the same money: the nightly
+reconciliation compares them (below).
+
+## Debit consent
+
+The provider has no customer approval step: Xenibase's key can debit any
+wallet it made. So the consent is Xenibase's to record and to honour. Org →
+Billing asks an owner to agree to:
+
+> Xenibase may debit this organisation's wallet for each invoice when it is
+> issued, for the amount in naira shown on the invoice, converted from the
+> dollar price at the rate on it, and for what remains owing whenever the
+> wallet is topped up. Debits can be switched off at any time; invoices
+> are then paid by hand.
+
+Xenibase stores who agreed, when, and which version of the wording
+(`DebitTermsVersion`; changing the wording asks every owner again).
+Without consent Xenibase never debits automatically. The owner can still pay
+one invoice from the wallet by pressing **Pay from wallet** on it, which
+needs no standing consent, and can turn automatic debits off again at any
+time. If a customer disputes a charge, Xenibase's own record of the consent
+is what answers it: the provider's records show only that Xenibase's key
+moved the money.
+
+## How an invoice is paid
+
+When an invoice is issued, and again whenever money arrives in the wallet
+or a retry is due, Xenibase debits the wallet for what the invoice still
+owes, **all of it or nothing**:
+
+1. If the wallet holds less than is owed, nothing is debited and the
+   organisation is told how much to add. Dunning starts (below), and the
+   invoice is paid the moment a deposit covers it.
+2. Otherwise Xenibase records a pending charge with its **own idempotency
+   key** (one per attempt), then transfers the amount from the
+   organisation's wallet to Xenibase's operating wallet, with the invoice
+   number as the narration. A transfer is synchronous and final.
+3. Xenibase books it in one transaction: the invoice is paid, a payment is
+   recorded with the rate the invoice was converted at, and the ledger
+   moves the money from the organisation's wallet balance to its
+   receivable (Dr `wallet_balance`, Cr `receivable`). The organisation gets
+   a receipt by email.
+
+**An unanswered debit is never repeated.** If the call timed out or came
+back with a server error, Xenibase looks the key up at the provider before
+doing anything else: found, the debit happened and is booked; not found,
+nothing was posted and it is safe to try again with a new key. A charge
+still unresolved blocks the next attempt on the same invoice (the database
+allows one in flight per invoice). The provider replays an answer for 24
+hours; a pending charge older than that is escalated by hand, never
+retried automatically.
+
+**Refused debits are final**, not retried: a wallet that is frozen or
+over its limit. They count as a decline.
+
+## The dollar rate
+
+Prices are in dollars and the wallet is in naira, so something must say
+what a dollar costs. The wallet provider does, and three things about it
+matter more than the API:
+
+- **Its source and spread.** Out of the box the provider quotes the
+  official USD/NGN rate with no spread. The official rate has diverged
+  from the rate at which naira buys dollars, and customers fund wallets
+  with naira earned at the second. Whether to bill at the feed, at a rate
+  the provider's desk sets, with how much spread, is a pricing decision
+  made with the provider **before launch**. Xenibase charges whatever
+  effective rate it is quoted and shows the market rate, the spread and the
+  source on every invoice.
+- **No locked quote.** There is no rate to pass into a debit. Xenibase asks
+  for the rate when the invoice is issued, converts, and debits the naira
+  amount it computed, which is on the invoice.
+- **A 200 is not a fresh rate.** When every source is down the provider
+  answers with its last rate, however old. Xenibase checks the time the rate
+  was set and refuses to issue an invoice on one older than the billing
+  setting `fx_max_age_hours` (4 hours): the invoice stays a draft and is
+  tried again each hour.
+
+Xenibase holds naira and prices in dollars, so the exchange exposure is
+Xenibase's: it is paid in naira and pays its hosts in dollars. The provider
+does not convert for it today. (It can hold and withdraw USDT, with a
+conversion from naira at a 150 bps spread on market rates, which is a way
+to turn Xenibase's own naira into dollars; see
+[the wallet provider](iswallet.md#handled-and-still-open).)
+
+A **credit note** against a paid invoice is in naira (what the
+customer paid, at the rate then), so it carries no exchange gain or loss.
+
+## Manual payments
+
+The platform admin records a transfer to Xenibase's own account or a cheque
+(Admin → Billing → Payments → Record a payment). The record needs a bank
+reference, which can't be used twice, and can include proof. These
+payments post to `cash:bank` and settle the oldest open invoices; what is
+left is **credit** that the next invoice uses. Credit and the wallet are
+separate: credit (from manual payments and credit notes) is applied when
+an invoice is issued, and the wallet is debited for the rest.
+
+`xenibase billing payments` lists what was received.
+
+**Refunds.** Only a manual payment can be refunded. The refund completes
+at once in Xenibase's books (the credit balance goes down, or the invoices
+it settled are reopened) and the admin returns the money outside Xenibase.
+Money in a wallet is not refunded through Xenibase: a refund of a wallet
+payment is refused. A paid invoice that was debited from a wallet is
+corrected with a credit note, which becomes credit toward the next invoice.
+
+## How a deposit is recorded
+
+1. The provider sends `wallet.credit.posted`. Xenibase checks its
+   signature (HMAC-SHA256 over the timestamp and the raw body, within five
+   minutes) before parsing anything.
+2. Xenibase stores the event once. A repeated event, or the same deposit
+   delivered twice, is acknowledged and ignored.
+3. Xenibase never trusts the webhook body. It reads the transaction back
+   from the wallet and posts only what the provider confirms: the amount
+   credited to the wallet, net of the collection fee.
+4. The deposit goes to the organisation that owns the wallet. If none
+   does, the event waits under Admin → Billing → Events to be attributed by
+   hand.
+5. It posts to the ledger (Dr `cash:iswallet`, Cr `wallet_balance`), the
+   organisation is emailed a receipt, and anything it owes is debited.
+
+Missed webhooks are not lost. Every hour Xenibase lists the last two hours
+of transactions at the provider, and every night the previous day, and
 records anything it hasn't seen.
-
-## Settlement
-
-A payment goes, in order:
-
-1. To the invoice it was made for, if any.
-2. To the oldest open invoices.
-3. Whatever is left becomes **credit**. It is applied to the next invoice
-   when that invoice is issued, and is what a prepaid balance is.
-
-A transfer short by exactly the invoice's expected withholding tax
-settles the invoice as **Paid (WHT pending)**. The WHT moves to the WHT
-receivable until the credit note arrives (below). Any other shortfall
-leaves the invoice **partially paid**.
-
-Each payment posts to the ledger:
-
-- Dr `cash:<provider>` (the net amount) and Dr `fees:<provider>` (the fee);
-- Cr `receivable` (each invoice it settles) and Cr `credit_balance` (the
-  rest).
-
-A refund comes out of credit: Dr `credit_balance`, Cr `cash`, posted when
-the provider confirms it. To refund money that paid an invoice, either:
-
-- issue a credit note on the invoice first (the invoice was wrong): the
-  credit note becomes credit, and the refund comes from it; or
-- tick **reopen the invoices** on the refund (the money went back to the
-  payer, a chargeback, a payment to the wrong organisation): the part the
-  credit doesn't cover is taken back off the invoices this payment
-  settled, newest first (Dr `receivable`, Cr `credit_balance`). Those
-  invoices are owed again, and dunning applies once they are overdue. If
-  the provider refuses the refund, the credit pays them again.
-
-## Channels
-
-- **Card (Flutterwave).** Pay on Flutterwave's hosted page. The card is
-  then saved as a token, sealed with PGDock's master key, and becomes the
-  default method. Adding a card on its own charges ₦100, kept as credit.
-  The default card is charged when an invoice is issued and for automatic
-  top-ups. Cards are reminded about 30 and 7 days before they expire, and
-  retired when they do.
-- **Bank transfer.** Each organisation gets its own permanent account
-  number (Billing → "Show my bank transfer account", or
-  `pgdock billing transfer`). If iSpend can't issue one, Flutterwave
-  issues it instead. Both kinds work the same way.
-- **Pay with iSpend.** The customer approves the debit in iSpend.
-  Optionally they also set up a **mandate** up to a monthly limit, which
-  PGDock then charges like a card. Revoking it in iSpend removes it from
-  PGDock and asks the org for another method.
-- **USDT top-ups (iSpend).** Off by default (Admin → Billing → Settings).
-  These are for prepaid balances only. iSpend's FX quote is stored with
-  the payment.
-- **Manual.** The platform admin records a transfer to PGDock's own
-  account or a cheque (Admin → Billing → Payments → Record a payment).
-  The record needs a bank reference, which can't be used twice, and can
-  include proof. These payments post to `cash:bank`.
-
-`pgdock billing pay <invoice> [--wallet]` prints a link to pay.
-`pgdock billing payments` lists what was received.
-
-## Prepaid
-
-The platform admin makes an organisation prepaid (Admin → Organisations →
-the org → Billing; `PATCH /api/v1/admin/orgs/{org}/billing`). That panel
-also sets payment terms, the price book and grandfathering, and shows the
-org's standing. Switching to prepaid is refused while issued invoices are
-open. Switching back to postpaid returns the deductions for months not
-yet invoiced to the balance, and those months are invoiced instead, so
-nothing is counted twice. It pays in advance by topping up, by any channel. Every
-day PGDock rates the month so far (usage and plan changes, plus VAT) and
-deducts the difference since the previous day from the balance. When the
-monthly invoice is issued it is already paid: the final true-up,
-including the plan fee in advance, comes off the balance.
-
-- **Alerts.** Billing contacts are emailed when the balance falls below
-  50%, 25% and 10% of the month's projected spend, and when it covers
-  fewer than 3 days of usage.
-- **Running out.** At zero, the org has 3 days to top up before the
-  dunning ladder starts.
-- **Auto top-up.** Charge the default method by an amount when the
-  balance falls below a threshold, at most once a day.
 
 ## Withholding tax
 
 Organisations that deduct WHT (Billing → Business details) pay invoices
-net of it. The invoice shows the expected deduction. Afterwards the org
+net of it. A wallet debit takes the whole invoice, so WHT applies to
+payments made by hand. The invoice shows the expected deduction; the org
 uploads the WHT credit note on the invoice (PDF, PNG or JPEG, up to
-10 MB), or the admin attaches it from Admin → Billing → WHT. The upload
-marks the invoice paid. The amount stays in `wht_receivable`, a tax
-credit, now backed by its evidence.
-
-Admin → Billing → WHT lists what is outstanding, with each item's age,
-and downloads it as CSV for the accountant.
+10 MB), or the admin attaches it from Admin → Billing → WHT. The amount
+stays in `wht_receivable`, a tax credit, now backed by its evidence.
+Admin → Billing → WHT lists what is outstanding, with each item's age, and
+downloads it as CSV for the accountant.
 
 ## Dunning
 
-When an invoice passes its due date, or 3 days after a prepaid balance
-reaches zero:
+When an invoice passes its due date:
 
 | Day | |
 | --- | --- |
@@ -218,8 +254,10 @@ reaches zero:
 | 10 | **Suspended.** The org's databases go offline. The data is kept. |
 | 40 | **Deletion notice.** Dedicated projects are deleted 7 days later, but only if "Delete for non-payment" is on (Admin → Billing → Settings, off by default). Otherwise nothing is deleted. |
 
-Free-plan organisations can be restricted but are never suspended. A failing card is
-retried on days 3, 5 and 7. Paying returns everything at once: the
+A wallet that couldn't cover an invoice starts a separate **retry**
+schedule: Xenibase tries again 3, 5 and 7 days after the first failure, and
+at once when a deposit arrives. Free-plan organisations can be restricted
+but are never suspended. Paying returns everything at once: the
 restriction lifts, the org is reinstated and the deletion is cancelled.
 
 The admin can hold the ladder until a date (Admin → Organisations → the
@@ -227,30 +265,32 @@ org → Billing), for an org that has agreed to pay later.
 
 ## Reconciliation
 
-Every night PGDock lists the previous day's transactions at each provider
+Every night Xenibase lists the previous day's transactions at the provider
 and compares them with its own payments. It reports:
 
-- payments missing in PGDock;
+- payments missing in Xenibase;
 - payments missing at the provider;
 - different amounts;
 - different fees.
 
-Admin → Billing → Reconciliation shows the latest result per provider and
-can run it now. A clean night shows "No differences".
+It also compares **every wallet's balance** at the provider with what the
+books hold for it (`wallet_balance`): the same money, so any difference
+is a deposit missed, a debit not booked, or a movement Xenibase didn't make.
+Admin → Billing → Reconciliation shows the latest result and can run it
+now. A clean night shows "No differences".
 
 ## What was tested
 
-`TestPaymentsAcrossProviders` (test/integration) is M21's done-when test,
-run against the provider fakes. It covers:
-
-- card payments and tokenised charges;
-- transfers into both kinds of virtual account: full, short by WHT,
-  partial and over;
-- wallet payments and mandate charges, and a revoked mandate;
-- a declined card;
-- duplicate and missed webhooks;
-- an iSpend outage falling back to a Flutterwave virtual account.
-
-After all of it, the ledger balances and reconciliation reports no
-differences. The unit tests in `internal/billing` cover prepaid
-deduction, the dunning ladder, WHT certificates and refunds.
+`internal/billing/wallet_test.go` runs the whole path against the fake
+provider: a deposit net of the collection fee and its webhook; an invoice
+converted at the rate in force, line by line, and debited on issue with
+the books and the provider agreeing to the kobo; a wallet that is too
+short, the dunning that follows, and the payment when it is topped up; no
+debit without consent, and paying one invoice by request; a debit whose
+answer is lost and is not made twice; a provider that is down, so the
+invoice stays a draft; a stale rate that is refused for an invoice and
+accepted for an estimate; opening a wallet without a BVN, and twice; a
+deposit whose webhook was lost, found by reconciliation and repaired by
+the hourly re-query. The ledger invariants hold after each. The unit tests
+in `internal/billing` also cover the dunning ladder, WHT certificates and
+refunds.

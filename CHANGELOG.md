@@ -1,15 +1,161 @@
 # Changelog
 
-PGDock follows semantic versioning; server, agent, UI, and the install
+Xenibase follows semantic versioning; server, agent, UI, and the install
 bundle share one version (spec §11.5).
 
 ## Unreleased
 
-- Fixed: an upload through pgdock-edge whose object store failed (unreachable,
+### Docs
+- [Building on Xenibase: a team guide](docs/guides/storefront.md): a domain
+  storefront from nothing to a safe backend, for people new to backend services
+  (the model, keys, row-level security, auth, orders through a webhook, files,
+  live updates, a launch checklist, how to report problems).
+
+### Fixed
+- An upload through xenibase-edge whose object store failed (unreachable,
   bad credential) was answered `400 incomplete_body` ("the upload ended
   before its length"), blaming the client and logging nothing. Only a body
   that really ended early is now `incomplete_body`; a store failure is
   `503 storage_unavailable` and the edge logs the cause.
+
+## v4.2.1
+
+### Backend services in the install bundle
+- `deploy/compose/enable-services.sh <api-domain>` turns on backend services
+  on a compose install: it runs `xenibase-edge` behind Caddy, with the
+  wildcard certificate for `*.<api-domain>` obtained and renewed through a
+  DNS challenge (Cloudflare, deSEC, or acme-dns for a DNS host with no API; a CNAME can
+  delegate just the challenge). Existing installs are unchanged until it is run.
+  See [Running xenibase-edge](docs/backend-services.md#running-xenibase-edge).
+
+## v4.2.0
+
+### Fixed
+- The wallet panel has a **Get the bank account** button when the provider
+  didn't return the wallet's bank account as it was opened (it showed
+  nothing before).
+
+### Email
+- Every email now goes out with an HTML part in one branded layout (the logo,
+  a card, a button for the link, a footer), and the plain text as before.
+  Light and dark, and on a phone.
+- The messages are written in a warmer voice: sign-up, verification,
+  password reset, approval, two-factor and role changes; invitations; API
+  tokens; invoices, receipts, wallet and overdue notices, prepaid, budget and
+  spend-cap alerts, price changes; branches, jobs and webhooks; the Free
+  tier's pause, archive and delete notices. Subjects keep their key words.
+- Your projects' own emails (confirmation, magic link, password reset,
+  invitation, email change) are laid out under the project's name, with no
+  Xenibase branding. Project → Auth has a **Clean email layout** switch to
+  send a template's text exactly as written instead.
+- `xenibase-server mail-preview <dir> [public-url]` writes sample emails
+  as HTML and text files to look at in a browser.
+
+### Legal documents
+- The service level agreement, data processing agreement, order forms and the
+  terms of use and privacy notice are shown as documents: headings, lists and
+  tables in the app's type, with a contents list for a long one and a button
+  to print it or save it as a PDF. They were the Markdown source. Raw HTML in a
+  document is never shown, and only web, mail and phone links are linked.
+- The editors have a Preview tab, so what readers will see is seen before a
+  new version is published.
+
+### Sign-in screens
+- A new look for sign-in, sign-up, verification, password reset, invitation
+  and the setup wizard: larger headings and a brand panel of receding
+  doorways. The words on the screens are unchanged.
+
+### New brand
+- A new logo, the doorway, and a teal accent in both themes, replacing the
+  purple. The browser tab icon was still PGDock's: it is Xenibase's now,
+  with app icons and a sharing card for link previews. See [Brand](docs/brand.md).
+
+## v4.1.0
+
+### Renamed: Xenibase
+- The product is now **Xenibase** (it was PGDock). Everything follows, as a clean
+  break: the `xenibase-server`, `xenibase-agent`, `xenibase-edge` and
+  `xenibase-status` binaries and the `xenibase` CLI; `XENIBASE_*` environment
+  variables (the old `PGDOCK_*` names are not read); `xb_` API key prefixes
+  (`xb_pub_…`, `xb_sec_…`), registration tokens (`xbreg_…`), and the `xb_auth`,
+  `xb_storage` and `xb_realtime` schemas in project databases; the
+  `xenibase_*` cookies and `X-Xenibase-*` headers; invoice numbers
+  (`XB-YYYY-NNNNNN`, credit notes `XB-CN-…`); the Go module path, the SDKs
+  (`@xenibase/*`, the Dart package) and the default domain (`xenibase.ng`).
+  Format identifiers inside data (such as the backup key file's magic header)
+  are unchanged. An install of an earlier release isn't upgraded in place:
+  install fresh and import its projects.
+
+### Billing: dollar prices, wallets
+- Prices are in **US dollars** (cents) and an invoice is converted to naira
+  when it is issued, at a rate frozen on it (the market rate, the spread, the
+  effective rate, when and where it was priced). The invoice, its PDF and its
+  email show both. A rate older than `fx_max_age_hours` (4) is refused: the
+  invoice stays a draft. The ledger, payments and credit notes stay in kobo.
+  A price book in naira still works, and a platform with no wallet provider
+  starts with one.
+- Each organisation has a **wallet** at the wallet provider (iswallet),
+  funded by bank transfer into its own account number and debited for each
+  invoice when it is issued, and when it is topped up, under a **consent** an
+  owner gives (and can withdraw) and Xenibase records. An unanswered debit is
+  looked up by its idempotency key and never repeated; a wallet too short for
+  an invoice starts dunning and pays it when topped up. The nightly
+  reconciliation compares every wallet's balance with the books. New endpoints
+  under `/orgs/{org}/billing`: `wallet`, `debit-consent`, and `pay-from-wallet`.
+  Configured by `XENIBASE_ISWALLET_*`. See docs/payments.md and docs/iswallet.md.
+- **Removed: cards, saved cards, hosted checkout, iSpend ("Pay with iSpend")
+  and wallet mandates, USDT top-ups, automatic top-up and card expiry
+  reminders.** The Flutterwave provider and the old iSpend merchant provider
+  are gone. An organisation pays from its wallet (debited with its consent, or
+  by **Pay from wallet** on an invoice), or by a manual payment the platform
+  admin records (bank transfer, cheque); an organisation without a wallet
+  stays on prepaid, topped up by manual payments, with no automatic top-up.
+  - Configuration removed: `XENIBASE_FLW_*`, `XENIBASE_ISPEND_*`,
+    `XENIBASE_PAY_CARDS`, `XENIBASE_PAY_VA_PRIMARY`, `XENIBASE_PAY_VA_FALLBACK` and
+    `XENIBASE_PAY_WALLET`. Kept: `XENIBASE_ISWALLET_BASE_URL`, `_API_KEY`,
+    `_WEBHOOK_SECRET`, `_OWNER_PREFIX` and `_CLIENT_ID`. Unregister the old
+    providers' webhooks.
+  - API removed: `POST /api/v1/orgs/{org}/billing/checkout`,
+    `GET`/`DELETE /billing/payment-methods...`,
+    `POST /billing/payment-methods/{id}/default`,
+    `PUT`/`DELETE /billing/auto-topup`, `BillingSettings.stablecoin`,
+    `BillingAccount.auto_topup`, and `channels.card` and `channels.stablecoin`
+    (`channels` is now `{wallet, transfer}`). The payment webhook route is
+    `POST /api/v1/payments/webhooks/iswallet` only. The `card_failing_since`
+    field and the dunning step names keep their names and now mean "automatic
+    wallet charge failing since".
+  - Refunds: only manual payments can be refunded (the refund completes at
+    once and the admin returns the money outside Xenibase). Money in a wallet
+    is refused; correct a wallet-paid invoice with a credit note.
+  - Database: migration 00052 drops `payment_methods` and
+    `billing_accounts.auto_topup`; its down migration recreates them empty.
+    Old payments and payment intents, and their `channel` constraints, stay
+    as history.
+  - CLI: `xenibase billing pay <invoice>` now debits the wallet for that
+    invoice (no checkout link; the `--wallet` flag is gone). New
+    `xenibase billing wallet` prints the balance, the amount owed and the debit
+    consent. `xenibase billing transfer` shows the wallet's bank account.
+  - `make test-payments-sandbox` now runs a small check of the iswallet client
+    (needs `XENIBASE_TEST_SANDBOX=1` and `XENIBASE_ISWALLET_*`).
+  - Operator note: the default DPA now names "Our wallet provider" as the
+    payment sub-processor instead of Flutterwave and iSpend. An install
+    already running keeps the DPA it published; if you publish the new
+    wording, tell customers 30 days ahead, as the DPA's sub-processor notice
+    requires, that Flutterwave and iSpend are replaced by the wallet
+    provider (docs/legal.md).
+
+### Deploying
+- `deploy/compose/upgrade.sh <tag>`: an upgrade with a verified metadata
+  backup, health and version checks, and an automatic rollback if the new
+  version doesn't become healthy (`--dry-run` to only check). A **Deploy**
+  GitHub Actions workflow runs it over SSH behind an approval, refusing a tag
+  whose CI isn't green; the deploy key is limited to `upgrade`, `status` and
+  `last` by `deploy-ssh.sh`. See docs/deploying.md.
+- Fixed: the compose bundle built `xenibase-server` and `xenibase-agent` with no
+  version, so a bundle install reported `dev`: `xenibase-server -version`
+  didn't show the release, the Nodes page showed `dev`, and the rule that an
+  agent must be at least as new as the server never applied to the bundled
+  agent. `install.sh` now passes the version (`git describe`) to both.
 
 ### Found rehearsing the V2 to V4 upgrade
 - Fixed: the Free tier would have paused the platform admin's own projects.
@@ -19,7 +165,7 @@ bundle share one version (spec §11.5).
   never paused or archived, and a project of theirs that is already asleep is
   woken by the next sweep.
 - Fixed: a server now refuses to start on a metadata database that a newer
-  release migrated (`the metadata database was migrated by a newer PGDock
+  release migrated (`the metadata database was migrated by a newer Xenibase
   than this one`). Before, an older release started on the newer schema
   without a word and could write wrong data. `v2.1.0` and earlier don't have
   the check, so rolling back from V4 means restoring the metadata backup
@@ -51,18 +197,18 @@ bundle share one version (spec §11.5).
 
 ### Upgrading from V2
 - Fixed: the compose bundle didn't pass several settings the docs
-  describe from `.env` to pgdock-server, so setting them there had no
-  effect: the payment providers (`PGDOCK_FLW_*`, `PGDOCK_ISPEND_*`,
-  `PGDOCK_PAY_*`), the Free tier's clocks (`PGDOCK_FREE_*`),
-  `PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT`, `PGDOCK_PG_VERSIONS`, the
-  status page (`PGDOCK_STATUS_*`), the CDN purge, `PGDOCK_MASTER_KEY_PREVIOUS`,
-  `PGDOCK_FLOATING_IP_ID` and `PGDOCK_OUTBOUND_BLOCK`.
+  describe from `.env` to xenibase-server, so setting them there had no
+  effect: the payment providers (`XENIBASE_FLW_*`, `XENIBASE_ISPEND_*`,
+  `XENIBASE_PAY_*`), the Free tier's clocks (`XENIBASE_FREE_*`),
+  `XENIBASE_MAINTENANCE_REQUIRE_ANNOUNCEMENT`, `XENIBASE_PG_VERSIONS`, the
+  status page (`XENIBASE_STATUS_*`), the CDN purge, `XENIBASE_MASTER_KEY_PREVIOUS`,
+  `XENIBASE_FLOATING_IP_ID` and `XENIBASE_OUTBOUND_BLOCK`.
 - Docs: a runbook for going from V2 to V4.1 in one step
   (docs/upgrade-v2-to-v4.md), with the settings to decide first, a
   rehearsal on an isolated copy of production's metadata, and rollback;
   docs/upgrade.md covers V4.1's migrations and V3's 00020 and 00021.
 
-### V4.1 (on feature/pgdock4)
+### V4.1 (on feature/xenibase4)
 - The DPA template lists the SMS and WhatsApp providers used for apps'
   sign-in codes (Termii, Africa's Talking, Meta) and Cloudflare's CDN as
   sub-processors. Existing installs: see docs/legal.md before publishing
@@ -74,20 +220,20 @@ bundle share one version (spec §11.5).
   past which requests get `429 plan_limit_reached` and new users `429
   mau_limit_reached` until the month ends (sign-in keeps working), and
   ceilings on a project's statement timeout, rate limits and daily SMS
-  codes. Owners are emailed at 80% and 100%. The API page and `pgdock
+  codes. Owners are emailed at 80% and 100%. The API page and `xenibase
   services status` show what is in effect. On upgrading installs the
   limits start with the first full month. New migration 00044.
 - Fixed: the data API couldn't call functions in a schema with no tables.
 - Billing add-ons (V4.1-M3): 14- and 30-day point-in-time recovery for
   dedicated projects and extended (30 daily, 12 weekly) or long (30
   daily, 52 weekly) backup retention, on Pro and Team, billed by the hour
-  (Backups page, `pgdock pitr window`, `pgdock backup retention`); a price
+  (Backups page, `xenibase pitr window`, `xenibase backup retention`); a price
   book can set a per-region premium on dedicated, HA and read replica
   lines. New migration 00045. Price books published before this have no
   add-on prices until a new one is published.
 - Fixed: a price book saved through the API dropped its message margin.
 - Resizing dedicated projects (V4.1-M4): a new size or a bigger disk from
-  Project Settings → Size and disk, `pgdock instance resize|disk` or
+  Project Settings → Size and disk, `xenibase instance resize|disk` or
   `PATCH /projects/{id}/instance`, with a cost estimate and a dry run. The
   instance restarts in a few seconds under the poolers' pause, or with HA
   switches over to a resized standby; a size its node can't hold moves it
@@ -111,12 +257,12 @@ bundle share one version (spec §11.5).
   contacts are subscribed to the incidents on the components and regions
   their projects use, synced hourly (a per-contact *Status page emails*
   toggle; an unsubscribe is kept). New **billing** and per-region
-  **backend services** components; pgdock-edge now reports at least every
-  30 seconds. Upgrade pgdock-status with pgdock-server and add the new
+  **backend services** components; xenibase-edge now reports at least every
+  30 seconds. Upgrade xenibase-status with xenibase-server and add the new
   components to status.toml (see status.example.toml). New migration
   00047.
 - Proposed maintenance (V4.1-M7): when an HA project's minor upgrade waits
-  for an announced window, PGDock drafts the announcement for the first
+  for an announced window, Xenibase drafts the announcement for the first
   window at least 96 hours away; confirm it (it shows the exact email,
   and how many it reaches) or discard it under Admin → Incidents →
   Scheduled maintenance. The schedule form previews its email too. New
@@ -139,15 +285,15 @@ bundle share one version (spec §11.5).
   the plan, with the project's share of the month's charges for owners and
   billing members. New `GET /projects/{id}/services/catalog` and
   `/services/usage`.
-- CLI: `pgdock policies list` and `pgdock policies lint` (exit 1 on a
-  danger finding, for CI); `pgdock logs api` with `--status`, `--path` and
+- CLI: `xenibase policies list` and `xenibase policies lint` (exit 1 on a
+  danger finding, for CI); `xenibase logs api` with `--status`, `--path` and
   `--follow`.
 - Branches of a project with backend services get their own API: a new
   URL, keys and signing key, the parent's settings without its auth
   secrets, and the users the copy brought, signed out. The create
   response, the credentials panel, the .env download and
-  `pgdock branch create --env` give `PGDOCK_API_URL`,
-  `PGDOCK_PUBLISHABLE_KEY` and `PGDOCK_SECRET_KEY`; `copy_files` (or
+  `xenibase branch create --env` give `XENIBASE_API_URL`,
+  `XENIBASE_PUBLISHABLE_KEY` and `XENIBASE_SECRET_KEY`; `copy_files` (or
   `--copy-files`) copies the parent's stored files in the background.
 - Edge caching of anonymous reads (V4.1-M9): list tables and stable
   functions with a TTL (Settings → API → **Cache anonymous reads**, or
@@ -155,39 +301,39 @@ bundle share one version (spec §11.5).
   without a user's token are served from each edge's cache (`X-Cache`,
   `Age`, `Cache-Control: public`). Writes through the API drop what they
   change at once; other changes show within the TTL. Cached answers are
-  still metered. Upgrade pgdock-edge with pgdock-server;
-  `PGDOCK_EDGE_CACHE_MB` sizes the cache (64 by default).
+  still metered. Upgrade xenibase-edge with xenibase-server;
+  `XENIBASE_EDGE_CACHE_MB` sizes the cache (64 by default).
 - Cost attribution for backend services (V4.1-M10): new cost categories
   **edge** (edge nodes, and a configurable share of shared nodes, split by
   each organisation's requests and realtime minutes), **files** and
   **messages** (the provider's charge for each platform-sent code), and a
   **Margin by service** table on Platform → Costs & margins. Nodes can
   have the role `edge`; edges report their CPU, and an hour above 70% in
-  a region proposes an edge node, which runs pgdock-edge only
-  (`PGDOCK_CLOUD_EDGE_IMAGE`). Upgrade pgdock-edge with pgdock-server. New
+  a region proposes an edge node, which runs xenibase-edge only
+  (`XENIBASE_CLOUD_EDGE_IMAGE`). Upgrade xenibase-edge with xenibase-server. New
   migration 00049.
 - Tests and hardening (V4.1-M11): image transforms run in separate
-  `pgdock-edge render-worker` processes, so a bad image costs one request
+  `xenibase-edge render-worker` processes, so a bad image costs one request
   (`500 transform_failed`) rather than the edge
-  (`PGDOCK_EDGE_RENDER_MEMORY_MB`, 512 by default). Fixed: a sign-in code
+  (`XENIBASE_EDGE_RENDER_MEMORY_MB`, 512 by default). Fixed: a sign-in code
   used up by five wrong tries no longer lets a new one be sent at once;
   changing a password now signs out the user's other sessions. Project
   auth was reviewed against ASVS 4.0 level 2 (docs/security-review.md),
   and new tests run three sample apps' RLS policies through the data API,
-  storage and realtime. Upgrade pgdock-edge with pgdock-server.
+  storage and realtime. Upgrade xenibase-edge with xenibase-server.
 - Launch gates (V4.1-M12): `TestBackendLoad` can run against a real
-  install (`PGDOCK_LOAD_TARGET`), with a six-server rig in
+  install (`XENIBASE_LOAD_TARGET`), with a six-server rig in
   `deploy/loadtest/` for the 1,000-project, 2,000 requests a second gate;
   docs/backend-runbook.md lists every GA gate with its dated status.
-  Fixed: the compose install now passes `PGDOCK_API_DOMAIN`,
-  `PGDOCK_EDGE_SECRET` and `PGDOCK_CLOUD_EDGE_IMAGE` from `.env` to
-  pgdock-server; set the first two there to serve edges.
+  Fixed: the compose install now passes `XENIBASE_API_DOMAIN`,
+  `XENIBASE_EDGE_SECRET` and `XENIBASE_CLOUD_EDGE_IMAGE` from `.env` to
+  xenibase-server; set the first two there to serve edges.
 
-### V4 (on feature/pgdock4)
+### V4 (on feature/xenibase4)
 - Backend services' edge foundation (V4-M28): a project can turn on backend
-  services (Project → Settings → API, `pgdock services enable`) and gets an
+  services (Project → Settings → API, `xenibase services enable`) and gets an
   API hostname, `https://<ref>.<domain>`, with a publishable key for apps
-  and a secret key for servers. `pgdock-edge`, a new binary run in each
+  and a secret key for servers. `xenibase-edge`, a new binary run in each
   region, serves them: it checks the key (and a signed-in user's ES256
   token) against that project only, applies the allowed origins and rate
   limits, and runs each request in one transaction through the pooler as
@@ -204,16 +350,16 @@ bundle share one version (spec §11.5).
   listed as public), so a forgotten policy fails closed. Schema changes are
   picked up within seconds. Exposed schemas and public tables are in
   Project → Settings → API. Backups, restores and promotions of projects
-  with backend services keep their `pgd_*` schemas and grants.
+  with backend services keep their `xb_*` schemas and grants.
 - Data API writes, functions and types (V4-M30): insert and upsert
   (`POST /data/v1/<table>`, `on_conflict`), update and delete with a
   required filter and `max_affected`, all-or-nothing batches
   (`POST /data/v1/batch`), and function calls (`/data/v1/rpc/<fn>`, GET for
   stable functions). Typed clients for TypeScript, Dart and Go
-  (`pgdock gen types`, or a download on the API page), a security advisor,
+  (`xenibase gen types`, or a download on the API page), a security advisor,
   a request explorer that runs as anon, a user or the service role, and a
   row-level security policy helper in the Table Editor.
-- Auth core (V4-M31): users in the project's own database (`pgd_auth`),
+- Auth core (V4-M31): users in the project's own database (`xb_auth`),
   signing up and in by email and password, confirmation by link or code,
   magic links and email codes, password recovery and email change; ES256
   access tokens verified with the project's JWKS, refresh tokens that
@@ -221,11 +367,11 @@ bundle share one version (spec §11.5).
   session, the others or all; lockout and per-address limits; an admin API
   with the secret key. Project → Authentication lists, invites, bans,
   signs out and deletes users, and sets the sign-in rules, email templates,
-  the project's own SMTP server and signing-key rotation; `pgdock auth`.
+  the project's own SMTP server and signing-key rotation; `xenibase auth`.
   Monthly active users are recorded (`auth_mau`).
 - New migration 00037 (auth).
 - Auth: phone, OAuth, MFA, hooks (V4-M32): sign-in with SMS and WhatsApp
-  codes (Termii and PGDock's WhatsApp number by default, or the project's
+  codes (Termii and Xenibase's WhatsApp number by default, or the project's
   own Termii, Africa's Talking, Twilio or WhatsApp Cloud API account), phone
   and password sign-up, phone changes; SMS-pumping limits (allowed
   countries, 5 codes an hour per number, a daily cap with alerts) and
@@ -235,19 +381,19 @@ bundle share one version (spec §11.5).
   policy; custom-claims and before-sign-up Postgres hooks (as the new
   `<db>_auth_hook` role), after-sign-up/in and send-message webhooks;
   Turnstile captcha. Project → Authentication gains Phone, Providers, MFA
-  and captcha, and Hooks; `pgdock auth config|set|hooks`. A Flutter sample
+  and captcha, and Hooks; `xenibase auth config|set|hooks`. A Flutter sample
   is in docs/examples/flutter-auth.
 - New migration 00038 (auth messages, hooks and alerts); project schema
   version 3.
 - Security: backend services' request roles are now logins of their own
-  and pgdock-edge connects as them directly, so database code that runs
+  and xenibase-edge connects as them directly, so database code that runs
   `RESET ROLE` (an RPC function, an auth hook, or SQL injection in dynamic
   SQL) can no longer reach the edge's login, the auth tables or the service
   role. New migration 00039.
 - Storage (V4-M33): buckets (public or private, size limits, allowed
   types) and files in the region's object store, with access decided by
-  row-level security on `pgd_storage.objects` and helpers such as
-  `pgd_storage.folder(path, 1)`; uploads up to 50 MB through the edge and
+  row-level security on `xb_storage.objects` and helpers such as
+  `xb_storage.folder(path, 1)`; uploads up to 50 MB through the edge and
   up to the plan's limit (5 GB on Pro and Team) by presigned multipart
   URLs, resumable for 24 hours; downloads with ranges, public URLs and
   signed URLs; listing, move, copy and delete; MIME sniffing; image
@@ -255,7 +401,7 @@ bundle share one version (spec §11.5).
   file storage, download and transform quotas and metering
   (`storage_gb_hours`, `storage_egress_gb`, `image_transforms`); a nightly
   reconciler; a CDN purge when a bucket goes private (Cloudflare). Project →
-  Storage and `pgdock storage buckets|ls|cp|rm|sign`.
+  Storage and `xenibase storage buckets|ls|cp|rm|sign`.
 - New migration 00040 (storage); project schema version 4.
 - Realtime (V4-M34): one WebSocket per client
   (`/realtime/v1/websocket`, the protocol Supabase's realtime clients
@@ -263,11 +409,11 @@ bundle share one version (spec §11.5).
   getting only the rows its policies let it read (deletes only for rows it
   was sent); rolled-back changes never delivered; filters; broadcast and
   presence across edge processes; private channels decided by policies on
-  `pgd_realtime.channel_access`; broadcast history for chosen topics; an
+  `xb_realtime.channel_access`; broadcast history for chosen topics; an
   HTTP broadcast for servers; heartbeats, resync signals, connection and
   message limits, and metering (`realtime_messages`,
   `realtime_connection_minutes`). Project → Realtime and
-  `pgdock realtime status|enable|disable|history`.
+  `xenibase realtime status|enable|disable|history`.
 - New migration 00041 (realtime limits); project schema version 5.
 - Read replicas (V4-M35): up to two per dedicated project, on other nodes
   (another region if wanted; data-residency projects stay in theirs).
@@ -279,31 +425,31 @@ bundle share one version (spec §11.5).
   for publishable-key reads when the project turns that on. A replica can
   be detached into a standalone project. Replicas bill like dedicated
   instances of the primary's size (`replica_hours` and resource metrics).
-  Project → Settings → Read replicas, `pgdock replicas list|create|delete|detach`.
+  Project → Settings → Read replicas, `xenibase replicas list|create|delete|detach`.
   See docs/read-replicas.md.
 - New migration 00042 (read replicas). HA standby billing no longer counts
   removed members.
 - Supabase migration helper (V4-M36), run after importing a Supabase
   database into a project with backend services:
   - **Policies:** imported policies and column defaults are rewritten to
-    the project's request roles and `pgd_auth` helpers.
+    the project's request roles and `xb_auth` helpers.
   - **Users:** users and identities are copied with their ids. Supabase's
     bcrypt password hashes keep working and become argon2id at each user's
     next sign-in. OAuth identities keep their provider ids.
   - **Files:** buckets and files are copied over Supabase's S3 protocol,
-    and storage policies are recreated on `pgd_storage.objects`.
+    and storage policies are recreated on `xb_storage.objects`.
   - **Reports:** each step lists what it couldn't carry over, and can run
     again.
   - Run it from Project → API → Migrate from Supabase,
-    `pgdock migrate supabase`, or `POST /api/v1/projects/{id}/migrate/supabase`.
+    `xenibase migrate supabase`, or `POST /api/v1/projects/{id}/migrate/supabase`.
     See docs/migrate-from-supabase.md and the supabase-js mapping
     (docs/supabase-client-mapping.md).
 - Password sign-in accepts bcrypt hashes and re-hashes them with argon2id
   on success (`password_rehashed` in the auth log).
-- SDKs: `@pgdock/client` for TypeScript (sdk/js), Dart and Flutter
-  (sdk/dart, `pgdock` on pub.dev), and Go (sdk/go). Each covers data, auth,
+- SDKs: `@xenibase/client` for TypeScript (sdk/js), Dart and Flutter
+  (sdk/dart, `xenibase` on pub.dev), and Go (sdk/go). Each covers data, auth,
   storage and realtime, with:
-  - typed rows from `pgdock gen types`;
+  - typed rows from `xenibase gen types`;
   - token refresh before expiry, one refresh at a time;
   - consistent errors;
   - live queries that refetch on changes, resyncs and reconnects.
@@ -318,8 +464,8 @@ bundle share one version (spec §11.5).
   `ParseUncompressedPublicKey` instead of the deprecated coordinates.
 - The Usage page lists file storage, downloads and image transforms (they
   were recorded but not shown).
-- pgdock-server's metadata connection pool defaults to 16 connections
-  (it was pgx's 4 on a small box) unless `PGDOCK_DATABASE_URL` sets
+- xenibase-server's metadata connection pool defaults to 16 connections
+  (it was pgx's 4 on a small box) unless `XENIBASE_DATABASE_URL` sets
   `pool_max_conns`; the auth message and hook senders no longer hold a
   connection while they send.
 - Backend services billing, hardening and GA readiness (V4-M37):
@@ -337,7 +483,7 @@ bundle share one version (spec §11.5).
     paused, new realtime connections refused; sign-in, token refresh and
     open connections carry on. New migration 00043.
   - **SMS failover:** with Africa's Talking configured
-    (`PGDOCK_AFRICASTALKING_*`), platform SMS codes go by Termii and, when
+    (`XENIBASE_AFRICASTALKING_*`), platform SMS codes go by Termii and, when
     it fails, by Africa's Talking; a failed provider is tried last for a
     minute.
   - **Security review of the edge** with fuzz tests of its isolation
@@ -350,9 +496,9 @@ bundle share one version (spec §11.5).
     outage, a realtime process lost.
   - **Runbook** for backend services (docs/backend-runbook.md).
 
-### V3.1 (on feature/pgdock3)
+### V3.1 (on feature/xenibase3)
 - Failure domains (V3.1-M1): each node can record what fails with it (a
-  rack, host or power feed); servers PGDock creates on Hetzner go into a
+  rack, host or power feed); servers Xenibase creates on Hetzner go into a
   per-region spread placement group. An HA project's standby, the etcd
   members and a region's pooler hosts are kept in different domains:
   enabling HA and setting up etcd refuse otherwise, a second pooler host
@@ -377,30 +523,30 @@ bundle share one version (spec §11.5).
   hours ahead are excluded from the SLA, listed per announcement on the
   HA card. The weekly minor-upgrade sweep waits for an announced window
   before switching over an HA project
-  (`PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT`, on by default).
+  (`XENIBASE_MAINTENANCE_REQUIRE_ANNOUNCEMENT`, on by default).
 - New migration 00035 (announced maintenance).
 
-### V3 (in progress, on feature/pgdock3)
+### V3 (in progress, on feature/xenibase3)
 - Standby edge pooler: two pooler hosts behind a floating IP with
-  keepalived. pgdock-server pushes the PgBouncer configuration to both and
+  keepalived. xenibase-server pushes the PgBouncer configuration to both and
   moves the floating IP itself if keepalived doesn't. Admin → Nodes shows
   both hosts and recent pooler events. See docs/edge-poolers.md.
-- `pgdock-status`, a status page to run on separate infrastructure. It
-  probes PGDock from outside and takes signed heartbeats for the rest. It
+- `xenibase-status`, a status page to run on separate infrastructure. It
+  probes Xenibase from outside and takes signed heartbeats for the rest. It
   opens and resolves incidents by itself, keeps 90 days of history, and
   emails subscribers. Admin → Incidents posts incidents to it. See
   docs/status-page.md.
 - New migrations 00020 and 00021 (pooler hosts, incidents).
 - Moves by logical replication: promotion, demotion, node moves (platform
-  admins: Project Settings → Compute → Moves, `pgdock move`) and major
+  admins: Project Settings → Compute → Moves, `xenibase move`) and major
   upgrades copy the data while the project serves, and pause writes only
   for the switch (about 0.1 s in the tests, at 1 and 3 GB). They fall back
   to dump and restore when they must, and say why. Schema changes are
   refused during a move. See docs/moves.md.
-- Postgres versions: `PGDOCK_PG_VERSIONS` (default 17 and 18), a version
+- Postgres versions: `XENIBASE_PG_VERSIONS` (default 17 and 18), a version
   picker when creating a project or shared cluster, and major upgrades
   with a preflight that test-restores the schema on the new version
-  (Project Settings → Compute → Postgres version, `pgdock upgrade`).
+  (Project Settings → Compute → Postgres version, `xenibase upgrade`).
 - Minor releases are applied automatically in a weekly maintenance window
   (Admin → Nodes; default Sunday 02:00–06:00 UTC), one instance at a time
   with the poolers holding clients.
@@ -409,19 +555,19 @@ bundle share one version (spec §11.5).
   so writes are back through the same URL about 20 seconds after the
   primary's node dies. Planned switchovers, optional synchronous
   replication, failover history, and the month's availability measured
-  from pgdock-server and the status page (the SLA's two vantage points).
-  Project Settings → Compute → High availability, `pgdock ha`, Admin →
+  from xenibase-server and the status page (the SLA's two vantage points).
+  Project Settings → Compute → High availability, `xenibase ha`, Admin →
   Nodes → etcd. See docs/ha.md.
 - Billing core: price books (versioned prices, repricing at least 30
   days ahead, grandfathering, a preview of each org's invoice), Free, Pro
   and Team plans with prorated plan changes and annual terms, monthly
   invoices (usage in arrears, the plan fee in advance, VAT, expected WHT)
-  numbered `PGD-YYYY-NNNNNN` and downloadable as PDF, credit notes, a
+  numbered `XB-YYYY-NNNNNN` and downloadable as PDF, credit notes, a
   double-entry ledger the database keeps balanced and append-only, the
   month's forecast, budget alerts, a spend cap that pauses new billable
   resources, and cost estimates before promoting or enabling HA. A new
   `billing` org role for finance staff. Org → Billing, Admin → Billing,
-  `pgdock billing`. Invoices aren't issued automatically until an admin
+  `xenibase billing`. Invoices aren't issued automatically until an admin
   turns it on. See docs/billing.md.
 - Payments: cards through Flutterwave (saved and charged when an
   invoice is issued), bank transfers into each organisation's own virtual
@@ -433,7 +579,7 @@ bundle share one version (spec §11.5).
   credit-note uploads, a dunning ladder (overdue, restricted, suspended,
   deletion only if enabled), and nightly reconciliation with each
   provider. Org → Billing, Admin → Billing → Payments / WHT / Events /
-  Reconciliation, `pgdock billing pay|transfer|payments`. Admin →
+  Reconciliation, `xenibase billing pay|transfer|payments`. Admin →
   Organisations → an org → Billing sets its mode (postpaid or prepaid),
   payment terms and price book. Refunds can reopen the invoices a payment
   settled. See docs/payments.md.
@@ -441,7 +587,7 @@ bundle share one version (spec §11.5).
   through the poolers) is paused after a day's warning, and one paused for
   90 days is archived to a verified backup. The next connection wakes it:
   the client gets a message saying it is resuming (or being restored),
-  and a retry gets in. Resume from the dashboard, `pgdock resume`, or the
+  and a retry gets in. Resume from the dashboard, `xenibase resume`, or the
   API. Archived projects are deleted after a year, with 30 and 7 days'
   notice. Paid plans are never paused. See docs/free-tier.md.
 - Open signup: Cloudflare Turnstile on the signup page and a cap on
@@ -472,7 +618,7 @@ bundle share one version (spec §11.5).
 - New migration 00029 (tickets, support phones, legal documents and
   acceptances, MRR snapshots).
 - Capacity automation:
-  - Hetzner Cloud servers created by PGDock, joining by themselves
+  - Hetzner Cloud servers created by Xenibase, joining by themselves
     through cloud-init and a one-time token.
   - Proposals when a region's shared disk is projected past 70% within 14
     days, or no dedicated host fits the largest size. They are
@@ -493,7 +639,7 @@ bundle share one version (spec §11.5).
   cost allocations).
 - Regions:
   - Projects choose a region at creation (New project → Region,
-    `pgdock projects create --region`, `pgdock regions`). Each region
+    `xenibase projects create --region`, `xenibase regions`). Each region
     has its own pooler hosts and hostname, backup target and copy target.
   - Moving a project to another region is a zero-downtime move; the old
     hostname keeps working for 30 days.
@@ -507,7 +653,7 @@ bundle share one version (spec §11.5).
 - New migration 00031 (regions, project region and residency, per-region
   pooler generations, backup copies).
 - Query insights (Pro, Team and dedicated; Project → Query insights,
-  `pgdock insights`):
+  `xenibase insights`):
   - Top queries over an hour to 30 days, each with its latency and calls
     over time and its EXPLAIN as a plan tree.
   - A slow-query log.
@@ -536,7 +682,7 @@ bundle share one version (spec §11.5).
   - The waker restarts if it stops; a `waker_down` alert fires while it is
     unreachable, and Free projects aren't paused or archived meanwhile.
   - HA: Patroni's failsafe mode is on, so losing etcd's quorum doesn't
-    stop writes; existing clusters get it from pgdock-server. A
+    stop writes; existing clusters get it from xenibase-server. A
     switchover with synchronous replication waits for the standby to be
     synchronous instead of failing.
   - Chaos tests (provider outage, pooler split brain, waker failure, etcd
@@ -554,7 +700,7 @@ bundle share one version (spec §11.5).
   trailing `=`, so the wizard called it wrong. The installer now prints the
   whole code, new codes have no padding, and the server ignores spaces,
   `=` padding and letter case when comparing. (The code still changes every
-  time the server restarts, unless `PGDOCK_SETUP_CODE` is set in `.env`.)
+  time the server restarts, unless `XENIBASE_SETUP_CODE` is set in `.env`.)
 - `deploy/compose/preflight.sh <ui-host> <db-host>`: a read-only check to run
   on the server before `install.sh` (OS, resources, Docker, DNS, ports,
   outbound reach, optionally the backup bucket and mail server).
@@ -577,7 +723,7 @@ migrations: upgrade from v2.0.0 with `git checkout v2.1.0` and
   and have two-factor set up; its sessions end and it is emailed; the last
   active admin can't be removed. Setup still makes exactly one admin, so
   add a second (docs/install.md, docs/admin-runbook.md).
-- Recovery when no admin can sign in: `pgdock-server admin list | promote |
+- Recovery when no admin can sign in: `xenibase-server admin list | promote |
   demote | reset-2fa | reset-password <email>`, run on the server. Changes
   are audited as done on the server. See docs/operations.md.
 
@@ -623,7 +769,7 @@ migrations: upgrade from v2.0.0 with `git checkout v2.1.0` and
 
 ## v2.0.0
 
-PGDock V2: users and organisations, quotas and usage, API tokens and the
+Xenibase V2: users and organisations, quotas and usage, API tokens and the
 CLI, visual table editing, your own backup storage, database branching,
 demotion, webhooks and scheduled jobs, and a redesigned UI.
 
@@ -681,7 +827,7 @@ and upgrade agents before the server.
   functions as the superuser. NAT64 and 6to4 addresses can't reach
   internal or metadata addresses. Upgrade before inviting anyone else.
 - Organisation owners can download any backup as a `pg_dump` file
-  (Backups → Download, `pgdock backup download`).
+  (Backups → Download, `xenibase backup download`).
 - Background work survives being stopped half-way: storage locks, the
   reaper, webhook delivery, the scheduler (runs now end with a stopping
   server), a member removed mid-session, an org suspended mid-backup.
@@ -707,14 +853,14 @@ and upgrade agents before the server.
   allow-list internal hosts per organisation, turn its outbound traffic
   off, and see its requests by host. Per-organisation rate limits queue
   webhook deliveries rather than dropping them.
-- `pgdock webhooks …` and `pgdock jobs …`; Project → Webhooks and Jobs.
+- `xenibase webhooks …` and `xenibase jobs …`; Project → Webhooks and Jobs.
 
 ### Demotion (V2 M14)
 - Move a dedicated project back to the shared tier with its URL, app
   password and every member's personal login unchanged, after a write
   freeze while the data is copied and verified. A failure before the
   switch leaves it on its dedicated instance.
-- A preflight checklist (also `pgdock demote --check`): size against the
+- A preflight checklist (also `xenibase demote --check`): size against the
   organisation's shared storage limits, extensions, custom roles, peak
   connections, database settings that reset, and a shared cluster with
   room, the organisation's own when it has one.
@@ -722,7 +868,7 @@ and upgrade agents before the server.
   with a logical backup at once, and the old base backups stay
   restorable for 7 days. The stopped dedicated instance is kept for 48
   hours, then destroyed, which releases it from the dedicated allowance.
-- `pgdock demote` and Settings → Move back to shared.
+- `xenibase demote` and Settings → Move back to shared.
 
 ### Database branching (V2 M13)
 - Branches: throwaway copies of a project on the shared tier, from its
@@ -733,7 +879,7 @@ and upgrade agents before the server.
 - Organisation branch quotas (10 on Personal, 25 on Team), branch-hours
   and branch GB-hours usage, and "contains sensitive data" projects whose
   branches copy only the schema by default.
-- `pgdock branch list|create|reset|extend|detach|delete`, with `--env`
+- `xenibase branch list|create|reset|extend|detach|delete`, with `--env`
   for `$GITHUB_ENV`, and an example GitHub Actions workflow that gives
   every pull request its own database.
 
@@ -775,9 +921,9 @@ and upgrade agents before the server.
   days by default, at most a year). Shown once; revocable by their owner
   and by the organisation's owners and admins; disabled when the
   organisation is suspended and revoked when their user leaves it.
-- The `pgdock` CLI for linux, macOS and Windows: device login in the
+- The `xenibase` CLI for linux, macOS and Windows: device login in the
   browser, contexts for several servers and organisations,
-  `PGDOCK_TOKEN` for CI, `--json` everywhere, and commands for
+  `XENIBASE_TOKEN` for CI, `--json` everywhere, and commands for
   organisations, projects, SQL, connecting, backups, promotion, members,
   tokens and operations. See [docs/cli.md](docs/cli.md).
 
@@ -862,7 +1008,7 @@ VPS or several nodes.
   sessions, CSRF protection, re-authentication for destructive actions,
   rate limiting and lockout, an append-only audit log.
 - Secrets encrypted with a master key, rotatable with
-  `pgdock-server -rotate-master-key`; agents on mTLS with pinned
+  `xenibase-server -rotate-master-key`; agents on mTLS with pinned
   certificates and a major-version check.
 - Multi-node: add nodes from the UI, per-node roles, placement by load.
 

@@ -6,11 +6,11 @@ import (
 	"slices"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // The Postgres version lifecycle (V4.1 §6.1). The server is configured with
-// the majors it has images for (PGDOCK_PG_VERSIONS); pg_versions says where
+// the majors it has images for (XENIBASE_PG_VERSIONS); pg_versions says where
 // each is in its life. A deprecated major whose retirement date has passed
 // counts as retired.
 
@@ -44,7 +44,7 @@ type PGVersion struct {
 	RetiresAt    *time.Time
 	Notes        string
 	Projects     int
-	// Installed: the server has an image for it (PGDOCK_PG_VERSIONS).
+	// Installed: the server has an image for it (XENIBASE_PG_VERSIONS).
 	Installed bool
 }
 
@@ -70,7 +70,7 @@ func (s *Service) ensureVersions(ctx context.Context) error {
 	return nil
 }
 
-// Versions lists every major PGDock knows, oldest first.
+// Versions lists every major Xenibase knows, oldest first.
 func (s *Service) Versions(ctx context.Context) ([]PGVersion, error) {
 	if err := s.ensureVersions(ctx); err != nil {
 		return nil, err

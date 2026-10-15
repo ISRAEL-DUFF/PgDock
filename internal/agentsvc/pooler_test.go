@@ -14,14 +14,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/floatip"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/floatip"
 )
 
 func bundle(gen int64, routes string) agentapi.PoolerBundle {
 	files := map[string][]byte{
 		"databases.ini": []byte(routes),
-		"userlist.txt":  []byte(`"pgdock_admin" "SCRAM-SHA-256$..."` + "\n"),
+		"userlist.txt":  []byte(`"xenibase_admin" "SCRAM-SHA-256$..."` + "\n"),
 		"server.crt":    []byte("cert"),
 		"server.key":    []byte("key"),
 	}
@@ -102,7 +102,7 @@ func TestPoolerBundleApply(t *testing.T) {
 		t.Fatalf("generation moved: %+v", st)
 	}
 
-	// pgdock-server rendered generation 4 but this host missed the push:
+	// xenibase-server rendered generation 4 but this host missed the push:
 	// it is stale and must not take the floating IP.
 	if err := p.expect(agentapi.PoolerExpected{Generation: 4}); err != nil {
 		t.Fatal(err)

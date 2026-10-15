@@ -51,11 +51,11 @@ func TestParseExpiry(t *testing.T) {
 
 func TestContextsAndTheEnvironment(t *testing.T) {
 	dir := t.TempDir()
-	env := map[string]string{"PGDOCK_CONFIG_DIR": dir}
+	env := map[string]string{"XENIBASE_CONFIG_DIR": dir}
 	a := &App{Getenv: func(k string) string { return env[k] }}
 	cfg := &Config{Current: "home", Contexts: map[string]*Context{
-		"home": {Server: "https://home.example/", Token: "pgd_home", Org: "o1"},
-		"work": {Server: "https://work.example", TokenCmd: "echo pgd_work"},
+		"home": {Server: "https://home.example/", Token: "xb_home", Org: "o1"},
+		"work": {Server: "https://work.example", TokenCmd: "echo xb_work"},
 	}}
 	if err := a.saveConfig(cfg); err != nil {
 		t.Fatal(err)
@@ -64,16 +64,16 @@ func TestContextsAndTheEnvironment(t *testing.T) {
 		t.Fatalf("mode %v", fi.Mode())
 	}
 	tg, err := a.resolve()
-	if err != nil || tg.Server != "https://home.example" || tg.Token != "pgd_home" {
+	if err != nil || tg.Server != "https://home.example" || tg.Token != "xb_home" {
 		t.Fatalf("current: %+v %v", tg, err)
 	}
 	a.contextName = "work"
-	if tg, err = a.resolve(); err != nil || tg.Token != "pgd_work" {
+	if tg, err = a.resolve(); err != nil || tg.Token != "xb_work" {
 		t.Fatalf("token_cmd: %+v %v", tg, err)
 	}
-	// PGDOCK_TOKEN wins, for CI.
-	env["PGDOCK_TOKEN"], env["PGDOCK_SERVER"] = "pgd_ci", "https://ci.example"
-	if tg, err = a.resolve(); err != nil || tg.Token != "pgd_ci" || tg.Server != "https://ci.example" || tg.Org != "" {
+	// XENIBASE_TOKEN wins, for CI.
+	env["XENIBASE_TOKEN"], env["XENIBASE_SERVER"] = "xb_ci", "https://ci.example"
+	if tg, err = a.resolve(); err != nil || tg.Token != "xb_ci" || tg.Server != "https://ci.example" || tg.Org != "" {
 		t.Fatalf("environment: %+v %v", tg, err)
 	}
 	a.contextName = "nope"

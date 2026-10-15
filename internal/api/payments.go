@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 func toAPIPayment(p store.Payment, orgName *string) gen.Payment {
@@ -19,55 +19,6 @@ func toAPIPayment(p store.Payment, orgName *string) gen.Payment {
 		Id: p.ID, OrgId: p.OrgID, OrgName: orgName, Provider: p.Provider, Channel: p.Channel, ProviderRef: p.ProviderRef,
 		AmountMinor: p.AmountMinor, FeeMinor: p.FeeMinor, RefundedMinor: p.RefundedMinor, Note: p.Note, ReceivedAt: p.ReceivedAt,
 	}
-}
-
-func toAPIMethod(m store.PaymentMethod) gen.PaymentMethod {
-	out := gen.PaymentMethod{Id: m.ID, Provider: m.Provider, Kind: gen.PaymentMethodKind(m.Kind), Brand: m.Brand, Last4: m.Last4,
-		LimitMinor: m.LimitMinor, IsDefault: m.IsDefault}
-	if m.ExpMonth != nil {
-		v := int(*m.ExpMonth)
-		out.ExpMonth = &v
-	}
-	if m.ExpYear != nil {
-		v := int(*m.ExpYear)
-		out.ExpYear = &v
-	}
-	return out
-}
-
-// StartCheckout implements POST /api/v1/orgs/{org}/billing/checkout.
-func (s *Server) StartCheckout(w http.ResponseWriter, r *http.Request, org gen.OrgID) {
-	bs := s.billingSvc(w)
-	if bs == nil {
-		return
-	}
-	var req gen.StartCheckoutJSONBody
-	if !decodeJSON(w, r, &req) {
-		return
-	}
-	c := billing.CheckoutStart{OrgID: org, Channel: string(req.Channel), Purpose: string(req.Purpose), InvoiceID: req.InvoiceId,
-		RedirectURL: s.publicBase + "/org/billing?org=" + org.String()}
-	if req.AmountMinor != nil {
-		c.AmountMinor = *req.AmountMinor
-	}
-	if req.MandateLimitMinor != nil {
-		c.MandateLimitMinor = *req.MandateLimitMinor
-	}
-	au := auditFrom(r.Context())
-	au.set("channel", c.Channel)
-	au.set("purpose", c.Purpose)
-	in, err := bs.StartCheckout(r.Context(), c)
-	if errors.Is(err, billing.ErrUnavailable) {
-		writeError(w, http.StatusServiceUnavailable, "unavailable", "the payment provider is unavailable; try another way to pay")
-		return
-	}
-	if err != nil {
-		s.billingError(w, "checkout", err)
-		return
-	}
-	au.set("reference", in.Reference)
-	au.set("amount_minor", in.AmountMinor)
-	writeJSON(w, http.StatusCreated, map[string]any{"reference": in.Reference, "checkout_url": in.CheckoutUrl, "amount_minor": in.AmountMinor})
 }
 
 // OrgVirtualAccount implements POST /api/v1/orgs/{org}/billing/virtual-account.
@@ -79,105 +30,13 @@ func (s *Server) OrgVirtualAccount(w http.ResponseWriter, r *http.Request, org g
 	va, err := bs.EnsureVirtualAccount(r.Context(), org)
 	if err != nil {
 		if errors.Is(err, billing.ErrUnavailable) {
-			writeError(w, http.StatusServiceUnavailable, "unavailable", "bank transfer accounts can't be issued right now; try again later or pay by card")
+			writeError(w, http.StatusServiceUnavailable, "unavailable", "bank transfer accounts can't be issued right now; try again later or pay another way")
 			return
 		}
 		s.billingError(w, "virtual account", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, gen.VirtualAccount{Provider: va.Provider, AccountNumber: va.AccountNumber, BankName: va.BankName, AccountName: va.AccountName})
-}
-
-// ListPaymentMethods implements GET /api/v1/orgs/{org}/billing/payment-methods.
-func (s *Server) ListPaymentMethods(w http.ResponseWriter, r *http.Request, org gen.OrgID) {
-	rows, err := store.New(s.db).ListPaymentMethods(r.Context(), org)
-	if err != nil {
-		s.internalError(w, "payment methods", err)
-		return
-	}
-	out := struct {
-		Items []gen.PaymentMethod `json:"items"`
-	}{Items: []gen.PaymentMethod{}}
-	for _, m := range rows {
-		out.Items = append(out.Items, toAPIMethod(m))
-	}
-	writeJSON(w, http.StatusOK, out)
-}
-
-// RemovePaymentMethod implements DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id}.
-func (s *Server) RemovePaymentMethod(w http.ResponseWriter, r *http.Request, org gen.OrgID, id gen.MethodID) {
-	q := store.New(s.db)
-	m, err := q.GetOrgPaymentMethod(r.Context(), store.GetOrgPaymentMethodParams{ID: id, OrgID: org})
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && m.Status != "active") {
-		writeError(w, http.StatusNotFound, "not_found", "payment method not found")
-		return
-	}
-	if err != nil {
-		s.internalError(w, "payment method", err)
-		return
-	}
-	auditFrom(r.Context()).target("payment_method", id.String())
-	if m.Kind == "mandate" && m.ProviderRef != nil && s.billing != nil {
-		if p, ok := s.billing.Provider(m.Provider); ok {
-			if err := p.RevokeMandate(r.Context(), *m.ProviderRef); err != nil && !errors.Is(err, billing.ErrUnsupported) {
-				s.billingError(w, "revoke mandate", err)
-				return
-			}
-		}
-	}
-	if err := q.SetPaymentMethodStatus(r.Context(), store.SetPaymentMethodStatusParams{ID: id, Status: "removed"}); err != nil {
-		s.internalError(w, "payment method", err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-// SetDefaultPaymentMethod implements POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default.
-func (s *Server) SetDefaultPaymentMethod(w http.ResponseWriter, r *http.Request, org gen.OrgID, id gen.MethodID) {
-	q := store.New(s.db)
-	if m, err := q.GetOrgPaymentMethod(r.Context(), store.GetOrgPaymentMethodParams{ID: id, OrgID: org}); err != nil || m.Status != "active" {
-		writeError(w, http.StatusNotFound, "not_found", "payment method not found")
-		return
-	}
-	auditFrom(r.Context()).target("payment_method", id.String())
-	if err := q.SetDefaultPaymentMethod(r.Context(), store.SetDefaultPaymentMethodParams{ID: id, OrgID: org}); err != nil {
-		s.internalError(w, "payment method", err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-// SetAutoTopup implements PUT /api/v1/orgs/{org}/billing/auto-topup.
-func (s *Server) SetAutoTopup(w http.ResponseWriter, r *http.Request, org gen.OrgID) {
-	bs := s.billingSvc(w)
-	if bs == nil {
-		return
-	}
-	var req gen.AutoTopup
-	if !decodeJSON(w, r, &req) {
-		return
-	}
-	au := auditFrom(r.Context())
-	au.set("below_minor", req.BelowMinor)
-	au.set("amount_minor", req.AmountMinor)
-	if err := bs.SetAutoTopup(r.Context(), org, &billing.AutoTopup{BelowMinor: req.BelowMinor, AmountMinor: req.AmountMinor}); err != nil {
-		s.billingError(w, "auto top-up", err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-// ClearAutoTopup implements DELETE /api/v1/orgs/{org}/billing/auto-topup.
-func (s *Server) ClearAutoTopup(w http.ResponseWriter, r *http.Request, org gen.OrgID) {
-	bs := s.billingSvc(w)
-	if bs == nil {
-		return
-	}
-	if err := bs.SetAutoTopup(r.Context(), org, nil); err != nil {
-		s.billingError(w, "auto top-up", err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
 }
 
 // ListOrgPayments implements GET /api/v1/orgs/{org}/billing/payments.

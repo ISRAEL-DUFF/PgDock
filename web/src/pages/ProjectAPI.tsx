@@ -170,7 +170,7 @@ function StatusPanel({ p, svc }: { p: Project; svc: Services }) {
                 </span>
               ) : (
                 <span className="text-muted">
-                  Set PGDOCK_API_DOMAIN to show the URL ({svc.ref})
+                  Set XENIBASE_API_DOMAIN to show the URL ({svc.ref})
                 </span>
               ),
             ],
@@ -186,7 +186,7 @@ function StatusPanel({ p, svc }: { p: Project; svc: Services }) {
       ) : (
         <p className="text-[13px] text-muted">
           Enabling adds the roles your API requests run as and the{" "}
-          <span className="font-mono">pgd_auth</span> schema to this database,
+          <span className="font-mono">xb_auth</span> schema to this database,
           and makes a publishable key (for apps) and a secret key (for servers).
           Tables are reachable with the publishable key only once they have
           row-level security.
@@ -195,7 +195,7 @@ function StatusPanel({ p, svc }: { p: Project; svc: Services }) {
       {!svc.feed_configured && svc.enabled && (
         <div className="mt-3">
           <Alert tone="warn" title="No edge connected">
-            pgdock-server has no PGDOCK_EDGE_SECRET, so no pgdock-edge can serve
+            xenibase-server has no XENIBASE_EDGE_SECRET, so no xenibase-edge can serve
             this project yet (docs/backend-services.md).
           </Alert>
         </div>
@@ -891,7 +891,7 @@ function TypesPanel({ p }: { p: Project }) {
     <Panel
       title="Generate types"
       testId="services-types"
-      description="Typed rows, inserts and updates for your tables, views and functions. Or run pgdock gen types --lang ts."
+      description="Typed rows, inserts and updates for your tables, views and functions. Or run xenibase gen types --lang ts."
     >
       <div className="flex items-center gap-2">
         <Select

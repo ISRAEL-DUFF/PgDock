@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Invoice statuses.
@@ -58,12 +58,14 @@ func (s *Service) Draft(ctx context.Context, orgID uuid.UUID, month time.Time) (
 			inv, err = q.UpdateDraftInvoice(ctx, store.UpdateDraftInvoiceParams{
 				ID: cur.ID, SubtotalMinor: r.Subtotal, VatMinor: r.VAT, TotalMinor: r.Total, WhtExpectedMinor: r.WHTExpected,
 				VatRate: r.VATRate.Numeric(), PriceBookVersion: r.PriceBookVersion,
+				UsdSubtotalMinor: usd(r, r.SubtotalUSD), UsdVatMinor: usd(r, r.VATUSD), UsdTotalMinor: usd(r, r.TotalUSD), Fx: fxJSON(r),
 			})
 		} else {
 			inv, err = q.InsertDraftInvoice(ctx, store.InsertDraftInvoiceParams{
 				OrgID: orgID, PeriodStart: pgDate(r.Period), PeriodEnd: pgDate(r.Period.AddDate(0, 1, -1)),
 				SubtotalMinor: r.Subtotal, VatMinor: r.VAT, TotalMinor: r.Total, WhtExpectedMinor: r.WHTExpected,
 				VatRate: r.VATRate.Numeric(), PriceBookVersion: r.PriceBookVersion,
+				UsdSubtotalMinor: usd(r, r.SubtotalUSD), UsdVatMinor: usd(r, r.VATUSD), UsdTotalMinor: usd(r, r.TotalUSD), Fx: fxJSON(r),
 			})
 		}
 		if err != nil {
@@ -80,6 +82,7 @@ func (s *Service) Draft(ctx context.Context, orgID uuid.UUID, month time.Time) (
 			if err := q.InsertInvoiceLine(ctx, store.InsertInvoiceLineParams{
 				InvoiceID: inv.ID, Kind: l.Kind, Description: l.Description, ProjectID: l.ProjectID, Metric: metric,
 				Quantity: l.Quantity.Numeric(), UnitPriceMinor: l.UnitPrice.Numeric(), AmountMinor: l.Amount, RevenueAccount: l.Revenue,
+				UsdUnitPrice: usdDec(r, l.UnitPriceUSD), UsdAmountMinor: usd(r, l.AmountUSD),
 			}); err != nil {
 				return err
 			}
@@ -88,6 +91,30 @@ func (s *Service) Draft(ctx context.Context, orgID uuid.UUID, month time.Time) (
 		return nil
 	})
 	return out, err
+}
+
+// usd is v for a dollar-priced month, nil for a naira one.
+func usd(r Rated, v int64) *int64 {
+	if r.Currency != CurrencyUSD {
+		return nil
+	}
+	return &v
+}
+
+func usdDec(r Rated, v Dec) pgtype.Numeric {
+	if r.Currency != CurrencyUSD {
+		return pgtype.Numeric{}
+	}
+	return v.Numeric()
+}
+
+// fxJSON is the rate a dollar-priced month was converted at.
+func fxJSON(r Rated) []byte {
+	if r.Currency != CurrencyUSD {
+		return nil
+	}
+	b, _ := json.Marshal(r.FX)
+	return b
 }
 
 // DraftAll drafts month's invoice for every organisation.
@@ -149,7 +176,7 @@ type BillTo struct {
 	VATRegistered bool    `json:"vat_registered"`
 }
 
-// FormatNumber is an invoice number: PGD-2027-000123 (V3 §3.6).
+// FormatNumber is an invoice number: XB-2027-000123 (V3 §3.6).
 func FormatNumber(prefix string, year, n int) string {
 	return fmt.Sprintf("%s-%d-%06d", prefix, year, n)
 }
@@ -164,6 +191,15 @@ func (s *Service) Issue(ctx context.Context, invoiceID uuid.UUID, by *uuid.UUID)
 		return store.Invoice{}, err
 	}
 	now := s.Now().UTC()
+	// A dollar-priced invoice is converted to naira at today's rate, which
+	// is asked for before the transaction starts. Without a fresh rate it
+	// stays a draft and the next run tries again.
+	var fx FXQuote
+	if d, err := store.New(s.db).GetInvoice(ctx, invoiceID); err == nil && d.UsdSubtotalMinor != nil {
+		if fx, err = s.Quote(ctx, true); err != nil {
+			return store.Invoice{}, fmt.Errorf("invoice %s not issued: %w", d.ID, err)
+		}
+	}
 	var inv store.Invoice
 	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		q := store.New(tx)
@@ -181,6 +217,11 @@ func (s *Service) Issue(ctx context.Context, invoiceID uuid.UUID, by *uuid.UUID)
 		if err != nil {
 			return err
 		}
+		if cur.UsdSubtotalMinor != nil {
+			if cur, err = s.convertDraft(ctx, q, cur, a, set, fx); err != nil {
+				return err
+			}
+		}
 		o, err := q.GetOrg(ctx, cur.OrgID)
 		if err != nil {
 			return err
@@ -189,7 +230,7 @@ func (s *Service) Issue(ctx context.Context, invoiceID uuid.UUID, by *uuid.UUID)
 		if err != nil {
 			return err
 		}
-		number := FormatNumber("PGD", now.Year(), int(n))
+		number := FormatNumber("XB", now.Year(), int(n))
 		billTo, _ := json.Marshal(BillTo{OrgName: o.Name, LegalName: a.LegalName, Address: a.Address, TIN: a.Tin, VATRegistered: a.VatRegistered})
 		seller, _ := json.Marshal(set.Seller)
 		due := now.AddDate(0, 0, int(a.PaymentTermsDays))
@@ -295,27 +336,53 @@ func (s *Service) mailInvoice(ctx context.Context, inv store.Invoice) {
 	if s.mail == nil || inv.Number == nil {
 		return
 	}
-	to, err := store.New(s.db).BillingRecipients(ctx, inv.OrgID)
-	if err != nil || len(to) == 0 {
-		return
-	}
+	org := s.orgName(ctx, inv.OrgID)
 	month := inv.PeriodStart.Time.Format("January 2006")
-	var b strings.Builder
-	fmt.Fprintf(&b, "Invoice %s for %s's usage in %s.\n\n", *inv.Number, s.orgName(ctx, inv.OrgID), month)
-	fmt.Fprintf(&b, "Subtotal: %s\nVAT: %s\nTotal: %s\n", Naira(inv.SubtotalMinor), Naira(inv.VatMinor), Naira(inv.TotalMinor))
-	if inv.WhtExpectedMinor > 0 {
-		fmt.Fprintf(&b, "Withholding tax you may deduct: %s (please send the WHT credit note)\n", Naira(inv.WhtExpectedMinor))
+	facts := []mail.Fact{{Label: "Invoice", Value: *inv.Number}}
+	if inv.UsdTotalMinor != nil {
+		facts = append(facts,
+			mail.Fact{Label: "Priced in dollars", Value: Money(CurrencyUSD, deref64(inv.UsdSubtotalMinor)) + " before VAT, " + Money(CurrencyUSD, *inv.UsdTotalMinor) + " with VAT"})
+		var fx FXQuote
+		if json.Unmarshal(inv.Fx, &fx) == nil && !fx.Effective.IsZero() {
+			facts = append(facts, mail.Fact{Label: "Exchange rate", Value: "NGN " + fx.Effective.Round2() + " per USD 1"})
+		}
 	}
+	facts = append(facts,
+		mail.Fact{Label: "Subtotal", Value: Naira(inv.SubtotalMinor)},
+		mail.Fact{Label: "VAT", Value: Naira(inv.VatMinor)},
+		mail.Fact{Label: "Total", Value: Naira(inv.TotalMinor)})
 	if inv.TotalMinor > 0 && inv.DueAt != nil {
-		fmt.Fprintf(&b, "Due: %s\n", inv.DueAt.UTC().Format("2 January 2006"))
+		facts = append(facts, mail.Fact{Label: "Due", Value: inv.DueAt.UTC().Format("2 January 2006")})
 	}
-	fmt.Fprintf(&b, "\nView and download it: %s/org/billing?org=%s&invoice=%s\n", s.publicURL, inv.OrgID, inv.ID)
-	if err := s.mail.Send(ctx, mail.Message{
-		To: to, Subject: fmt.Sprintf("PGDock invoice %s for %s", *inv.Number, month), Body: b.String(),
-		Headers: map[string]string{"X-PGDock-Event": "billing.invoice"},
-	}); err != nil {
-		s.log.Warn("invoice email", "invoice", *inv.Number, "err", err)
+	c := mail.Content{
+		Preheader: invoicePreheader(inv),
+		Title:     "Your invoice for " + month,
+		Blocks: []mail.Block{
+			mail.P("Hello,"),
+			mail.P(fmt.Sprintf("Thank you for building with Xenibase. Here is the invoice for %s's usage in %s.", org, month)),
+			mail.Facts(facts...),
+		},
+		SignOff: mail.SignOff,
 	}
+	if inv.WhtExpectedMinor > 0 {
+		c.Blocks = append(c.Blocks, mail.P(fmt.Sprintf("If you withhold tax, you may deduct %s. Please send us the WHT credit note.", Naira(inv.WhtExpectedMinor))))
+	}
+	c.Blocks = append(c.Blocks, mail.Button("View and download the invoice", fmt.Sprintf("%s/org/billing?org=%s&invoice=%s", s.publicURL, inv.OrgID, inv.ID)))
+	s.notifyContent(ctx, inv.OrgID, "billing.invoice", fmt.Sprintf("Xenibase invoice %s for %s", *inv.Number, month), c)
+}
+
+func invoicePreheader(inv store.Invoice) string {
+	if inv.TotalMinor > 0 && inv.DueAt != nil {
+		return fmt.Sprintf("Invoice %s: %s, due %s.", *inv.Number, Naira(inv.TotalMinor), inv.DueAt.UTC().Format("2 January 2006"))
+	}
+	return fmt.Sprintf("Invoice %s: %s.", *inv.Number, Naira(inv.TotalMinor))
+}
+
+func deref64(v *int64) int64 {
+	if v == nil {
+		return 0
+	}
+	return *v
 }
 
 func (s *Service) orgName(ctx context.Context, orgID uuid.UUID) string {
@@ -374,7 +441,7 @@ func (s *Service) CreditNote(ctx context.Context, invoiceID uuid.UUID, amount in
 			return err
 		}
 		cn, err = q.InsertCreditNote(ctx, store.InsertCreditNoteParams{
-			InvoiceID: inv.ID, OrgID: inv.OrgID, Number: FormatNumber("PGD-CN", now.Year(), int(n)),
+			InvoiceID: inv.ID, OrgID: inv.OrgID, Number: FormatNumber("XB-CN", now.Year(), int(n)),
 			AmountMinor: amount, VatMinor: vat, Reason: reason, IssuedBy: by,
 		})
 		if err != nil {
@@ -528,4 +595,46 @@ func (s *Service) monthDone(ctx context.Context, month time.Time) (bool, error) 
 		return false, nil
 	}
 	return !last.Before(month), nil
+}
+
+// convertDraft prices a dollar-priced draft in naira at fx, as it is issued:
+// each line, the totals and VAT, with the rate kept on the invoice. Lines
+// whose cost is in naira already keep their kobo.
+func (s *Service) convertDraft(ctx context.Context, q *store.Queries, d store.Invoice, a store.BillingAccount, set Settings, fx FXQuote) (store.Invoice, error) {
+	lines, err := q.InvoiceLines(ctx, d.ID)
+	if err != nil {
+		return d, err
+	}
+	var subK, subU int64
+	for _, l := range lines {
+		kobo, cents := l.AmountMinor, int64(0)
+		koboUnit, centsUnit := DecFromNumeric(l.UnitPriceMinor), DecFromNumeric(l.UsdUnitPrice)
+		if l.UsdAmountMinor != nil {
+			cents = *l.UsdAmountMinor
+		}
+		if l.Metric != nil && nativeNaira(*l.Metric) {
+			cents, centsUnit = fx.Dollars(kobo), koboUnit // the unit price is the margin factor
+		} else {
+			kobo, koboUnit = fx.Naira(cents), centsUnit.Mul(fx.Effective)
+		}
+		if err := q.SetDraftLineNaira(ctx, store.SetDraftLineNairaParams{
+			ID: l.ID, UnitPriceMinor: koboUnit.Numeric(), AmountMinor: kobo, UsdUnitPrice: centsUnit.Numeric(), UsdAmountMinor: &cents,
+		}); err != nil {
+			return d, err
+		}
+		subK += kobo
+		subU += cents
+	}
+	vatRate := DecFromNumeric(d.VatRate)
+	vatK, vatU := DecInt(subK).Mul(vatRate).Round(), DecInt(subU).Mul(vatRate).Round()
+	var wht int64
+	if a.DeductsWht && subK > 0 {
+		wht = DecInt(subK).Mul(set.WHTRate).Round()
+	}
+	raw, _ := json.Marshal(fx)
+	totalU := subU + vatU
+	return q.SetDraftInvoiceNaira(ctx, store.SetDraftInvoiceNairaParams{
+		ID: d.ID, SubtotalMinor: subK, VatMinor: vatK, TotalMinor: subK + vatK, WhtExpectedMinor: wht, Fx: raw,
+		UsdSubtotalMinor: &subU, UsdVatMinor: &vatU, UsdTotalMinor: &totalU,
+	})
 }

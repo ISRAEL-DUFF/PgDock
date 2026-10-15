@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/datacat"
+	"github.com/israel-duff/xenibase/internal/datacat"
 )
 
 func testCatalog() *datacat.Catalog {

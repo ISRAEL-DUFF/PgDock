@@ -23,11 +23,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Errors returned to the API layer. Messages are safe to show.
@@ -714,15 +714,29 @@ func (s *Service) Invite(ctx context.Context, p InviteParams) (Invited, error) {
 		return Invited{}, err
 	}
 	out := Invited{Invitation: inv, URL: s.publicURL + "/invite?token=" + token}
-	what := "PGDock"
+	what := "Xenibase"
 	if orgName != "" {
-		what = "the " + orgName + " organisation on PGDock"
+		what = "the " + orgName + " organisation on Xenibase"
 	}
-	body := fmt.Sprintf("%s invited you to %s.\n\nAccept the invitation:\n\n%s\n\nThe link works for 7 days, once.",
-		p.InviterName, what, out.URL)
+	who := p.InviterName
+	if strings.TrimSpace(who) == "" {
+		who = "Someone"
+	}
+	invite := mail.Content{
+		Preheader: who + " invited you to " + what + ".",
+		Title:     "You're invited to " + what,
+		Blocks: []mail.Block{
+			mail.P("Hello,"),
+			mail.P(fmt.Sprintf("%s invited you to %s. Accept the invitation to get started.", who, what)),
+			mail.Button("Accept the invitation", out.URL),
+			mail.P("The link works for 7 days, and only once."),
+		},
+		SignOff: mail.SignOff,
+		Note:    "If you weren't expecting this, you can safely ignore it. Nothing happens unless you accept.",
+	}
 	if s.mailer == nil {
 		out.EmailError = mail.ErrNotConfigured
-	} else if err := s.mailer.Send(ctx, mail.Message{To: []string{email}, Subject: "You're invited to " + what, Body: body}); err != nil {
+	} else if err := s.mailer.Send(ctx, mail.Compose([]string{email}, "You're invited to "+what, invite)); err != nil {
 		out.EmailError = err
 		s.log.Warn("invitation email", "invitation_id", inv.ID, "err", err)
 	}

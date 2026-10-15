@@ -250,17 +250,17 @@ func (q *Queries) SetRegionStatus(ctx context.Context, arg SetRegionStatusParams
 }
 
 const setStorageTargetRegion = `-- name: SetStorageTargetRegion :exec
-UPDATE storage_targets SET pgdock_region = $1 WHERE id = $2
+UPDATE storage_targets SET xenibase_region = $1 WHERE id = $2
 `
 
 type SetStorageTargetRegionParams struct {
-	PgdockRegion *string
-	ID           uuid.UUID
+	XenibaseRegion *string
+	ID             uuid.UUID
 }
 
 // tenant: system - the platform admin marks a platform target as in a region.
 func (q *Queries) SetStorageTargetRegion(ctx context.Context, arg SetStorageTargetRegionParams) error {
-	_, err := q.db.Exec(ctx, setStorageTargetRegion, arg.PgdockRegion, arg.ID)
+	_, err := q.db.Exec(ctx, setStorageTargetRegion, arg.XenibaseRegion, arg.ID)
 	return err
 }
 

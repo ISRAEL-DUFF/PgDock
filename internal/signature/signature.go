@@ -1,8 +1,8 @@
-// Package signature is the PGDock-Signature scheme: an HMAC-SHA256 over
+// Package signature is the Xenibase-Signature scheme: an HMAC-SHA256 over
 // "<unix time>.<body>", sent as t=<unix>,v1=<hex>. Webhooks and outbound
-// job calls use it (V2 §9.1), and so do pgdock-server's pushes to the
-// status service (V3 §2.6). It has no dependencies so pgdock-status can use
-// it without the rest of PGDock.
+// job calls use it (V2 §9.1), and so do xenibase-server's pushes to the
+// status service (V3 §2.6). It has no dependencies so xenibase-status can use
+// it without the rest of Xenibase.
 package signature
 
 import (
@@ -16,7 +16,7 @@ import (
 )
 
 // Header is the HTTP header the signature travels in.
-const Header = "PGDock-Signature"
+const Header = "Xenibase-Signature"
 
 // Sign returns the header value for body signed at t.
 func Sign(secret string, t time.Time, body []byte) string {

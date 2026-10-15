@@ -15,8 +15,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // HostDriver reaches pooler hosts' agents (V3 §2.1). The nodes service
@@ -30,7 +30,7 @@ type HostDriver interface {
 	Expect(ctx context.Context, n store.Node, e agentapi.PoolerExpected) (agentapi.PoolerStatus, error)
 }
 
-// HostAdminConfig is how pgdock-server reaches a pooler host's PgBouncer
+// HostAdminConfig is how xenibase-server reaches a pooler host's PgBouncer
 // admin consoles: the host's private address and these ports.
 type HostAdminConfig struct {
 	User, Password, SSLMode string

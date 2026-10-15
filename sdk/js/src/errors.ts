@@ -1,9 +1,9 @@
 /**
- * Every failure the client reports is a PgdockError: the API's errors keep
+ * Every failure the client reports is a XenibaseError: the API's errors keep
  * their status, code and request id; a network failure is status 0 with
  * code "network_error".
  */
-export class PgdockError extends Error {
+export class XenibaseError extends Error {
   /** The HTTP status (0 when the request never got an answer). */
   readonly status: number;
   /** The API's error code, such as "rls_required" or "invalid_credentials". */
@@ -22,7 +22,7 @@ export class PgdockError extends Error {
     extra: { requestId?: string; details?: unknown; retryAfter?: number } = {},
   ) {
     super(message);
-    this.name = "PgdockError";
+    this.name = "XenibaseError";
     this.status = status;
     this.code = code;
     this.requestId = extra.requestId;
@@ -34,18 +34,18 @@ export class PgdockError extends Error {
 /** A call's outcome: data, or an error, never both. */
 export type Result<T> =
   | { data: T; error: null }
-  | { data: null; error: PgdockError };
+  | { data: null; error: XenibaseError };
 
 export function ok<T>(data: T): Result<T> {
   return { data, error: null };
 }
 
-export function fail<T>(error: PgdockError): Result<T> {
+export function fail<T>(error: XenibaseError): Result<T> {
   return { data: null, error };
 }
 
-export function toError(e: unknown): PgdockError {
-  if (e instanceof PgdockError) return e;
+export function toError(e: unknown): XenibaseError {
+  if (e instanceof XenibaseError) return e;
   const msg = e instanceof Error ? e.message : String(e);
-  return new PgdockError(0, "network_error", msg);
+  return new XenibaseError(0, "network_error", msg);
 }

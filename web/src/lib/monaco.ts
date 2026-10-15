@@ -1,6 +1,6 @@
 // Monaco, as the SQL Editor and the table editor use it (docs/ui-redesign.md,
 // phase 3): the editor core with only the features we use, PostgreSQL and
-// JSON, bundled with the app (no CDN), and themes matching PGDock's
+// JSON, bundled with the app (no CDN), and themes matching Xenibase's
 // tokens. Importing this module sets it all up once.
 
 import * as monaco from "monaco-editor/editor/editor.api.js";
@@ -45,13 +45,13 @@ function cssVar(name: string, fallback: string): string {
 /** Monaco wants #rrggbb; our tokens are hex already. */
 const hex = (v: string) => v.replace("#", "");
 
-/** (Re)defines PGDock's themes from the current CSS tokens and picks the
+/** (Re)defines Xenibase's themes from the current CSS tokens and picks the
  * one for the page's theme. */
 export function applyMonacoTheme() {
   const dark = getComputedStyle(document.documentElement).colorScheme.includes("dark");
-  const name = dark ? "pgdock-dark" : "pgdock-light";
-  const accent = cssVar("--accent", "#7c3aed");
-  const accentText = cssVar("--accent-text", dark ? "#a78bfa" : "#6d28d9");
+  const name = dark ? "xenibase-dark" : "xenibase-light";
+  const accent = cssVar("--accent", "#0f766e");
+  const accentText = cssVar("--accent-text", dark ? "#5eead4" : "#115e59");
   monaco.editor.defineTheme(name, {
     base: dark ? "vs-dark" : "vs",
     inherit: true,

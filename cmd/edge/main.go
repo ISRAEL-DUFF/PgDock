@@ -1,10 +1,10 @@
-// Command pgdock-edge is the backend services gateway (V4 §2.1): one per
+// Command xenibase-edge is the backend services gateway (V4 §2.1): one per
 // region, serving every project with backend services at
-// https://<ref>.<domain>. It is stateless: it follows pgdock-server's
+// https://<ref>.<domain>. It is stateless: it follows xenibase-server's
 // configuration feed and reports usage back.
 //
-//	pgdock-edge run
-//	pgdock-edge version
+//	xenibase-edge run
+//	xenibase-edge version
 //
 // Configuration is by environment; see docs/backend-services.md.
 package main
@@ -25,14 +25,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/edge"
-	"github.com/israel-duff/pgdock/internal/logging"
-	"github.com/israel-duff/pgdock/internal/version"
+	"github.com/israel-duff/xenibase/internal/edge"
+	"github.com/israel-duff/xenibase/internal/logging"
+	"github.com/israel-duff/xenibase/internal/version"
 )
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "pgdock-edge:", err)
+		fmt.Fprintln(os.Stderr, "xenibase-edge:", err)
 		os.Exit(1)
 	}
 }
@@ -57,7 +57,7 @@ func run(args []string) error {
 	switch cmd {
 	case "version", "--version", "-version":
 		v := version.Get()
-		fmt.Printf("pgdock-edge %s (commit %s, built %s, %s)\n", v.Version, v.Commit, v.BuildDate, v.GoVersion)
+		fmt.Printf("xenibase-edge %s (commit %s, built %s, %s)\n", v.Version, v.Commit, v.BuildDate, v.GoVersion)
 		return nil
 	case "render-worker":
 		// A child of the edge that renders images (V4.1 §12.4).
@@ -68,55 +68,55 @@ func run(args []string) error {
 	}
 	host, _ := os.Hostname()
 	cfg := edge.Config{
-		Name:          env("PGDOCK_EDGE_NAME", host),
-		ControlURL:    os.Getenv("PGDOCK_EDGE_CONTROL_URL"),
-		Secret:        os.Getenv("PGDOCK_EDGE_SECRET"),
-		Region:        os.Getenv("PGDOCK_EDGE_REGION"),
-		Domain:        os.Getenv("PGDOCK_EDGE_DOMAIN"),
-		PoolerAddr:    os.Getenv("PGDOCK_EDGE_POOLER_ADDR"),
-		SessionAddr:   os.Getenv("PGDOCK_EDGE_SESSION_ADDR"),
-		PoolerSSLMode: env("PGDOCK_EDGE_POOLER_SSLMODE", "require"),
+		Name:          env("XENIBASE_EDGE_NAME", host),
+		ControlURL:    os.Getenv("XENIBASE_EDGE_CONTROL_URL"),
+		Secret:        os.Getenv("XENIBASE_EDGE_SECRET"),
+		Region:        os.Getenv("XENIBASE_EDGE_REGION"),
+		Domain:        os.Getenv("XENIBASE_EDGE_DOMAIN"),
+		PoolerAddr:    os.Getenv("XENIBASE_EDGE_POOLER_ADDR"),
+		SessionAddr:   os.Getenv("XENIBASE_EDGE_SESSION_ADDR"),
+		PoolerSSLMode: env("XENIBASE_EDGE_POOLER_SSLMODE", "require"),
 	}
-	if os.Getenv("PGDOCK_EDGE_RENDER_IN_PROCESS") == "" {
+	if os.Getenv("XENIBASE_EDGE_RENDER_IN_PROCESS") == "" {
 		// Image transforms in child processes (V4.1 §12.4), each capped.
 		self, err := os.Executable()
 		if err != nil {
-			return fmt.Errorf("find pgdock-edge's own binary for render workers (or set PGDOCK_EDGE_RENDER_IN_PROCESS=1): %w", err)
+			return fmt.Errorf("find xenibase-edge's own binary for render workers (or set XENIBASE_EDGE_RENDER_IN_PROCESS=1): %w", err)
 		}
-		mb, err := strconv.Atoi(env("PGDOCK_EDGE_RENDER_MEMORY_MB", "512"))
+		mb, err := strconv.Atoi(env("XENIBASE_EDGE_RENDER_MEMORY_MB", "512"))
 		if err != nil || mb < 64 {
-			return errors.New("PGDOCK_EDGE_RENDER_MEMORY_MB is each render worker's memory in MB, at least 64 (default 512)")
+			return errors.New("XENIBASE_EDGE_RENDER_MEMORY_MB is each render worker's memory in MB, at least 64 (default 512)")
 		}
 		cfg.RenderWorker = []string{self, "render-worker"}
 		cfg.RenderWorkerEnv = []string{fmt.Sprintf("GOMEMLIMIT=%dMiB", mb),
 			fmt.Sprintf("%s=%d", edge.RenderWorkerASEnv, int64(mb)*renderASFactor<<20)}
 	}
-	if mb := os.Getenv("PGDOCK_EDGE_CACHE_MB"); mb != "" {
+	if mb := os.Getenv("XENIBASE_EDGE_CACHE_MB"); mb != "" {
 		n, err := strconv.Atoi(mb)
 		if err != nil || n < 1 {
-			return errors.New("PGDOCK_EDGE_CACHE_MB is the anonymous-read cache's size in MB (default 64)")
+			return errors.New("XENIBASE_EDGE_CACHE_MB is the anonymous-read cache's size in MB (default 64)")
 		}
 		cfg.CacheBytes = n << 20
 	}
 	switch {
 	case cfg.ControlURL == "":
-		return errors.New("PGDOCK_EDGE_CONTROL_URL is required (pgdock-server's URL)")
+		return errors.New("XENIBASE_EDGE_CONTROL_URL is required (xenibase-server's URL)")
 	case len(cfg.Secret) < 32:
-		return errors.New("PGDOCK_EDGE_SECRET is required: at least 32 characters, the same as pgdock-server's")
+		return errors.New("XENIBASE_EDGE_SECRET is required: at least 32 characters, the same as xenibase-server's")
 	case cfg.Domain == "":
-		return errors.New("PGDOCK_EDGE_DOMAIN is required (projects are served at <ref>.<domain>)")
+		return errors.New("XENIBASE_EDGE_DOMAIN is required (projects are served at <ref>.<domain>)")
 	}
-	for _, s := range strings.Split(os.Getenv("PGDOCK_EDGE_TRUSTED_PROXIES"), ",") {
+	for _, s := range strings.Split(os.Getenv("XENIBASE_EDGE_TRUSTED_PROXIES"), ",") {
 		if s = strings.TrimSpace(s); s == "" {
 			continue
 		}
 		p, err := netip.ParsePrefix(s)
 		if err != nil {
-			return fmt.Errorf("PGDOCK_EDGE_TRUSTED_PROXIES: %w", err)
+			return fmt.Errorf("XENIBASE_EDGE_TRUSTED_PROXIES: %w", err)
 		}
 		cfg.TrustedProxies = append(cfg.TrustedProxies, p)
 	}
-	log := logging.New(os.Stderr, env("PGDOCK_EDGE_LOG_FORMAT", "json"), slog.LevelInfo)
+	log := logging.New(os.Stderr, env("XENIBASE_EDGE_LOG_FORMAT", "json"), slog.LevelInfo)
 	cfg.Log = log
 
 	e := edge.New(cfg)
@@ -126,14 +126,14 @@ func run(args []string) error {
 	wg.Add(1)
 	go func() { defer wg.Done(); e.Run(ctx) }()
 
-	certFile, keyFile := os.Getenv("PGDOCK_EDGE_TLS_CERT"), os.Getenv("PGDOCK_EDGE_TLS_KEY")
-	listen := env("PGDOCK_EDGE_LISTEN", ":8443")
+	certFile, keyFile := os.Getenv("XENIBASE_EDGE_TLS_CERT"), os.Getenv("XENIBASE_EDGE_TLS_KEY")
+	listen := env("XENIBASE_EDGE_LISTEN", ":8443")
 	srv := &http.Server{Addr: listen, Handler: e, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute,
 		MaxHeaderBytes: 64 << 10}
 	errc := make(chan error, 1)
 	go func() {
 		if certFile == "" {
-			log.Warn("serving plain HTTP: put a TLS terminator in front, or set PGDOCK_EDGE_TLS_CERT and PGDOCK_EDGE_TLS_KEY", "listen", listen)
+			log.Warn("serving plain HTTP: put a TLS terminator in front, or set XENIBASE_EDGE_TLS_CERT and XENIBASE_EDGE_TLS_KEY", "listen", listen)
 			errc <- srv.ListenAndServe()
 			return
 		}
@@ -143,7 +143,7 @@ func run(args []string) error {
 			return
 		}
 		srv.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12, GetCertificate: certs.get}
-		log.Info("pgdock-edge listening", "listen", listen, "domain", cfg.Domain, "region", cfg.Region)
+		log.Info("xenibase-edge listening", "listen", listen, "domain", cfg.Domain, "region", cfg.Region)
 		errc <- srv.ListenAndServeTLS("", "")
 	}()
 	select {

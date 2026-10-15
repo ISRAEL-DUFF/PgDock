@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { api, errorMessage, type Prices } from "../api/client";
+import { api, errorMessage, type FXQuote, type Prices } from "../api/client";
 import {
   Alert,
   Field,
@@ -11,7 +11,7 @@ import {
   Select,
   Table,
 } from "../components/ui";
-import { naira } from "../lib/billing";
+import { approxNaira, naira, rate, usd, usdUnit } from "../lib/billing";
 import { formatDate } from "../lib/format";
 
 /** Hours in a billing month, as estimates use (730). */
@@ -31,8 +31,31 @@ function num(v: string | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** A price in the book's currency: dollars (cents, fractions allowed when
+ * `unit`) with the naira at the current rate beside them, or plain naira. */
+function Price({
+  prices,
+  fx,
+  minor,
+  unit,
+}: {
+  prices: Prices;
+  fx?: FXQuote | null;
+  minor: number;
+  unit?: boolean;
+}) {
+  if (prices.currency !== "USD") return <>{naira(minor)}</>;
+  const n = approxNaira(minor, fx);
+  return (
+    <>
+      {unit ? usdUnit(minor) : usd(minor)}
+      {n && <span className="ml-1 text-[12px] font-normal text-muted">{n}</span>}
+    </>
+  );
+}
+
 /** Plans side by side: fees, allowances and overage prices. */
-function PlanTable({ prices }: { prices: Prices }) {
+function PlanTable({ prices, fx }: { prices: Prices; fx?: FXQuote | null }) {
   const plans = Object.entries(prices.plans).sort(
     ([, a], [, b]) => a.monthly_minor - b.monthly_minor,
   );
@@ -54,7 +77,11 @@ function PlanTable({ prices }: { prices: Prices }) {
             className="px-3 py-2 font-medium tabular-nums"
             data-testid={`plan-monthly-${k}`}
           >
-            {p.monthly_minor > 0 ? naira(p.monthly_minor) : "Free"}
+            {p.monthly_minor > 0 ? (
+              <Price prices={prices} fx={fx} minor={p.monthly_minor} />
+            ) : (
+              "Free"
+            )}
           </td>
         ))}
       </tr>
@@ -62,7 +89,11 @@ function PlanTable({ prices }: { prices: Prices }) {
         <td className="px-3 py-2 text-muted">A year in advance</td>
         {plans.map(([k, p]) => (
           <td key={k} className="px-3 py-2 tabular-nums">
-            {p.annual_minor > 0 ? naira(p.annual_minor) : "—"}
+            {p.annual_minor > 0 ? (
+              <Price prices={prices} fx={fx} minor={p.annual_minor} />
+            ) : (
+              "—"
+            )}
           </td>
         ))}
       </tr>
@@ -83,7 +114,7 @@ function PlanTable({ prices }: { prices: Prices }) {
                 )}
                 {unit && (
                   <span className="block text-muted">
-                    then {naira(num(unit))} each
+                    then <Price prices={prices} fx={fx} minor={num(unit)} unit /> each
                   </span>
                 )}
               </td>
@@ -96,7 +127,15 @@ function PlanTable({ prices }: { prices: Prices }) {
 }
 
 /** What a plan plus a dedicated instance comes to a month. */
-function Calculator({ prices, vat }: { prices: Prices; vat: number }) {
+function Calculator({
+  prices,
+  fx,
+  vat,
+}: {
+  prices: Prices;
+  fx?: FXQuote | null;
+  vat: number;
+}) {
   const keys = Object.keys(prices.plans).sort(
     (a, b) => prices.plans[a].monthly_minor - prices.plans[b].monthly_minor,
   );
@@ -181,23 +220,23 @@ function Calculator({ prices, vat }: { prices: Prices; vat: number }) {
       </div>
       <dl className="mt-4 grid max-w-md grid-cols-2 gap-y-1 text-sm">
         <dt className="text-muted">Plan</dt>
-        <dd className="text-right tabular-nums">{naira(fee)}</dd>
+        <dd className="text-right tabular-nums"><Price prices={prices} fx={fx} minor={fee} /></dd>
         <dt className="text-muted">Dedicated instance</dt>
-        <dd className="text-right tabular-nums">{naira(instance)}</dd>
+        <dd className="text-right tabular-nums"><Price prices={prices} fx={fx} minor={instance} /></dd>
         {ha && (
           <>
             <dt className="text-muted">Standby (HA)</dt>
-            <dd className="text-right tabular-nums">{naira(standby)}</dd>
+            <dd className="text-right tabular-nums"><Price prices={prices} fx={fx} minor={standby} /></dd>
           </>
         )}
         <dt className="text-muted">VAT ({(vat * 100).toFixed(1)}%)</dt>
-        <dd className="text-right tabular-nums">{naira(subtotal * vat)}</dd>
+        <dd className="text-right tabular-nums"><Price prices={prices} fx={fx} minor={subtotal * vat} /></dd>
         <dt className="font-medium">A month</dt>
         <dd
           className="text-right font-medium tabular-nums"
           data-testid="estimate-total"
         >
-          {naira(subtotal * (1 + vat))}
+          <Price prices={prices} fx={fx} minor={subtotal * (1 + vat)} />
         </dd>
       </dl>
     </Panel>
@@ -215,7 +254,7 @@ export function PricingPage() {
   return (
     <Page
       title="Pricing"
-      description={`Prices in naira, before VAT, from price book ${p.version} (in effect since ${formatDate(p.effective_at)}). Free projects pause after a week without connections.`}
+      description={`Prices in ${p.prices.currency === "USD" ? "US dollars, converted to naira when an invoice is issued" : "naira"}, before VAT, from price book ${p.version} (in effect since ${formatDate(p.effective_at)}). Free projects pause after a week without connections.`}
       testId="pricing"
     >
       {p.next && (
@@ -225,7 +264,7 @@ export function PricingPage() {
         </Alert>
       )}
       <Panel title="Plans">
-        <PlanTable prices={p.prices} />
+        <PlanTable prices={p.prices} fx={p.fx} />
       </Panel>
       <Panel
         title="Dedicated instances"
@@ -239,9 +278,11 @@ export function PricingPage() {
           ].map(([label, v]) => (
             <tr key={label}>
               <td className="px-3 py-2">{label}</td>
-              <td className="px-3 py-2 tabular-nums">{naira(num(v))}</td>
               <td className="px-3 py-2 tabular-nums">
-                {naira(num(v) * MONTH_HOURS)}
+                <Price prices={p.prices} fx={p.fx} minor={num(v)} unit />
+              </td>
+              <td className="px-3 py-2 tabular-nums">
+                <Price prices={p.prices} fx={p.fx} minor={num(v) * MONTH_HOURS} />
               </td>
             </tr>
           ))}
@@ -255,10 +296,10 @@ export function PricingPage() {
           <tr>
             <td className="px-3 py-2">Synchronous replication</td>
             <td className="px-3 py-2 tabular-nums">
-              {naira(num(p.prices.addons.sync_replication_hour))}
+              <Price prices={p.prices} fx={p.fx} minor={num(p.prices.addons.sync_replication_hour)} unit />
             </td>
             <td className="px-3 py-2 tabular-nums">
-              {naira(num(p.prices.addons.sync_replication_hour) * MONTH_HOURS)}
+              <Price prices={p.prices} fx={p.fx} minor={num(p.prices.addons.sync_replication_hour) * MONTH_HOURS} />
             </td>
           </tr>
           {(
@@ -279,9 +320,11 @@ export function PricingPage() {
             .map(([label, v]) => (
               <tr key={label}>
                 <td className="px-3 py-2">{label}</td>
-                <td className="px-3 py-2 tabular-nums">{naira(num(v))}</td>
                 <td className="px-3 py-2 tabular-nums">
-                  {naira(num(v) * MONTH_HOURS)}
+                <Price prices={p.prices} fx={p.fx} minor={num(v)} unit />
+              </td>
+                <td className="px-3 py-2 tabular-nums">
+                  <Price prices={p.prices} fx={p.fx} minor={num(v) * MONTH_HOURS} />
                 </td>
               </tr>
             ))}
@@ -297,7 +340,12 @@ export function PricingPage() {
             ))}
         </Table>
       </Panel>
-      <Calculator prices={p.prices} vat={vat} />
+      {p.fx && p.prices.currency === "USD" && (
+        <p className="text-[13px] text-muted" data-testid="pricing-rate">
+          Naira amounts are at today&apos;s rate, {rate(p.fx)}.
+        </p>
+      )}
+      <Calculator prices={p.prices} fx={p.fx} vat={vat} />
     </Page>
   );
 }

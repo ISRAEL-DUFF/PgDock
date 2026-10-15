@@ -12,9 +12,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Delivery rules (V2 §9.1).
@@ -34,8 +34,8 @@ const (
 	batch = 100
 )
 
-// workerLockKey makes one pgdock-server the deliverer.
-const workerLockKey int64 = 0x7067646f636b05 // "pgdock\x05"
+// workerLockKey makes one xenibase-server the deliverer.
+const workerLockKey int64 = 0x7067646f636b05 // "xenibase\x05"
 
 // backoff is the delay before attempt n+1 after n failed attempts:
 // doubling from 10s to at most 2h, with ±20% jitter, which retries an
@@ -237,7 +237,7 @@ func (s *Service) health(ctx context.Context, conn *pgx.Conn, p store.Project) {
 		return
 	}
 	var n int64
-	if err := conn.QueryRow(ctx, `SELECT count(*) FROM pgdock.webhook_outbox`).Scan(&n); err != nil {
+	if err := conn.QueryRow(ctx, `SELECT count(*) FROM xenibase.webhook_outbox`).Scan(&n); err != nil {
 		return
 	}
 	s.mu.Lock()
@@ -245,7 +245,7 @@ func (s *Service) health(ctx context.Context, conn *pgx.Conn, p store.Project) {
 	s.outboxed[p.ID] = n > OutboxAlert
 	s.mu.Unlock()
 	if n > OutboxAlert && !alerted {
-		s.notify(ctx, p, fmt.Sprintf("[PGDock] %s: %d webhook events are waiting", p.Name, n),
+		s.notify(ctx, p, fmt.Sprintf("[Xenibase] %s: %d webhook events are waiting", p.Name, n),
 			fmt.Sprintf("%d webhook events of %s are queued, more than %d: a receiver is probably down. They are kept in the project's database until they are delivered, dead-lettered after 24 hours, or the webhook is deleted.", n, p.Name, OutboxAlert))
 	}
 }
@@ -280,7 +280,7 @@ func (s *Service) deliverProject(ctx context.Context, conn *pgx.Conn, p store.Pr
 	if capped, err := store.New(s.db).OrgSpendCapped(ctx, p.OrgID); err != nil || capped {
 		return err // at the spend cap, deliveries queue (V3 §3.10)
 	}
-	rows, err := conn.Query(ctx, `SELECT DISTINCT webhook_id FROM pgdock.webhook_outbox`)
+	rows, err := conn.Query(ctx, `SELECT DISTINCT webhook_id FROM xenibase.webhook_outbox`)
 	if err != nil {
 		return err
 	}
@@ -309,7 +309,7 @@ func (s *Service) deliverProject(ctx context.Context, conn *pgx.Conn, p store.Pr
 		w, ok := byID[id]
 		if !ok {
 			// Events of a deleted webhook.
-			if _, err := conn.Exec(ctx, `DELETE FROM pgdock.webhook_outbox WHERE webhook_id = $1`, id); err != nil {
+			if _, err := conn.Exec(ctx, `DELETE FROM xenibase.webhook_outbox WHERE webhook_id = $1`, id); err != nil {
 				return err
 			}
 			continue
@@ -329,7 +329,7 @@ func (s *Service) deliverProject(ctx context.Context, conn *pgx.Conn, p store.Pr
 
 func (s *Service) head(ctx context.Context, conn *pgx.Conn, webhook uuid.UUID, n int) ([]outboxRow, error) {
 	rows, err := conn.Query(ctx, `SELECT id, table_name, op, old_row, new_row, replay, attempts, next_attempt_at, created_at
-		FROM pgdock.webhook_outbox WHERE webhook_id = $1 ORDER BY id LIMIT $2`, webhook, n)
+		FROM xenibase.webhook_outbox WHERE webhook_id = $1 ORDER BY id LIMIT $2`, webhook, n)
 	if err != nil {
 		return nil, err
 	}
@@ -380,8 +380,8 @@ func (s *Service) deliverWebhook(ctx context.Context, conn *pgx.Conn, p store.Pr
 			return err
 		}
 		h := header(static)
-		h.Set("PGDock-Event-Id", eventID)
-		h.Set("PGDock-Webhook", w.Name)
+		h.Set("Xenibase-Event-Id", eventID)
+		h.Set("Xenibase-Webhook", w.Name)
 		resp, derr := outbound.Response{}, perr
 		if derr == nil {
 			resp, derr = s.out.Send(ctx, target, outbound.Request{OrgID: p.OrgID, URL: w.Url, Header: h, Body: body, Timeout: Timeout,
@@ -424,7 +424,7 @@ func (s *Service) deliverWebhook(ctx context.Context, conn *pgx.Conn, p store.Pr
 			return err
 		}
 		if d.Succeeded || dead {
-			if _, err := conn.Exec(ctx, `DELETE FROM pgdock.webhook_outbox WHERE id = $1`, r.ID); err != nil {
+			if _, err := conn.Exec(ctx, `DELETE FROM xenibase.webhook_outbox WHERE id = $1`, r.ID); err != nil {
 				return err
 			}
 		} else {
@@ -434,7 +434,7 @@ func (s *Service) deliverWebhook(ctx context.Context, conn *pgx.Conn, p store.Pr
 			} else if d.StatusCode != nil {
 				msg = fmt.Sprintf("HTTP %d", *d.StatusCode)
 			}
-			if _, err := conn.Exec(ctx, `UPDATE pgdock.webhook_outbox SET attempts = $2, next_attempt_at = $3, last_error = $4 WHERE id = $1`,
+			if _, err := conn.Exec(ctx, `UPDATE xenibase.webhook_outbox SET attempts = $2, next_attempt_at = $3, last_error = $4 WHERE id = $1`,
 				r.ID, attempt, now.Add(backoff(attempt)), msg); err != nil {
 				return err
 			}
@@ -474,8 +474,8 @@ func (s *Service) recordHealth(ctx context.Context, p store.Project, w store.Web
 		if err := s.install(ctx, p, w); err != nil { // disables its triggers
 			s.log.Warn("disable triggers of a paused webhook", "webhook_id", w.ID, "err", err)
 		}
-		s.notify(ctx, p, fmt.Sprintf("[PGDock] Webhook %s of %s was paused", w.Name, p.Name),
-			fmt.Sprintf("The webhook %s of %s failed %d deliveries in a row, so PGDock paused it. Queued events are kept; new changes are not recorded until you resume it. Check the delivery log for the receiver's answers.", w.Name, p.Name, w.ConsecutiveFailures))
+		s.notify(ctx, p, fmt.Sprintf("[Xenibase] Webhook %s of %s was paused", w.Name, p.Name),
+			fmt.Sprintf("The webhook %s of %s failed %d deliveries in a row, so Xenibase paused it. Queued events are kept; new changes are not recorded until you resume it. Check the delivery log for the receiver's answers.", w.Name, p.Name, w.ConsecutiveFailures))
 		return w, nil
 	}
 	return w, q.SetWebhookHealth(ctx, store.SetWebhookHealthParams{ID: w.ID, Status: w.Status, StatusReason: w.StatusReason,
@@ -572,10 +572,10 @@ func (s *Service) SendTest(ctx context.Context, p store.Project, w store.Webhook
 	id := "evt_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:16]
 	previous := s.PreviousSecret(w)
 	body, _ := json.Marshal(Event{ID: id, Webhook: w.Name, Project: store.ClientDBName(p), ProjectID: p.ID.String(), Type: "TEST",
-		Record: json.RawMessage(`{"message":"A test event from PGDock"}`), OldRecord: json.RawMessage("null"), CommittedAt: now.UTC()})
+		Record: json.RawMessage(`{"message":"A test event from Xenibase"}`), OldRecord: json.RawMessage("null"), CommittedAt: now.UTC()})
 	h := header(static)
-	h.Set("PGDock-Event-Id", id)
-	h.Set("PGDock-Webhook", w.Name)
+	h.Set("Xenibase-Event-Id", id)
+	h.Set("Xenibase-Webhook", w.Name)
 	resp, derr := s.out.Do(ctx, outbound.Request{OrgID: p.OrgID, URL: w.Url, Header: h, Body: body, Timeout: Timeout,
 		Secret: secret, PreviousSecret: previous})
 	res := TestResult{EventID: id, StatusCode: resp.StatusCode, Latency: resp.Latency, Snippet: resp.Snippet}
@@ -618,7 +618,7 @@ func (s *Service) Replay(ctx context.Context, p store.Project, w store.Webhook, 
 		for _, d := range dead {
 			var e Event
 			_ = json.Unmarshal(d.Payload, &e)
-			if _, err := tx.Exec(ctx, `INSERT INTO pgdock.webhook_outbox (webhook_id, table_name, op, replay) VALUES ($1, $2, $3, $4)`,
+			if _, err := tx.Exec(ctx, `INSERT INTO xenibase.webhook_outbox (webhook_id, table_name, op, replay) VALUES ($1, $2, $3, $4)`,
 				w.ID, e.Table, e.Type, d.Payload); err != nil {
 				return err
 			}

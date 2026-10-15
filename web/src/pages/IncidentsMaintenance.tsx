@@ -204,7 +204,7 @@ function EmailPreview({
   );
 }
 
-/** Confirm a draft PGDock proposed: announce it, emailing what's shown. */
+/** Confirm a draft Xenibase proposed: announce it, emailing what's shown. */
 function ConfirmDraft({
   draft,
   onClose,

@@ -1,4 +1,4 @@
-package pgdock
+package xenibase
 
 import (
 	"bytes"
@@ -14,26 +14,26 @@ import (
 )
 
 // TestLive runs against a real edge when TestSDKs (test/integration)
-// sets PGDOCK_SDK_URL.
+// sets XENIBASE_SDK_URL.
 func TestLive(t *testing.T) {
-	base := os.Getenv("PGDOCK_SDK_URL")
+	base := os.Getenv("XENIBASE_SDK_URL")
 	if base == "" {
-		t.Skip("PGDOCK_SDK_URL not set")
+		t.Skip("XENIBASE_SDK_URL not set")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	c, err := New(base, os.Getenv("PGDOCK_SDK_PUB"))
+	c, err := New(base, os.Getenv("XENIBASE_SDK_PUB"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := c.Auth.SignInWithPassword(ctx, Credentials{Email: "go@sdk.test", Password: os.Getenv("PGDOCK_SDK_PASSWORD")})
+	s, err := c.Auth.SignInWithPassword(ctx, Credentials{Email: "go@sdk.test", Password: os.Getenv("XENIBASE_SDK_PASSWORD")})
 	if err != nil || s == nil {
 		t.Fatalf("sign in: %v", err)
 	}
 	uid := s.User.ID
 
 	// A server verifies the token with the JWKS.
-	srv, _ := New(base, os.Getenv("PGDOCK_SDK_SECRET"))
+	srv, _ := New(base, os.Getenv("XENIBASE_SDK_SECRET"))
 	claims, err := srv.Auth.VerifyToken(ctx, s.AccessToken)
 	if err != nil || claims.Subject() != uid || claims.Role() != "user" {
 		t.Fatalf("verify: %v %v", claims, err)
@@ -44,7 +44,7 @@ func TestLive(t *testing.T) {
 		OwnerID string `json:"owner_id"`
 		Body    string `json:"body"`
 	}
-	server, _ := New(base, os.Getenv("PGDOCK_SDK_PUB"))
+	server, _ := New(base, os.Getenv("XENIBASE_SDK_PUB"))
 	asUser := server.WithToken(s.AccessToken)
 	if rows, _, err := List[note](ctx, asUser.Data.From("notes").Select("")); err != nil || len(rows) != 0 {
 		t.Fatalf("as the user: %v %v", rows, err)

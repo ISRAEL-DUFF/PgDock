@@ -17,7 +17,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
 func (a *App) sql(args []string) error {
@@ -52,7 +52,7 @@ func (a *App) sql(args []string) error {
 		q = string(b)
 	}
 	if strings.TrimSpace(q) == "" {
-		return usageErrorf(`usage: pgdock sql <project> -c "select …" | -f file.sql`)
+		return usageErrorf(`usage: xenibase sql <project> -c "select …" | -f file.sql`)
 	}
 	p, err := a.project(pos[0])
 	if err != nil {
@@ -262,7 +262,7 @@ func (a *App) follow(id uuid.UUID, show bool) error {
 	if err := sc.Err(); err != nil {
 		return fmt.Errorf("follow operation %s: %w", id, err)
 	}
-	return fmt.Errorf("the stream for operation %s ended early; check it with pgdock operations get %s", id, id)
+	return fmt.Errorf("the stream for operation %s ended early; check it with xenibase operations get %s", id, id)
 }
 
 // ---- Backups --------------------------------------------------------------------
@@ -352,7 +352,7 @@ func (a *App) backupRestore(args []string) error {
 	}
 	bid, err := uuid.Parse(*backup)
 	if err != nil {
-		return usageErrorf("--backup takes a backup id (pgdock backup list %s)", pos[0])
+		return usageErrorf("--backup takes a backup id (xenibase backup list %s)", pos[0])
 	}
 	p, err := a.project(pos[0])
 	if err != nil {

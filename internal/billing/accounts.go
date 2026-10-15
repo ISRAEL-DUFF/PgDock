@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Account returns orgID's billing account, creating it on the current
@@ -109,8 +109,12 @@ type Line struct {
 	ProjectID   *uuid.UUID `json:"project_id,omitempty"`
 	Metric      string     `json:"metric,omitempty"`
 	Quantity    Dec        `json:"quantity"`
-	UnitPrice   Dec        `json:"unit_price"` // kobo
-	Amount      int64      `json:"amount"`     // kobo
+	UnitPrice   Dec        `json:"unit_price"` // kobo; in the price currency until a rated month is converted
+	Amount      int64      `json:"amount"`     // kobo; in the price currency until a rated month is converted
+	// UnitPriceUSD and AmountUSD are the price in dollars (cents) of a line
+	// converted to naira at a rate; zero for a naira price book.
+	UnitPriceUSD Dec   `json:"unit_price_usd,omitempty"`
+	AmountUSD    int64 `json:"amount_usd,omitempty"`
 	// Revenue is the ledger account the line's revenue goes to.
 	Revenue string `json:"revenue"`
 	// Advance marks the next month's plan fee, billed in advance.
@@ -245,8 +249,13 @@ type PlanChange struct {
 	Upgrade            bool
 	Applied            bool // in effect now (else scheduled)
 	Lines              []Line
-	Total              int64 // the lines' sum, before VAT
+	Total              int64 // the lines' sum, before VAT, in kobo
 	TermEndsAt         *time.Time
+	// For a dollar price book: the lines' sum in dollars (cents), and the
+	// rate the lines were converted to naira at.
+	Currency string
+	TotalUSD int64
+	FX       *FXQuote
 }
 
 // ChangePlan changes (or, with DryRun, prices a change to) an org's plan.
@@ -294,7 +303,7 @@ func (s *Service) ChangePlan(ctx context.Context, orgID uuid.UUID, r PlanRequest
 			return err
 		}
 		now := s.Now()
-		out = PlanChange{FromPlan: a.Plan, FromTerm: a.Term, ToPlan: r.Plan, ToTerm: r.Term, TermEndsAt: a.TermEndsAt}
+		out = PlanChange{FromPlan: a.Plan, FromTerm: a.Term, ToPlan: r.Plan, ToTerm: r.Term, TermEndsAt: a.TermEndsAt, Currency: b.Prices.Currency}
 		switch {
 		case r.Term == TermAnnual && a.Term != TermAnnual:
 			out.Upgrade = true
@@ -331,7 +340,25 @@ func (s *Service) ChangePlan(ctx context.Context, orgID uuid.UUID, r PlanRequest
 		}
 		return nil
 	})
-	return out, err
+	if err != nil || out.Currency != CurrencyUSD {
+		return out, err
+	}
+	// The lines were stored in dollars; the caller sees naira at today's
+	// rate (the invoice converts them at its own, when it is issued).
+	fx, qerr := s.Quote(ctx, false)
+	if qerr != nil {
+		return out, qerr
+	}
+	out.FX, out.TotalUSD, out.Total = &fx, out.Total, 0
+	shown := make([]Line, len(out.Lines))
+	for i, l := range out.Lines {
+		l.AmountUSD, l.UnitPriceUSD = l.Amount, l.UnitPrice
+		l.Amount, l.UnitPrice = fx.Naira(l.Amount), l.UnitPrice.Mul(fx.Effective)
+		out.Total += l.Amount
+		shown[i] = l
+	}
+	out.Lines = shown
+	return out, nil
 }
 
 // setPlan puts the org on plan, with its limits: the quota plan changes
@@ -512,6 +539,8 @@ func (s *Service) switchMode(ctx context.Context, tx pgx.Tx, cur store.BillingAc
 	switch {
 	case cur.Mode == mode:
 		return nil
+	case mode == ModePrepaid && walletID(cur) != "":
+		return invalid("an organisation with a wallet is billed after the month: its wallet is the prepayment")
 	case mode == ModePrepaid:
 		invs, err := q.OpenInvoices(ctx, cur.OrgID)
 		if err != nil {
@@ -546,6 +575,7 @@ func (s *Service) switchMode(ctx context.Context, tx pgx.Tx, cur store.BillingAc
 // Standing is an org's money position, for the Billing page.
 type Standing struct {
 	CreditMinor  int64 // on the credit balance (prepaid funds, overpayments)
+	WalletMinor  int64 // in the org's wallet, by Xenibase's books
 	OwedMinor    int64 // outstanding on issued invoices
 	OverdueSince *time.Time
 }
@@ -556,6 +586,9 @@ func (s *Service) Standing(ctx context.Context, orgID uuid.UUID) (Standing, erro
 	var err error
 	if out.CreditMinor, err = s.CreditAvailable(ctx, s.db, orgID); err != nil {
 		return out, err
+	}
+	if led, err := Balance(ctx, s.db, &orgID, AccWalletBalance); err == nil {
+		out.WalletMinor = -led
 	}
 	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		q := store.New(tx)

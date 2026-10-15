@@ -1,8 +1,8 @@
-// Package statusapi is the contract between pgdock-server and the separately
-// hosted status service, pgdock-status (V3 §2.6): signed heartbeats for the
+// Package statusapi is the contract between xenibase-server and the separately
+// hosted status service, xenibase-status (V3 §2.6): signed heartbeats for the
 // components the status service can't probe from outside, and incidents
-// the platform admin posts in PGDock. Both directions carry a
-// PGDock-Signature over the body with the shared push secret.
+// the platform admin posts in Xenibase. Both directions carry a
+// Xenibase-Signature over the body with the shared push secret.
 package statusapi
 
 import (
@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/signature"
+	"github.com/israel-duff/xenibase/internal/signature"
 )
 
 // Paths on the status service.
@@ -32,13 +32,13 @@ const (
 	// results since a time (a POST so the request is signed like pushes).
 	PathSLATargets = "/api/v1/sla/targets"
 	PathSLAResults = "/api/v1/sla/results"
-	// PathManagedSubscribers: PUT replaces the subscribers pgdock-server
+	// PathManagedSubscribers: PUT replaces the subscribers xenibase-server
 	// manages (V4.1 §7.1): paying organisations' owners and billing
 	// contacts, with no double opt-in.
 	PathManagedSubscribers = "/api/v1/subscribers/managed"
 )
 
-// ManagedSubscriber is one address pgdock-server subscribes, with the
+// ManagedSubscriber is one address xenibase-server subscribes, with the
 // components and regions its organisations' projects use; an incident is
 // mailed when it names one of the components and its region is one of
 // the regions (or it has none, or the list is empty).
@@ -161,7 +161,7 @@ var (
 	Statuses   = []string{"investigating", "identified", "monitoring", "resolved"}
 )
 
-// Heartbeat reports components' states as pgdock-server sees them.
+// Heartbeat reports components' states as xenibase-server sees them.
 type Heartbeat struct {
 	SentAt     time.Time        `json:"sent_at"`
 	Components []ComponentState `json:"components"`

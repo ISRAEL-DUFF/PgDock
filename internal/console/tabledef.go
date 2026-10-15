@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/xenibase/internal/provision"
 )
 
 // The table editor's footer: how many rows a table (or its filtered view)
@@ -59,7 +59,7 @@ func (s *Service) Count(ctx context.Context, projectID uuid.UUID, schema, table 
 		if cond != "" {
 			sql += " WHERE " + cond
 		}
-		for _, stmt := range []string{"SAVEPOINT pgdock_count", "SET LOCAL statement_timeout = '" + countTimeout + "'"} {
+		for _, stmt := range []string{"SAVEPOINT xenibase_count", "SET LOCAL statement_timeout = '" + countTimeout + "'"} {
 			if _, err := conn.Exec(ctx, stmt); err != nil {
 				return err
 			}
@@ -68,7 +68,7 @@ func (s *Service) Count(ctx context.Context, projectID uuid.UUID, schema, table 
 		if res.Err != nil {
 			var pe *pgconn.PgError
 			if errors.As(res.Err, &pe) && pe.Code == "57014" { // statement timeout
-				_, _ = conn.Exec(ctx, "ROLLBACK TO SAVEPOINT pgdock_count")
+				_, _ = conn.Exec(ctx, "ROLLBACK TO SAVEPOINT xenibase_count")
 				if len(filters) == 0 && strings.TrimSpace(expr) == "" {
 					out.Count, out.Estimated = est, true
 				}

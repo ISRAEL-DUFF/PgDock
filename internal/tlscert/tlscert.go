@@ -29,7 +29,7 @@ import (
 	"github.com/caddyserver/certmagic"
 	"go.uber.org/zap"
 
-	"github.com/israel-duff/pgdock/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/pooler"
 )
 
 // File names in the pooler config directory, as pgbouncer.ini expects.
@@ -74,7 +74,7 @@ type Config struct {
 	ACMEEmail string
 	ACMECA    string
 	ACMERoots *x509.CertPool
-	// ChallengePort is where HTTPChallengeHandler is served (pgdock-server's
+	// ChallengePort is where HTTPChallengeHandler is served (xenibase-server's
 	// own listen port). certmagic finds it in use and leaves solving to that
 	// handler instead of binding :80 itself. Run must start after the
 	// server is listening.
@@ -199,7 +199,7 @@ func (m *Manager) Status() Status {
 }
 
 // HTTPChallengeHandler answers ACME HTTP-01 challenges ahead of next. Caddy
-// forwards /.well-known/acme-challenge/ for the DB hostname to pgdock-server.
+// forwards /.well-known/acme-challenge/ for the DB hostname to xenibase-server.
 func (m *Manager) HTTPChallengeHandler(next http.Handler) http.Handler {
 	if m.issuer == nil {
 		return next
@@ -473,7 +473,7 @@ func SelfSigned(host string, validity time.Duration) (certPEM, keyPEM []byte, er
 	now := time.Now()
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
-		Subject:      pkix.Name{CommonName: host, Organization: []string{"PGDock self-signed"}},
+		Subject:      pkix.Name{CommonName: host, Organization: []string{"Xenibase self-signed"}},
 		NotBefore:    now.Add(-time.Hour),
 		NotAfter:     now.Add(validity),
 		KeyUsage:     x509.KeyUsageDigitalSignature,

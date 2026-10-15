@@ -12,10 +12,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/metrics"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/metrics"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 func runSQL(t *testing.T, e *testenv.Env, id, query string, opts ...func(*gen.SqlRequest)) gen.SqlResult {
@@ -75,11 +75,11 @@ func TestSQLConsole(t *testing.T) {
 	for _, q := range []string{
 		"RESET ROLE; SELECT count(*) FROM notes",
 		"RESET ROLE; CREATE TABLE escaped (id int)",
-		"SET ROLE pgdock",
+		"SET ROLE xenibase",
 		"SET ROLE " + other.Project.OwnerRole,
-		"SET SESSION AUTHORIZATION pgdock",
+		"SET SESSION AUTHORIZATION xenibase",
 		"SELECT rolpassword FROM pg_authid",
-		"SELECT set_config('role', 'pgdock', false); SELECT count(*) FROM pg_authid",
+		"SELECT set_config('role', 'xenibase', false); SELECT count(*) FROM pg_authid",
 		"CREATE ROLE sneaky LOGIN",
 		"COPY notes TO PROGRAM 'id'",
 	} {
@@ -506,8 +506,8 @@ func TestExtensionsAndMetrics(t *testing.T) {
 	code, body := e.GetText("/metrics", http.Header{"Authorization": {"Bearer " + token}}, false)
 	// Project series carry the opaque id and the organisation, never the
 	// tenant's project or database name (V2 s2.4).
-	if code != http.StatusOK || !strings.Contains(body, "# TYPE pgdock_project_size_bytes gauge") ||
-		!strings.Contains(body, `pgdock_project_tps{project_id="`+id+`",org_id="`) ||
+	if code != http.StatusOK || !strings.Contains(body, "# TYPE xenibase_project_size_bytes gauge") ||
+		!strings.Contains(body, `xenibase_project_tps{project_id="`+id+`",org_id="`) ||
 		strings.Contains(body, `"Measured"`) || strings.Contains(body, c.Project.DbName) {
 		t.Fatalf("token /metrics: %d\n%s", code, body)
 	}

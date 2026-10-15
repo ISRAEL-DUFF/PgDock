@@ -1,10 +1,10 @@
-// Command pgdock-status is PGDock's public status page (V3 §2.6). Run it on
-// infrastructure separate from PGDock (another provider) so an outage
+// Command xenibase-status is Xenibase's public status page (V3 §2.6). Run it on
+// infrastructure separate from Xenibase (another provider) so an outage
 // can't take down the page that announces it:
 //
-//	pgdock-status run [--config /etc/pgdock-status/status.toml]
-//	pgdock-status check-config [--config ...]
-//	pgdock-status version
+//	xenibase-status run [--config /etc/xenibase-status/status.toml]
+//	xenibase-status check-config [--config ...]
+//	xenibase-status version
 //
 // See docs/status-page.md and deploy/status/status.example.toml.
 package main
@@ -21,14 +21,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/logging"
-	"github.com/israel-duff/pgdock/internal/statuspage"
-	"github.com/israel-duff/pgdock/internal/version"
+	"github.com/israel-duff/xenibase/internal/logging"
+	"github.com/israel-duff/xenibase/internal/statuspage"
+	"github.com/israel-duff/xenibase/internal/version"
 )
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "pgdock-status:", err)
+		fmt.Fprintln(os.Stderr, "xenibase-status:", err)
 		os.Exit(1)
 	}
 }
@@ -47,11 +47,11 @@ func run(args []string) error {
 	}
 	if cmd == "version" || cmd == "-version" || cmd == "--version" {
 		v := version.Get()
-		fmt.Printf("pgdock-status %s (commit %s, built %s, %s)\n", v.Version, v.Commit, v.BuildDate, v.GoVersion)
+		fmt.Printf("xenibase-status %s (commit %s, built %s, %s)\n", v.Version, v.Commit, v.BuildDate, v.GoVersion)
 		return nil
 	}
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
-	path := fs.String("config", env("PGDOCK_STATUS_CONFIG", "/etc/pgdock-status/status.toml"), "configuration file")
+	path := fs.String("config", env("XENIBASE_STATUS_CONFIG", "/etc/xenibase-status/status.toml"), "configuration file")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func run(args []string) error {
 		return fmt.Errorf("unknown command %q: use run, check-config or version", cmd)
 	}
 
-	log := logging.New(os.Stderr, env("PGDOCK_STATUS_LOG_FORMAT", "json"), slog.LevelInfo)
+	log := logging.New(os.Stderr, env("XENIBASE_STATUS_LOG_FORMAT", "json"), slog.LevelInfo)
 	svc, err := statuspage.New(cfg, log)
 	if err != nil {
 		return err
@@ -82,7 +82,7 @@ func run(args []string) error {
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
 	go svc.Run(ctx)
-	log.Info("pgdock-status listening", "addr", cfg.Listen, "components", len(cfg.Components), "version", version.Version)
+	log.Info("xenibase-status listening", "addr", cfg.Listen, "components", len(cfg.Components), "version", version.Version)
 	select {
 	case err := <-errc:
 		if !errors.Is(err, http.ErrServerClosed) {

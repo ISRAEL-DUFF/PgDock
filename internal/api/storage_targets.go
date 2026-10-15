@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // ---- Storage targets (V2 §6) ---------------------------------------------------
@@ -454,7 +454,7 @@ func (s *Server) DownloadProjectBackupKey(w http.ResponseWriter, r *http.Request
 	}
 	a.set("fingerprint", k.Fingerprint)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="pgdock-backup-key-%s.asc"`, p.ID))
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="xenibase-backup-key-%s.asc"`, p.ID))
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(file))

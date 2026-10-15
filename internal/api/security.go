@@ -19,9 +19,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // SecurityOptions configures cookies and proxy trust.
@@ -36,8 +36,8 @@ type SecurityOptions struct {
 
 const (
 	csrfHeader   = "X-CSRF-Token"
-	sessionName  = "pgdock_session"
-	csrfName     = "pgdock_csrf"
+	sessionName  = "xenibase_session"
+	csrfName     = "xenibase_csrf"
 	secureprefix = "__Host-"
 )
 
@@ -381,7 +381,7 @@ var csrfExempt = map[string]bool{
 	"POST /api/v1/payments/webhooks/{provider}": true,
 	"POST /api/v1/support/inbound/email":        true,
 	"POST /api/v1/support/whatsapp":             true,
-	// pgdock-edge, signed with the edge secret (V4 §2.1).
+	// xenibase-edge, signed with the edge secret (V4 §2.1).
 	"POST /api/v1/edge/report":        true,
 	"POST /api/v1/edge/wake":          true,
 	"POST /api/v1/edge/auth-message":  true,
@@ -395,7 +395,7 @@ var reauthRequired = map[string]bool{
 	"DELETE /api/v1/projects/{id}":            true,
 	"POST /api/v1/settings/backup-key/export": true,
 	"DELETE /api/v1/nodes/{id}":               true,
-	// Spending money: a server, or the budget that lets PGDock buy them.
+	// Spending money: a server, or the budget that lets Xenibase buy them.
 	"POST /api/v1/admin/capacity/proposals/{proposal_id}/approve": true,
 	"PUT /api/v1/admin/capacity/settings":                         true,
 	"PUT /api/v1/projects/{id}/residency":                         true,
@@ -529,16 +529,16 @@ func (s *Server) guard(next http.Handler) http.Handler {
 				// The header lets tests tell the guard's refusals from handlers'.
 				switch {
 				case status == http.StatusNotFound:
-					ww.Header().Set("X-PGDock-Authz", "hidden")
+					ww.Header().Set("X-Xenibase-Authz", "hidden")
 					writeError(ww, status, "not_found", "not found")
 				case acc.NeedScope != "":
-					ww.Header().Set("X-PGDock-Authz", "denied")
+					ww.Header().Set("X-Xenibase-Authz", "denied")
 					writeScopeError(ww, acc.NeedScope)
 				case acc.Frozen:
-					ww.Header().Set("X-PGDock-Authz", "denied")
+					ww.Header().Set("X-Xenibase-Authz", "denied")
 					writeError(ww, status, "org_suspended", "the organisation is suspended or being deleted; only viewing works")
 				default:
-					ww.Header().Set("X-PGDock-Authz", "denied")
+					ww.Header().Set("X-Xenibase-Authz", "denied")
 					writeError(ww, status, "forbidden", "you don't have permission to do this")
 				}
 				return

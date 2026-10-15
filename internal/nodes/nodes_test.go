@@ -16,15 +16,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/agentca"
-	"github.com/israel-duff/pgdock/internal/agentsvc"
-	"github.com/israel-duff/pgdock/internal/backupfmt"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/store/storetest"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/agentca"
+	"github.com/israel-duff/xenibase/internal/agentsvc"
+	"github.com/israel-duff/xenibase/internal/backupfmt"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/store/storetest"
 )
 
 var quiet = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -87,7 +87,7 @@ func (e *env) startAgent(t *testing.T, token, node string) *agentsvc.State {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc := agentsvc.New(agentsvc.Config{Version: "test", NodeID: st.NodeID, PGBinDir: os.Getenv("PGDOCK_TEST_PG_BIN")}, quiet)
+	svc := agentsvc.New(agentsvc.Config{Version: "test", NodeID: st.NodeID, PGBinDir: os.Getenv("XENIBASE_TEST_PG_BIN")}, quiet)
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() { _ = svc.Serve(ctx, ln, agentsvc.TLSConfig(st.Cert, st.CA)) }()
 	t.Cleanup(cancel)
@@ -158,17 +158,17 @@ func TestBootstrapToken(t *testing.T) {
 }
 
 // TestDumpRestoreCopy runs real pg_dump/pg_restore. It needs
-// PGDOCK_TEST_PG_BIN with tools matching PGDOCK_TEST_DATABASE_URL's server.
+// XENIBASE_TEST_PG_BIN with tools matching XENIBASE_TEST_DATABASE_URL's server.
 func TestDumpRestoreCopy(t *testing.T) {
-	if os.Getenv("PGDOCK_TEST_PG_BIN") == "" {
-		t.Skip("PGDOCK_TEST_PG_BIN not set")
+	if os.Getenv("XENIBASE_TEST_PG_BIN") == "" {
+		t.Skip("XENIBASE_TEST_PG_BIN not set")
 	}
 	e := setup(t, "")
 	e.startAgent(t, e.token, "")
 	a, _ := e.svc.ForNode(context.Background(), e.node.ID)
 	ctx := context.Background()
 
-	admin, err := pgx.Connect(ctx, os.Getenv("PGDOCK_TEST_DATABASE_URL"))
+	admin, err := pgx.Connect(ctx, os.Getenv("XENIBASE_TEST_DATABASE_URL"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,7 +261,7 @@ func TestDumpRestoreCopy(t *testing.T) {
 
 func connectDB(t *testing.T, db string) *pgx.Conn {
 	t.Helper()
-	cfg, err := pgx.ParseConfig(os.Getenv("PGDOCK_TEST_DATABASE_URL"))
+	cfg, err := pgx.ParseConfig(os.Getenv("XENIBASE_TEST_DATABASE_URL"))
 	if err != nil {
 		t.Fatal(err)
 	}

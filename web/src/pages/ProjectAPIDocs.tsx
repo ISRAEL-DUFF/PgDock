@@ -35,7 +35,7 @@ import { SERVICE_LABELS } from "./Billing";
 type Services = components["schemas"]["BackendServices"];
 type CatalogTable = components["schemas"]["CatalogTable"];
 
-const KEY_PLACEHOLDER = "pgd_pub_…";
+const KEY_PLACEHOLDER = "xb_pub_…";
 
 /** The project's publishable key, when its whole value is known. */
 export function publishableKey(svc: Services): string {
@@ -75,7 +75,7 @@ function writeFlag(key: string, v: boolean) {
  * client language. Collapsed or open as this user last left it. */
 export function QuickStartPanel({ p, svc }: { p: Project; svc: Services }) {
   const { data: session } = useQuery(sessionQuery);
-  const storeKey = `pgdock.quickstart.${session?.user?.id ?? "anon"}.${p.id}`;
+  const storeKey = `xenibase.quickstart.${session?.user?.id ?? "anon"}.${p.id}`;
   const [open, setOpenState] = useState<boolean>(
     () => readFlag(storeKey) ?? true,
   );
@@ -140,7 +140,7 @@ export function QuickStartPanel({ p, svc }: { p: Project; svc: Services }) {
             >
               Generate types
             </button>{" "}
-            below, or <code>pgdock gen types --lang {lang}</code>.
+            below, or <code>xenibase gen types --lang {lang}</code>.
           </p>
         </div>
       )}

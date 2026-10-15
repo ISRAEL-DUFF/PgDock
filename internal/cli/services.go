@@ -9,14 +9,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
 // Backend services (V4 §2, §8.2): turning them on and off, and API keys.
 
 func printServices(w io.Writer, name string, s *client.BackendServices) {
 	if !s.Enabled {
-		fmt.Fprintf(w, "Backend services for %s: off (pgdock services enable %s)\n", name, name)
+		fmt.Fprintf(w, "Backend services for %s: off (xenibase services enable %s)\n", name, name)
 		return
 	}
 	url := ""
@@ -133,7 +133,7 @@ func (a *App) servicesDisable(args []string) error {
 	if err := check(r, err); err != nil {
 		return err
 	}
-	return a.followOp(r.JSON202, "backend services are off for "+p.Name+"; its keys are revoked, its pgd_* schemas kept")
+	return a.followOp(r.JSON202, "backend services are off for "+p.Name+"; its keys are revoked, its xb_* schemas kept")
 }
 
 func (a *App) keysList(args []string) error {
@@ -203,7 +203,7 @@ func (a *App) keysRevoke(args []string) error {
 	}
 	id, err := uuid.Parse(pos[1])
 	if err != nil {
-		return usageErrorf("the key id is a UUID (pgdock keys list %s)", pos[0])
+		return usageErrorf("the key id is a UUID (xenibase keys list %s)", pos[0])
 	}
 	c, cancel := ctx()
 	defer cancel()

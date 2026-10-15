@@ -22,7 +22,7 @@ CREATE TABLE payment_events (
 );
 CREATE INDEX payment_events_unprocessed ON payment_events (received_at) WHERE processed_at IS NULL;
 
--- What PGDock asked a provider for: a checkout, a saved-card or mandate
+-- What Xenibase asked a provider for: a checkout, a saved-card or mandate
 -- charge. The reference is ours and unique; a provider event names it.
 CREATE TABLE payment_intents (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -36,7 +36,7 @@ CREATE TABLE payment_intents (
   amount_minor bigint NOT NULL CHECK (amount_minor > 0),
   status       text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'succeeded', 'failed', 'expired')),
   checkout_url text,
-  automatic    boolean NOT NULL DEFAULT false, -- charged by PGDock (on issue, auto top-up, a retry)
+  automatic    boolean NOT NULL DEFAULT false, -- charged by Xenibase (on issue, auto top-up, a retry)
   error        text,
   created_at   timestamptz NOT NULL DEFAULT now(),
   completed_at timestamptz

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
 // Row-level security from the command line (V4.1 §9.4): the policies per

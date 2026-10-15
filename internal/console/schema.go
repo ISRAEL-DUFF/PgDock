@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/schemaedit"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/schemaedit"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Schema editing (V2 §4.3): preview a change as DDL with risk notes, run

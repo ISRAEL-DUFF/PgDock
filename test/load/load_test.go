@@ -22,8 +22,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 func envInt(name string, def int) int {
@@ -80,17 +80,17 @@ func probeFor(ctx context.Context, conn *pgx.Conn, stop <-chan struct{}) ([]time
 var tpsRe = regexp.MustCompile(`tps = ([0-9.]+)`)
 
 func TestLoad(t *testing.T) {
-	if os.Getenv("PGDOCK_TEST_LOAD") == "" {
-		t.Skip("set PGDOCK_TEST_LOAD=1 (make test-load)")
+	if os.Getenv("XENIBASE_TEST_LOAD") == "" {
+		t.Skip("set XENIBASE_TEST_LOAD=1 (make test-load)")
 	}
 	pgbench, err := exec.LookPath("pgbench")
 	if err != nil {
 		t.Skip("pgbench not installed")
 	}
-	total := envInt("PGDOCK_LOAD_PROJECTS", 150)
-	busy := envInt("PGDOCK_LOAD_BUSY", 10)
-	seconds := envInt("PGDOCK_LOAD_SECONDS", 30)
-	parallel := envInt("PGDOCK_LOAD_PARALLEL", 8)
+	total := envInt("XENIBASE_LOAD_PROJECTS", 150)
+	busy := envInt("XENIBASE_LOAD_BUSY", 10)
+	seconds := envInt("XENIBASE_LOAD_SECONDS", 30)
+	parallel := envInt("XENIBASE_LOAD_PARALLEL", 8)
 	e := testenv.Start(t, testenv.Options{})
 	ctx := context.Background()
 	report := &strings.Builder{}
@@ -186,7 +186,7 @@ func TestLoad(t *testing.T) {
 		}
 		pw, _ := u.User.Password()
 		host := u.Hostname()
-		if a := os.Getenv("PGDOCK_TEST_POOLER_POOLED_ADDR"); a != "" {
+		if a := os.Getenv("XENIBASE_TEST_POOLER_POOLED_ADDR"); a != "" {
 			host = a[:strings.LastIndex(a, ":")]
 		}
 		cmd := exec.Command(pgbench, append([]string{"-h", host, "-p", u.Port(), "-U", u.User.Username()}, append(args, strings.TrimPrefix(u.Path, "/"))...)...)

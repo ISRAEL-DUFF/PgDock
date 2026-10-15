@@ -1,4 +1,4 @@
-// Package regions keeps PGDock's regions (V3 §6.1): each groups nodes, a
+// Package regions keeps Xenibase's regions (V3 §6.1): each groups nodes, a
 // pooler pair with its own hostname, a storage target and a copy target.
 // The control plane stays in one place; the home region is where it and
 // projects that name no region are.
@@ -18,7 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Errors.
@@ -44,7 +44,7 @@ type Service struct {
 	cache map[string]store.Region
 }
 
-// New returns the service; home is PGDOCK_REGION.
+// New returns the service; home is XENIBASE_REGION.
 func New(db *pgxpool.Pool, home string, log *slog.Logger) *Service {
 	if home == "" {
 		home = "eu-central"
@@ -210,7 +210,7 @@ func (s *Service) Save(ctx context.Context, in Input) (store.Region, error) {
 	}
 	// The region's own target is in the region: residency projects may use it.
 	if in.StorageTargetID != nil {
-		if err := q.SetStorageTargetRegion(ctx, store.SetStorageTargetRegionParams{ID: *in.StorageTargetID, PgdockRegion: &in.ID}); err != nil {
+		if err := q.SetStorageTargetRegion(ctx, store.SetStorageTargetRegionParams{ID: *in.StorageTargetID, XenibaseRegion: &in.ID}); err != nil {
 			return r, err
 		}
 	}

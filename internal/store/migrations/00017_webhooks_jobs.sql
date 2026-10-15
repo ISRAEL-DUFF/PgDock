@@ -2,7 +2,7 @@
 -- V2 s9 (M15): database webhooks and scheduled jobs.
 
 -- A webhook POSTs row changes of chosen tables to a URL. The project's
--- database holds the transactional outbox (schema pgdock, owned by the
+-- database holds the transactional outbox (schema xenibase, owned by the
 -- superuser); this is the configuration and the delivery log.
 CREATE TABLE webhooks (
   id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),

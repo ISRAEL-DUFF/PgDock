@@ -10,16 +10,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/edge"
+	"github.com/israel-duff/xenibase/internal/edge"
 )
 
 // The test environment's API domain and edge secret.
 const (
-	EdgeDomain = "api.pgdock.test"
+	EdgeDomain = "api.xenibase.test"
 	EdgeSecret = "test-edge-secret-0123456789abcdefghij"
 )
 
-// Edge is an in-process pgdock-edge serving EdgeDomain.
+// Edge is an in-process xenibase-edge serving EdgeDomain.
 type Edge struct {
 	*edge.Edge
 	URL string // its listener; requests carry the project's Host
@@ -32,7 +32,7 @@ type Edge struct {
 // Stop stops the edge: it serves and reports no more.
 func (x *Edge) Stop() { x.stopOnce.Do(x.stop) }
 
-// StartEdge runs pgdock-edge against this environment's server and
+// StartEdge runs xenibase-edge against this environment's server and
 // poolers, and waits for its first configuration.
 func (e *Env) StartEdge(opts ...func(*edge.Config)) *Edge {
 	e.t.Helper()
@@ -51,7 +51,7 @@ func (e *Env) StartEdge(opts ...func(*edge.Config)) *Edge {
 	deadline := time.Now().Add(30 * time.Second)
 	for !ed.Ready() {
 		if time.Now().After(deadline) {
-			e.t.Fatal("pgdock-edge never loaded its configuration")
+			e.t.Fatal("xenibase-edge never loaded its configuration")
 		}
 		time.Sleep(50 * time.Millisecond)
 	}

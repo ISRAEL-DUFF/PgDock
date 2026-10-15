@@ -17,8 +17,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/jwtes"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/jwtes"
 )
 
 // Error is the body of every error the edge returns (V4 §3.5).
@@ -114,7 +114,7 @@ func (e *Edge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			c.json(http.StatusOK, map[string]string{"status": "ok"})
 			return
 		}
-		c.fail(http.StatusNotFound, "unknown_host", "this hostname isn't a PGDock project")
+		c.fail(http.StatusNotFound, "unknown_host", "this hostname isn't a Xenibase project")
 		return
 	}
 	if !e.Ready() {
@@ -352,7 +352,7 @@ func (e *Edge) health(c *call, req Request) {
 	var uid *string
 	var replica bool // served by a read replica
 	err := e.WithRequest(ctx, c.p, req, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `SELECT coalesce(pgd_auth.role(), ''), pgd_auth.uid()::text, current_user, pg_is_in_recovery()`).Scan(&role, &uid, &dbRole, &replica)
+		return tx.QueryRow(ctx, `SELECT coalesce(xb_auth.role(), ''), xb_auth.uid()::text, current_user, pg_is_in_recovery()`).Scan(&role, &uid, &dbRole, &replica)
 	})
 	if err != nil {
 		e.dbError(c, err)
@@ -408,7 +408,7 @@ func (e *Edge) finish(c *call) {
 	e.meter.record(l, c.billed, c.storage, c.transforms)
 }
 
-// wake asks pgdock-server to resume a paused project, at most every 30
+// wake asks xenibase-server to resume a paused project, at most every 30
 // seconds per project.
 func (e *Edge) wake(ref string) {
 	now := time.Now()

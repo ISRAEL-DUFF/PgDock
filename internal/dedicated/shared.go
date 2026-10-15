@@ -11,10 +11,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // KindSharedCluster creates a shared cluster on a node through its agent,
@@ -147,7 +147,7 @@ func (s *Service) runSharedCluster(ctx context.Context, op store.Operation, log 
 		return jobs.Permanent(err)
 	}
 	if len(inst.AdminSecret) == 0 {
-		sealed, err := provision.SealInstanceSecret(s.keyring, inst.ID, provision.AdminSecret{User: "pgdock_admin", Password: randomPassword()})
+		sealed, err := provision.SealInstanceSecret(s.keyring, inst.ID, provision.AdminSecret{User: "xenibase_admin", Password: randomPassword()})
 		if err != nil {
 			return err
 		}

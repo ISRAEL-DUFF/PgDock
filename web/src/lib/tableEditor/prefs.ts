@@ -23,7 +23,7 @@ function write(key: string, v: unknown) {
   }
 }
 
-const tabsKey = (project: string) => `pgdock.editor.tabs.${project}`;
+const tabsKey = (project: string) => `xenibase.editor.tabs.${project}`;
 
 export function loadTabs(project: string): TableRef[] {
   const v = read<unknown>(tabsKey(project), []);
@@ -55,7 +55,7 @@ export function renameTab(tabs: TableRef[], from: TableRef, to: TableRef): Table
 
 export type ColumnLayout = { widths: Record<string, number>; order: string[] };
 
-const layoutKey = (project: string, t: TableRef) => `pgdock.editor.layout.${project}.${refKey(t)}`;
+const layoutKey = (project: string, t: TableRef) => `xenibase.editor.layout.${project}.${refKey(t)}`;
 
 export function loadLayout(project: string, t: TableRef): ColumnLayout {
   const v = read<Partial<ColumnLayout>>(layoutKey(project, t), {});

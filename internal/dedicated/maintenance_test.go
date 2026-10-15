@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/dedicated"
 )
 
 func TestMaintenanceWindow(t *testing.T) {

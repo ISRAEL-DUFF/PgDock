@@ -1,6 +1,6 @@
 // Package schedjobs runs a project's scheduled jobs (V2 §9.2): SQL as the
 // project owner, or an HTTP call through the outbound client, on a cron
-// schedule in a time zone. One pgdock-server schedules (an advisory lock);
+// schedule in a time zone. One xenibase-server schedules (an advisory lock);
 // missed runs are not caught up.
 package schedjobs
 
@@ -23,12 +23,12 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
 var (
@@ -64,7 +64,7 @@ const (
 	AlertAfter = 3
 )
 
-const schedulerLockKey int64 = 0x7067646f636b06 // "pgdock\x06"
+const schedulerLockKey int64 = 0x7067646f636b06 // "xenibase\x06"
 
 // Limits are an organisation's plan limits (the tenancy service).
 type Limits interface {
@@ -235,7 +235,7 @@ func (s *Service) validate(ctx context.Context, p store.Project, in *Params) (Sc
 		}
 		for k, v := range in.HTTP.Headers {
 			lk := strings.ToLower(k)
-			if !headerRe.MatchString(k) || strings.HasPrefix(lk, "pgdock-") || lk == "host" || lk == "content-length" || strings.ContainsAny(v, "\r\n") {
+			if !headerRe.MatchString(k) || strings.HasPrefix(lk, "xenibase-") || lk == "host" || lk == "content-length" || strings.ContainsAny(v, "\r\n") {
 				return sched, fmt.Errorf("%w: header %q is not allowed", ErrInvalid, k)
 			}
 		}
@@ -615,7 +615,7 @@ func (s *Service) execute(ctx context.Context, j store.ScheduledJob, p store.Pro
 		_ = q.SetJobFailures(ctx, store.SetJobFailuresParams{ID: j.ID, ConsecutiveFailures: fails})
 	}
 	if fails == AlertAfter {
-		s.notify(ctx, p, fmt.Sprintf("[PGDock] Job %s of %s failed %d times in a row", j.Name, p.Name, fails),
+		s.notify(ctx, p, fmt.Sprintf("[Xenibase] Job %s of %s failed %d times in a row", j.Name, p.Name, fails),
 			fmt.Sprintf("The scheduled job %s of %s has failed %d runs in a row. The last error:\n\n%s", j.Name, p.Name, fails, deref(finish.Error)))
 	}
 }
@@ -633,7 +633,7 @@ func deref(s *string) string {
 
 // runSQL runs a job's SQL as the project owner in one transaction, with
 // the job's timeout as statement_timeout. The connection does not lift a
-// storage soft lock, unlike PGDock's own admin connections.
+// storage soft lock, unlike Xenibase's own admin connections.
 func (s *Service) runSQL(ctx context.Context, p store.Project, sqlText string, timeout time.Duration) (int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout+10*time.Second)
 	defer cancel()
@@ -641,7 +641,7 @@ func (s *Service) runSQL(ctx context.Context, p store.Project, sqlText string, t
 }
 
 // runHTTP calls the job's URL through the outbound client, signed, with a
-// PGDock-Job header.
+// Xenibase-Job header.
 func (s *Service) runHTTP(ctx context.Context, j store.ScheduledJob, p store.Project, h *HTTPSpec, secret string, timeout time.Duration) (int, error) {
 	if h == nil {
 		return 0, errors.New("the job has no request")
@@ -653,7 +653,7 @@ func (s *Service) runHTTP(ctx context.Context, j store.ScheduledJob, p store.Pro
 	if h.Body != "" && hdr.Get("Content-Type") == "" {
 		hdr.Set("Content-Type", "application/json")
 	}
-	hdr.Set("PGDock-Job", j.ID.String())
+	hdr.Set("Xenibase-Job", j.ID.String())
 	resp, err := s.out.Do(ctx, outbound.Request{OrgID: p.OrgID, Method: h.Method, URL: h.URL, Header: hdr, Body: []byte(h.Body), Timeout: timeout, Secret: secret})
 	if err != nil {
 		return 0, err
@@ -673,7 +673,7 @@ func (s *Service) notify(ctx context.Context, p store.Project, subject, body str
 		return
 	}
 	link := strings.TrimRight(s.cfg.PublicURL, "/") + "/projects/" + p.ID.String() + "/jobs"
-	if err := s.mail.Send(ctx, mail.Message{To: addrs, Subject: subject, Body: body + "\n\n" + link}); err != nil {
+	if err := s.mail.Send(ctx, mail.Notice(addrs, subject, body, "Open the job in Xenibase", link)); err != nil {
 		s.log.Warn("send job email", "err", err)
 	}
 }

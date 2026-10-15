@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestEdgeFoundation is V4-M28's done-when (V4 §2): a project with
@@ -48,7 +48,7 @@ func TestEdgeFoundation(t *testing.T) {
 				sec = k.Value
 			}
 		}
-		if !strings.HasPrefix(pub, "pgd_pub_") || !strings.HasPrefix(sec, "pgd_sec_") {
+		if !strings.HasPrefix(pub, "xb_pub_") || !strings.HasPrefix(sec, "xb_sec_") {
 			t.Fatalf("first keys: %+v", en.Keys)
 		}
 		if code := e.Do("GET", "/api/v1/projects/"+id.String()+"/services", nil, &svc); code != http.StatusOK || !svc.Enabled ||

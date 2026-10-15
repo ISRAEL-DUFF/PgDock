@@ -15,18 +15,18 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/files"
-	"github.com/israel-duff/pgdock/internal/pooler"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/files"
+	"github.com/israel-duff/xenibase/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
 // feedPage bounds a page of the configuration feed.
 const feedPage = 500
 
-// Config is the configuration feed for pgdock-edge (V4 §2.1): projects
+// Config is the configuration feed for xenibase-edge (V4 §2.1): projects
 // changed after since, waiting up to wait for one. With region set, a
 // project in another region comes as disabled, so an edge that served it
 // before a move drops it.
@@ -219,7 +219,7 @@ func FilesPrefix(ref string) string { return files.Prefix(ref) }
 
 // storageSecret signs a project's file URLs.
 func (s *Service) storageSecret(ref string) []byte {
-	return s.keyring.Derive("pgdock storage urls "+ref, 32)
+	return s.keyring.Derive("xenibase storage urls "+ref, 32)
 }
 
 func or(v, d int) int {

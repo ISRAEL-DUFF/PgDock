@@ -5,7 +5,7 @@ package auth
 // settings; every user then accepts the new version.
 const DefaultTerms = `# Terms of use
 
-This PGDock installation is run by its platform admin for friends and
+This Xenibase installation is run by its platform admin for friends and
 colleagues. By using it you agree to the following.
 
 ## What the platform admin can and cannot see
@@ -13,7 +13,7 @@ colleagues. By using it you agree to the following.
 The platform admin manages servers, plans, and accounts. They can see your
 organisations' names, member and project counts, sizes, and usage. They
 cannot open your databases, SQL console, backups, connection strings, or
-audit details through PGDock, except through **break-glass access**: a
+audit details through Xenibase, except through **break-glass access**: a
 time-limited session (at most 4 hours) with a written reason, that every
 owner of your organisation is emailed about at once, that is shown to your
 organisation while it lasts, and that is recorded in your audit log.
@@ -26,7 +26,7 @@ them.
 
 Projects are backed up nightly (7 daily and 4 weekly copies) unless you
 choose otherwise. Deleted projects keep a final backup for 30 days. Backups in
-a bucket your organisation owns are yours and are never deleted by PGDock
+a bucket your organisation owns are yours and are never deleted by Xenibase
 when your organisation is removed.
 
 ## No guarantees
@@ -67,7 +67,7 @@ written follow-up once it is understood.
 // DefaultPrivacy is version 1 of the privacy notice.
 const DefaultPrivacy = `# Privacy notice
 
-PGDock stores your name, email address, a hash of your password, your
+Xenibase stores your name, email address, a hash of your password, your
 two-factor secret (encrypted), the addresses and browsers of your sessions,
 and an audit log of what you do, so it can sign you in, keep your
 organisations secure, and show your colleagues who changed what.
@@ -86,18 +86,18 @@ You can ask the platform admin to delete your account at any time.
 // with the terms. A template: have it reviewed before a paid launch.
 const DefaultAUP = `# Acceptable use policy
 
-You may not use PGDock, or let others use your projects, to:
+You may not use Xenibase, or let others use your projects, to:
 
 - break the law, or help anyone else break it;
 - store or process data you have no right to hold, or personal data
   without a lawful basis;
 - send spam, or host phishing or malware;
-- attack, probe or overload PGDock, its other customers, or any other
+- attack, probe or overload Xenibase, its other customers, or any other
   system (including running scanners or crypto miners from scheduled jobs
   or webhooks);
 - get around the limits of your plan, the Free tier's pause and archive,
   or one Free organisation per person;
-- resell PGDock without a written agreement.
+- resell Xenibase without a written agreement.
 
 We may suspend projects or organisations that do, with notice where the
 law and the situation allow. Report abuse to the support address.

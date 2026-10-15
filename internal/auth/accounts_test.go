@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/mail"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/mail"
 )
 
 // inbox captures account email.
@@ -56,7 +56,7 @@ func (b *inbox) count(addr string) int {
 
 func newAccounts(t *testing.T) (*auth.Service, *clock, *inbox, int, string) {
 	t.Helper()
-	s, c := newService(t, auth.Config{PublicURL: "https://pgdock.test"})
+	s, c := newService(t, auth.Config{PublicURL: "https://xenibase.test"})
 	box := &inbox{}
 	s.SetMailer(box)
 	ctx := context.Background()

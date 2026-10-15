@@ -1,10 +1,10 @@
-// Package pgdock is PGDock's Go client: the data API, auth, storage and
+// Package xenibase is Xenibase's Go client: the data API, auth, storage and
 // realtime of a project with backend services (V4 §8).
 //
-//	c, err := pgdock.New("https://k7f3m2q9.api.pgdock.ng", os.Getenv("PGDOCK_SECRET_KEY"))
+//	c, err := xenibase.New("https://k7f3m2q9.api.xenibase.ng", os.Getenv("XENIBASE_SECRET_KEY"))
 //	var todos []Todo
 //	_, err = c.Data.From("todos").Select("id,title").Eq("done", false).Limit(20).Into(ctx, &todos)
-package pgdock
+package xenibase
 
 import (
 	"encoding/json"
@@ -28,9 +28,9 @@ type Error struct {
 
 func (e *Error) Error() string {
 	if e.RequestID != "" {
-		return fmt.Sprintf("pgdock: %d %s: %s (request %s)", e.Status, e.Code, e.Message, e.RequestID)
+		return fmt.Sprintf("xenibase: %d %s: %s (request %s)", e.Status, e.Code, e.Message, e.RequestID)
 	}
-	return fmt.Sprintf("pgdock: %d %s: %s", e.Status, e.Code, e.Message)
+	return fmt.Sprintf("xenibase: %d %s: %s", e.Status, e.Code, e.Message)
 }
 
 // IsCode reports whether err is an API error with this code.

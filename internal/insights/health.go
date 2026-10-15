@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Bloat is a table's estimated wasted space (V3 §8, with the reclaim-space
@@ -106,7 +106,7 @@ type Session struct {
 	Query     string
 	Running   time.Duration
 	InXact    time.Duration
-	// Platform: PGDock's own session (backups, the console, moves).
+	// Platform: Xenibase's own session (backups, the console, moves).
 	Platform bool
 }
 
@@ -130,7 +130,7 @@ func (s *Service) Locks(ctx context.Context, p store.Project) ([]Block, error) {
 	rows, err := conn.Query(ctx, `
 		SELECT a.pid, COALESCE(a.usename, ''), COALESCE(a.state, ''), COALESCE(a.wait_event_type || ': ' || a.wait_event, ''),
 		  left(COALESCE(a.query, ''), 2000), COALESCE(EXTRACT(EPOCH FROM now() - a.query_start), 0), COALESCE(EXTRACT(EPOCH FROM now() - a.xact_start), 0),
-		  a.usename = current_user OR a.application_name LIKE 'pgdock%', pg_blocking_pids(a.pid),
+		  a.usename = current_user OR a.application_name LIKE 'xenibase%', pg_blocking_pids(a.pid),
 		  COALESCE((SELECT l.mode || ' on ' || COALESCE(l.relation::regclass::text, l.locktype) FROM pg_locks l WHERE l.pid = a.pid AND NOT l.granted LIMIT 1), '')
 		FROM pg_stat_activity a
 		WHERE a.datname = current_database() AND a.backend_type = 'client backend' AND a.pid <> pg_backend_pid()`)

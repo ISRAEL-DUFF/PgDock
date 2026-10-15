@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/backupfmt"
+	"github.com/israel-duff/xenibase/internal/backupfmt"
 )
 
 func TestDecrypt(t *testing.T) {

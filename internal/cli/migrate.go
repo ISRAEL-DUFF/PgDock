@@ -4,21 +4,21 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
 // migrateSupabase runs the Supabase migration helper's steps (V4 §9) on a
 // project whose database was imported from Supabase. The source's
 // connection string and S3 secret come from flags or, to keep them out of
-// shell history, PGDOCK_SUPABASE_DB_URL and PGDOCK_SUPABASE_S3_SECRET.
+// shell history, XENIBASE_SUPABASE_DB_URL and XENIBASE_SUPABASE_S3_SECRET.
 func (a *App) migrateSupabase(args []string) error {
 	fs := flag.NewFlagSet("migrate supabase", flag.ContinueOnError)
 	step := fs.String("step", "all", "policies, users, storage, or all (in that order)")
-	source := fs.String("source", "", "the Supabase database's connection string (or PGDOCK_SUPABASE_DB_URL)")
+	source := fs.String("source", "", "the Supabase database's connection string (or XENIBASE_SUPABASE_DB_URL)")
 	endpoint := fs.String("s3-endpoint", "", "the Supabase project's S3 endpoint, https://<ref>.supabase.co/storage/v1/s3")
 	region := fs.String("s3-region", "", "the S3 region Supabase shows")
 	key := fs.String("s3-access-key", "", "the S3 access key id")
-	secret := fs.String("s3-secret-key", "", "the S3 secret (or PGDOCK_SUPABASE_S3_SECRET)")
+	secret := fs.String("s3-secret-key", "", "the S3 secret (or XENIBASE_SUPABASE_S3_SECRET)")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
@@ -28,10 +28,10 @@ func (a *App) migrateSupabase(args []string) error {
 		return err
 	}
 	if *source == "" {
-		*source = a.getenv("PGDOCK_SUPABASE_DB_URL")
+		*source = a.getenv("XENIBASE_SUPABASE_DB_URL")
 	}
 	if *secret == "" {
-		*secret = a.getenv("PGDOCK_SUPABASE_S3_SECRET")
+		*secret = a.getenv("XENIBASE_SUPABASE_S3_SECRET")
 	}
 	var steps []string
 	switch *step {
@@ -47,7 +47,7 @@ func (a *App) migrateSupabase(args []string) error {
 	}
 	for _, s := range steps {
 		if s != "policies" && *source == "" {
-			return usageErrorf("the %s step reads the Supabase database: pass --source or set PGDOCK_SUPABASE_DB_URL", s)
+			return usageErrorf("the %s step reads the Supabase database: pass --source or set XENIBASE_SUPABASE_DB_URL", s)
 		}
 		if s == "storage" && (*endpoint == "" || *key == "" || *secret == "") {
 			return usageErrorf("the storage step needs --s3-endpoint, --s3-access-key and --s3-secret-key (Supabase: Project Settings → Storage → S3 connection)")
@@ -58,7 +58,7 @@ func (a *App) migrateSupabase(args []string) error {
 		return err
 	}
 	done := map[string]string{
-		"policies": "policies and defaults now use " + p.Name + "'s request roles and pgd_auth",
+		"policies": "policies and defaults now use " + p.Name + "'s request roles and xb_auth",
 		"users":    "users copied; they sign in with their Supabase passwords",
 		"storage":  "buckets, files and storage policies copied",
 	}

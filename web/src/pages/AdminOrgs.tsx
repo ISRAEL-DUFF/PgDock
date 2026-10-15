@@ -38,7 +38,7 @@ export function AdminOrgsPage() {
   for (const r of usage.data?.items ?? []) if (r.metric === "shared_storage_gb_hours") storage[r.org_id] = r.quantity;
   return (
     <>
-      <PageHeading title="Organisations" description="Every organisation on this PGDock: plan, size, and status. What is inside them is theirs." />
+      <PageHeading title="Organisations" description="Every organisation on this Xenibase: plan, size, and status. What is inside them is theirs." />
       <div className="mb-3">
         <Input placeholder="Search name or slug" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs" aria-label="Search organisations" />
       </div>

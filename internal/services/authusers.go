@@ -10,16 +10,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/projauth"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/projauth"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // The dashboard's view of a project's users (V4 §4.9), read and changed in
 // the project's database as the platform's admin.
 
 // withProjectAuth runs fn in a transaction on p's database, once its
-// pgd_auth tables exist.
+// xb_auth tables exist.
 func (s *Service) withProjectAuth(ctx context.Context, projectID uuid.UUID, fn func(store.Project, pgx.Tx) error) error {
 	q := store.New(s.db)
 	svc, err := q.GetProjectServices(ctx, projectID)

@@ -1,0 +1,133 @@
+name: Deploy
+
+# Upgrades a Xenibase control server to a release tag with deploy/compose/upgrade.sh
+# over SSH (docs/deploying.md). Run it by hand from the Actions tab. It refuses a
+# tag whose CI isn't green, waits for a reviewer to approve the "production"
+# environment, and the server rolls itself back if the new version doesn't
+# become healthy.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to deploy, e.g. v4.1.0"
+        required: true
+        type: string
+      dry_run:
+        description: "Only run the pre-checks on the server; change nothing"
+        required: false
+        default: false
+        type: boolean
+
+# Two deploys at once would fight over the same server.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  verify:
+    name: The tag exists and its CI is green
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.tag.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve the tag
+        id: tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.]+)?$' || { echo "::error::'$TAG' is not a release tag like v4.1.0"; exit 1; }
+          git rev-parse -q --verify "refs/tags/$TAG^{commit}" >/dev/null || { echo "::error::no such tag: $TAG"; exit 1; }
+          echo "sha=$(git rev-parse "refs/tags/$TAG^{commit}")" >> "$GITHUB_OUTPUT"
+
+      - name: CI passed on that commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.tag.outputs.sha }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs" --paginate \
+            --jq '.check_runs[] | "\(.name)\t\(.conclusion // "pending")"' | sort -u > checks.txt
+          echo "Checks on $SHA:"; cat checks.txt
+          # Nothing may have failed or still be running...
+          if grep -Eq $'\t(failure|cancelled|timed_out|action_required|pending)$' checks.txt; then
+            echo "::error::CI isn't green on this commit"; exit 1
+          fi
+          # ...and each of these must have run and passed.
+          for job in ci e2e docs-install audit; do
+            grep -q "^$job"$'\tsuccess$' checks.txt || { echo "::error::the '$job' check has no passing run on this commit"; exit 1; }
+          done
+
+  deploy:
+    name: Upgrade the server
+    needs: verify
+    runs-on: ubuntu-latest
+    # Protect this environment (Settings → Environments → production) with
+    # required reviewers: that is the approval step. Its secrets and variables:
+    #   secrets.DEPLOY_SSH_KEY      private key of the deploy user
+    #   secrets.DEPLOY_KNOWN_HOSTS  the server's host key line(s), from ssh-keyscan
+    #   vars.DEPLOY_HOST, vars.DEPLOY_USER, vars.DEPLOY_PORT (optional)
+    environment: production
+    timeout-minutes: 120
+    env:
+      TAG: ${{ inputs.tag }}
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+    steps:
+      - name: SSH setup
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          [ -n "$DEPLOY_HOST" ] && [ -n "$DEPLOY_USER" ] && [ -n "$KEY" ] && [ -n "$KNOWN_HOSTS" ] \
+            || { echo "::error::set DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY and DEPLOY_KNOWN_HOSTS on the production environment"; exit 1; }
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy; chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host target
+            HostName $DEPLOY_HOST
+            User $DEPLOY_USER
+            Port ${DEPLOY_PORT:-22}
+            IdentityFile ~/.ssh/deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            BatchMode yes
+            ServerAliveInterval 30
+            ServerAliveCountMax 20
+          EOF
+
+      - name: Before
+        run: ssh target status
+
+      - name: Upgrade
+        run: |
+          flag=""
+          [ "${{ inputs.dry_run }}" = "true" ] && flag="--dry-run"
+          set -o pipefail
+          ssh target "upgrade $TAG $flag" 2>&1 | tee upgrade.log
+
+      - name: After
+        if: always()
+        run: |
+          ssh target last || true
+          ssh target status || true
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Deploy $TAG${{ inputs.dry_run == true && ' (dry run)' || '' }}"
+            echo
+            echo '```'
+            tail -n 40 upgrade.log 2>/dev/null || echo "(no output)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

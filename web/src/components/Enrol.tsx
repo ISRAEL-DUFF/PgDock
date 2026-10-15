@@ -82,7 +82,7 @@ export function RecoveryCodes({ codes, onDone, doneLabel = "Continue" }: { codes
           onClick={() => {
             const a = document.createElement("a");
             a.href = URL.createObjectURL(new Blob([text + "\n"], { type: "text/plain" }));
-            a.download = "pgdock-recovery-codes.txt";
+            a.download = "xenibase-recovery-codes.txt";
             a.click();
             URL.revokeObjectURL(a.href);
           }}

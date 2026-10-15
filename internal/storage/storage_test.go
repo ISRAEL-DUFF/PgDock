@@ -16,7 +16,7 @@ func TestUploadDownloadDelete(t *testing.T) {
 	}
 	defer f.Close()
 	tg := f.Target("backups")
-	tg.Prefix = "pgdock"
+	tg.Prefix = "xenibase"
 	c, err := New(tg)
 	if err != nil {
 		t.Fatal(err)
@@ -47,7 +47,7 @@ func TestUploadDownloadDelete(t *testing.T) {
 		t.Fatal("round trip mismatch")
 	}
 	// The prefix is applied.
-	if _, err := f.backend.HeadObject("backups", "pgdock/projects/x/logical/1.dump.enc"); err != nil {
+	if _, err := f.backend.HeadObject("backups", "xenibase/projects/x/logical/1.dump.enc"); err != nil {
 		t.Fatalf("prefix not applied: %v", err)
 	}
 	if err := c.Delete(ctx, "projects/x/logical/1.dump.enc"); err != nil {

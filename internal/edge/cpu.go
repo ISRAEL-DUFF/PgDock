@@ -7,7 +7,7 @@ import (
 )
 
 // cpuSampler measures the edge process's share of its host's CPUs between
-// reports (V4.1 §11), so pgdock-server can see a region's edges are busy
+// reports (V4.1 §11), so xenibase-server can see a region's edges are busy
 // and propose an edge node.
 type cpuSampler struct {
 	mu       sync.Mutex

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/freetier"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/freetier"
 )
 
 // ResumeProject implements POST /api/v1/projects/{id}/resume (V3 §4.2).

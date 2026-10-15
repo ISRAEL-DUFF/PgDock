@@ -10,12 +10,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/cloud"
-	"github.com/israel-duff/pgdock/internal/costs"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/cloud"
+	"github.com/israel-duff/xenibase/internal/costs"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // TestCostAttributionBackendServices is V4.1-M10's done-when (V4.1 §11):
@@ -194,7 +194,7 @@ func TestCostAttributionBackendServices(t *testing.T) {
 		t.Fatalf("a second evaluation proposed again: %+v", again)
 	}
 
-	// Approved, it creates a server whose cloud-init runs pgdock-edge, and
+	// Approved, it creates a server whose cloud-init runs xenibase-edge, and
 	// its node joins as an edge node.
 	var started gen.CapacityProposal
 	if code := e.Do("POST", "/api/v1/admin/capacity/proposals/"+p.ID.String()+"/approve", nil, &started); code != http.StatusOK || started.OperationId == nil {
@@ -208,8 +208,8 @@ func TestCostAttributionBackendServices(t *testing.T) {
 		}
 		return false
 	})
-	if !strings.Contains(srv.UserData, "--name pgdock-edge") || !strings.Contains(srv.UserData, "PGDOCK_EDGE_SECRET="+testenv.EdgeSecret) ||
-		!strings.Contains(srv.UserData, "PGDOCK_EDGE_REGION="+region) {
+	if !strings.Contains(srv.UserData, "--name xenibase-edge") || !strings.Contains(srv.UserData, "XENIBASE_EDGE_SECRET="+testenv.EdgeSecret) ||
+		!strings.Contains(srv.UserData, "XENIBASE_EDGE_REGION="+region) {
 		t.Fatalf("the edge server's cloud-init:\n%s", srv.UserData)
 	}
 	waitFor(t, 10*time.Second, "the node's server", func() bool {

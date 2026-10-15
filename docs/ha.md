@@ -3,7 +3,7 @@
 An HA dedicated project runs a **primary and a streaming standby on
 different nodes**, managed by [Patroni](https://patroni.readthedocs.io)
 with its state in a three-member **etcd** cluster (V3 §2.2). If the
-primary's node fails, the standby takes over and pgdock-server moves the
+primary's node fails, the standby takes over and xenibase-server moves the
 project's pooler route to it: clients keep the same URL. In the tests,
 writes come back about **17–20 seconds** after the primary's node dies
 (the target is under 60). HA projects carry the **99.9% SLA**, measured
@@ -14,14 +14,14 @@ from two vantage points (§2.7).
 Each region with HA projects has **its own** etcd cluster (V3.1-M2), so a
 region's failover depends only on that region. Platform → Nodes → **etcd
 cluster for HA**, choose the region, and pick three of its nodes with agents
-in three different failure domains. PGDock starts
+in three different failure domains. Xenibase starts
 an etcd member on each (`gcr.io/etcd-development/etcd:v3.6.5`, pulled by
-the agent; `PGDOCK_AGENT_ETCD_IMAGE` overrides it). Clients and peers use
-TLS with certificates from PGDock's own etcd CA (separate from the agent
+the agent; `XENIBASE_AGENT_ETCD_IMAGE` overrides it). Clients and peers use
+TLS with certificates from Xenibase's own etcd CA (separate from the agent
 CA; its key is sealed with the master key). The panel shows each member's
 health; HA needs a quorum (two of three).
 
-Members are reached at the node's address (`PGDOCK_AGENT_PUBLISH`, on
+Members are reached at the node's address (`XENIBASE_AGENT_PUBLISH`, on
 ports 2379 and 2380) or, on a single Docker host, by name on the agent's
 network. Open 2379–2380 between the three nodes on the private network.
 
@@ -84,7 +84,7 @@ members must be in three different ones (V3.1-M1).
 
 ## Turning HA on
 
-Project Settings → Compute → **High availability → Enable HA…**, `pgdock ha
+Project Settings → Compute → **High availability → Enable HA…**, `xenibase ha
 enable <p> [--node <id>] [--sync]`, or `POST /api/v1/projects/{id}/ha`. It
 needs a second node that takes dedicated instances. The operation:
 
@@ -107,7 +107,7 @@ asynchronous, and Patroni won't promote a standby more than 1 MB behind.
 ## Failover
 
 Patroni promotes the standby when the primary's leader lease (20 s)
-expires. pgdock-server checks every HA project's members every second:
+expires. xenibase-server checks every HA project's members every second:
 
 - when the primary's Patroni API stops answering, the poolers **pause** the
   project's clients, so they wait rather than fail;
@@ -117,7 +117,7 @@ expires. pgdock-server checks every HA project's members every second:
   `pg_rewind`).
 
 Each change is a **failover event** with how long writes were out. The
-project's HA card (and `pgdock ha status <p>`) shows each member's role,
+project's HA card (and `xenibase ha status <p>`) shows each member's role,
 state and lag, the history, and the month's availability.
 
 Containers have no watchdog device, so fencing is Patroni's leader lease
@@ -131,7 +131,7 @@ poolers only ever follow the member holding the lease.
   the member as unhealthy; bring its node back (or replace it, below).
 - **Quorum lost** (two of three members down, or the network between
   them): Patroni runs with **failsafe mode** (on for every cluster since
-  M27; pgdock-server turns it on for older clusters the first time it sees
+  M27; xenibase-server turns it on for older clusters the first time it sees
   their leader). A primary that can still reach every member of its
   cluster over their Patroni APIs keeps serving instead of demoting itself,
   so projects keep taking writes. Automatic failover can't happen until
@@ -150,7 +150,7 @@ throughout: no client errors, and every acknowledged commit kept.
 
 ## Switchover
 
-**Switch over** on the card, `pgdock ha switchover <p> [--to <member>]`, or
+**Switch over** on the card, `xenibase ha switchover <p> [--to <member>]`, or
 `POST /api/v1/projects/{id}/switchover`: the poolers pause, Patroni hands
 the primary role to the standby (the old primary stops cleanly first, so
 nothing is lost), the route moves, and the poolers resume. Writes paused
@@ -173,7 +173,7 @@ change). Base backups run on the current primary's node.
 
 ## Turning HA off
 
-**Turn off** on the card, `pgdock ha disable <p>`, or
+**Turn off** on the card, `xenibase ha disable <p>`, or
 `DELETE /api/v1/projects/{id}/ha`: the standby is removed and synchronous
 replication goes off. The primary stays under Patroni with one member, so
 turning HA on again doesn't restart it.
@@ -190,14 +190,14 @@ failover.
 ## Availability (the SLA)
 
 Each HA project has a probe login (`<database>_sla`) that can only connect
-and run `SELECT 1`. Every minute pgdock-server connects through the
+and run `SELECT 1`. Every minute xenibase-server connects through the
 project's **pooled URL** and runs it. With a status page configured
-(`PGDOCK_STATUS_URL`), pgdock-server also gives pgdock-status the probe
+(`XENIBASE_STATUS_URL`), xenibase-server also gives xenibase-status the probe
 targets, which it probes from outside every interval, and collects its
 per-minute results. Both directions are signed with the push secret.
 
 A minute is **unavailable when every vantage point that probed in it
-failed**. With no status page, that is pgdock-server's probe alone.
+failed**. With no status page, that is xenibase-server's probe alone.
 Minutes while the project is busy with an operation it asked for (a
 restore, a move) or its organisation is suspended are excluded. The
 project's HA card shows the month so far; `GET /api/v1/projects/{id}/ha`
@@ -208,7 +208,7 @@ has the minutes.
 Planned work is announced from Admin → Incidents → **Schedule
 maintenance** (or `POST /api/v1/admin/maintenance/announcements`): a
 window of at most 24 hours, a region (or all), and optionally the
-projects it covers. PGDock posts it to the status page as upcoming,
+projects it covers. Xenibase posts it to the status page as upcoming,
 emails the owners and admins of every organisation with a project it
 covers, and fixes the announcement time. A window can't be edited:
 cancel it (or announce a new one with `replaces`) and announce again.
@@ -223,11 +223,11 @@ excluding minutes from when it was cancelled. Maintenance done outside any
 announcement isn't excluded.
 
 The SLA prober applies exclusions every minute over the last six hours, so
-a minute probed by pgdock-status a little late is excluded too. The HA
+a minute probed by xenibase-status a little late is excluded too. The HA
 card and `availability.exclusions` list the excluded minutes per
 announcement, so customers can see what was left out and why.
 
-With `PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT` on (the default), the
+With `XENIBASE_MAINTENANCE_REQUIRE_ANNOUNCEMENT` on (the default), the
 weekly window's minor-upgrade sweep only switches over an HA project
 inside an announcement covering it, made 72 hours ahead. Without one, the
 upgrade waits for a window that has one. Non-HA projects aren't covered by
@@ -235,7 +235,7 @@ the SLA and are upgraded in every window, as before.
 
 #### Proposed announcements
 
-So that the gate doesn't hold upgrades back forever, PGDock **drafts** the
+So that the gate doesn't hold upgrades back forever, Xenibase **drafts** the
 announcement they need: when an HA instance is behind on its minor
 release, the sweep proposes a window, the first weekly window at least
 **96 hours** away (72 for the SLA, plus a day for you to confirm), scoped
@@ -258,6 +258,6 @@ announce (`POST /api/v1/admin/maintenance/announcements/preview`).
 
 ## Not yet
 
-- PGDock proposing an announcement for the next window when work is
+- Xenibase proposing an announcement for the next window when work is
   queued (V3.1 §4.1): the admin announces it.
 - A preview of the announcement email in the form.

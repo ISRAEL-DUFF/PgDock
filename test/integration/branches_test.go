@@ -15,9 +15,9 @@ import (
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // workflowStep is the run script of a step in docs/examples/
@@ -65,11 +65,11 @@ func workflowStep(t *testing.T, job, id string, exprs map[string]string) (string
 }
 
 // runStep runs a step's script with bash -e, as a GitHub-hosted runner does,
-// with pgdock on the PATH.
+// with xenibase on the PATH.
 func runStep(t *testing.T, script string, env map[string]string, cliBin string, extra ...string) string {
 	t.Helper()
 	dir := t.TempDir()
-	if err := os.Symlink(cliBin, filepath.Join(dir, "pgdock")); err != nil {
+	if err := os.Symlink(cliBin, filepath.Join(dir, "xenibase")); err != nil {
 		t.Fatal(err)
 	}
 	cmd := exec.Command("bash", "-e", "-c", script)
@@ -157,9 +157,9 @@ func TestBranchPerPullRequestWorkflow(t *testing.T) {
 	token := e.CreateToken(map[string]any{
 		"name": "GitHub Actions", "org_id": e.OrgID, "scopes": []string{"write"}, "project_ids": []uuid.UUID{app.Project.Id},
 	})
-	exprs := map[string]string{"vars.PGDOCK_SERVER": e.URL, "secrets.PGDOCK_TOKEN": token, "github.event.number": "42"}
+	exprs := map[string]string{"vars.XENIBASE_SERVER": e.URL, "secrets.XENIBASE_TOKEN": token, "github.event.number": "42"}
 	ghEnv := filepath.Join(t.TempDir(), "github_env")
-	cfg := "PGDOCK_CONFIG_DIR=" + t.TempDir()
+	cfg := "XENIBASE_CONFIG_DIR=" + t.TempDir()
 
 	// The pull request opens: a branch with its own DATABASE_URL.
 	script, env := workflowStep(t, "test", "branch", exprs)
@@ -169,7 +169,7 @@ func TestBranchPerPullRequestWorkflow(t *testing.T) {
 	}
 	vars := readEnvFile(t, ghEnv)
 	url := vars["DATABASE_URL"]
-	if url == "" || vars["DATABASE_URL_SESSION"] == "" || vars["PGDOCK_BRANCH"] != "pr-42" {
+	if url == "" || vars["DATABASE_URL_SESSION"] == "" || vars["XENIBASE_BRANCH"] != "pr-42" {
 		t.Fatalf("GITHUB_ENV: %v", vars)
 	}
 	if strings.Contains(out, testenv.RedactURL(url)) && strings.Contains(out, url) {

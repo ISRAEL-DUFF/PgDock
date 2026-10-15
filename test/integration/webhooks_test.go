@@ -16,9 +16,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // hookReq is one request a receiver got.
@@ -170,8 +170,8 @@ func TestWebhookDelivery(t *testing.T) {
 		t.Fatalf("created: %+v", wh)
 	}
 
-	// The project role can't touch PGDock's schema.
-	if _, err := app.Exec(ctx, `INSERT INTO pgdock.webhook_outbox (webhook_id, table_name, op) VALUES ($1, 'x', 'INSERT')`, wh.Webhook.Id); err == nil {
+	// The project role can't touch Xenibase's schema.
+	if _, err := app.Exec(ctx, `INSERT INTO xenibase.webhook_outbox (webhook_id, table_name, op) VALUES ($1, 'x', 'INSERT')`, wh.Webhook.Id); err == nil {
 		t.Fatal("the project role wrote to the outbox")
 	}
 
@@ -185,13 +185,13 @@ func TestWebhookDelivery(t *testing.T) {
 		t.Errorf("the event arrived after %s, want under a second", lat)
 	}
 	first := got[0]
-	if err := outbound.Verify(wh.Secret, first.Header.Get("PGDock-Signature"), first.Body, time.Now(), 5*time.Minute); err != nil {
-		t.Fatalf("signature: %v (%q)", err, first.Header.Get("PGDock-Signature"))
+	if err := outbound.Verify(wh.Secret, first.Header.Get("Xenibase-Signature"), first.Body, time.Now(), 5*time.Minute); err != nil {
+		t.Fatalf("signature: %v (%q)", err, first.Header.Get("Xenibase-Signature"))
 	}
-	if err := outbound.Verify("whsec_wrong", first.Header.Get("PGDock-Signature"), first.Body, time.Now(), 5*time.Minute); err == nil {
+	if err := outbound.Verify("whsec_wrong", first.Header.Get("Xenibase-Signature"), first.Body, time.Now(), 5*time.Minute); err == nil {
 		t.Fatal("a wrong secret verified")
 	}
-	if first.Header.Get("Authorization") != "Bearer receiver-token" || first.Header.Get("PGDock-Event-Id") != first.Event.ID ||
+	if first.Header.Get("Authorization") != "Bearer receiver-token" || first.Header.Get("Xenibase-Event-Id") != first.Event.ID ||
 		first.Event.Type != "INSERT" || first.Event.Table != "public.orders" || first.Event.Webhook != "orders-to-shop" ||
 		!strings.Contains(string(first.Event.Record), `"kettle"`) || string(first.Event.OldRecord) != "null" {
 		t.Fatalf("first event: %+v %v", first.Event, first.Header)
@@ -489,14 +489,14 @@ func TestWebhookDeadLettersAndReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 	got = rc.waitN(t, 3, 5*time.Second)
-	if err := outbound.Verify(sec.Secret, got[2].Header.Get("PGDock-Signature"), got[2].Body, time.Now(), 5*time.Minute); err != nil {
+	if err := outbound.Verify(sec.Secret, got[2].Header.Get("Xenibase-Signature"), got[2].Body, time.Now(), 5*time.Minute); err != nil {
 		t.Fatalf("signature after rotation: %v", err)
 	}
 }
 
 // TestWebhooksAcrossCopies covers V2 §9.3: branches and restored copies
 // don't carry webhooks, a restore in place reinstalls the triggers with an
-// empty outbox, and a promotion moves the outbox with the data. A pgdock
+// empty outbox, and a promotion moves the outbox with the data. A xenibase
 // schema the project role made itself is replaced.
 func TestWebhooksAcrossCopies(t *testing.T) {
 	e := testenv.Start(t, testenv.Options{})
@@ -509,7 +509,7 @@ func TestWebhooksAcrossCopies(t *testing.T) {
 	defer app.Close(ctx)
 	// The tenant squats the schema name, with a table of its own in it.
 	if _, err := app.Exec(ctx, `CREATE TABLE orders (id serial PRIMARY KEY, item text NOT NULL);
-		CREATE SCHEMA pgdock; CREATE TABLE pgdock.webhook_outbox (id int)`); err != nil {
+		CREATE SCHEMA xenibase; CREATE TABLE xenibase.webhook_outbox (id int)`); err != nil {
 		t.Fatal(err)
 	}
 	rc := newReceiver(t)
@@ -520,8 +520,8 @@ func TestWebhooksAcrossCopies(t *testing.T) {
 	admin := e.SharedAdmin(c.Project.DbName)
 	defer admin.Close(ctx)
 	var superOwned bool
-	if err := admin.QueryRow(ctx, `SELECT r.rolsuper FROM pg_namespace n JOIN pg_roles r ON r.oid = n.nspowner WHERE n.nspname = 'pgdock'`).Scan(&superOwned); err != nil || !superOwned {
-		t.Fatalf("the pgdock schema is not the superuser's: %v %v", superOwned, err)
+	if err := admin.QueryRow(ctx, `SELECT r.rolsuper FROM pg_namespace n JOIN pg_roles r ON r.oid = n.nspowner WHERE n.nspname = 'xenibase'`).Scan(&superOwned); err != nil || !superOwned {
+		t.Fatalf("the xenibase schema is not the superuser's: %v %v", superOwned, err)
 	}
 
 	// Events wait in the outbox while the receiver is down; a backup takes them along.
@@ -543,7 +543,7 @@ func TestWebhooksAcrossCopies(t *testing.T) {
 		conn := e.MustConnect(url)
 		defer conn.Close(ctx)
 		var present bool
-		if err := conn.QueryRow(ctx, `SELECT to_regnamespace('pgdock') IS NOT NULL`).Scan(&present); err != nil || present {
+		if err := conn.QueryRow(ctx, `SELECT to_regnamespace('xenibase') IS NOT NULL`).Scan(&present); err != nil || present {
 			t.Fatalf("%s kept the webhook schema: %v %v", what, present, err)
 		}
 		var trg int
@@ -604,7 +604,7 @@ func TestWebhooksAcrossCopies(t *testing.T) {
 	}
 
 	// A promotion takes the outbox and triggers with the data.
-	if os.Getenv("PGDOCK_TEST_PG_IMAGE") == "" {
+	if os.Getenv("XENIBASE_TEST_PG_IMAGE") == "" {
 		return
 	}
 	rc.status.Store(503)

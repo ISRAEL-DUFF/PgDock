@@ -19,10 +19,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/pooler"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Operation kinds implemented here.
@@ -68,7 +68,7 @@ type Config struct {
 	SSLMode     string
 
 	// SmokeSessionAddr and SmokePooledAddr are host:port of the two poolers
-	// as pgdock-server reaches them; they default to the public ones.
+	// as xenibase-server reaches them; they default to the public ones.
 	SmokeSessionAddr string
 	SmokePooledAddr  string
 	// SmokeSSLMode is the sslmode for smoke tests (default "prefer").
@@ -86,7 +86,7 @@ type Config struct {
 	RegionHost func(region string) string
 }
 
-// DefaultPGVersions are the Postgres majors PGDock supports by default.
+// DefaultPGVersions are the Postgres majors Xenibase supports by default.
 var DefaultPGVersions = []int{17, 18}
 
 func (c *Config) setDefaults() {

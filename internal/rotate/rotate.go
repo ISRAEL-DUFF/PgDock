@@ -1,9 +1,9 @@
-// Package rotate re-encrypts every secret PGDock stores under the primary
+// Package rotate re-encrypts every secret Xenibase stores under the primary
 // master key (spec §7.3: "The master key can be rotated with a CLI command
 // that re-encrypts the stored secrets").
 //
-// Rotation: start pgdock-server once with -rotate-master-key, the new key
-// as PGDOCK_MASTER_KEY and the old one in PGDOCK_MASTER_KEY_PREVIOUS. When
+// Rotation: start xenibase-server once with -rotate-master-key, the new key
+// as XENIBASE_MASTER_KEY and the old one in XENIBASE_MASTER_KEY_PREVIOUS. When
 // it reports success, drop the old key from the environment.
 package rotate
 
@@ -18,7 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/crypto"
 )
 
 // The associated data each secret is sealed with. They must match the
@@ -92,7 +92,7 @@ func walk(ctx context.Context, db *pgxpool.Pool, k *crypto.Keyring, m mode) (Res
 			}
 			nb, err := k.Reencrypt(s.blob, s.aad)
 			if err != nil {
-				return fmt.Errorf("%s: %w (is the old key in PGDOCK_MASTER_KEY_PREVIOUS?)", s.what, err)
+				return fmt.Errorf("%s: %w (is the old key in XENIBASE_MASTER_KEY_PREVIOUS?)", s.what, err)
 			}
 			if err := s.save(tx, nb); err != nil {
 				return fmt.Errorf("%s: save: %w", s.what, err)

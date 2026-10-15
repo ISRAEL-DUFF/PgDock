@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/totp"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/totp"
 )
 
 // control is the management API the load tests drive: the in-process test
@@ -28,12 +28,12 @@ type control interface {
 	CreateOrg(name string) uuid.UUID
 }
 
-// remoteTarget is a real install named by PGDOCK_LOAD_TARGET (V4.1 §13):
-// pgdock-server's URL, a platform admin's sign-in, and how to reach the
+// remoteTarget is a real install named by XENIBASE_LOAD_TARGET (V4.1 §13):
+// xenibase-server's URL, a platform admin's sign-in, and how to reach the
 // edge. deploy/loadtest/README.md sets one up.
 type remoteTarget struct {
 	URL, Email, Password, TOTPSecret string
-	// APIDomain is PGDOCK_API_DOMAIN: projects are https://<ref>.<domain>.
+	// APIDomain is XENIBASE_API_DOMAIN: projects are https://<ref>.<domain>.
 	APIDomain string
 	// EdgeAddr, when set, is dialled for every project host instead of
 	// DNS (no wildcard record needed); TLS still checks the project's name.
@@ -45,15 +45,15 @@ type remoteTarget struct {
 
 // remoteFromEnv reads the target, or returns nil to run in-process.
 func remoteFromEnv(t *testing.T) *remoteTarget {
-	url := os.Getenv("PGDOCK_LOAD_TARGET")
+	url := os.Getenv("XENIBASE_LOAD_TARGET")
 	if url == "" {
 		return nil
 	}
-	r := &remoteTarget{URL: url, Email: os.Getenv("PGDOCK_LOAD_EMAIL"), Password: os.Getenv("PGDOCK_LOAD_PASSWORD"),
-		TOTPSecret: os.Getenv("PGDOCK_LOAD_TOTP_SECRET"), APIDomain: os.Getenv("PGDOCK_LOAD_API_DOMAIN"),
-		EdgeAddr: os.Getenv("PGDOCK_LOAD_EDGE_ADDR"), EdgeCA: os.Getenv("PGDOCK_LOAD_EDGE_CA")}
+	r := &remoteTarget{URL: url, Email: os.Getenv("XENIBASE_LOAD_EMAIL"), Password: os.Getenv("XENIBASE_LOAD_PASSWORD"),
+		TOTPSecret: os.Getenv("XENIBASE_LOAD_TOTP_SECRET"), APIDomain: os.Getenv("XENIBASE_LOAD_API_DOMAIN"),
+		EdgeAddr: os.Getenv("XENIBASE_LOAD_EDGE_ADDR"), EdgeCA: os.Getenv("XENIBASE_LOAD_EDGE_CA")}
 	if r.Email == "" || r.Password == "" || r.TOTPSecret == "" || r.APIDomain == "" {
-		t.Fatal("PGDOCK_LOAD_TARGET needs PGDOCK_LOAD_EMAIL, PGDOCK_LOAD_PASSWORD, PGDOCK_LOAD_TOTP_SECRET (a platform admin) and PGDOCK_LOAD_API_DOMAIN")
+		t.Fatal("XENIBASE_LOAD_TARGET needs XENIBASE_LOAD_EMAIL, XENIBASE_LOAD_PASSWORD, XENIBASE_LOAD_TOTP_SECRET (a platform admin) and XENIBASE_LOAD_API_DOMAIN")
 	}
 	return r
 }

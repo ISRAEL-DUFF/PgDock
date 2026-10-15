@@ -15,26 +15,26 @@ import (
 	"testing"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/edge"
-	"github.com/israel-duff/pgdock/internal/statusapi"
-	"github.com/israel-duff/pgdock/internal/statuspage"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/edge"
+	"github.com/israel-duff/xenibase/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/statuspage"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
-// startStatusPageV41 runs pgdock-status with V4.1's components: billing,
+// startStatusPageV41 runs xenibase-status with V4.1's components: billing,
 // and backend services per region (eu-central and lagos), and email
 // through smtp when given.
 func startStatusPageV41(t *testing.T, smtp *testenv.SMTPServer) (*statuspage.Service, *httptest.Server) {
 	t.Helper()
 	dir := t.TempDir()
-	cfg := `public_url = "https://status.pgdock.test"
+	cfg := `public_url = "https://status.xenibase.test"
 push_secret = "` + statusSecret + `"
 data = "` + filepath.Join(dir, "status.db") + `"
 `
 	if smtp != nil {
 		host, port, _ := strings.Cut(smtp.Addr, ":")
-		cfg += "[smtp]\nhost = \"" + host + "\"\nport = " + port + "\ntls = \"none\"\nfrom = \"status@pgdock.test\"\n"
+		cfg += "[smtp]\nhost = \"" + host + "\"\nport = " + port + "\ntls = \"none\"\nfrom = \"status@xenibase.test\"\n"
 	}
 	for _, id := range []string{"dashboard", "edge-pooler", "shared-tier"} {
 		cfg += "[[component]]\nid = \"" + id + "\"\n  [[component.probe]]\n  kind = \"tcp\"\n  addr = \"127.0.0.1:1\"\n"
@@ -237,10 +237,10 @@ func TestStatusComponents(t *testing.T) {
 		t.Fatalf("lagos with its edge up: %s", s)
 	}
 
-	// A provider outage on the last automatic charge: billing degraded.
+	// A provider outage on the last automatic wallet debit: billing degraded.
 	org := e.CreateOrg("Payer")
 	if _, err := e.DB.Exec(ctx, `INSERT INTO payment_intents (org_id, reference, provider, channel, purpose, amount_minor, status, automatic, error)
-VALUES ($1, 'pgd-outage-'||$2, 'flutterwave', 'saved_card', 'topup', 1000, 'failed', true, 'provider unavailable: timeout')`, org, strconv.FormatInt(time.Now().UnixNano(), 10)); err != nil {
+VALUES ($1, 'xb-outage-'||$2, 'iswallet', 'wallet', 'invoice', 1000, 'failed', true, 'provider unavailable: timeout')`, org, strconv.FormatInt(time.Now().UnixNano(), 10)); err != nil {
 		t.Fatal(err)
 	}
 	if s := state("billing"); s != statusapi.Degraded {

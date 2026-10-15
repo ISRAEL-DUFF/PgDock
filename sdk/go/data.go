@@ -1,4 +1,4 @@
-package pgdock
+package xenibase
 
 import (
 	"context"
@@ -22,7 +22,7 @@ type Data struct {
 func (d *Data) Schema(name string) *Data { return &Data{c: d.c, schema: name} }
 
 // From is a table or view ("schema.table" for another exposed schema).
-// The generated Go types (pgdock gen types --lang go) give each table a
+// The generated Go types (xenibase gen types --lang go) give each table a
 // …Table constant to pass here and structs to decode into.
 func (d *Data) From(table string) *Table {
 	schema := d.schema
@@ -336,7 +336,7 @@ func (q *SelectQuery) Into(ctx context.Context, dest any) (Page, error) {
 	}
 	if dest != nil {
 		if err := json.Unmarshal(out.Data, dest); err != nil {
-			return Page{}, fmt.Errorf("pgdock: decoding rows: %w", err)
+			return Page{}, fmt.Errorf("xenibase: decoding rows: %w", err)
 		}
 	}
 	return Page{Count: out.Count, NextCursor: out.NextCursor}, nil
@@ -462,7 +462,7 @@ func (w *WriteQuery) Exec(ctx context.Context, dest any) (int64, error) {
 	}
 	if dest != nil && len(out.Data) > 0 {
 		if err := json.Unmarshal(out.Data, dest); err != nil {
-			return out.Affected, fmt.Errorf("pgdock: decoding rows: %w", err)
+			return out.Affected, fmt.Errorf("xenibase: decoding rows: %w", err)
 		}
 	}
 	return out.Affected, nil

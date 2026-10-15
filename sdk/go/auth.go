@@ -1,4 +1,4 @@
-package pgdock
+package xenibase
 
 import (
 	"context"
@@ -381,14 +381,14 @@ func (c Claims) Role() string { s, _ := c["role"].(string); return s }
 func (a *Auth) VerifyToken(ctx context.Context, token string) (Claims, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return nil, errors.New("pgdock: not a JWT")
+		return nil, errors.New("xenibase: not a JWT")
 	}
 	var hdr struct {
 		Alg string `json:"alg"`
 		Kid string `json:"kid"`
 	}
 	if err := decodeSeg(parts[0], &hdr); err != nil || hdr.Alg != "ES256" {
-		return nil, errors.New("pgdock: not an ES256 token")
+		return nil, errors.New("xenibase: not an ES256 token")
 	}
 	key, err := a.key(ctx, hdr.Kid)
 	if err != nil {
@@ -396,22 +396,22 @@ func (a *Auth) VerifyToken(ctx context.Context, token string) (Claims, error) {
 	}
 	sig, err := base64.RawURLEncoding.DecodeString(parts[2])
 	if err != nil || len(sig) != 64 {
-		return nil, errors.New("pgdock: bad signature encoding")
+		return nil, errors.New("xenibase: bad signature encoding")
 	}
 	sum := sha256.Sum256([]byte(parts[0] + "." + parts[1]))
 	if !ecdsa.Verify(key, sum[:], new(big.Int).SetBytes(sig[:32]), new(big.Int).SetBytes(sig[32:])) {
-		return nil, errors.New("pgdock: invalid signature")
+		return nil, errors.New("xenibase: invalid signature")
 	}
 	var c Claims
 	if err := decodeSeg(parts[1], &c); err != nil {
-		return nil, errors.New("pgdock: bad claims")
+		return nil, errors.New("xenibase: bad claims")
 	}
 	if exp, ok := c["exp"].(float64); !ok || time.Now().After(time.Unix(int64(exp), 0)) {
-		return nil, errors.New("pgdock: the token has expired")
+		return nil, errors.New("xenibase: the token has expired")
 	}
 	if ref := a.ref(); ref != "" {
 		if aud, _ := c["aud"].(string); aud != ref {
-			return nil, fmt.Errorf("pgdock: the token is for project %q, not %q", aud, ref)
+			return nil, fmt.Errorf("xenibase: the token is for project %q, not %q", aud, ref)
 		}
 	}
 	return c, nil
@@ -484,5 +484,5 @@ func (a *Auth) key(ctx context.Context, kid string) (*ecdsa.PublicKey, error) {
 	if k := keys[kid]; k != nil {
 		return k, nil
 	}
-	return nil, fmt.Errorf("pgdock: no key %q in the project's JWKS", kid)
+	return nil, fmt.Errorf("xenibase: no key %q in the project's JWKS", kid)
 }

@@ -1,4 +1,4 @@
-// Package web embeds the built React UI so pgdock-server ships as one binary.
+// Package web embeds the built React UI so xenibase-server ships as one binary.
 //
 // The embed directive cannot reference parent directories, so this package embeds its
 // own dist folder and exports it as an fs.FS for the server to serve.

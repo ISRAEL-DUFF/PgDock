@@ -456,7 +456,7 @@ function SettingsPanel({
         else onClose();
       }}
       title="Capacity settings"
-      description="Thresholds per tier, the server each adds, and the budget within which PGDock provisions by itself."
+      description="Thresholds per tier, the server each adds, and the budget within which Xenibase provisions by itself."
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>

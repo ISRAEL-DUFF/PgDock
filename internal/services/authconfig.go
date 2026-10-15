@@ -15,10 +15,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/jwtes"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/jwtes"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Auth settings' defaults and limits (V4 §4).
@@ -28,7 +28,7 @@ const (
 	MaxAccessTokenTTL        = 86400
 	DefaultPasswordMinLength = 8
 	// PlatformEmailsPerHour is what a project may send through the
-	// platform's SMTP (V4 §4.5); its own SMTP has no PGDock limit.
+	// platform's SMTP (V4 §4.5); its own SMTP has no Xenibase limit.
 	PlatformEmailsPerHour = 30
 )
 
@@ -53,6 +53,10 @@ type AuthSettings struct {
 	PhoneCountries []string `json:"phone_countries,omitempty"`
 	PhoneDailyCap  *int     `json:"phone_daily_cap,omitempty"`
 	SMSTemplate    *string  `json:"sms_template,omitempty"`
+	// EmailLayout wraps the project's emails (confirmation, magic link,
+	// password reset, invitation) in a clean layout under the project's name;
+	// off sends the template's text as it is. On when unset.
+	EmailLayout *bool `json:"email_layout,omitempty"`
 	// Anonymous users, MFA, identity linking.
 	AnonymousEnabled *bool   `json:"anonymous_enabled,omitempty"`
 	MFAPolicy        *string `json:"mfa_policy,omitempty"`
@@ -80,7 +84,7 @@ type OAuthSetting struct {
 	KeyID    string   `json:"key_id,omitempty"`  // Apple
 }
 
-// OAuthProviders are the providers PGDock signs in with (V4 §4.1).
+// OAuthProviders are the providers Xenibase signs in with (V4 §4.1).
 var OAuthProviders = []string{"google", "apple", "github", "facebook", "microsoft"}
 
 // MFA policies.
@@ -386,7 +390,7 @@ type PhoneProvider struct {
 	Language      string `json:"language,omitempty"`
 }
 
-// edgeAuth is what pgdock-edge needs: the settings and the OAuth and
+// edgeAuth is what xenibase-edge needs: the settings and the OAuth and
 // captcha secrets.
 func edgeAuth(st AuthSettings, prov sealedProviders, captchaURL string) edgeapi.AuthConfig {
 	a := st.Resolve()
@@ -703,8 +707,8 @@ func (s *Service) TestSMTP(ctx context.Context, projectID uuid.UUID, m *SMTPSett
 	if err := c.Validate(); err != nil {
 		return fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
-	return mail.Send(ctx, c, mail.Message{To: []string{to}, Subject: "PGDock test email",
-		Body: "This is a test email from your project's SMTP settings in PGDock. They work.\n"})
+	return mail.Send(ctx, c, mail.Message{To: []string{to}, Subject: "Xenibase test email", Plain: true,
+		Body: "This is a test email from your project's SMTP settings in Xenibase. They work.\n"})
 }
 
 // ---- Signing key rotation (V4 §4.4) ------------------------------------------

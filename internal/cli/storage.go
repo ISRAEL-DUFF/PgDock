@@ -14,7 +14,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
 // A project's files (V4 §5, §8.2). Remote paths are written ss:///bucket/path.
@@ -148,7 +148,7 @@ func (a *App) storageLs(args []string) error {
 	}
 	bucket, prefix, ok := remote(pos[1])
 	if !ok || bucket == "" {
-		return usageErrorf("usage: pgdock storage ls <project> ss:///<bucket>[/folder/]")
+		return usageErrorf("usage: xenibase storage ls <project> ss:///<bucket>[/folder/]")
 	}
 	if prefix != "" && !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
@@ -212,11 +212,11 @@ func (a *App) storageCp(args []string) error {
 		return a.upload(p, pos[1], db, dp)
 	case sr && !dr:
 		if sp == "" {
-			return usageErrorf("usage: pgdock %s", usage)
+			return usageErrorf("usage: xenibase %s", usage)
 		}
 		return a.download(p, sb, sp, pos[2])
 	}
-	return usageErrorf("usage: pgdock %s (one side local, the other ss:///…)", usage)
+	return usageErrorf("usage: xenibase %s (one side local, the other ss:///…)", usage)
 }
 
 func (a *App) upload(p client.Project, local, bucket, path string) error {
@@ -287,7 +287,7 @@ func (a *App) storageRm(args []string) error {
 		return err
 	}
 	if len(pos) < 2 {
-		return usageErrorf("usage: pgdock %s", usage)
+		return usageErrorf("usage: xenibase %s", usage)
 	}
 	p, err := a.project(pos[0])
 	if err != nil {
@@ -298,7 +298,7 @@ func (a *App) storageRm(args []string) error {
 	for _, s := range pos[1:] {
 		b, path, ok := remote(s)
 		if !ok || path == "" {
-			return usageErrorf("usage: pgdock %s", usage)
+			return usageErrorf("usage: xenibase %s", usage)
 		}
 		if _, seen := byBucket[b]; !seen {
 			order = append(order, b)
@@ -334,7 +334,7 @@ func (a *App) storageSign(args []string) error {
 	}
 	b, path, ok := remote(pos[1])
 	if !ok || path == "" {
-		return usageErrorf("usage: pgdock storage sign <project> ss:///<bucket>/<path> [--expires 1h]")
+		return usageErrorf("usage: xenibase storage sign <project> ss:///<bucket>/<path> [--expires 1h]")
 	}
 	p, err := a.project(pos[0])
 	if err != nil {

@@ -122,8 +122,8 @@ export function IncidentsPage() {
       {q.data && !q.data.status_page_configured && (
         <div className="mb-4">
           <Alert tone="warn" title="No status page connected">
-            Incidents stay in PGDock until you set PGDOCK_STATUS_URL and
-            PGDOCK_STATUS_PUSH_SECRET (docs/status-page.md).
+            Incidents stay in Xenibase until you set XENIBASE_STATUS_URL and
+            XENIBASE_STATUS_PUSH_SECRET (docs/status-page.md).
           </Alert>
         </div>
       )}

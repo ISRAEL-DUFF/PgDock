@@ -7,7 +7,7 @@ import {
   type BillingAccount,
   type Payment,
 } from "../api/client";
-import { naira, parseNaira } from "../lib/billing";
+import { channelLabel, naira, parseNaira } from "../lib/billing";
 import { formatDate } from "../lib/format";
 import {
   Alert,
@@ -63,8 +63,9 @@ export function PaymentsTab() {
             aria-label="Provider"
           >
             <option value="">All providers</option>
-            <option value="flutterwave">Flutterwave</option>
-            <option value="ispend">iSpend</option>
+            <option value="iswallet">Wallet provider</option>
+            <option value="flutterwave">Flutterwave (earlier)</option>
+            <option value="ispend">iSpend (earlier)</option>
             <option value="bank">Recorded by hand</option>
           </Select>
           <Button variant="primary" onClick={() => setRecording(true)}>
@@ -105,13 +106,13 @@ export function PaymentsTab() {
                 {naira(p.fee_minor)}
               </td>
               <td className="px-3 py-2">
-                {p.provider} · {p.channel.replace("_", " ")}
+                {p.provider} · {channelLabel(p.channel)}
               </td>
               <td className="px-3 py-2 font-mono text-xs text-muted">
                 {p.provider_ref}
               </td>
               <td className="px-3 py-2 text-right">
-                {p.refunded_minor < p.amount_minor && (
+                {p.provider === "bank" && p.refunded_minor < p.amount_minor && (
                   <Button size="small" onClick={() => setRefunding(p)}>
                     Refund
                   </Button>
@@ -175,7 +176,7 @@ function RecordPayment({
       open={open}
       onOpenChange={(o) => !o && onClose()}
       title="Record a payment"
-      description="For a transfer to PGDock's own account or a cheque. It settles the invoice given, then the oldest open ones; anything left becomes credit."
+      description="For a transfer to Xenibase's own account or a cheque. It settles the invoice given, then the oldest open ones; anything left becomes credit."
       testId="record-payment"
       footer={
         <Button variant="primary" busy={busy === "save"} onClick={save}>
@@ -289,12 +290,8 @@ function RefundPayment({
       const kobo = parseNaira(amount);
       if (!p || !kobo || !reason)
         throw new Error("Enter the amount and a reason.");
-      const r = await api.refundPayment(p.id, kobo, reason, reopen);
-      setDone(
-        r.status === "completed"
-          ? "Refunded."
-          : "The refund was sent; it is posted when the provider confirms it.",
-      );
+      await api.refundPayment(p.id, kobo, reason, reopen);
+      setDone("Refunded. Return the money to the customer yourself.");
       await qc.invalidateQueries({ queryKey: ["admin-payments"] });
     });
   return (
@@ -302,7 +299,7 @@ function RefundPayment({
       open={!!p}
       onOpenChange={(o) => !o && close()}
       title="Refund"
-      description="Refunds come out of the organisation's credit. To refund money that paid an invoice, issue a credit note first, or reopen the invoice so it is owed again."
+      description="Only payments recorded by hand are refunded here. Refunds come out of the organisation's credit. To refund money that paid an invoice, issue a credit note first, or reopen the invoice so it is owed again."
       testId="refund-payment"
       footer={
         !done && (
@@ -446,7 +443,7 @@ export function ReconciliationTab() {
   return (
     <Panel
       title="Reconciliation"
-      description="Each night PGDock lists the previous day's transactions at each provider and compares them with the payments it recorded."
+      description="Each night Xenibase lists the previous day's transactions at each provider and compares them with the payments it recorded."
       testId="reconciliation"
       actions={
         <Button
@@ -490,7 +487,7 @@ export function ReconciliationTab() {
               </div>
               {r.error && <p className="mt-1 text-danger">{r.error}</p>}
               {r.differences.length > 0 && (
-                <Table head={["Difference", "Reference", "Provider", "PGDock"]}>
+                <Table head={["Difference", "Reference", "Provider", "Xenibase"]}>
                   {r.differences.map((d) => (
                     <tr key={d.kind + d.provider_ref}>
                       <td className="px-3 py-2">
@@ -503,7 +500,7 @@ export function ReconciliationTab() {
                         {naira(d.provider_minor)}
                       </td>
                       <td className="px-3 py-2 tabular-nums">
-                        {naira(d.pgdock_minor)}
+                        {naira(d.xenibase_minor)}
                       </td>
                     </tr>
                   ))}
@@ -517,7 +514,7 @@ export function ReconciliationTab() {
   );
 }
 
-/** Provider webhooks PGDock could not match to an organisation. */
+/** Provider webhooks Xenibase could not match to an organisation. */
 export function EventsTab() {
   const qc = useQueryClient();
   const [outcome, setOutcome] = useState("unmatched");
@@ -535,7 +532,7 @@ export function EventsTab() {
   return (
     <Panel
       title="Payment events"
-      description="Every webhook from a provider, verified before it is posted. A transfer PGDock cannot match to an organisation waits here to be attributed."
+      description="Every webhook from a provider, verified before it is posted. A transfer Xenibase cannot match to an organisation waits here to be attributed."
       testId="payment-events"
       actions={
         <Select

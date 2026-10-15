@@ -1,16 +1,26 @@
 # Billing
 
-PGDock bills organisations in naira (V3 §3). This page covers the billing
-core that V3's M20 adds: price books, plans and proration, monthly
-invoices, VAT and withholding tax, credit notes, the ledger, forecasts and
-spend controls. Taking payments (cards, transfers, wallets), prepaid
-balances, dunning and WHT certificates are in [Payments](payments.md).
+Xenibase prices in US dollars and collects in naira (V3 §3, changed in
+V4.1). Hosting costs are in dollars, so prices are too; an invoice is
+converted to naira when it is issued, at a rate frozen on it. This page
+covers price books, plans and proration, monthly invoices, the conversion,
+VAT and withholding tax, credit notes, the ledger, forecasts and spend
+controls. Taking payments (each organisation's wallet), dunning and WHT
+certificates are in [Payments](payments.md).
 
-Amounts are integers in **kobo** everywhere: in the API, the database and
-the ledger. Unit prices may have fractions of a kobo ("34.25" kobo per
-GB-hour); each invoice line is rounded to the kobo, halves away from zero.
-Invoices and the CLI show "NGN" (PDF core fonts have no ₦ sign); the UI
-shows ₦.
+**Two currencies, one rule.** A price book is in **dollars** (its
+`currency` is `USD`) and its money is integers in **cents**. Unit prices
+may have fractions of a cent ("0.0002" cents per API request); each
+invoice line is rounded to the cent, halves away from zero. Everything
+else is integers in **kobo**: the invoice's naira amounts, the ledger,
+payments, credit notes and balances, in the API and the database. So a
+number in the API is kobo unless it says it is the dollar price
+(`usd_*`, or the price-book fields). Invoices and the CLI show "NGN" (PDF
+core fonts have no ₦ sign); the UI shows ₦ and $.
+
+A price book may still be in naira (`currency` is `NGN`, kobo): it needs
+no conversion. A platform with no wallet provider configured starts with
+one, because there is no rate to convert at (see below).
 
 ## Who sees billing
 
@@ -20,7 +30,7 @@ its projects: billing members can't open or create projects and can't be
 added to one. Admins don't see billing, so only owners can give or take
 the billing role.
 
-Org → **Billing** (`/org/billing`), `pgdock billing …`, and
+Org → **Billing** (`/org/billing`), `xenibase billing …`, and
 `/api/v1/orgs/{org}/billing/…`.
 
 ## Plans and price books
@@ -34,8 +44,8 @@ measured costs (V3 §3.1):
 | Plan | Monthly | Annual | Limits (quota plan) | Overage |
 | --- | --- | --- | --- | --- |
 | Free | — | — | Personal | none: hard limits |
-| Pro | ₦15,000 | ₦150,000 | Pro (new in V3) | per unit above the allowance |
-| Team | ₦60,000 | ₦600,000 | Team | lower unit prices, larger allowance |
+| Pro | $10 | $100 | Pro (new in V3) | per unit above the allowance |
+| Team | $40 | $400 | Team | lower unit prices, larger allowance |
 
 Allowances and overage are per month in each metric's unit
 (`shared_storage_gb_hours`, `backup_storage_gb_hours`, `branch_hours`,
@@ -56,10 +66,10 @@ Besides HA and synchronous replication (V4.1 §4):
 
 | Add-on | Where | Default price | Set in |
 | --- | --- | --- | --- |
-| 14-day point-in-time recovery | dedicated, Pro and Team | ₦5,000 a month (`addons.pitr_14_hour`) | Backups → Recovery window, `pgdock pitr window <p> 14`, `PATCH /projects/{id}/instance` |
-| 30-day point-in-time recovery | dedicated, Pro and Team | ₦12,000 a month (`addons.pitr_30_hour`) | as above, `30` |
-| Extended backup retention (30 daily, 12 weekly) | any project, Pro and Team | ₦1,500 a month (`addons.backup_retention_extended_hour`) | Backups → Backup retention, `pgdock backup retention <p> extended`, `PATCH /projects/{id}/settings` |
-| Long backup retention (30 daily, 52 weekly) | any project, Pro and Team | ₦3,000 a month (`addons.backup_retention_long_hour`) | as above, `long` |
+| 14-day point-in-time recovery | dedicated, Pro and Team | about $3.33 a month (`addons.pitr_14_hour`) | Backups → Recovery window, `xenibase pitr window <p> 14`, `PATCH /projects/{id}/instance` |
+| 30-day point-in-time recovery | dedicated, Pro and Team | $8 a month (`addons.pitr_30_hour`) | as above, `30` |
+| Extended backup retention (30 daily, 12 weekly) | any project, Pro and Team | $1 a month (`addons.backup_retention_extended_hour`) | Backups → Backup retention, `xenibase backup retention <p> extended`, `PATCH /projects/{id}/settings` |
+| Long backup retention (30 daily, 52 weekly) | any project, Pro and Team | $2 a month (`addons.backup_retention_long_hour`) | as above, `long` |
 | Region premium | dedicated projects in the region | none (`addons.region_premium_percent`, e.g. `{"ng-lagos": "25"}`) | the price book |
 
 - Each is billed by the hour while set (`pitr_14_hours`, `pitr_30_hours`,
@@ -105,7 +115,7 @@ it (`dry_run`):
 - **Upgrades** apply at once. The new plan is charged for the rest of the
   month by the day (the day of the change included) and the old one is
   credited for the same days. Example: Pro → Team on 13 October (19 of 31
-  days left) credits ₦9,193.55 and charges ₦36,774.19.
+  days left) credits $6.13 and charges $24.52, on the next invoice, which converts them to naira.
 - **Downgrades** apply on the 1st of next month (or at the end of an
   annual term), unless the org chooses **now**, with a credit for the
   unused part.
@@ -134,26 +144,57 @@ VAT is added at the configured rate (7.5% by default). Organisations that
 deduct withholding tax (Billing → Business details) see the expected WHT
 on the invoice.
 
+### Dollars to naira
+
+A draft is shown in dollars and, as an estimate, in naira at the current
+rate; it changes with the rate until the invoice is issued. **Issuing**
+asks the wallet provider for the dollar's price in naira and converts the
+invoice with it:
+
+- each line's naira amount is its dollar amount (cents) times the rate,
+  rounded to the kobo; the subtotal is their sum, and VAT is the subtotal
+  at the VAT rate, so every invoice is internally consistent in naira (the
+  ledger check verifies it);
+- the whole quote is frozen on the invoice (`fx`): the market rate, the
+  spread in basis points, the effective rate used, when the provider
+  priced it and where from. The provider keeps no history of its rates,
+  so this is the only record. The invoice PDF and email show it;
+- lines whose cost is already in naira (the SMS and WhatsApp providers'
+  prices) keep their kobo and get a dollar equivalent;
+- the invoice is debited at issue, so the naira amount is final from then
+  on, whenever the customer pays it. A credit note is in naira.
+
+**The rate.** The provider quotes the dollar in naira from its own feed,
+or from a rate its desk sets, plus a spread. Both are the provider's to
+decide (see [Payments](payments.md#the-dollar-rate)); Xenibase uses the
+effective rate it is given. It is asked for **fresh** when an invoice is
+issued and refuses one older than `fx_max_age_hours` (4 by default, in
+the billing settings): a provider that can't price the pair keeps
+answering with its last rate, however old. The invoice then stays a draft,
+the failure is logged, and the next hourly run tries again. Drafts,
+forecasts and estimates accept an older rate: an estimate is better than
+none.
+
 **When:** drafts are generated on the last day of the month and refreshed
 as it runs. Once the month's usage is recorded (the hourly recorder has
 passed midnight on the 1st), drafts are re-rated with the full month and
 **issued**, unless the platform admin holds one (Admin → Billing →
 Invoices → Hold). Issuing:
 
-- numbers it `PGD-YYYY-NNNNNN`, sequential per year and never reused;
-- freezes the customer's business details and PGDock's (Admin → Billing →
+- numbers it `XB-YYYY-NNNNNN`, sequential per year and never reused;
+- freezes the customer's business details and Xenibase's (Admin → Billing →
   Settings) on it;
 - posts it to the ledger in the same database transaction;
 - emails the billing contacts (or, with none, the owners and billing
   members) with a link to it.
 
-Issued invoices are never edited. **Credit notes** (`PGD-CN-YYYY-NNNNNN`)
+Issued invoices are never edited. **Credit notes** (`XB-CN-YYYY-NNNNNN`)
 correct them: Admin → Billing → Invoices → an invoice → Credit note, an
 amount before VAT and a reason. VAT is credited at the invoice's rate, and
 an invoice's credits can't exceed its total.
 
 Invoices download as PDF from the Billing page, the admin console, and
-`pgdock billing invoice <number> --pdf file.pdf`.
+`xenibase billing invoice <number> --pdf file.pdf`.
 
 **Automatic issue is off by default.** Until payments are live (M21),
 drafts are generated for review and the admin issues them. Turn on
@@ -186,7 +227,7 @@ are emailed when the forecast reaches 50%, 80% and 100% of it, once each
 per month.
 
 **Spend cap:** when the forecast's usage charges (overage, dedicated,
-add-ons) reach the cap, PGDock pauses new billable resources until the
+add-ons) reach the cap, Xenibase pauses new billable resources until the
 cap is raised or the month ends:
 
 - new branches, dedicated instances (created, promoted or recovered
@@ -231,10 +272,11 @@ Admin → Billing → **Settings** (`/api/v1/admin/billing/settings`):
 
 - VAT rate (default 0.075) and WHT rate (default 0.05). They are
   configuration: confirm them with your accountant.
-- PGDock's legal name, address, TIN, VAT registration and billing email,
+- Xenibase's legal name, address, TIN, VAT registration and billing email,
   as invoices show them.
 - Automatic issue on the 1st.
-- Offering USDT top-ups through iSpend (off by default).
+- `fx_max_age_hours`: how old the dollar's rate may be when an invoice is
+  converted (4 by default; API only).
 - Deleting dedicated projects for non-payment (off by default: the
   notice is sent and nothing is deleted).
 
@@ -244,7 +286,8 @@ Admin → **Revenue** (`/api/v1/admin/revenue`, platform admins), the
 first version of V3 §7.2. It shows the following, month by month:
 
 - **MRR**: each paying organisation's plan fee at its price book, with
-  annual plans spread over 12 months. ARR is MRR × 12.
+  annual plans spread over 12 months. ARR is MRR × 12. A dollar price book
+  is shown in naira at the day's rate, so MRR moves with the exchange rate.
 - **MRR movements** against the month before:
   - new: an organisation that paid nothing before;
   - expansion: one that pays more;
@@ -270,5 +313,5 @@ in naira. Costs, margins and the FX view are on Platform → Costs & margins: se
 
 ## Payments
 
-Paying invoices, prepaid balances, WHT credit notes, dunning and
-reconciliation: see [Payments](payments.md).
+Wallets, paying invoices, WHT credit notes, dunning and reconciliation:
+see [Payments](payments.md).

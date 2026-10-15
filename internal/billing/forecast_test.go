@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
 func TestForecastBudgetAndSpendCap(t *testing.T) {
@@ -51,7 +51,7 @@ func TestForecastBudgetAndSpendCap(t *testing.T) {
 		t.Fatal(err)
 	}
 	var budgetMails, capMails int
-	for _, m := range sent.msgs {
+	for _, m := range sent.all() {
 		switch {
 		case strings.Contains(m.Subject, "100% of its budget"):
 			budgetMails++
@@ -60,7 +60,7 @@ func TestForecastBudgetAndSpendCap(t *testing.T) {
 		}
 	}
 	if budgetMails != 1 || capMails != 1 {
-		t.Fatalf("budget emails %d, cap emails %d: %+v", budgetMails, capMails, sent.msgs)
+		t.Fatalf("budget emails %d, cap emails %d: %+v", budgetMails, capMails, sent.all())
 	}
 	q := store.New(db)
 	if capped, _ := q.OrgSpendCapped(ctx, org); !capped {

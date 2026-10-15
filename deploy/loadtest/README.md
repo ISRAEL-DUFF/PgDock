@@ -9,9 +9,9 @@ about 9 GB of disk, and one shared node can't keep them all busy.
 
 | Server | Type | Runs |
 | --- | --- | --- |
-| node-1 | CCX23 (4 dedicated vCPU, 16 GB) | The normal install (`deploy/compose`): pgdock-server, the poolers and shared cluster 1 |
+| node-1 | CCX23 (4 dedicated vCPU, 16 GB) | The normal install (`deploy/compose`): xenibase-server, the poolers and shared cluster 1 |
 | node-2, node-3, node-4 | CCX23 | `--profile node`: an agent, then shared clusters 2–4 |
-| edge | CCX33 (8 vCPU) | `--profile edge`: pgdock-edge on 443 |
+| edge | CCX33 (8 vCPU) | `--profile edge`: xenibase-edge on 443 |
 | load | CCX33 | `--profile load`: `TestBackendLoad` from this checkout |
 
 Put all six on one private network (10.0.0.0/16) in one location, and open
@@ -23,8 +23,8 @@ Follow [docs/install.md](../../docs/install.md) on node-1. Before running
 the installer, add to its `.env`:
 
 ```sh
-PGDOCK_API_DOMAIN=api.example.com           # projects at <ref>.api.example.com
-PGDOCK_EDGE_SECRET=$(openssl rand -hex 32)  # the same on the edge
+XENIBASE_API_DOMAIN=api.example.com           # projects at <ref>.api.example.com
+XENIBASE_EDGE_SECRET=$(openssl rand -hex 32)  # the same on the edge
 ```
 
 Finish the setup wizard. The owner it creates is the platform admin the
@@ -38,7 +38,7 @@ node-1's included, allows 500 connections.
 On each, install Docker, copy this directory with `loadtest.env.example`
 as `.env`, and set `NODE_IP` to the server's private address. In the
 dashboard, **Platform → Nodes → Add node** gives a one-time token: put it
-in `PGDOCK_AGENT_TOKEN`, then:
+in `XENIBASE_AGENT_TOKEN`, then:
 
 ```sh
 docker compose --profile node up -d
@@ -52,7 +52,7 @@ the 1,000 spread over the four.
 
 Get a wildcard certificate for `*.api.example.com` (DNS-01, or a
 self-signed one: put its CA in `tls/ca.pem` and set
-`PGDOCK_LOAD_EDGE_CA`), put `fullchain.pem` and `privkey.pem` in `tls/`,
+`XENIBASE_LOAD_EDGE_CA`), put `fullchain.pem` and `privkey.pem` in `tls/`,
 then:
 
 ```sh
@@ -73,7 +73,7 @@ docker compose --profile load run --rm load
 
 It signs in, makes 10 organisations of 100 projects each with backend
 services (about 15 minutes), lifts their rate limits, warms every project
-on the edge, runs `PGDOCK_LOAD_STEPS` and then the target rate, and ends
+on the edge, runs `XENIBASE_LOAD_STEPS` and then the target rate, and ends
 with the transform burst. The report is `tmp/load-report-backend.md` in the
 checkout. While it runs, watch the nodes' client backends and the edge's
 CPU (Platform → Nodes, or `docker stats`).

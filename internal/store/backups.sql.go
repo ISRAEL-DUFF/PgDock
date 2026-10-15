@@ -244,7 +244,7 @@ func (q *Queries) CopyCandidates(ctx context.Context, arg CopyCandidatesParams) 
 
 const copyQueue = `-- name: CopyQueue :many
 SELECT b.id, b.project_id, b.kind, b.object_key, b.size_bytes, b.checksum, b.started_at, b.finished_at, b.status, b.expires_at, b.storage_target_id, b.operation_id, b.key_wrapped, b.error, b.deleted_at, b.encryption_key_id, b.walg_prefix, b.copy_of, b.copy_target_id, b.copy_status, b.copied_at, b.copy_error, r.copy_target_id AS region_copy_target_id, p.region AS project_region, p.data_residency AS project_residency,
-       ct.pgdock_region AS copy_target_region
+       ct.xenibase_region AS copy_target_region
 FROM backups b
 JOIN projects p ON p.id = b.project_id
 JOIN regions r ON r.id = p.region
@@ -1165,7 +1165,7 @@ const outOfRegionCopies = `-- name: OutOfRegionCopies :many
 SELECT b.id, b.project_id, b.kind, b.object_key, b.size_bytes, b.checksum, b.started_at, b.finished_at, b.status, b.expires_at, b.storage_target_id, b.operation_id, b.key_wrapped, b.error, b.deleted_at, b.encryption_key_id, b.walg_prefix, b.copy_of, b.copy_target_id, b.copy_status, b.copied_at, b.copy_error FROM backups b
 JOIN storage_targets ct ON ct.id = b.copy_target_id
 WHERE b.project_id = $1 AND b.copy_status = 'copied'
-  AND (ct.pgdock_region IS NULL OR ct.pgdock_region <> $2::text)
+  AND (ct.xenibase_region IS NULL OR ct.xenibase_region <> $2::text)
 `
 
 type OutOfRegionCopiesParams struct {

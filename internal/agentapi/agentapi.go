@@ -1,6 +1,6 @@
 // Package agentapi defines the agent's fixed command API (spec §3.3: "a
 // narrow, fixed command API with no arbitrary shell execution"), shared by
-// pgdock-agent and pgdock-server's agent client.
+// xenibase-agent and xenibase-server's agent client.
 package agentapi
 
 import (
@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/storage"
+	"github.com/israel-duff/xenibase/internal/storage"
 )
 
 // Paths.
@@ -21,7 +21,7 @@ const (
 	PathDump     = "/v1/dump"
 	PathRestore  = "/v1/restore"
 	PathCopy     = "/v1/copy"
-	PathRegister = "/api/v1/agent/register" // on pgdock-server
+	PathRegister = "/api/v1/agent/register" // on xenibase-server
 
 	// Instances (spec §10 agent API). {id} is the instance ID.
 	PathInstances      = "/v1/instances"
@@ -195,7 +195,7 @@ type CopyRequest struct {
 	Restore RestoreOptions `json:"restore"`
 }
 
-// RegisterRequest is POST /api/v1/agent/register on pgdock-server.
+// RegisterRequest is POST /api/v1/agent/register on xenibase-server.
 type RegisterRequest struct {
 	// Token is a one-time registration token for a node, or the bootstrap
 	// token together with Node naming an existing node.

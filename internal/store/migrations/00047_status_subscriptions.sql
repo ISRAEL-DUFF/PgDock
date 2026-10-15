@@ -3,11 +3,11 @@
 -- the edges' liveness for the backend services component (V4.1 §7).
 
 -- A billing contact gets status page emails unless turned off (Org →
--- Billing → Notifications); pgdock-server sends the list to pgdock-status
+-- Billing → Notifications); xenibase-server sends the list to xenibase-status
 -- hourly.
 ALTER TABLE billing_contacts ADD COLUMN status_emails boolean NOT NULL DEFAULT true;
 
--- Every pgdock-edge reports at least every 30 seconds, empty or not; one
+-- Every xenibase-edge reports at least every 30 seconds, empty or not; one
 -- that stops is what the backend services component shows. Edges silent
 -- for a day are taken as gone.
 CREATE TABLE edges (

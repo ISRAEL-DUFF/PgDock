@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/totp"
+	"github.com/israel-duff/xenibase/internal/totp"
 )
 
 // Second factors (V4 §4.1): TOTP apps and phone codes. A verified factor
@@ -56,7 +56,7 @@ func scanFactor(row pgx.Row) (*Factor, error) {
 
 // Factors are a user's factors, oldest first.
 func Factors(ctx context.Context, q Querier, userID uuid.UUID) ([]Factor, error) {
-	rows, err := q.Query(ctx, `SELECT `+factorCols+` FROM pgd_auth.mfa_factors WHERE user_id = $1 ORDER BY created_at`, userID)
+	rows, err := q.Query(ctx, `SELECT `+factorCols+` FROM xb_auth.mfa_factors WHERE user_id = $1 ORDER BY created_at`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -75,13 +75,13 @@ func Factors(ctx context.Context, q Querier, userID uuid.UUID) ([]Factor, error)
 // HasVerifiedFactor reports whether the user can step up to aal2.
 func HasVerifiedFactor(ctx context.Context, q Querier, userID uuid.UUID) (bool, error) {
 	var ok bool
-	err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pgd_auth.mfa_factors WHERE user_id = $1 AND status = 'verified')`, userID).Scan(&ok)
+	err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM xb_auth.mfa_factors WHERE user_id = $1 AND status = 'verified')`, userID).Scan(&ok)
 	return ok, err
 }
 
 // GetFactor is the user's factor id; lock takes a row lock.
 func GetFactor(ctx context.Context, q Querier, userID, id uuid.UUID, lock bool) (*Factor, error) {
-	sql := `SELECT ` + factorCols + ` FROM pgd_auth.mfa_factors WHERE id = $1 AND user_id = $2`
+	sql := `SELECT ` + factorCols + ` FROM xb_auth.mfa_factors WHERE id = $1 AND user_id = $2`
 	if lock {
 		sql += ` FOR UPDATE`
 	}
@@ -101,12 +101,12 @@ type Enrolled struct {
 // Enroll adds an unverified factor of kind (a TOTP secret is made; phone
 // needs phone). Unverified factors left behind are removed first.
 func Enroll(ctx context.Context, q Querier, userID uuid.UUID, kind, name, phone, issuer, account string) (Enrolled, error) {
-	if _, err := q.Exec(ctx, `DELETE FROM pgd_auth.mfa_factors WHERE user_id = $1 AND status = 'unverified'
+	if _, err := q.Exec(ctx, `DELETE FROM xb_auth.mfa_factors WHERE user_id = $1 AND status = 'unverified'
 		AND created_at < now() - interval '1 day'`, userID); err != nil {
 		return Enrolled{}, err
 	}
 	var n int
-	if err := q.QueryRow(ctx, `SELECT count(*) FROM pgd_auth.mfa_factors WHERE user_id = $1`, userID).Scan(&n); err != nil {
+	if err := q.QueryRow(ctx, `SELECT count(*) FROM xb_auth.mfa_factors WHERE user_id = $1`, userID).Scan(&n); err != nil {
 		return Enrolled{}, err
 	}
 	if n >= MaxFactors {
@@ -126,7 +126,7 @@ func Enroll(ctx context.Context, q Querier, userID uuid.UUID, kind, name, phone,
 	default:
 		return Enrolled{}, errors.New("factor_type is totp or phone")
 	}
-	f, err := scanFactor(q.QueryRow(ctx, `INSERT INTO pgd_auth.mfa_factors (user_id, factor_type, friendly_name, secret, phone)
+	f, err := scanFactor(q.QueryRow(ctx, `INSERT INTO xb_auth.mfa_factors (user_id, factor_type, friendly_name, secret, phone)
 		VALUES ($1, $2, $3, $4, $5) RETURNING `+factorCols, userID, kind, nilIfEmpty(strings.TrimSpace(name)), secret, ph))
 	if err != nil {
 		return Enrolled{}, uniqueErr(err)
@@ -158,10 +158,10 @@ func NewChallenge(ctx context.Context, q Querier, f *Factor, ip string) (Challen
 		h := codeHash(id, c)
 		code, hash = c, &h
 	}
-	if _, err := q.Exec(ctx, `DELETE FROM pgd_auth.mfa_challenges WHERE factor_id = $1 AND (expires_at < now() OR verified_at IS NOT NULL)`, f.ID); err != nil {
+	if _, err := q.Exec(ctx, `DELETE FROM xb_auth.mfa_challenges WHERE factor_id = $1 AND (expires_at < now() OR verified_at IS NOT NULL)`, f.ID); err != nil {
 		return Challenge{}, err
 	}
-	_, err := q.Exec(ctx, `INSERT INTO pgd_auth.mfa_challenges (id, factor_id, code_hash, ip, expires_at) VALUES ($1, $2, $3, $4, $5)`,
+	_, err := q.Exec(ctx, `INSERT INTO xb_auth.mfa_challenges (id, factor_id, code_hash, ip, expires_at) VALUES ($1, $2, $3, $4, $5)`,
 		id, f.ID, hash, nilIfEmpty(ip), exp)
 	return Challenge{ID: id, ExpiresAt: exp, Code: code}, err
 }
@@ -169,7 +169,7 @@ func NewChallenge(ctx context.Context, q Querier, f *Factor, ip string) (Challen
 // LastChallengeAt is when f was last challenged.
 func LastChallengeAt(ctx context.Context, q Querier, factorID uuid.UUID) (*time.Time, error) {
 	var at *time.Time
-	err := q.QueryRow(ctx, `SELECT max(created_at) FROM pgd_auth.mfa_challenges WHERE factor_id = $1`, factorID).Scan(&at)
+	err := q.QueryRow(ctx, `SELECT max(created_at) FROM xb_auth.mfa_challenges WHERE factor_id = $1`, factorID).Scan(&at)
 	return at, err
 }
 
@@ -180,7 +180,7 @@ func VerifyChallenge(ctx context.Context, q Querier, f *Factor, id uuid.UUID, co
 	var hash *string
 	var attempts int
 	var verified *time.Time
-	err := q.QueryRow(ctx, `SELECT code_hash, attempts, verified_at FROM pgd_auth.mfa_challenges
+	err := q.QueryRow(ctx, `SELECT code_hash, attempts, verified_at FROM xb_auth.mfa_challenges
 		WHERE id = $1 AND factor_id = $2 AND expires_at > now() FOR UPDATE`, id, f.ID).Scan(&hash, &attempts, &verified)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
@@ -206,24 +206,24 @@ func VerifyChallenge(ctx context.Context, q Querier, f *Factor, id uuid.UUID, co
 		ok = hash != nil && subtle.ConstantTimeCompare([]byte(codeHash(id, strings.TrimSpace(code))), []byte(*hash)) == 1
 	}
 	if !ok {
-		_, err := q.Exec(ctx, `UPDATE pgd_auth.mfa_challenges SET attempts = attempts + 1 WHERE id = $1`, id)
+		_, err := q.Exec(ctx, `UPDATE xb_auth.mfa_challenges SET attempts = attempts + 1 WHERE id = $1`, id)
 		return false, err
 	}
-	if _, err := q.Exec(ctx, `UPDATE pgd_auth.mfa_challenges SET verified_at = now() WHERE id = $1`, id); err != nil {
+	if _, err := q.Exec(ctx, `UPDATE xb_auth.mfa_challenges SET verified_at = now() WHERE id = $1`, id); err != nil {
 		return false, err
 	}
 	var stepArg *int64
 	if f.FactorType == FactorTOTP {
 		stepArg = &step
 	}
-	_, err = q.Exec(ctx, `UPDATE pgd_auth.mfa_factors SET status = 'verified', updated_at = now(),
+	_, err = q.Exec(ctx, `UPDATE xb_auth.mfa_factors SET status = 'verified', updated_at = now(),
 		last_used_step = coalesce($2, last_used_step) WHERE id = $1`, f.ID, stepArg)
 	return true, err
 }
 
 // DeleteFactor removes the user's factor id.
 func DeleteFactor(ctx context.Context, q Querier, userID, id uuid.UUID) error {
-	tag, err := q.Exec(ctx, `DELETE FROM pgd_auth.mfa_factors WHERE id = $1 AND user_id = $2`, id, userID)
+	tag, err := q.Exec(ctx, `DELETE FROM xb_auth.mfa_factors WHERE id = $1 AND user_id = $2`, id, userID)
 	if err == nil && tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
@@ -233,14 +233,14 @@ func DeleteFactor(ctx context.Context, q Querier, userID, id uuid.UUID) error {
 // StepUp raises session id to aal2, recording method in its amr.
 func StepUp(ctx context.Context, q Querier, id uuid.UUID, method string) (*Session, error) {
 	amr, _ := json.Marshal([]AMR{{Method: method, Timestamp: time.Now().Unix()}})
-	return scanSession(q.QueryRow(ctx, `UPDATE pgd_auth.sessions SET aal = 'aal2', amr = amr || $2::jsonb WHERE id = $1
+	return scanSession(q.QueryRow(ctx, `UPDATE xb_auth.sessions SET aal = 'aal2', amr = amr || $2::jsonb WHERE id = $1
 		RETURNING `+sessionCols, id, string(amr)))
 }
 
 // LowerSessions drops the user's aal2 sessions to aal1 (a factor removed),
 // except keep.
 func LowerSessions(ctx context.Context, q Querier, userID uuid.UUID, keep *uuid.UUID) error {
-	_, err := q.Exec(ctx, `UPDATE pgd_auth.sessions SET aal = 'aal1' WHERE user_id = $1 AND aal = 'aal2' AND ($2::uuid IS NULL OR id <> $2)`,
+	_, err := q.Exec(ctx, `UPDATE xb_auth.sessions SET aal = 'aal1' WHERE user_id = $1 AND aal = 'aal2' AND ($2::uuid IS NULL OR id <> $2)`,
 		userID, keep)
 	return err
 }

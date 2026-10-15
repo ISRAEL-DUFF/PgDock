@@ -1,16 +1,16 @@
-// Package testenv runs a complete pgdock-server (API, workers, provisioning)
+// Package testenv runs a complete xenibase-server (API, workers, provisioning)
 // in-process against real Postgres and PgBouncer, for the integration and
 // isolation suites. `make test-integration` provides the environment;
 // without it the tests skip.
 //
-//	PGDOCK_TEST_DATABASE_URL           admin URL for throwaway metadata DBs
-//	PGDOCK_TEST_SHARED_ADMIN_URL       shared cluster superuser (pgdock_admin)
-//	PGDOCK_TEST_SHARED_POOLER_HOST     cluster host as the poolers see it
-//	PGDOCK_TEST_SHARED_POOLER_PORT
-//	PGDOCK_TEST_POOLER_DIR             config dir the test poolers read
-//	PGDOCK_TEST_POOLER_SESSION_ADDR    host:port of the session-mode pooler
-//	PGDOCK_TEST_POOLER_POOLED_ADDR     host:port of the transaction-mode pooler
-//	PGDOCK_TEST_POOLER_ADMIN_PASSWORD  admin console password
+//	XENIBASE_TEST_DATABASE_URL           admin URL for throwaway metadata DBs
+//	XENIBASE_TEST_SHARED_ADMIN_URL       shared cluster superuser (xenibase_admin)
+//	XENIBASE_TEST_SHARED_POOLER_HOST     cluster host as the poolers see it
+//	XENIBASE_TEST_SHARED_POOLER_PORT
+//	XENIBASE_TEST_POOLER_DIR             config dir the test poolers read
+//	XENIBASE_TEST_POOLER_SESSION_ADDR    host:port of the session-mode pooler
+//	XENIBASE_TEST_POOLER_POOLED_ADDR     host:port of the transaction-mode pooler
+//	XENIBASE_TEST_POOLER_ADMIN_PASSWORD  admin console password
 //
 // The suites share one pooler pair, so run them with `go test -p 1`.
 package testenv
@@ -41,51 +41,50 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/agentca"
-	"github.com/israel-duff/pgdock/internal/alerts"
-	"github.com/israel-duff/pgdock/internal/api"
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/auth"
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/billing/flutterwave"
-	"github.com/israel-duff/pgdock/internal/billing/ispend"
-	"github.com/israel-duff/pgdock/internal/branching"
-	"github.com/israel-duff/pgdock/internal/capacity"
-	"github.com/israel-duff/pgdock/internal/cloud"
-	"github.com/israel-duff/pgdock/internal/console"
-	"github.com/israel-duff/pgdock/internal/costs"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/dedicated"
-	"github.com/israel-duff/pgdock/internal/freetier"
-	"github.com/israel-duff/pgdock/internal/ha"
-	"github.com/israel-duff/pgdock/internal/incidents"
-	"github.com/israel-duff/pgdock/internal/insights"
-	"github.com/israel-duff/pgdock/internal/isocheck"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/legal"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/messaging"
-	"github.com/israel-duff/pgdock/internal/metrics"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/orgs"
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/internal/pgversions"
-	"github.com/israel-duff/pgdock/internal/pooler"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/regions"
-	"github.com/israel-duff/pgdock/internal/schedjobs"
-	"github.com/israel-duff/pgdock/internal/services"
-	"github.com/israel-duff/pgdock/internal/settings"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/store/storetest"
-	"github.com/israel-duff/pgdock/internal/support"
-	"github.com/israel-duff/pgdock/internal/tenancy"
-	"github.com/israel-duff/pgdock/internal/tokens"
-	"github.com/israel-duff/pgdock/internal/waker"
-	"github.com/israel-duff/pgdock/internal/webhooks"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/agentca"
+	"github.com/israel-duff/xenibase/internal/alerts"
+	"github.com/israel-duff/xenibase/internal/api"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/auth"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/billing/iswallet"
+	"github.com/israel-duff/xenibase/internal/branching"
+	"github.com/israel-duff/xenibase/internal/capacity"
+	"github.com/israel-duff/xenibase/internal/cloud"
+	"github.com/israel-duff/xenibase/internal/console"
+	"github.com/israel-duff/xenibase/internal/costs"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/dedicated"
+	"github.com/israel-duff/xenibase/internal/freetier"
+	"github.com/israel-duff/xenibase/internal/ha"
+	"github.com/israel-duff/xenibase/internal/incidents"
+	"github.com/israel-duff/xenibase/internal/insights"
+	"github.com/israel-duff/xenibase/internal/isocheck"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/legal"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/messaging"
+	"github.com/israel-duff/xenibase/internal/metrics"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/orgs"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/internal/pgversions"
+	"github.com/israel-duff/xenibase/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/regions"
+	"github.com/israel-duff/xenibase/internal/schedjobs"
+	"github.com/israel-duff/xenibase/internal/services"
+	"github.com/israel-duff/xenibase/internal/settings"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/store/storetest"
+	"github.com/israel-duff/xenibase/internal/support"
+	"github.com/israel-duff/xenibase/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/tokens"
+	"github.com/israel-duff/xenibase/internal/waker"
+	"github.com/israel-duff/xenibase/internal/webhooks"
 )
 
 // Env is a running control plane.
@@ -150,9 +149,8 @@ type Env struct {
 	PGVersions           *pgversions.Service
 	Insights             *insights.Service
 	SupportInboundSecret string
-	// Flutterwave and ISpend are the payment providers' fake sandboxes.
-	Flutterwave *flutterwave.Fake
-	ISpend      *ispend.Fake
+	// ISWallet is the wallet provider's fake sandbox.
+	ISWallet *iswallet.Fake
 	// Tenancy is the M9 controller; tests tick it (EnforceStorage, Reap,
 	// RecordUsage, Sweep) rather than running its loops. Its clock is real
 	// time plus TenancyAdvance.
@@ -236,13 +234,13 @@ func need(t testing.TB, name string) string {
 // the shared cluster. Everything stops when the test ends.
 func Start(t testing.TB, opts Options) *Env {
 	t.Helper()
-	sharedURL := need(t, "PGDOCK_TEST_SHARED_ADMIN_URL")
-	dir := moduleRelative(t, need(t, "PGDOCK_TEST_POOLER_DIR"))
-	sessionAddr := need(t, "PGDOCK_TEST_POOLER_SESSION_ADDR")
-	pooledAddr := need(t, "PGDOCK_TEST_POOLER_POOLED_ADDR")
-	adminPW := need(t, "PGDOCK_TEST_POOLER_ADMIN_PASSWORD")
-	poolerHost := os.Getenv("PGDOCK_TEST_SHARED_POOLER_HOST")
-	poolerPort, _ := strconv.Atoi(os.Getenv("PGDOCK_TEST_SHARED_POOLER_PORT"))
+	sharedURL := need(t, "XENIBASE_TEST_SHARED_ADMIN_URL")
+	dir := moduleRelative(t, need(t, "XENIBASE_TEST_POOLER_DIR"))
+	sessionAddr := need(t, "XENIBASE_TEST_POOLER_SESSION_ADDR")
+	pooledAddr := need(t, "XENIBASE_TEST_POOLER_POOLED_ADDR")
+	adminPW := need(t, "XENIBASE_TEST_POOLER_ADMIN_PASSWORD")
+	poolerHost := os.Getenv("XENIBASE_TEST_SHARED_POOLER_HOST")
+	poolerPort, _ := strconv.Atoi(os.Getenv("XENIBASE_TEST_SHARED_POOLER_PORT"))
 
 	db := storetest.New(t)
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -272,13 +270,13 @@ func Start(t testing.TB, opts Options) *Env {
 	}
 	var admins []*pooler.Admin
 	for name, addr := range map[string]string{"session": sessionAddr, "transaction": pooledAddr} {
-		a, err := pooler.NewAdmin(name, addr, "pgdock", adminPW, "require")
+		a, err := pooler.NewAdmin(name, addr, "xenibase", adminPW, "require")
 		if err != nil {
 			t.Fatal(err)
 		}
 		admins = append(admins, a)
 	}
-	pm, err := pooler.NewManager(dir, 0o644, db, admins, []pooler.User{{Name: "pgdock", Secret: verifier}}, log)
+	pm, err := pooler.NewManager(dir, 0o644, db, admins, []pooler.User{{Name: "xenibase", Secret: verifier}}, log)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -313,7 +311,7 @@ func Start(t testing.TB, opts Options) *Env {
 		t.Fatal(err)
 	}
 	bcfg := backup.Config{}
-	if host := os.Getenv("PGDOCK_TEST_METADATA_AGENT_HOST"); host != "" {
+	if host := os.Getenv("XENIBASE_TEST_METADATA_AGENT_HOST"); host != "" {
 		h, p, _ := net.SplitHostPort(host)
 		port, _ := strconv.Atoi(p)
 		cc := db.Config().ConnConfig
@@ -345,10 +343,10 @@ func Start(t testing.TB, opts Options) *Env {
 		kinds[name] = k
 	}
 	mailSvc := mail.New(db, keyring)
-	pgVersionSvc := pgversions.New(db, svc, mailSvc, pgversions.Config{PublicURL: "https://pgdock.test"}, log)
+	pgVersionSvc := pgversions.New(db, svc, mailSvc, pgversions.Config{PublicURL: "https://xenibase.test"}, log)
 	e := &Env{}
 	branchSvc := branching.New(db, svc, backups, nodeSvc, mailSvc, branching.Config{
-		PublicURL: "https://pgdock.test",
+		PublicURL: "https://xenibase.test",
 		Now:       func() time.Time { return time.Now().Add(time.Duration(e.tenancyOffset.Load())) },
 	}, log)
 	for name, k := range branchSvc.Kinds() {
@@ -367,20 +365,20 @@ func Start(t testing.TB, opts Options) *Env {
 	t.Cleanup(hetznerSrv.Close)
 	capacitySvc := capacity.New(db, nodeSvc, ded, &cloud.HetznerProvider{API: hetznerSrv.URL + "/v1", Token: "hetzner-test-token"}, nil, capacity.Config{
 		Region: "eu-central", Location: "fsn1", Image: "ubuntu-24.04", JoinTimeout: 2 * time.Minute, Poll: 300 * time.Millisecond,
-		Bootstrap: cloud.Bootstrap{ServerURL: "https://pgdock.test", AgentImage: "pgdock-agent:test", PGImage: "pgdock-postgres:{major}", PrivateCIDR: "10.0.0.0/16"},
-		Edge:      &cloud.EdgeBootstrap{Image: "pgdock-edge:test", ControlURL: "https://pgdock.test", Secret: EdgeSecret, Domain: EdgeDomain},
+		Bootstrap: cloud.Bootstrap{ServerURL: "https://xenibase.test", AgentImage: "xenibase-agent:test", PGImage: "xenibase-postgres:{major}", PrivateCIDR: "10.0.0.0/16"},
+		Edge:      &cloud.EdgeBootstrap{Image: "xenibase-edge:test", ControlURL: "https://xenibase.test", Secret: EdgeSecret, Domain: EdgeDomain},
 	}, log)
 	for name, k := range capacitySvc.Kinds() {
 		kinds[name] = k
 	}
 	ded.Hosts = capacitySvc.HostFor
-	freeSvc := freetier.New(db, svc, backups, mailSvc, freetier.Config{PublicURL: "https://pgdock.test"}, log)
+	freeSvc := freetier.New(db, svc, backups, mailSvc, freetier.Config{PublicURL: "https://xenibase.test"}, log)
 	for name, k := range freeSvc.Kinds() {
 		kinds[name] = k
 	}
 	// The waker listens where the test poolers (containers) reach it.
 	wakerHost := "127.0.0.1"
-	if gw := os.Getenv("PGDOCK_TEST_DOCKER_GATEWAY"); gw != "" {
+	if gw := os.Getenv("XENIBASE_TEST_DOCKER_GATEWAY"); gw != "" {
 		wakerHost = gw
 	}
 	wakerLn, err := net.Listen("tcp", net.JoinHostPort(wakerHost, "0"))
@@ -390,7 +388,7 @@ func Start(t testing.TB, opts Options) *Env {
 	wakerSrv := waker.New(freeSvc, log)
 	wakerPort := wakerLn.Addr().(*net.TCPAddr).Port
 	pm.SetWaker(wakerHost, wakerPort)
-	// Backend services (V4 §2), served by an in-process pgdock-edge
+	// Backend services (V4 §2), served by an in-process xenibase-edge
 	// (Env.StartEdge).
 	turnstile := NewFakeTurnstile()
 	t.Cleanup(turnstile.Close)
@@ -405,9 +403,9 @@ func Start(t testing.TB, opts Options) *Env {
 	servicesSvc.Phone = services.PlatformPhone{
 		// Termii, and Africa's Talking when it fails, as in production.
 		SMS: &messaging.Failover{Providers: []messaging.Provider{
-			messaging.Termii{BaseURL: phone.URL, APIKey: "termii-test", SenderID: "PGDock"},
-			messaging.AfricasTalking{BaseURL: phoneFallback.URL, Username: "pgdock", APIKey: "at-test"}}},
-		WhatsApp:     messaging.WhatsAppCloud{BaseURL: phone.URL, PhoneNumberID: "1001", AccessToken: "wa-test", Template: "pgdock_code"},
+			messaging.Termii{BaseURL: phone.URL, APIKey: "termii-test", SenderID: "Xenibase"},
+			messaging.AfricasTalking{BaseURL: phoneFallback.URL, Username: "xenibase", APIKey: "at-test"}}},
+		WhatsApp:     messaging.WhatsAppCloud{BaseURL: phone.URL, PhoneNumberID: "1001", AccessToken: "wa-test", Template: "xenibase_code"},
 		SMSCostMinor: 450, WhatsAppCostMinor: 1500, Currency: "NGN",
 	}
 	servicesSvc.Waker = func(ctx context.Context, projectID uuid.UUID) error {
@@ -434,23 +432,23 @@ func Start(t testing.TB, opts Options) *Env {
 
 	consoleSvc := console.New(db, svc, keyring, false, log)
 	insightSvc := insights.New(db, svc, consoleSvc, insights.Config{SlowQuery: 200 * time.Millisecond, Plans: []string{"all"}}, log)
-	alertSvc := alerts.New(db, keyring, alerts.Config{PublicURL: "https://pgdock.test", Poolers: append(pm.Admins(), opts.ExtraPoolers...), PoolerGrace: time.Nanosecond, WakerAddr: pm.WakerAddr}, log)
+	alertSvc := alerts.New(db, keyring, alerts.Config{PublicURL: "https://xenibase.test", Poolers: append(pm.Admins(), opts.ExtraPoolers...), PoolerGrace: time.Nanosecond, WakerAddr: pm.WakerAddr}, log)
 	collector := metrics.NewCollector(db, svc, pm, nodeSvc, time.Second, log)
 
 	clock := &Clock{t: time.Now()}
-	authSvc := auth.NewService(db, keyring, auth.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, "test-setup-code", log)
+	authSvc := auth.NewService(db, keyring, auth.Config{Now: clock.Now, PublicURL: "https://xenibase.test"}, "test-setup-code", log)
 	smtpd := StartSMTP(t)
 	host, port, _ := net.SplitHostPort(smtpd.Addr)
 	portN, _ := strconv.Atoi(port)
-	mailSvc.UseConfig(mail.Config{Host: host, Port: portN, From: "PGDock <pgdock@pgdock.test>", TLS: mail.TLSNone})
+	mailSvc.UseConfig(mail.Config{Host: host, Port: portN, From: "Xenibase <xenibase@xenibase.test>", TLS: mail.TLSNone})
 	authSvc.SetMailer(mailSvc)
 	if err := authSvc.EnsureTerms(ctx); err != nil {
 		t.Fatal(err)
 	}
-	orgSvc := orgs.New(db, authSvc, svc, mailSvc, "https://pgdock.test", log)
+	orgSvc := orgs.New(db, authSvc, svc, mailSvc, "https://xenibase.test", log)
 	authSvc.SetHooks(orgSvc.Hooks())
 	tenancySvc := tenancy.New(db, svc, mailSvc, tenancy.Config{
-		PublicURL: "https://pgdock.test",
+		PublicURL: "https://xenibase.test",
 		Now:       func() time.Time { return time.Now().Add(time.Duration(e.tenancyOffset.Load())) },
 	}, log)
 	tenancySvc.FinalBackup = func(ctx context.Context, p store.Project) error {
@@ -466,35 +464,31 @@ func Start(t testing.TB, opts Options) *Env {
 	// The auth message and hook sender starts once its outbound client is set.
 	wg.Add(1)
 	go func() { defer wg.Done(); servicesSvc.RunAuthEmail(ctx) }()
-	webhookSvc := webhooks.New(db, keyring, svc, outboundSvc, tenancySvc, mailSvc, webhooks.Config{Poll: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
-	jobSvc := schedjobs.New(db, keyring, svc, consoleSvc, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{Tick: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://pgdock.test"}, log)
+	webhookSvc := webhooks.New(db, keyring, svc, outboundSvc, tenancySvc, mailSvc, webhooks.Config{Poll: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://xenibase.test"}, log)
+	jobSvc := schedjobs.New(db, keyring, svc, consoleSvc, outboundSvc, tenancySvc, mailSvc, schedjobs.Config{Tick: 200 * time.Millisecond, Now: autoNow, PublicURL: "https://xenibase.test"}, log)
 	svc.RefreshWebhooks = webhookSvc.Reinstall
-	tokenSvc := tokens.New(db, keyring, mailSvc, tokens.Config{Now: clock.Now, PublicURL: "https://pgdock.test"}, log)
+	tokenSvc := tokens.New(db, keyring, mailSvc, tokens.Config{Now: clock.Now, PublicURL: "https://xenibase.test"}, log)
 	incidentSvc := incidents.New(db, incidents.Config{URL: opts.StatusURL, Secret: opts.StatusSecret}, log)
-	incidentSvc.SetMailer(mailSvc, "https://pgdock.test")
-	billingSvc := billing.New(db, mailSvc, "https://pgdock.test", log)
+	incidentSvc.SetMailer(mailSvc, "https://xenibase.test")
+	billingSvc := billing.New(db, mailSvc, "https://xenibase.test", log)
 	incidentSvc.Billing = billingSvc.Health
 	ded.SetProposer(incidentSvc)
 	costSvc := costs.New(db, billingSvc, "eu-central", log)
 	capacitySvc.SetConverter(costSvc)
+	// The suites count in naira.
+	billingSvc.SetDefaultPrices(billing.DefaultPricesNGN)
 	if err := billingSvc.Init(ctx); err != nil {
 		t.Fatal(err)
 	}
-	// Payment providers: fakes of the Flutterwave and iSpend sandboxes,
-	// whose webhooks reach the API like the real ones (wired below, once
-	// the server's URL is known).
-	flw := flutterwave.NewFake("flw-test-secret", "flw-test-webhook-hash")
-	isp := ispend.NewFake("isp-test-key", "isp-test-webhook-secret")
-	flwSrv, ispSrv := httptest.NewServer(flw), httptest.NewServer(isp)
-	t.Cleanup(flwSrv.Close)
-	t.Cleanup(ispSrv.Close)
-	billingSvc.SetPayments([]billing.PaymentProvider{
-		flutterwave.New(flutterwave.Config{BaseURL: flwSrv.URL, SecretKey: flw.SecretKey, WebhookHash: flw.WebhookHash, BVN: "22222222222"}),
-		ispend.New(ispend.Config{BaseURL: ispSrv.URL, APIKey: isp.APIKey, WebhookSecret: isp.WebhookSecret}),
-	}, billing.Routing{Cards: billing.ProviderFlutterwave, VAPrimary: billing.ProviderISpend, VAFallback: billing.ProviderFlutterwave, Wallet: billing.ProviderISpend}, keyring)
+	// The wallet provider: a fake of its sandbox, whose webhooks reach the
+	// API like the real ones (wired below, once the server's URL is known).
+	isw := iswallet.NewFake("isw-test-key", "isw-test-webhook-secret")
+	iswSrv := httptest.NewServer(isw)
+	t.Cleanup(iswSrv.Close)
+	billingSvc.SetWallets(iswallet.New(iswallet.Config{BaseURL: iswSrv.URL, APIKey: "isw-test-key", WebhookSecret: "isw-test-webhook-secret"}), "xenibase:test")
 	billingSvc.SetDunning(tenancySvc, nil)
 	billingSvc.SetDocStore(&memDocs{m: map[string][]byte{}})
-	supportSvc := support.New(db, mailSvc, support.Config{Address: "support@pgdock.test", PublicURL: "https://pgdock.test", InboundSecret: "inbound-secret-0123456789"}, log)
+	supportSvc := support.New(db, mailSvc, support.Config{Address: "support@xenibase.test", PublicURL: "https://xenibase.test", InboundSecret: "inbound-secret-0123456789"}, log)
 	legalSvc := legal.New(db)
 	if err := legalSvc.EnsureDefaults(ctx); err != nil {
 		t.Fatal(err)
@@ -507,13 +501,13 @@ func Start(t testing.TB, opts Options) *Env {
 		Incidents: incidentSvc, Billing: billingSvc, FreeTier: freeSvc, Support: supportSvc, Legal: legalSvc, Capacity: capacitySvc, Costs: costSvc, Regions: regionSvc, PGVersions: pgVersionSvc, Insights: insightSvc,
 		Orgs: orgSvc, Mail: mailSvc, Tenancy: tenancySvc, Branches: branchSvc,
 		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc,
-		Tokens: tokenSvc, Services: servicesSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://pgdock.test",
+		Tokens: tokenSvc, Services: servicesSvc, TokenRate: opts.TokenRate, OrgTokenRate: opts.OrgTokenRate, Now: clock.Now, PublicURL: "https://xenibase.test",
 		Logger: log, DB: db, Notifier: notifier, StreamCtx: ctx, Projects: svc, Auth: authSvc, Settings: st,
 		UI: fstest.MapFS{"index.html": {Data: []byte("ui")}}, UIIndex: "index.html",
 		Backups: backups, Nodes: nodeSvc, Console: consoleSvc, IsoChecks: isoChecks, Alerts: alertSvc, MetricsInterval: time.Second, MetricsToken: opts.MetricsToken,
 	}))
 	// Listen where the agent container can reach us too.
-	if gw := os.Getenv("PGDOCK_TEST_DOCKER_GATEWAY"); gw != "" {
+	if gw := os.Getenv("XENIBASE_TEST_DOCKER_GATEWAY"); gw != "" {
 		ln, err := net.Listen("tcp", net.JoinHostPort(gw, "0"))
 		if err != nil {
 			t.Fatalf("listen on the docker gateway %s: %v", gw, err)
@@ -522,19 +516,18 @@ func Start(t testing.TB, opts Options) *Env {
 		ts.Listener = ln
 	}
 	ts.Start()
-	flw.WebhookURL = ts.URL + "/api/v1/payments/webhooks/flutterwave"
-	isp.WebhookURL = ts.URL + "/api/v1/payments/webhooks/ispend"
+	isw.WebhookURL = ts.URL + "/api/v1/payments/webhooks/iswallet"
 	wa.WebhookURL = ts.URL + "/api/v1/support/whatsapp"
 	jar, _ := cookiejar.New(nil)
 
 	*e = Env{
 		t: t, URL: ts.URL, client: &http.Client{Jar: jar}, clock: clock, Tenancy: tenancySvc, Services: servicesSvc, Tokens: tokenSvc, Branches: branchSvc,
-		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Phone: phone, PhoneFallback: phoneFallback, Incidents: incidentSvc, Billing: billingSvc, Flutterwave: flw, ISpend: isp, FreeTier: freeSvc, Waker: wakerSrv, wakerLn: wakerLn, wakerAddr: wakerLn.Addr().String(), wakerCtx: ctx, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, PGVersions: pgVersionSvc, Insights: insightSvc,
+		Webhooks: webhookSvc, Jobs: jobSvc, Outbound: outboundSvc, Phone: phone, PhoneFallback: phoneFallback, Incidents: incidentSvc, Billing: billingSvc, ISWallet: isw, FreeTier: freeSvc, Waker: wakerSrv, wakerLn: wakerLn, wakerAddr: wakerLn.Addr().String(), wakerCtx: ctx, Support: supportSvc, WhatsApp: wa, SupportInboundSecret: "inbound-secret-0123456789", Capacity: capacitySvc, Costs: costSvc, Hetzner: hetzner, Regions: regionSvc, PGVersions: pgVersionSvc, Insights: insightSvc,
 		DB: db, Keyring: keyring, Pooler: pm, Service: svc, Notifier: notifier, Backups: backups, Nodes: nodeSvc, Dedicated: ded,
 		Console: consoleSvc, Metrics: collector, IsoChecks: isoChecks, Alerts: alertSvc,
 		Auth: authSvc, Orgs: orgSvc, SMTP: smtpd,
 		SharedAdminURL: sharedURL, SessionAddr: sessionAddr, PooledAddr: pooledAddr,
-		admin: adminCreds{"pgdock", adminPW}, log: log, s3Link: opts.S3Link, MasterKey: key,
+		admin: adminCreds{"xenibase", adminPW}, log: log, s3Link: opts.S3Link, MasterKey: key,
 	}
 	// After *e is set: the loops read e.automationOffset.
 	e.automation.ctx = ctx
@@ -826,7 +819,7 @@ func (e *Env) MustConnect(url string) *pgx.Conn {
 	return c
 }
 
-// SharedAdmin connects to database on the shared cluster as pgdock_admin.
+// SharedAdmin connects to database on the shared cluster as xenibase_admin.
 func (e *Env) SharedAdmin(database string) *pgx.Conn {
 	e.t.Helper()
 	cfg, err := pgx.ParseConfig(e.SharedAdminURL)

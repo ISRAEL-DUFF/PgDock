@@ -9,11 +9,11 @@ import (
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/projauth"
-	"github.com/israel-duff/pgdock/internal/services"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/projauth"
+	"github.com/israel-duff/xenibase/internal/services"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Project → Auth (V4 §4.9): a project's app users, its auth settings,
@@ -57,7 +57,7 @@ func authSettingsOut(a edgeapi.AuthConfig, st services.AuthSettings) gen.AuthSet
 		MfaPhone: ptr(a.MFAPhone), ManualLinking: ptr(a.ManualLinking), CustomClaimsHook: ptr(a.CustomClaimsHook),
 		BeforeSignupHook: ptr(a.BeforeSignupHook), BeforeSignupUrl: st.BeforeSignupURL, AfterSignupUrl: st.AfterSignupURL,
 		AfterSigninUrl: st.AfterSigninURL, SendMessageUrl: st.SendMessageURL, CaptchaEnabled: ptr(st.CaptchaEnabled != nil && *st.CaptchaEnabled),
-		CaptchaSiteKey: st.CaptchaSiteKey}
+		CaptchaSiteKey: st.CaptchaSiteKey, EmailLayout: ptr(st.EmailLayout == nil || *st.EmailLayout)}
 	chans := []gen.AuthSettingsPhoneChannels{}
 	for _, c := range a.PhoneChannels {
 		chans = append(chans, gen.AuthSettingsPhoneChannels(c))
@@ -250,6 +250,9 @@ func mergeAuthSettings(st services.AuthSettings, in gen.AuthSettings) services.A
 	}
 	if in.MagicLinkEnabled != nil {
 		st.MagicLinkEnabled = in.MagicLinkEnabled
+	}
+	if in.EmailLayout != nil {
+		st.EmailLayout = in.EmailLayout
 	}
 	if in.PasswordMinLength != nil {
 		st.PasswordMinLength = in.PasswordMinLength

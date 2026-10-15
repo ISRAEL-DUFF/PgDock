@@ -129,7 +129,7 @@ func TestObjectsDiffer(t *testing.T) {
 
 func TestKeyText(t *testing.T) {
 	k := key(t)
-	file := "# PGDock backup encryption key (fingerprint x).\n# Store it offline.\n" + EncodeKey(k) + "\n"
+	file := "# Xenibase backup encryption key (fingerprint x).\n# Store it offline.\n" + EncodeKey(k) + "\n"
 	for _, in := range []string{EncodeKey(k), "  " + EncodeKey(k) + "\n", file} {
 		got, err := DecodeKey(in)
 		if err != nil || !bytes.Equal(got, k) {

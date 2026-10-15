@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/alerts"
-	"github.com/israel-duff/pgdock/internal/statusapi"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/alerts"
+	"github.com/israel-duff/xenibase/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // edgeSilentAfter: an edge that hasn't reported for this long (it reports
@@ -17,8 +17,8 @@ const edgeSilentAfter = 2 * time.Minute
 // (tests).
 func (s *Service) SetEdgeSilentAfter(d time.Duration) { s.edgeSilent = d }
 
-// States is what pgdock-server knows about the components pgdock-status
-// can't probe. That a heartbeat arrives at all also says pgdock-server's
+// States is what xenibase-server knows about the components xenibase-status
+// can't probe. That a heartbeat arrives at all also says xenibase-server's
 // workers are running.
 func (s *Service) States(ctx context.Context) ([]statusapi.ComponentState, error) {
 	q := store.New(s.db)

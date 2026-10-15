@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/signature"
-	"github.com/israel-duff/pgdock/internal/statusapi"
-	"github.com/israel-duff/pgdock/internal/version"
+	"github.com/israel-duff/xenibase/internal/signature"
+	"github.com/israel-duff/xenibase/internal/statusapi"
+	"github.com/israel-duff/xenibase/internal/version"
 )
 
 //go:embed templates/*.html templates/style.css
@@ -201,7 +201,7 @@ func (s *Service) snapshot(ctx context.Context, recentDays int) (*snapshot, erro
 	return snap, nil
 }
 
-// Handler serves the page, its API and feed, and pgdock-server's pushes.
+// Handler serves the page, its API and feed, and xenibase-server's pushes.
 func (s *Service) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.index)
@@ -343,7 +343,7 @@ func (s *Service) apiIncident(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, in)
 }
 
-// signed checks the PGDock-Signature of a push from pgdock-server.
+// signed checks the Xenibase-Signature of a push from xenibase-server.
 func (s *Service) signed(h func(http.ResponseWriter, *http.Request, []byte)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if s.cfg.PushSecret == "" {

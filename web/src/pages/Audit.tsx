@@ -80,7 +80,7 @@ export function AuditView({
               <td className="px-3 py-1.5">
                 <StatusBadge status={a.outcome} />
               </td>
-              <td className="px-3 py-1.5 text-muted">{a.user_email ?? (a.actor_kind === "system" ? "PGDock" : "—")}</td>
+              <td className="px-3 py-1.5 text-muted">{a.user_email ?? (a.actor_kind === "system" ? "Xenibase" : "—")}</td>
               <td className="px-3 py-1.5 font-mono text-xs text-muted">{a.target_id ? `${a.target_type}:${a.target_id.slice(0, 8)}` : "—"}</td>
               <td className="px-3 py-1.5 font-mono text-xs text-muted">{a.ip ?? "—"}</td>
             </tr>

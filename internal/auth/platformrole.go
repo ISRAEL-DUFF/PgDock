@@ -9,11 +9,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	pgmail "github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Platform administrators are made and unmade here: in the admin UI by an
-// existing administrator, or on the server by `pgdock-server admin …` (for
+// existing administrator, or on the server by `xenibase-server admin …` (for
 // when there is nobody left who can).
 
 // ErrLastAdmin refuses to take the platform's last active administrator
@@ -99,16 +100,21 @@ func (s *Service) SetPlatformRole(ctx context.Context, target uuid.UUID, role st
 		return out, err
 	}
 	if changed {
-		var subject, body string
+		var subject, title, body string
 		switch role {
 		case RolePlatformAdmin:
-			subject, body = "You are now a PGDock platform admin", "You were made a platform admin. You can manage users, plans, nodes and the platform's settings. Sign in again to use it."
+			subject, title, body = "You are now a Xenibase platform admin", "You're now a platform admin", "You were made a platform admin. You can manage users, plans, nodes and the platform's settings. Sign in again to use it."
 		case RoleSupport:
-			subject, body = "You are now PGDock support staff", "You were given the support role. You can answer tickets in the support console and see organisations' plans, billing status and usage, but not their data. Sign in again to use it."
+			subject, title, body = "You are now Xenibase support staff", "You're now support staff", "You were given the support role. You can answer tickets in the support console and see organisations' plans, billing status and usage, but not their data. Sign in again to use it."
 		default:
-			subject, body = "Your PGDock platform role was removed", "Your platform access was removed. Your own organisations and projects are unchanged. Sign in again to continue."
+			subject, title, body = "Your Xenibase platform role was removed", "Your platform role was removed", "Your platform access was removed. Your own organisations and projects are unchanged. Sign in again to continue."
 		}
-		if err := s.send(ctx, out.Email, subject, body+"\n\nIf this wasn't expected, contact a platform admin."); err != nil {
+		if err := s.sendContent(ctx, out.Email, subject, pgmail.Content{
+			Preheader: body,
+			Title:     title,
+			Blocks:    []pgmail.Block{pgmail.P(pgmail.Hi(nameOf(out))), pgmail.P(body), pgmail.Button("Sign in", s.cfg.PublicURL+"/login")},
+			Note:      "If this wasn't expected, please contact a platform admin.",
+		}); err != nil {
 			s.log.Warn("platform role email", "user_id", out.ID, "err", err)
 		}
 	}

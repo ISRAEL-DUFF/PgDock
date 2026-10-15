@@ -1,6 +1,6 @@
 # V3 build plan
 
-How V3 ([the spec](../PGDock%20—%20V3%20Specification%20&%20Build%20Plan.md))
+How V3 ([the spec](../Xenibase%20—%20V3%20Specification%20&%20Build%20Plan.md))
 gets built. The spec says *what*; this file says how each milestone is
 approached in this codebase, what is tested where, and what can only be
 proven on real infrastructure. Decisions made while building go in
@@ -8,9 +8,9 @@ proven on real infrastructure. Decisions made while building go in
 
 ## Ground rules
 
-- **Branch.** All V3 work lands on `feature/pgdock3`. It merges into `main`
+- **Branch.** All V3 work lands on `feature/xenibase3`. It merges into `main`
   only when all of V3 is built and tested; V2 stays in production meanwhile.
-  `main` fixes are merged into `feature/pgdock3` as they land.
+  `main` fixes are merged into `feature/xenibase3` as they land.
 - **Nothing in V2 breaks.** Every V3 feature is additive or behind a
   setting. A V2 install upgraded to the V3 code with nothing configured
   behaves as V2 does: one pooler host, one region, no billing.
@@ -26,7 +26,7 @@ proven on real infrastructure. Decisions made while building go in
 ### What exists
 
 - Two PgBouncers (`session` :5432, `transaction` :6543) run next to
-  pgdock-server and read `databases.ini` and `userlist.txt` from a shared
+  xenibase-server and read `databases.ini` and `userlist.txt` from a shared
   directory that `pooler.Manager` writes atomically, then `RELOAD`s over
   the admin console (`internal/pooler`).
 - Pause, resume, kill and reconnect go to every configured admin console.
@@ -34,7 +34,7 @@ proven on real infrastructure. Decisions made while building go in
 
 ### Design
 
-**Pooler hosts are nodes.** A pooler host runs `pgdock-agent` with a new
+**Pooler hosts are nodes.** A pooler host runs `xenibase-agent` with a new
 node role `pooler`, the two PgBouncers, and keepalived. It registers like
 any node (one-time token, pinned client certificate). Regions arrive in
 M25; until then all pooler hosts form one pair.
@@ -64,7 +64,7 @@ mid-operation.
 - Failover target: under 10 seconds (VRRP advert 1s, 3 missed adverts, plus
   the API call). Existing client connections drop and reconnect.
 
-**External arbiter in the control plane.** Every few seconds pgdock-server
+**External arbiter in the control plane.** Every few seconds xenibase-server
 checks each pooler host (agent health, PgBouncer reachability, config
 hash) and which server the floating IP is assigned to (Hetzner API). If the
 IP points at an unhealthy or stale host while the other is healthy and
@@ -72,7 +72,7 @@ current, which happens when keepalived is split, the control plane
 reassigns it and raises an alert. Every reassignment, whoever made it, is
 audited and logged as a pooler event.
 
-**Status page as a separate program.** A new binary, `pgdock-status`, built
+**Status page as a separate program.** A new binary, `xenibase-status`, built
 from this repo and run on other infrastructure (another provider):
 - Probes from outside every minute: the dashboard (`/healthz`), the pooler
   floating IP on both ports (a real query as a dedicated low-privilege probe
@@ -80,14 +80,14 @@ from this repo and run on other infrastructure (another provider):
   small probe database).
 - Components that can't be probed from outside (backups, webhooks and jobs,
   dedicated instances) take their state from **signed heartbeats** that
-  pgdock-server pushes. A missing heartbeat shows the component as
+  xenibase-server pushes. A missing heartbeat shows the component as
   "unknown", never "operational".
 - Stores its own state (component history, incidents, subscribers) in a
-  local SQLite file. It has no dependency on PGDock's database.
+  local SQLite file. It has no dependency on Xenibase's database.
 - **Incidents** open automatically after sustained probe failures (default:
   3 consecutive minutes) and close automatically on recovery. The platform
-  admin can also create, update and resolve incidents in PGDock
-  (Admin → Incidents); pgdock-server pushes them to the status service with
+  admin can also create, update and resolve incidents in Xenibase
+  (Admin → Incidents); xenibase-server pushes them to the status service with
   an HMAC signature.
 - **Subscriptions** by email, with double opt-in, through the status
   service's own SMTP settings. Auto-subscribing paying orgs waits for
@@ -113,7 +113,7 @@ state (assigned hash, last check, floating-IP holder) on `nodes` and a
   assignment.
 - **Done-when test:** with a client running queries through the floating
   address, `docker kill` the active pooler host. Queries succeed again
-  within 10 seconds through the same address. A `pgdock-status` container
+  within 10 seconds through the same address. A `xenibase-status` container
   on a separate network marks the edge pooler down and then back up, and
   opens and resolves an incident by itself.
 - **Not provable here:** real Hetzner floating-IP reassignment timings and
@@ -130,7 +130,7 @@ docs/decisions.md, M17):
 - A configuration change succeeds when at least one pooler host takes it.
   A host that misses it is stale, fails keepalived's check, and is pushed
   to again until it catches up.
-- The done-when test runs pgdock-status on the host's network, outside the
+- The done-when test runs xenibase-status on the host's network, outside the
   Docker network the pooler hosts share; Docker doesn't route between
   bridge networks.
 
@@ -153,7 +153,7 @@ the floating IP.
   source is kept read-only for 48 hours (`retired_databases`).
 - Instances run `wal_level=replica` (WAL-G archiving) and one Postgres
   version, 18: `InsertInstance` hard-codes it and the agent has one image
-  (`pgdock-postgres:18-walg3.0.9`).
+  (`xenibase-postgres:18-walg3.0.9`).
 
 ### Design
 
@@ -174,7 +174,7 @@ promotion, demotion, node moves and major upgrades. Steps (V3 §2.3):
    verifiers, extensions, then `pg_dump --schema-only` restored with
    owners and grants (the existing copy, schema only).
 3. **DDL block** on the source: an event trigger, owned by the superuser
-   in PGDock's `pgdock` schema, that refuses DDL with "this project is
+   in Xenibase's `xenibase` schema, that refuses DDL with "this project is
    being moved" while the move runs.
 4. **Replication**: a publication for all tables on the source; a
    short-lived login there (`LOGIN REPLICATION BYPASSRLS`, `SELECT` on
@@ -205,11 +205,11 @@ agent-run shared clusters start with `wal_level=logical` (a superset of
 on `replica` fails preflight with how to fix it, and dump/restore runs.
 The dev and test shared clusters get it in Compose.
 
-**Postgres versions.** `PGDOCK_PG_VERSIONS` (default `17,18`) lists the
+**Postgres versions.** `XENIBASE_PG_VERSIONS` (default `17,18`) lists the
 supported majors; the newest is the default. A project picks a version at
 creation. A shared project goes to a shared cluster of that version, and a
 dedicated instance runs that version's image. The agent's image becomes a
-template, `pgdock-postgres:{major}-walg3.0.9`, with one image built per
+template, `xenibase-postgres:{major}-walg3.0.9`, with one image built per
 version. `AddSharedCluster` takes a version, and the dev environment gains
 a Postgres 17 shared cluster for tests.
 
@@ -258,7 +258,7 @@ done-when check. `settings` holds the maintenance window.
   and a source on `wal_level=replica`. Then a 17 → 18 upgrade of a
   dedicated project and of a shared project.
 - **Done-when:** the same move with a 20 GB database
-  (`PGDOCK_TEST_MOVE_GB=20`, `make test-move`). CI runs it at 1 GB; the
+  (`XENIBASE_TEST_MOVE_GB=20`, `make test-move`). CI runs it at 1 GB; the
   20 GB run is documented with its measured freeze.
 - **Not provable here:** moves between real nodes over a private network,
   and multi-hour initial copies of production-sized databases.

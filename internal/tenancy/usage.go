@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Usage metrics (V2 §10.9). GB is 10^9 bytes.
@@ -39,7 +39,7 @@ const (
 	MetricPITR30Hours            = "pitr_30_hours"
 	MetricRetentionExtendedHours = "backup_retention_extended_hours"
 	MetricRetentionLongHours     = "backup_retention_long_hours"
-	// Backend services (V4 §11.1), reported by pgdock-edge.
+	// Backend services (V4 §11.1), reported by xenibase-edge.
 	MetricAPIRequests = "api_requests"
 	MetricAPIEgress   = "api_egress_gb"
 	// MetricAuthMAU counts each user once a month, when first active.

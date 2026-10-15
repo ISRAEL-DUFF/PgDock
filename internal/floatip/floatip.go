@@ -1,6 +1,6 @@
 // Package floatip assigns the edge pooler's floating IP to a server
 // (V3 §2.1). keepalived on the pooler hosts decides which host should hold
-// it and the agent there claims it; pgdock-server checks the assignment
+// it and the agent there claims it; xenibase-server checks the assignment
 // and corrects it when keepalived is split.
 package floatip
 

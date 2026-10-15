@@ -1,6 +1,6 @@
 # Legal documents
 
-PGDock keeps two kinds of legal document (V3 §7.3).
+Xenibase keeps two kinds of legal document (V3 §7.3).
 
 **Each person accepts:** the terms of use, the privacy notice and the
 acceptable use policy. They are published together as one version
@@ -10,7 +10,7 @@ visit, before they can do anything else.
 **Each organisation accepts:** the service level agreement (SLA), the data
 processing agreement (DPA), and the organisation's own order form, if it
 has one. Each is versioned. An organisation **owner** accepts the version
-in effect on the organisation's behalf. PGDock records who accepted, when,
+in effect on the organisation's behalf. Xenibase records who accepted, when,
 and from which IP address.
 
 ## The defaults are templates
@@ -20,13 +20,13 @@ The first start publishes the following as version 1:
 - the terms, privacy notice and AUP (see the [terms template](terms-template.md));
 - an SLA with the commitment from V3 §2.7 and the support response
   targets ([support](support.md));
-- a DPA listing PGDock's sub-processors.
+- a DPA listing Xenibase's sub-processors.
 
 Have a lawyer review all of them, then publish the company's own versions
 before charging anyone (see the launch gate in the [admin runbook](admin-runbook.md)).
 
 **Sub-processors added in V4.1.** The DPA template now lists the SMS and
-WhatsApp providers PGDock holds accounts with for apps' sign-in codes
+WhatsApp providers Xenibase holds accounts with for apps' sign-in codes
 (Termii, Africa's Talking, Meta's WhatsApp Business Platform) and
 Cloudflare's CDN for public files. A new install publishes it as version
 1. An install already running publishes nothing by itself, because a new
@@ -35,6 +35,14 @@ WhatsApp codes, tell organisations about the new sub-processors 30 days
 ahead (the DPA promises that notice), then publish a new DPA version from
 Platform → Legal documents with the new rows (the template is in
 `internal/legal/defaults.go`).
+
+**Sub-processors named in the default DPA after the cards removal.** The
+payment providers the default DPA used to name (Flutterwave and iSpend) are
+replaced by one row, "Our wallet provider". An install already running
+keeps the DPA it published, which still names Flutterwave and iSpend: if
+you want it to match, tell organisations 30 days ahead (the DPA promises
+that notice) and publish a new version from Platform → Legal documents
+(the template is in `internal/legal/defaults.go`).
 
 ## Publishing
 

@@ -71,7 +71,7 @@ func TestRespCacheBoundedLRU(t *testing.T) {
 }
 
 func TestCacheKeyNormalises(t *testing.T) {
-	a, _ := url.ParseQuery("select=id&where=done:eq:false&apikey=pgd_pub_1&order=id:desc")
+	a, _ := url.ParseQuery("select=id&where=done:eq:false&apikey=xb_pub_1&order=id:desc")
 	b, _ := url.ParseQuery("order=id:desc&where=done:eq:false&select=id")
 	if cacheKey("r", 1, "fp", "/data/v1/todos", a) != cacheKey("r", 1, "fp", "/data/v1/todos", b) {
 		t.Fatal("parameter order or the apikey changed the key")

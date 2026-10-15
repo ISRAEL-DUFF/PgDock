@@ -6,15 +6,15 @@ import (
 )
 
 func TestRefFromHost(t *testing.T) {
-	e := New(Config{Domain: "api.pgdock.ng."})
+	e := New(Config{Domain: "api.xenibase.ng."})
 	for host, want := range map[string]string{
-		"k7f3m2q9.api.pgdock.ng":      "k7f3m2q9",
-		"K7F3M2Q9.API.pgdock.ng:443":  "k7f3m2q9",
-		"k7f3m2q9.api.pgdock.ng.":     "k7f3m2q9",
-		"a.k7f3m2q9.api.pgdock.ng":    "",
-		"api.pgdock.ng":               "",
-		"k7f3m2q9.api.pgdock.ng.evil": "",
-		"k7f3m2q9.xapi.pgdock.ng":     "",
+		"k7f3m2q9.api.xenibase.ng":      "k7f3m2q9",
+		"K7F3M2Q9.API.xenibase.ng:443":  "k7f3m2q9",
+		"k7f3m2q9.api.xenibase.ng.":     "k7f3m2q9",
+		"a.k7f3m2q9.api.xenibase.ng":    "",
+		"api.xenibase.ng":               "",
+		"k7f3m2q9.api.xenibase.ng.evil": "",
+		"k7f3m2q9.xapi.xenibase.ng":     "",
 	} {
 		got, ok := e.refFromHost(host)
 		if ok != (want != "") || got != want {

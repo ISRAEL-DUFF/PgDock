@@ -15,9 +15,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // writeResultBody is a write's response.
@@ -79,7 +79,7 @@ func TestDataAPIWrites(t *testing.T) {
 		`ALTER TABLE profiles ENABLE ROW LEVEL SECURITY`,
 		`CREATE POLICY read_all ON profiles FOR SELECT USING (true)`,
 		`ALTER TABLE todos ENABLE ROW LEVEL SECURITY`,
-		fmt.Sprintf(`CREATE POLICY own_todos ON todos FOR ALL TO %q USING (owner_id = pgd_auth.uid()) WITH CHECK (owner_id = pgd_auth.uid())`, userRole),
+		fmt.Sprintf(`CREATE POLICY own_todos ON todos FOR ALL TO %q USING (owner_id = xb_auth.uid()) WITH CHECK (owner_id = xb_auth.uid())`, userRole),
 		`CREATE FUNCTION todo_counts() RETURNS TABLE (done boolean, n bigint) LANGUAGE sql STABLE AS
 		   'SELECT done, count(*) FROM todos GROUP BY done ORDER BY done'`,
 		`CREATE FUNCTION complete_all(before timestamptz DEFAULT now()) RETURNS int LANGUAGE sql AS

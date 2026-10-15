@@ -1,7 +1,7 @@
 // Package tokens issues and checks API tokens for the CLI, CI and scripts
 // (V2 §7.2), and runs the device login that issues them to the CLI.
 //
-// A token is "pgd_" followed by 32 random bytes in base62. It is shown
+// A token is "xb_" followed by 32 random bytes in base62. It is shown
 // once; the database keeps its SHA-256 (tokens are high-entropy, so a slow
 // hash adds nothing). Each token acts in exactly one organisation, with
 // additive scopes, an optional project restriction, and a required expiry.
@@ -26,9 +26,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Scopes (V2 §7.2). They are additive: write includes read, and admin
@@ -40,7 +40,7 @@ const (
 )
 
 // Prefix starts every token, so secret scanners can find leaked ones.
-const Prefix = "pgd_"
+const Prefix = "xb_"
 
 const (
 	// DefaultExpiry is a new token's lifetime when none is given.
@@ -326,7 +326,7 @@ func Hash(secret string) string {
 
 const base62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
-// newSecret returns "pgd_" + 32 random bytes in base62 (43 characters).
+// newSecret returns "xb_" + 32 random bytes in base62 (43 characters).
 func newSecret() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -345,11 +345,11 @@ func newSecret() (string, error) {
 
 // ---- Email ------------------------------------------------------------------
 
-func (s *Service) send(ctx context.Context, to, subject, body string) {
+func (s *Service) send(ctx context.Context, to, subject string, c mail.Content) {
 	if s.mail == nil || to == "" {
 		return
 	}
-	if err := s.mail.Send(ctx, mail.Message{To: []string{to}, Subject: subject, Body: body}); err != nil && !errors.Is(err, mail.ErrNotConfigured) {
+	if err := s.mail.Send(ctx, mail.Compose([]string{to}, subject, c)); err != nil && !errors.Is(err, mail.ErrNotConfigured) {
 		s.log.Warn("send token email", "subject", subject, "err", err)
 	}
 }
@@ -361,10 +361,23 @@ func (s *Service) notifyCreated(ctx context.Context, q *store.Queries, t store.A
 	if err != nil {
 		return
 	}
-	s.send(ctx, u.Email, "New PGDock API token: "+t.Name,
-		fmt.Sprintf("An API token named %q (%s…) was created for your account, with scopes %s. It expires %s.\n\n"+
-			"If this wasn't you, revoke it now: %s\n",
-			t.Name, t.Prefix, strings.Join(t.Scopes, ", "), t.ExpiresAt.UTC().Format("2 January 2006"), s.link("/account#tokens")))
+	s.send(ctx, u.Email, "New Xenibase API token: "+t.Name, mail.Content{
+		Preheader: "If this wasn't you, revoke it now.",
+		Title:     "A new API token was created",
+		Blocks: []mail.Block{
+			mail.P("Hello,"),
+			mail.P("An API token was just created for your Xenibase account."),
+			mail.Facts(
+				mail.Fact{Label: "Name", Value: t.Name},
+				mail.Fact{Label: "Starts with", Value: t.Prefix + "…"},
+				mail.Fact{Label: "Scopes", Value: strings.Join(t.Scopes, ", ")},
+				mail.Fact{Label: "Expires", Value: t.ExpiresAt.UTC().Format("2 January 2006")},
+			),
+			mail.P("If this was you, there's nothing to do. If it wasn't, revoke it right away:"),
+			mail.Button("Review your tokens", s.link("/account#tokens")),
+		},
+		Note: "We send this whenever an API token is created on your account.",
+	})
 }
 
 // Sweep emails owners of tokens expiring within a week and clears expired
@@ -377,9 +390,16 @@ func (s *Service) Sweep(ctx context.Context) error {
 		return err
 	}
 	for _, t := range rows {
-		s.send(ctx, t.Email, "Your PGDock API token expires soon: "+t.Name,
-			fmt.Sprintf("Your API token %q (%s…) for %s expires %s. Create a new one before then: %s\n",
-				t.Name, t.Prefix, t.OrgName, t.ExpiresAt.UTC().Format("2 January 2006 15:04 MST"), s.link("/account#tokens")))
+		s.send(ctx, t.Email, "Your Xenibase API token expires soon: "+t.Name, mail.Content{
+			Preheader: "Create a new one before then so nothing stops working.",
+			Title:     "An API token is about to expire",
+			Blocks: []mail.Block{
+				mail.P("Hello,"),
+				mail.P(fmt.Sprintf("Your API token %q for %s expires on %s. Create a new one before then, so nothing that uses it stops working.", t.Name, t.OrgName, t.ExpiresAt.UTC().Format("2 January 2006 at 15:04 MST"))),
+				mail.Button("Create a new token", s.link("/account#tokens")),
+			},
+			SignOff: mail.SignOff,
+		})
 		if err := q.MarkTokenExpiryNotified(ctx, store.MarkTokenExpiryNotifiedParams{ID: t.ID, OrgID: t.OrgID}); err != nil {
 			return err
 		}

@@ -66,7 +66,7 @@ class AuthClient {
 
   AuthClient(this._t, {SessionStorage? storage, String? storageKey, this.autoRefresh = true, this.refreshMargin = const Duration(seconds: 60)})
       : _storage = storage ?? MemoryStorage(),
-        _key = storageKey ?? 'pgdock.auth.${Uri.parse(_t.url).host}' {
+        _key = storageKey ?? 'xenibase.auth.${Uri.parse(_t.url).host}' {
     ready = _restore();
   }
 
@@ -138,7 +138,7 @@ class AuthClient {
     final r = _refreshing;
     if (r != null) return r;
     final s = _session;
-    if (s == null) return Future.error(const PgdockException(401, 'no_session', 'not signed in'));
+    if (s == null) return Future.error(const XenibaseException(401, 'no_session', 'not signed in'));
     final f = () async {
       try {
         final j = await _t.json('POST', '/auth/v1/token',
@@ -146,7 +146,7 @@ class AuthClient {
         final next = Session.fromJson((j as Map).cast<String, dynamic>());
         await _save(next, AuthEvent.tokenRefreshed);
         return next;
-      } on PgdockException catch (e) {
+      } on XenibaseException catch (e) {
         if (e.status >= 400 && e.status < 500) await _save(null, AuthEvent.signedOut);
         rethrow;
       } finally {
@@ -230,7 +230,7 @@ class AuthClient {
     if (s != null) {
       try {
         await _t.json('POST', '/auth/v1/signout', query: {'scope': scope}, body: <String, dynamic>{}, tokenOverride: s.accessToken);
-      } on PgdockException catch (e) {
+      } on XenibaseException catch (e) {
         if (e.status != 401) rethrow;
       }
     }

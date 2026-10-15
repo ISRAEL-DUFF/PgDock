@@ -10,9 +10,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Personal database credentials (V2 §3.5): every member gets their own
@@ -22,7 +22,7 @@ import (
 //   - Read/write logins (admins, developers) are members of the owner role
 //     and switch to it as they connect (ALTER ROLE … SET role), so what they
 //     create belongs to the project, not to them.
-//   - Read-only logins are members of <db>_ro, which PGDock keeps granted
+//   - Read-only logins are members of <db>_ro, which Xenibase keeps granted
 //     SELECT on every schema the owner has, and start every transaction
 //     read-only.
 //

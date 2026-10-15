@@ -1,5 +1,5 @@
 -- The audit log is append-only (spec §7.5): rows can be added, never
--- changed or removed, even by pgdock-server itself.
+-- changed or removed, even by xenibase-server itself.
 -- +goose Up
 -- +goose StatementBegin
 CREATE FUNCTION audit_log_append_only() RETURNS trigger LANGUAGE plpgsql AS $$

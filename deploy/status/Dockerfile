@@ -1,7 +1,7 @@
-# pgdock-status, PGDock's public status page (V3 §2.6). Run it somewhere
-# other than PGDock's own servers (another provider), behind TLS.
+# xenibase-status, Xenibase's public status page (V3 §2.6). Run it somewhere
+# other than Xenibase's own servers (another provider), behind TLS.
 #
-#   docker build -f deploy/status/Dockerfile -t pgdock-status .
+#   docker build -f deploy/status/Dockerfile -t xenibase-status .
 #
 # Behind a TLS-intercepting proxy, pass its CA as a build secret
 # (--secret id=ca_bundle,src=ca.pem); base images can come from a mirror
@@ -19,15 +19,15 @@ COPY . .
 ARG VERSION=dev
 ARG COMMIT=unknown
 RUN CGO_ENABLED=0 go build -trimpath \
-      -ldflags "-s -w -X github.com/israel-duff/pgdock/internal/version.Version=${VERSION} -X github.com/israel-duff/pgdock/internal/version.Commit=${COMMIT}" \
-      -o /out/pgdock-status ./cmd/status \
+      -ldflags "-s -w -X github.com/israel-duff/xenibase/internal/version.Version=${VERSION} -X github.com/israel-duff/xenibase/internal/version.Commit=${COMMIT}" \
+      -o /out/xenibase-status ./cmd/status \
  && mkdir -p /out/data
 
 FROM ${RUNTIME_IMAGE}
-COPY --from=build /out/pgdock-status /usr/local/bin/pgdock-status
-COPY --from=build --chown=65532:65532 /out/data /var/lib/pgdock-status
+COPY --from=build /out/xenibase-status /usr/local/bin/xenibase-status
+COPY --from=build --chown=65532:65532 /out/data /var/lib/xenibase-status
 USER 65532:65532
-VOLUME ["/var/lib/pgdock-status"]
+VOLUME ["/var/lib/xenibase-status"]
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/pgdock-status"]
-CMD ["run", "--config", "/etc/pgdock-status/status.toml"]
+ENTRYPOINT ["/usr/local/bin/xenibase-status"]
+CMD ["run", "--config", "/etc/xenibase-status/status.toml"]

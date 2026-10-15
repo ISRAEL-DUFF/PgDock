@@ -24,10 +24,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/agentca"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/version"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/agentca"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/version"
 )
 
 // Errors for the API layer.
@@ -76,7 +76,7 @@ func (s *Service) regionOr(r string) string {
 	return "eu-central"
 }
 
-// NewService returns a Service. bootstrapToken (PGDOCK_AGENT_BOOTSTRAP_TOKEN)
+// NewService returns a Service. bootstrapToken (XENIBASE_AGENT_BOOTSTRAP_TOKEN)
 // lets the install bundle's own agent register the local node without an
 // operator; empty disables it.
 func NewService(db *pgxpool.Pool, ca *agentca.CA, bootstrapToken string, log *slog.Logger) (*Service, error) {
@@ -93,7 +93,7 @@ func newToken() (token, hash string, exp time.Time, err error) {
 	if _, err := rand.Read(b); err != nil {
 		return "", "", time.Time{}, err
 	}
-	token = "pgdreg_" + base64.RawURLEncoding.EncodeToString(b)
+	token = "xbreg_" + base64.RawURLEncoding.EncodeToString(b)
 	return token, hashToken(token), time.Now().Add(24 * time.Hour), nil
 }
 
@@ -226,7 +226,7 @@ func (s *Service) Check(ctx context.Context, n store.Node) Status {
 	} else {
 		st.Reachable = true
 		if server := version.Get().Version; !Compatible(server, st.Health.Version) {
-			st.Err = fmt.Sprintf("agent %s is incompatible with pgdock-server %s: no work is sent to it until it is upgraded", st.Health.Version, server)
+			st.Err = fmt.Sprintf("agent %s is incompatible with xenibase-server %s: no work is sent to it until it is upgraded", st.Health.Version, server)
 			s.log.Warn("incompatible agent", "node", n.Name, "agent_version", st.Health.Version, "server_version", server)
 		}
 	}
@@ -282,7 +282,7 @@ var roles = map[string]bool{"shared": true, "dedicated": true, "both": true}
 // RolePooler is an edge pooler host.
 const RolePooler = "pooler"
 
-// RoleEdge is a node that runs pgdock-edge only (V4.1 §11): never given a
+// RoleEdge is a node that runs xenibase-edge only (V4.1 §11): never given a
 // database, its cost split by backend services' use.
 const RoleEdge = "edge"
 

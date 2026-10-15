@@ -157,7 +157,7 @@ export function SwitchCredentialsCard({ p }: { p: Project }) {
         ) : (
           <>
             <p className="text-sm text-muted">
-              This project was created before PGDock used opaque names, so its role name ({p.owner_role}) is visible to other tenants on the same cluster.
+              This project was created before Xenibase used opaque names, so its role name ({p.owner_role}) is visible to other tenants on the same cluster.
               Switching gives it an opaque role and a new password; the old ones keep working for a grace period, then stop. Members' personal database logins
               are renamed straight away (same password, new user name), so they need to copy the new connection string.
             </p>
@@ -182,7 +182,7 @@ export function ReapedCard({ p }: { p: Project }) {
   const q = useQuery({ queryKey: ["project", p.id, "reaped"], queryFn: () => api.reapedSessions(p.id), enabled: p.tier === "shared" });
   if (!q.data || q.data.items.length === 0) return null;
   return (
-    <Panel title="Ended by PGDock">
+    <Panel title="Ended by Xenibase">
       <p className="mb-2 text-xs text-muted">
         On the shared tier, statements running over 10 minutes are cancelled and sessions idle in a transaction over 5 minutes are ended.
       </p>

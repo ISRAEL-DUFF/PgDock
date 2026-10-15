@@ -18,7 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 const keyDBHost = "db_host"
@@ -33,7 +33,7 @@ type Store struct {
 	listeners []func(host string)
 }
 
-// New returns a Store. defaultHost (PGDOCK_DB_HOST) applies until the
+// New returns a Store. defaultHost (XENIBASE_DB_HOST) applies until the
 // operator sets a hostname.
 func New(db *pgxpool.Pool, defaultHost string) *Store {
 	return &Store{db: db, defaultHost: defaultHost}
@@ -129,7 +129,7 @@ type DNSCheck struct {
 }
 
 // CheckDNS resolves host and compares it with the addresses this server is
-// known by: its own public addresses (PGDOCK_PUBLIC_IPS), its interfaces,
+// known by: its own public addresses (XENIBASE_PUBLIC_IPS), its interfaces,
 // and whatever the hostname the operator reached the UI through resolves to
 // (the UI and the poolers share the control node).
 func CheckDNS(ctx context.Context, host, uiHost string, publicIPs []netip.Addr) DNSCheck {

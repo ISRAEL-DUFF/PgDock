@@ -1,4 +1,4 @@
-// Package legal keeps PGDock's legal documents (V3 §7.3) that
+// Package legal keeps Xenibase's legal documents (V3 §7.3) that
 // organisations accept: the service level agreement, the data processing
 // agreement, and an organisation's own order form. Each is versioned; an
 // owner accepts the version in effect for the organisation, and the
@@ -17,7 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Kinds.

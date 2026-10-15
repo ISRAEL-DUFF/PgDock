@@ -15,7 +15,7 @@ import (
 // Idempotency-Key on the data API's writes (Taskiem P1-G2): a repeat of a
 // key within 24 hours gets the first answer instead of writing again, and
 // the same key with a different request is refused. The key is claimed and
-// the answer kept in the write's own transaction (pgd_auth.idempotency), so
+// the answer kept in the write's own transaction (xb_auth.idempotency), so
 // a key is recorded exactly when its write commits: a write that failed or
 // timed out before committing left nothing, and a retry runs it.
 
@@ -75,11 +75,11 @@ func (k *idempotency) claim(ctx context.Context, tx pgx.Tx) error {
 	var status *int32
 	var response *string
 	var reused bool
-	err := tx.QueryRow(ctx, `SELECT status, response, reused FROM pgd_auth.idempotency_claim($1, $2)`, k.key, k.hash).
+	err := tx.QueryRow(ctx, `SELECT status, response, reused FROM xb_auth.idempotency_claim($1, $2)`, k.key, k.hash).
 		Scan(&status, &response, &reused)
 	var pe *pgconn.PgError
 	if errors.As(err, &pe) && pe.Code == "42883" {
-		// The project's pgd_* schemas are behind this release: the control
+		// The project's xb_* schemas are behind this release: the control
 		// plane brings them up within minutes.
 		return &apiError{Status: http.StatusServiceUnavailable, Code: "idempotency_unavailable", RetryAfter: 60,
 			Message: "Idempotency-Key isn't available on this project yet; retry later, or without the key"}
@@ -102,7 +102,7 @@ func (k *idempotency) store(ctx context.Context, tx pgx.Tx, status int, body []b
 	if k == nil {
 		return nil
 	}
-	_, err := tx.Exec(ctx, `SELECT pgd_auth.idempotency_store($1, $2, $3)`, k.key, status, string(body))
+	_, err := tx.Exec(ctx, `SELECT xb_auth.idempotency_store($1, $2, $3)`, k.key, status, string(body))
 	return err
 }
 

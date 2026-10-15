@@ -10,12 +10,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
-// Realtime (V4 §6): pgdock-edge serves the WebSockets and reads each
-// project's outbox; pgdock-server keeps the limits it applies and clears
+// Realtime (V4 §6): xenibase-edge serves the WebSockets and reads each
+// project's outbox; xenibase-server keeps the limits it applies and clears
 // what it leaves behind.
 
 const (
@@ -66,9 +66,9 @@ func (s *Service) sweepRealtime(ctx context.Context, p store.Project) error {
 		sql  string
 		keep time.Duration
 	}{
-		{`DELETE FROM pgd_realtime.outbox WHERE at < now() - $1::interval`, outboxKeep},
-		{`DELETE FROM pgd_realtime.relay WHERE at < now() - $1::interval`, relayKeep},
-		{`DELETE FROM pgd_realtime.broadcast_history WHERE at < now() - $1::interval`, historyKeep},
+		{`DELETE FROM xb_realtime.outbox WHERE at < now() - $1::interval`, outboxKeep},
+		{`DELETE FROM xb_realtime.relay WHERE at < now() - $1::interval`, relayKeep},
+		{`DELETE FROM xb_realtime.broadcast_history WHERE at < now() - $1::interval`, historyKeep},
 	} {
 		if _, err := conn.Exec(ctx, st.sql, st.keep.String()); err != nil {
 			return err
@@ -182,7 +182,7 @@ func (s *Service) Realtime(ctx context.Context, projectID uuid.UUID) (RealtimeOv
 	rows, err := conn.Query(ctx, `SELECT n.nspname, c.relname, t.table_name IS NOT NULL, c.relrowsecurity,
 		  EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid = c.oid AND i.indisprimary)
 		FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-		LEFT JOIN pgd_realtime.tables t ON t.schema_name = n.nspname AND t.table_name = c.relname
+		LEFT JOIN xb_realtime.tables t ON t.schema_name = n.nspname AND t.table_name = c.relname
 		WHERE n.nspname = ANY($1) AND c.relkind IN ('r', 'p') AND NOT c.relispartition
 		ORDER BY n.nspname, c.relname`, exposed)
 	if err != nil {
@@ -199,7 +199,7 @@ func (s *Service) Realtime(ctx context.Context, projectID uuid.UUID) (RealtimeOv
 	if err := rows.Err(); err != nil {
 		return out, err
 	}
-	topics, err := conn.Query(ctx, `SELECT topic FROM pgd_realtime.persisted_topics ORDER BY topic`)
+	topics, err := conn.Query(ctx, `SELECT topic FROM xb_realtime.persisted_topics ORDER BY topic`)
 	if err != nil {
 		return out, err
 	}
@@ -237,9 +237,9 @@ func (s *Service) SetRealtimeTable(ctx context.Context, projectID uuid.UUID, sch
 		return err
 	}
 	defer conn.Close(context.Background())
-	fn := "pgd_realtime.disable"
+	fn := "xb_realtime.disable"
 	if enabled {
-		fn = "pgd_realtime.enable"
+		fn = "xb_realtime.enable"
 	}
 	var exists bool
 	if err := conn.QueryRow(ctx, `SELECT to_regclass($1) IS NOT NULL`, pgx.Identifier{schema, table}.Sanitize()).Scan(&exists); err != nil {
@@ -274,10 +274,10 @@ func (s *Service) SetPersistedTopics(ctx context.Context, projectID uuid.UUID, t
 	}
 	defer conn.Close(context.Background())
 	return pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `DELETE FROM pgd_realtime.persisted_topics WHERE topic <> ALL($1)`, topics); err != nil {
+		if _, err := tx.Exec(ctx, `DELETE FROM xb_realtime.persisted_topics WHERE topic <> ALL($1)`, topics); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO pgd_realtime.persisted_topics (topic) SELECT unnest($1::text[]) ON CONFLICT DO NOTHING`, topics)
+		_, err := tx.Exec(ctx, `INSERT INTO xb_realtime.persisted_topics (topic) SELECT unnest($1::text[]) ON CONFLICT DO NOTHING`, topics)
 		return err
 	})
 }

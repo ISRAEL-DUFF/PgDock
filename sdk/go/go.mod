@@ -1,4 +1,4 @@
-module github.com/israel-duff/pgdock/sdk/go
+module github.com/israel-duff/xenibase/sdk/go
 
 go 1.25
 

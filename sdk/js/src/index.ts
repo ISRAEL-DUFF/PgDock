@@ -32,7 +32,7 @@ export interface ClientOptions {
 }
 
 /** A project's client: data, auth, storage and realtime. */
-export class PgdockClient<DB extends AnyDatabase = AnyDatabase> {
+export class XenibaseClient<DB extends AnyDatabase = AnyDatabase> {
   readonly auth: AuthClient;
   readonly data: DataClient<DB>;
   readonly storage: StorageClient;
@@ -51,10 +51,10 @@ export class PgdockClient<DB extends AnyDatabase = AnyDatabase> {
       url,
       key,
       fetch: f,
-      headers: { "X-Client-Info": "pgdock-js/0.1.0", ...opts.headers },
+      headers: { "X-Client-Info": "xenibase-js/0.1.0", ...opts.headers },
     };
     // A secret key acts as the service role: no user session.
-    const secret = key.startsWith("pgd_sec_");
+    const secret = key.startsWith("xb_sec_");
     const external = opts.accessToken;
     const sessionless = secret || !!external;
     this.auth = new AuthClient(
@@ -97,7 +97,7 @@ export class PgdockClient<DB extends AnyDatabase = AnyDatabase> {
         watch: (schema, table, onChange) => {
           watchN += 1;
           const ch = this.realtime
-            .channel(`pgdock-live:${schema}.${table}:${watchN}`)
+            .channel(`xenibase-live:${schema}.${table}:${watchN}`)
             .onChange({ event: "*", schema, table }, onChange)
             .onResync(onChange)
             .subscribe();
@@ -119,6 +119,6 @@ export function createClient<DB extends AnyDatabase = AnyDatabase>(
   url: string,
   key: string,
   opts: ClientOptions = {},
-): PgdockClient<DB> {
-  return new PgdockClient<DB>(url, key, opts);
+): XenibaseClient<DB> {
+  return new XenibaseClient<DB>(url, key, opts);
 }

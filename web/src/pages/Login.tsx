@@ -119,12 +119,12 @@ export function LoginPage() {
           <Button type="submit" variant="primary" busy={busy}>
             Continue
           </Button>
-          <div className="flex justify-between text-xs">
-            <Link to="/reset-password" className="text-muted hover:text-fg">
+          <div className="flex justify-between text-[13px]">
+            <Link to="/reset-password" className="text-muted hover:text-accent-text hover:underline">
               Forgot your password?
             </Link>
             {session && session.signup_mode !== "invite_only" && (
-              <Link to="/signup" className="text-muted hover:text-fg">
+              <Link to="/signup" className="text-accent-text hover:underline">
                 Create an account
               </Link>
             )}

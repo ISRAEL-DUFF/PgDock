@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/api/gen"
 )
 
 // Project → Realtime (V4 §6): which tables' changes are delivered, the

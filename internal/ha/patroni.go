@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/agentapi"
 )
 
 // Patroni talks to a member's REST API. Reading the cluster needs no

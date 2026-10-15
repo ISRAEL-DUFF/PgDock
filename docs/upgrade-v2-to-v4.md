@@ -1,175 +1,92 @@
-# Upgrading from V2 to V4.1
+# Moving from V2 (PGDock) to Xenibase V4.1
 
-This runbook takes an install running V2 (`v2.0.0` or `v2.1.0`) to the
-latest release in one step. The server applies every migration from 00020
-to 00050 on its first start, so the upgrade itself is the usual
-`./install.sh`. The work is in deciding a few settings beforehand: V3 adds
-billing and a Free tier that pauses idle projects, and both apply to every
-existing organisation the moment the new server starts.
+The product was called PGDock until V4.1. The rename was a clean break:
+settings are `XENIBASE_*` (not `PGDOCK_*`), the containers, database user,
+schemas (`xb_auth`, `xb_storage`, `xb_realtime`) and API keys (`xb_pub_`,
+`xb_sec_`) are renamed, and there is no fallback to the old names. **An
+install running `v2.0.0` or `v2.1.0` can't be upgraded in place.** Install
+V4.1 fresh, on a new server, and move the projects across one at a time.
+The old server keeps running until the last project has moved.
 
-[Upgrading](upgrade.md) explains each version's changes. This page puts
-them in order.
+[Upgrading](upgrade.md) explains what each version changed. This page is
+the order to do things in.
 
 ## 1. Before the day
 
-### Cut the release
-
-The release is a tag on `main`: merge the release branch into `main`, add
-the version's heading to [CHANGELOG.md](../CHANGELOG.md) (everything under
-*Unreleased* since `v2.1.0`), and tag it (`git tag v4.1.0`). CI on the tag
-must be green: unit and integration tests, e2e, the docs install test.
-
-### Decide what customers see on the first day
-
-Write these down; you will set them before the upgrade.
+Decide these, and write them down:
 
 | Question | Why it matters | Where |
 | --- | --- | --- |
-| Which organisations pay, and on which plan? | The billing migration gives every organisation a billing account on the **Free** plan. Free projects with no client connections for 7 days are **paused**, and archived after 90 days paused. Paid plans are never paused, and neither are projects of an organisation on the **Unlimited** quota plan (your own platform admin's organisation, where your own projects live). | Each organisation's owner chooses its plan (Org → Billing → **Change plan…**) after the upgrade; until they have, keep the Free tier's clocks long (below). |
-| How long before idle Free projects pause? | The activity clock of every project starts at the upgrade, so the first pauses come 7 days later unless you change it. | `PGDOCK_FREE_PAUSE_AFTER` (e.g. `8760h` while you move customers to their plans), `PGDOCK_FREE_ARCHIVE_AFTER`. See [the Free tier](free-tier.md). |
-| What are the real prices? | The first price book has placeholder prices. Nothing is invoiced until you turn on automatic issue. | Admin → Billing → Price books, then Settings. See [billing](billing.md). |
-| Which region is this? | Every existing node is put in `PGDOCK_REGION` (default `eu-central`). | `.env` before the upgrade. See [regions](regions.md). |
-| Should HA minor upgrades wait for an announced window? | From V3.1 they do, by default, and announcements email organisation owners. | `PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT=false` keeps V2's behaviour. See [HA](ha.md). |
-| Are the legal documents ready? | On first start the server publishes template SLA and DPA documents and adds an acceptable use policy to the terms. | Review them before customers sign in: [legal documents](legal.md). |
-| Who gets query insights? | Shared projects get them only on the plans in `PGDOCK_INSIGHTS_PLANS` (default `pro,team`). | `.env`; `all` without billing. |
+| Hostnames | The web UI and the database host are new names; apps get new connection strings anyway. | [Install](install.md) |
+| Which organisations pay, and on which plan? | New organisations start on the **Free** plan: idle Free projects pause after 7 days and are archived after 90. Paid plans and the **Unlimited** quota plan (your own platform admin's organisation) never pause. | [The Free tier](free-tier.md) |
+| Prices and the dollar rate | Prices are in US dollars and invoiced in naira at a rate frozen on the invoice. Nothing is invoiced until automatic issue is on. | [Billing](billing.md), [Payments](payments.md#the-dollar-rate) |
+| The wallet provider | Payments need the iswallet settings in `.env`, with a webhook subscription whose secret goes in `XENIBASE_ISWALLET_WEBHOOK_SECRET`. | [iswallet](iswallet.md) |
+| Region | Every node is put in `XENIBASE_REGION` (default `eu-central`). | [Regions](regions.md) |
+| Legal documents | On first start the server publishes template SLA and DPA documents. Review them before customers sign in. | [Legal documents](legal.md) |
 
 Payments, support email and WhatsApp, the status page, cloud capacity and
-backend services all stay off until their settings are set. They can wait
-until after the upgrade.
+backend services stay off until their settings are set; they can wait
+until after the install.
 
-### Rehearse on a copy
+## 2. Install the new server
 
-Do the whole upgrade once on a staging server built from production's
-metadata.
+Follow [Install](install.md) on the new server, with new DNS names and a
+new backup bucket (the old server's backups stay where they are). Then:
 
-**Isolate it first.** The restored metadata holds production's agents
-(and the credentials to command them), the SMTP settings, customers'
-email addresses and webhook URLs. Firewall the staging server so it can
-reach nothing outside itself: no production nodes or poolers, no SMTP, no
-payment providers. Allow only your own access to its dashboard.
+1. Back up `deploy/compose/.env` off the server. `XENIBASE_MASTER_KEY` in it
+   decrypts every secret Xenibase stores.
+2. Create the first administrator with the one-time setup code, and turn on
+   two-factor sign-in.
+3. Add the settings you decided above to `.env` and restart the server.
+4. Check `xenibase-server -version`, that the log shows no failed migration,
+   and that a backup of the metadata database reaches the bucket
+   (Settings → Backup checks).
 
-1. Install `v2.1.0` on a staging server ([install](install.md)), with its
-   own domain.
-2. Restore last night's metadata self-backup into it, as in
-   [disaster recovery](disaster-recovery.md#2-restore-the-metadata).
-   Project data isn't needed: the migrations only touch PGDock's own
-   database. Operations that need the projects' servers (applying
-   settings, backups) fail on staging; that is expected.
-3. Set the `.env` values you chose above, then upgrade as in section 3.
-4. Check: the server starts and `pgdock-server -version` shows the new
-   version; the server log shows no failed migration; Admin →
-   Organisations lists every organisation with its billing account;
-   Admin → Billing → Price books has the first book.
-5. Throw the staging server away afterwards: it holds production's
-   secrets.
+**The iswallet webhook comes last.** The server refuses to start with an
+API key and no webhook secret, and the secret exists only once the
+subscription does, which needs the server to be reachable. Start with the
+API key and a temporary secret of at least 16 characters. Create the
+subscription at `https://<host>/api/v1/payments/webhooks/iswallet` for
+`wallet.credit.posted` (and `.reversed` and `.rejected`, which are logged
+for now), put the real secret in `.env`, and restart.
 
-Note how long the server took from start to serving: that is your
-downtime estimate for the dashboard and API. Clients connected to their
-databases through the poolers reconnect in a second or two.
+## 3. Move one project
 
-## 2. On the day, before upgrading
+For each project on the old server, in turn:
 
-- [ ] Announce a window to customers: the dashboard and API are down for
-      a few minutes; database connections blip once.
-- [ ] Check last night's metadata self-backup succeeded (Settings → Backup
-      checks), and take one now if it is old. It is your way back.
-- [ ] Keep `deploy/compose/.env` and the backup key off the server.
-- [ ] Add the settings you decided to `deploy/compose/.env`, for example:
+1. In the new Xenibase, create the organisation (if it's new) and a project
+   with the same name and Postgres major version.
+2. Announce a short write freeze to the project's owner.
+3. Dump the old project's database from the old server (`pg_dump -Fc`,
+   over its session-mode connection) and restore it into the new project
+   with `pg_restore`, over the new project's session-mode connection.
+   Rehearse on a throwaway project first: roles and grants the dump
+   refers to must exist in the new project (it creates its own request
+   roles), and the Xenibase-managed schemas are the new server's own.
+   [Migrate from Supabase](migrate-from-supabase.md) describes the same
+   steps for a Supabase source, including the role and schema mapping.
+4. Re-create what lives outside the database: storage objects, auth
+   settings, backend services and secrets.
+5. Give the application the new connection string and the new
+   `xb_pub_` / `xb_sec_` keys. Old `pgd_` keys don't work.
+6. Check the application, then pause the old project (don't delete it yet).
 
-      PGDOCK_REGION=eu-central
-      PGDOCK_FREE_PAUSE_AFTER=8760h
-      PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT=false
+Keep the old server and the paused projects for at least a billing period
+after the last move, then take a final backup of each and retire them.
 
-- [ ] **Remote nodes first.** Agents must run the same major version as
-      pgdock-server and a minor at least as new. On each node, replace
-      the agent image or binary with the new release's and restart it;
-      it keeps its identity ([remote nodes](upgrade.md#remote-nodes)).
-      Then rebuild or pull the `pgdock-postgres` images there
-      (`make pg-image`): V3's HA needs Patroni in them, and query insights
-      need hypopg.
+## 4. Going live
 
-## 3. Upgrade the control node
+- [ ] An invoice issues, is debited from a funded wallet, and reconciles
+      (use a real organisation of your own, with a small amount).
+- [ ] A bank transfer into an organisation's virtual account shows up as a
+      deposit on its wallet.
+- [ ] A restore from the new bucket works ([Disaster recovery](disaster-recovery.md)).
+- [ ] Announce the new hostnames to customers and give them the date the
+      old ones stop.
 
-```sh
-cd pgdock
-git fetch --tags
-git checkout v4.1.0
-cd deploy/compose
-./install.sh
-```
+## 5. If something goes wrong
 
-The server runs migrations 00020 to 00050 before it serves; a failure
-leaves the old schema and the server refuses to start (see
-[rolling back](#rolling-back)).
-
-## 4. Right after
-
-- [ ] `docker compose exec pgdock-server pgdock-server -version` shows
-      the new version.
-- [ ] Nodes shows every agent healthy, at the new version.
-- [ ] Operations shows nothing failed. Migrations queue some background
-      operations; let them finish.
-- [ ] Recreate the bundle's shared cluster once, so its projects can move
-      by logical replication (it now runs `wal_level=logical`):
-      `docker compose up -d shared-pg`. Connections to shared projects
-      drop for a few seconds; do it inside the window.
-- [ ] Open a shared and a dedicated project: connect through the poolers,
-      run the SQL console, check backups are scheduled.
-- [ ] Admin → Billing: set real prices (publish a new price book) and your
-      company's details before turning on automatic issue.
-- [ ] Ask paying customers' owners to choose their plan (Org → Billing →
-      **Change plan…**). Once they have, set `PGDOCK_FREE_PAUSE_AFTER`
-      back to what you want (or remove it for the default 7 days) and run
-      `./install.sh` again. Free organisations' owners are warned a day
-      before a project is paused.
-
-## 5. Turn on what you need, when you need it
-
-Each of these is independent; none is needed for V2's features to keep
-working.
-
-| Feature | What to set | Guide |
-| --- | --- | --- |
-| Backend services (data API, auth, storage, realtime) | `PGDOCK_API_DOMAIN`, `PGDOCK_EDGE_SECRET` in `.env`; pgdock-edge in each region with a wildcard DNS record and certificate for `*.<domain>`; a backup storage target in each region (files live there) | [Running pgdock-edge](backend-services.md#running-pgdock-edge) |
-| Platform email and SMS for apps' sign-in | The platform SMTP; Termii and WhatsApp template variables | [Platform SMS and WhatsApp](backend-services.md#platform-sms-and-whatsapp-operators) |
-| Card and bank payments | `PGDOCK_FLW_*` or `PGDOCK_ISPEND_*`, and the providers' webhook URLs | [Payments](payments.md) |
-| Open signup | `PGDOCK_TURNSTILE_SITE_KEY`, `PGDOCK_TURNSTILE_SECRET` | [The Free tier](free-tier.md) |
-| Support inbox and WhatsApp | `PGDOCK_SUPPORT_*`, `PGDOCK_WHATSAPP_*` | [Support](support.md) |
-| Status page | `pgdock-status` on other infrastructure; `PGDOCK_STATUS_URL`, `PGDOCK_STATUS_PUSH_SECRET` | [Status page](status-page.md) |
-| HA | An etcd cluster per region (Platform → Nodes) | [HA](ha.md) |
-| Standby pooler | A second pooler host and a floating IP | [Edge poolers](edge-poolers.md) |
-| Buying servers | `PGDOCK_CLOUD_PROVIDER=hetzner` and its variables, a monthly budget | [Capacity](capacity.md) |
-
-After changing `.env`, run `./install.sh` again; it restarts what changed.
-
-Backend services' general availability waits on the gates in
-[the backend runbook](backend-runbook.md#ga-gates). You can turn them on
-for chosen projects before then.
-
-## Rolling back
-
-Take the metadata self-backup before you upgrade (section 2): it is the way
-back.
-
-**Before the new server has started**, rolling back is checking out
-`v2.1.0` and running `./install.sh`.
-
-**After it has run its migrations, do not just check out `v2.1.0`.** `v2.1.0`
-does not notice that the database is at a newer schema: it starts, and runs on
-tables it doesn't know, which can write wrong data without any error
-(rehearsal on a copy of a v2.1.0 database showed it starting and processing
-queued operations against the V4 schema). Instead:
-
-1. Stop pgdock-server (`docker compose stop pgdock-server`).
-2. Restore the metadata database from the self-backup, as in
-   [disaster recovery](disaster-recovery.md#2-restore-the-metadata).
-3. Check out `v2.1.0` and run `./install.sh`.
-
-Anything done in the dashboard since the upgrade is lost; project data is
-not affected (it lives in the projects' databases).
-
-From V4.1 on, a server refuses to start on a database that a newer release
-migrated (`the metadata database was migrated by a newer PGDock than this
-one`), so rolling forward-then-back between V4.1 and later releases fails
-loudly instead. `v2.1.0` and earlier don't have that check, which is why the
-restore is needed here.
+The old server wasn't touched, so the way back is to keep using it. Point
+the application at the old connection string again; changes made on the new
+project since the freeze have to be carried back by hand, which is why each
+project is frozen only for as long as its move takes.

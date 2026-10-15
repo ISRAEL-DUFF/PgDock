@@ -18,11 +18,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/faildomain"
-	"github.com/israel-duff/pgdock/internal/pooler"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/faildomain"
+	"github.com/israel-duff/xenibase/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Alert kinds (spec §8.8), plus a failed weekly isolation check (§7.1).
@@ -456,7 +456,7 @@ func (s *Service) poolerHostConditions(ctx context.Context) ([]condition, error)
 		}
 		if time.Since(since) >= s.cfg.PoolerGrace {
 			out = append(out, condition{KindPoolerSplitBrain, SeverityCritical, "pooler", "edge:" + r, r + " edge pooler",
-				fmt.Sprintf("More than one pooler host in %s is keepalived MASTER (%s): check the network between them. pgdock-server keeps the floating IP on one healthy host.", r, strings.Join(masters[r], ", ")),
+				fmt.Sprintf("More than one pooler host in %s is keepalived MASTER (%s): check the network between them. xenibase-server keeps the floating IP on one healthy host.", r, strings.Join(masters[r], ", ")),
 				map[string]any{"masters": masters[r], "region": r}})
 		}
 	}
@@ -516,8 +516,8 @@ func (s *Service) SendTest(ctx context.Context) ([]ChannelResult, error) {
 		return nil, err
 	}
 	p := s.payload(EventTest, store.Alert{
-		ID: uuid.New(), Kind: "test", Severity: SeverityWarning, Status: "firing", Summary: "Test alert from PGDock",
-		TargetType: "control_plane", TargetID: "test", TargetName: "PGDock", StartedAt: time.Now(),
+		ID: uuid.New(), Kind: "test", Severity: SeverityWarning, Status: "firing", Summary: "Test alert from Xenibase",
+		TargetType: "control_plane", TargetID: "test", TargetName: "Xenibase", StartedAt: time.Now(),
 	})
 	var out []ChannelResult
 	if ch.webhookURL != "" {

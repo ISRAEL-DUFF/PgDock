@@ -14,9 +14,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // apiClient calls a project's data API as one caller.
@@ -131,9 +131,9 @@ func TestDataAPIReads(t *testing.T) {
 		`ALTER TABLE profiles ENABLE ROW LEVEL SECURITY`,
 		`CREATE POLICY read_all ON profiles FOR SELECT USING (true)`,
 		`ALTER TABLE todos ENABLE ROW LEVEL SECURITY`,
-		fmt.Sprintf(`CREATE POLICY own_todos ON todos FOR ALL TO %q USING (owner_id = pgd_auth.uid()) WITH CHECK (owner_id = pgd_auth.uid())`, userRole),
+		fmt.Sprintf(`CREATE POLICY own_todos ON todos FOR ALL TO %q USING (owner_id = xb_auth.uid()) WITH CHECK (owner_id = xb_auth.uid())`, userRole),
 		`ALTER TABLE posts ENABLE ROW LEVEL SECURITY`,
-		`CREATE POLICY visible_posts ON posts FOR SELECT USING (published OR author_id = pgd_auth.uid())`,
+		`CREATE POLICY visible_posts ON posts FOR SELECT USING (published OR author_id = xb_auth.uid())`,
 		`ALTER TABLE comments ENABLE ROW LEVEL SECURITY`,
 		`CREATE POLICY comments_of_visible_posts ON comments FOR SELECT USING (EXISTS (SELECT 1 FROM posts p WHERE p.id = post_id))`,
 		`CREATE VIEW todo_titles AS SELECT id, title FROM todos`,
@@ -313,7 +313,7 @@ func TestDataAPIReads(t *testing.T) {
 		{user1, "GET", "/data/v1/todos?limit=5000", 400, "invalid_limit"},
 		{user1, "GET", "/data/v1/todos?bogus=1", 400, "unknown_parameter"},
 		{user1, "PUT", "/data/v1/todos", 405, "method_not_allowed"},
-		{anon, "GET", "/data/v1/pgd_auth.claims", 404, "unknown_table"},
+		{anon, "GET", "/data/v1/xb_auth.claims", 404, "unknown_table"},
 	} {
 		r := c.cl.do(c.method, c.path, "")
 		if r.Code != c.status || r.Error.Code != c.code {
@@ -345,8 +345,8 @@ func TestDataAPIReads(t *testing.T) {
 	}
 	var apiErr gen.Error
 	if code := e.Do("PATCH", "/api/v1/projects/"+pid.String()+"/services", gen.BackendServicesUpdate{
-		ExposedSchemas: &[]string{"public", "pgd_auth"}}, &apiErr); code != http.StatusBadRequest {
-		t.Fatalf("exposing pgd_auth: %d", code)
+		ExposedSchemas: &[]string{"public", "xb_auth"}}, &apiErr); code != http.StatusBadRequest {
+		t.Fatalf("exposing xb_auth: %d", code)
 	}
 	waitFor(t, 15*time.Second, "public notes and the api schema", func() bool {
 		a := anon.get("/data/v1/notes")
@@ -387,7 +387,7 @@ func TestDataAPIReads(t *testing.T) {
 }
 
 // TestServicesSurviveRestore (V4 §2.5): a project with backend services is
-// backed up and restored, in place and into a new project. The pgd_*
+// backed up and restored, in place and into a new project. The xb_*
 // schemas restore (they hold the auth users from M31), are taken back by
 // the platform when the reconciler runs, and the data API answers with the
 // same policies afterwards.
@@ -457,7 +457,7 @@ func TestServicesSurviveRestore(t *testing.T) {
 	}
 	b := list.Items[0]
 
-	// Into a new project: the pgd_* schemas come along; the new project
+	// Into a new project: the xb_* schemas come along; the new project
 	// has no backend services until it turns them on.
 	var rr gen.RestoreResponse
 	mode, name := gen.New, "Shop copy"
@@ -487,8 +487,8 @@ func TestServicesSurviveRestore(t *testing.T) {
 	}
 	defer conn.Close(ctx)
 	var owner string
-	if err := conn.QueryRow(ctx, `SELECT nspowner::regrole::text FROM pg_namespace WHERE nspname = 'pgd_auth'`).Scan(&owner); err != nil || owner == p.OwnerRole {
-		t.Fatalf("pgd_auth after the restore is owned by %q (%v)", owner, err)
+	if err := conn.QueryRow(ctx, `SELECT nspowner::regrole::text FROM pg_namespace WHERE nspname = 'xb_auth'`).Scan(&owner); err != nil || owner == p.OwnerRole {
+		t.Fatalf("xb_auth after the restore is owned by %q (%v)", owner, err)
 	}
 	waitFor(t, 15*time.Second, "the data API after the restore", func() bool {
 		r := anon.get("/data/v1/items?select=name")
@@ -497,9 +497,9 @@ func TestServicesSurviveRestore(t *testing.T) {
 	waitFor(t, 15*time.Second, "the app user after the restore", signsIn)
 
 	// Promotion to a dedicated instance copies the database keeping owners
-	// and grants: the request roles must exist there first, and the pgd_*
+	// and grants: the request roles must exist there first, and the xb_*
 	// schemas are copied as the platform's (V4 §2.5). Same API URL after.
-	if os.Getenv("PGDOCK_TEST_PG_IMAGE") == "" {
+	if os.Getenv("XENIBASE_TEST_PG_IMAGE") == "" {
 		return
 	}
 	profile, vol := "small", 5

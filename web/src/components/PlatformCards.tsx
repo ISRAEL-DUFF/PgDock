@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type MailSettingsRequest, type SignupSettings } from "../api/client";
 import { formatDate } from "../lib/format";
+import { MarkdownField } from "./Markdown";
 import { Alert, Button, Panel, Field, Input, Select } from "./ui";
 
 /**
@@ -87,7 +88,7 @@ export function MailSettingsForm({
           {(id) => <Input id={id} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />}
         </Field>
       </div>
-      <Field label="From address">{(id) => <Input id={id} required value={v.from} onChange={set("from")} placeholder="PGDock <pgdock@example.com>" />}</Field>
+      <Field label="From address">{(id) => <Input id={id} required value={v.from} onChange={set("from")} placeholder="Xenibase <xenibase@example.com>" />}</Field>
       <Field label="Send the test to">{(id) => <Input id={id} type="email" required value={v.test_to} onChange={set("test_to")} />}</Field>
       {err && <Alert>{err}</Alert>}
       {ok && <Alert tone="ok">Test sent and settings saved. Check the inbox.</Alert>}
@@ -242,31 +243,31 @@ export function TermsCard() {
         <form className="flex flex-col gap-3" onSubmit={publish}>
           <Field label="Terms of use (Markdown)">
             {(id) => (
-              <textarea
+              <MarkdownField
                 id={id}
                 className="h-48 rounded-md border border-line bg-surface p-2 font-mono text-xs"
                 value={terms}
-                onChange={(e) => setTerms(e.target.value)}
+                onChange={setTerms}
               />
             )}
           </Field>
           <Field label="Privacy notice (Markdown)">
             {(id) => (
-              <textarea
+              <MarkdownField
                 id={id}
                 className="h-32 rounded-md border border-line bg-surface p-2 font-mono text-xs"
                 value={privacy}
-                onChange={(e) => setPrivacy(e.target.value)}
+                onChange={setPrivacy}
               />
             )}
           </Field>
           <Field label="Acceptable use policy (Markdown)">
             {(id) => (
-              <textarea
+              <MarkdownField
                 id={id}
                 className="h-32 rounded-md border border-line bg-surface p-2 font-mono text-xs"
                 value={aup}
-                onChange={(e) => setAup(e.target.value)}
+                onChange={setAup}
               />
             )}
           </Field>

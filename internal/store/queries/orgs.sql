@@ -68,7 +68,7 @@ SELECT count(*) FROM org_members WHERE org_id = @org_id AND role = 'owner';
 
 -- name: LockOrgMembers :exec
 -- Serializes membership changes in one organisation (the last-owner rule).
-SELECT pg_advisory_xact_lock(hashtext('pgdock_org_members:' || @org_key::text));
+SELECT pg_advisory_xact_lock(hashtext('xenibase_org_members:' || @org_key::text));
 
 -- name: ListOrgMembers :many
 SELECT m.org_id, m.user_id, m.role, m.created_at, u.email, u.name, u.last_active_at, u.disabled_at,

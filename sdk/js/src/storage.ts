@@ -1,4 +1,4 @@
-import { PgdockError, type Result, fail, ok } from "./errors.js";
+import { XenibaseError, type Result, fail, ok } from "./errors.js";
 import { buildURL, json, send, type Transport } from "./http.js";
 
 /** A stored file's metadata. */
@@ -222,7 +222,7 @@ export class BucketClient {
     const u = r.data.signed_url ?? r.data.signedURL ?? r.data.url;
     if (!u)
       return fail(
-        new PgdockError(200, "invalid_response", "no signed URL in the answer"),
+        new XenibaseError(200, "invalid_response", "no signed URL in the answer"),
       );
     const abs = u.startsWith("http")
       ? u
@@ -327,7 +327,7 @@ export class BucketClient {
     const { id, part_size, parts } = start.data;
     let sent = 0;
     const queue = [...parts];
-    const worker = async (): Promise<PgdockError | null> => {
+    const worker = async (): Promise<XenibaseError | null> => {
       for (let p = queue.shift(); p; p = queue.shift()) {
         const from = (p.number - 1) * part_size;
         const res = await this.t
@@ -337,7 +337,7 @@ export class BucketClient {
           })
           .catch((e: unknown) => e as Error);
         if (res instanceof Error || !res.ok) {
-          return new PgdockError(
+          return new XenibaseError(
             res instanceof Error ? 0 : res.status,
             "part_failed",
             `part ${p.number} didn't upload; call uploadLarge's resume with ${id}`,

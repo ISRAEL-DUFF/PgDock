@@ -18,7 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/israel-duff/pgdock/internal/datacat"
+	"github.com/israel-duff/xenibase/internal/datacat"
 )
 
 // A project's realtime on this edge process: its connections' channels,
@@ -45,8 +45,8 @@ const (
 	// rtMeterEvery is how often connection time is counted.
 	rtMeterEvery = 10 * time.Second
 
-	chanChanges   = "pgd_realtime"
-	chanBroadcast = "pgd_realtime_bc"
+	chanChanges   = "xb_realtime"
+	chanBroadcast = "xb_realtime_bc"
 )
 
 type rtHub struct {
@@ -238,7 +238,7 @@ func (h *rtHub) tableKeys(ctx context.Context, p *project) (map[string][]string,
 	if err != nil {
 		return nil, err
 	}
-	rows, err := pool.Query(ctx, `SELECT schema_name, table_name, pk_columns FROM pgd_realtime.tables`)
+	rows, err := pool.Query(ctx, `SELECT schema_name, table_name, pk_columns FROM xb_realtime.tables`)
 	if err != nil {
 		return nil, err
 	}
@@ -343,7 +343,7 @@ func (e *Edge) sessionConn(ctx context.Context, p *project) (*pgx.Conn, error) {
 	}
 	u := url.URL{Scheme: "postgres", User: url.UserPassword(p.cfg.EdgeUser, p.cfg.Password),
 		Host: net.JoinHostPort(host, strconv.Itoa(port)), Path: "/" + p.cfg.Database,
-		RawQuery: url.Values{"sslmode": {e.cfg.PoolerSSLMode}, "application_name": {"pgdock-edge realtime"}}.Encode()}
+		RawQuery: url.Values{"sslmode": {e.cfg.PoolerSSLMode}, "application_name": {"xenibase-edge realtime"}}.Encode()}
 	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	return pgx.Connect(cctx, u.String())
@@ -486,7 +486,7 @@ func (h *rtHub) drain(ctx context.Context, q querier) error {
 			ids = append(ids, i)
 		}
 		rows, err := q.Query(ctx, `SELECT o.id, o.xid::text, o.schema_name, o.table_name, o.op, o.record, o.old_record, o.at
-			FROM pgd_realtime.outbox o
+			FROM xb_realtime.outbox o
 			WHERE o.xid >= $1::text::xid8 AND pg_visible_in_snapshot(o.xid, $2::pg_snapshot)
 			  AND NOT EXISTS (SELECT 1 FROM unnest($3::text[]::xid8[], $4::bigint[]) AS d(x, i) WHERE d.x = o.xid AND o.id <= d.i)
 			ORDER BY o.xid, o.id LIMIT $5`, strconv.FormatUint(h.lowWater, 10), snap, xs, ids, rtBatch)

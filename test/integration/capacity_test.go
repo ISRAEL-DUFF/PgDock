@@ -12,12 +12,12 @@ import (
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/billing"
-	"github.com/israel-duff/pgdock/internal/cloud"
-	"github.com/israel-duff/pgdock/internal/costs"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/billing"
+	"github.com/israel-duff/xenibase/internal/cloud"
+	"github.com/israel-duff/xenibase/internal/costs"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 // fillNode makes a node look 60% full of a 100 GB disk, growing 2 GB a day
@@ -113,11 +113,11 @@ func TestCapacityProvisionsAndJoins(t *testing.T) {
 			t.Fatal("no server was created")
 		}
 	}
-	if srv.Type != "cpx31" || srv.Location != "fsn1" || srv.Labels["pgdock-region"] != "eu-central" || !strings.HasPrefix(srv.UserData, "#cloud-config") {
+	if srv.Type != "cpx31" || srv.Location != "fsn1" || srv.Labels["xenibase-region"] != "eu-central" || !strings.HasPrefix(srv.UserData, "#cloud-config") {
 		t.Fatalf("server: %+v", srv)
 	}
 	// V3.1 §2.3: the region's spread placement group, created on first use.
-	g, ok := e.Hetzner.PlacementGroups()["pgdock-eu-central"]
+	g, ok := e.Hetzner.PlacementGroups()["xenibase-eu-central"]
 	if !ok || srv.PlacementGroup != g.ID || len(g.Servers) != 1 {
 		t.Fatalf("placement group: %+v, server's %d", e.Hetzner.PlacementGroups(), srv.PlacementGroup)
 	}
@@ -137,7 +137,7 @@ func TestCapacityProvisionsAndJoins(t *testing.T) {
 	}
 	// The "server" boots: its cloud-init runs the agent with the token.
 	token := cloud.TokenFromCloudInit(srv.UserData)
-	if !strings.HasPrefix(token, "pgdreg_") {
+	if !strings.HasPrefix(token, "xbreg_") {
 		t.Fatalf("token in cloud-init: %q", token)
 	}
 	e.StartSecondAgent(srv.Name, token)

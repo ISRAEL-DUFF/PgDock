@@ -10,13 +10,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/ha"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/ha"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
-// The leader watcher (V3 §2.2 "Routing"): pgdock-server follows each
+// The leader watcher (V3 §2.2 "Routing"): xenibase-server follows each
 // Patroni cluster's leader through the members' REST APIs and points the
 // project's pooler route at it, with PAUSE/RESUME around the switch.
 
@@ -121,7 +121,7 @@ func (s *Service) watchOne(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 	if !st.seen {
-		// After a restart of pgdock-server, poolers may still hold
+		// After a restart of xenibase-server, poolers may still hold
 		// clients from a switch that was in flight.
 		st.seen = true
 		if inst.HaEnabled {

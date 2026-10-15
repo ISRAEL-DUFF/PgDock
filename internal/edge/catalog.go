@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/datacat"
+	"github.com/israel-duff/xenibase/internal/datacat"
 )
 
 // The data API's view of a project's schema (V4 §3.1): the tables, views

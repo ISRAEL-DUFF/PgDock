@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/pgpstream"
-	"github.com/israel-duff/pgdock/internal/walg"
+	"github.com/israel-duff/xenibase/internal/pgpstream"
+	"github.com/israel-duff/xenibase/internal/walg"
 )
 
 func key(t *testing.T) (priv, pub string) {
@@ -60,7 +60,7 @@ func TestRoundTrip(t *testing.T) {
 
 func TestTamperedFails(t *testing.T) {
 	priv, pub := key(t)
-	msg := encrypt(t, pub, bytes.Repeat([]byte("pgdock"), 10000))
+	msg := encrypt(t, pub, bytes.Repeat([]byte("xenibase"), 10000))
 	msg[len(msg)-40] ^= 1
 	r, err := pgpstream.Decrypt(bytes.NewReader(msg), priv)
 	if err == nil {

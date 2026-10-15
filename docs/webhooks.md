@@ -3,7 +3,7 @@
 ## Webhooks
 
 A webhook POSTs the changes of chosen tables to a URL: Project →
-Webhooks, `pgdock webhooks create`, or `POST /api/v1/projects/{id}/webhooks`.
+Webhooks, `xenibase webhooks create`, or `POST /api/v1/projects/{id}/webhooks`.
 
 | Field | Notes |
 | --- | --- |
@@ -19,17 +19,17 @@ Webhooks, `pgdock webhooks create`, or `POST /api/v1/projects/{id}/webhooks`.
 
 ### How it works
 
-Saving the first webhook installs a `pgdock` schema in the project's
-database, owned by PGDock (your role can't read or change it), with an
+Saving the first webhook installs a `xenibase` schema in the project's
+database, owned by Xenibase (your role can't read or change it), with an
 outbox table and a trigger function. Each configured table gets triggers
 that write every change to the outbox **in the same transaction**: a
 rolled-back change never produces an event, and a committed one always
-does. PGDock's delivery worker wakes on each commit (and checks every five
+does. Xenibase's delivery worker wakes on each commit (and checks every five
 seconds), and posts the events of each webhook in commit order.
 
-The `pgdock` schema name is reserved: a schema of that name you created is
-replaced. Your role owns its tables, so it can drop PGDock's triggers;
-PGDock notices and marks the webhook **broken** rather than putting them
+The `xenibase` schema name is reserved: a schema of that name you created is
+replaced. Your role owns its tables, so it can drop Xenibase's triggers;
+Xenibase notices and marks the webhook **broken** rather than putting them
 back silently. Saving the webhook again reinstalls them.
 
 ### Payload
@@ -51,7 +51,7 @@ back silently. Saving the webhook again reinstalls them.
 
 | Field | |
 | --- | --- |
-| `id` | The event's id, also in `PGDock-Event-Id`; stable across retries and replays. |
+| `id` | The event's id, also in `Xenibase-Event-Id`; stable across retries and replays. |
 | `webhook` | The webhook's name. |
 | `project` | The project's **database name** (`p_…`), as in its connection strings. |
 | `project_id` | The project's id in the API (`/api/v1/projects/{id}`). |
@@ -66,7 +66,7 @@ back silently. Saving the webhook again reinstalls them.
 Values are the row's `to_jsonb`: `numeric` is a JSON number with all its
 digits (parse it as a decimal), timestamps are ISO 8601 strings, arrays
 and `jsonb` are JSON. **Send test event** posts `"type": "TEST"` with
-`"record": {"message": "A test event from PGDock"}` and an empty `table`.
+`"record": {"message": "A test event from Xenibase"}` and an empty `table`.
 New fields may be added; ignore the ones you don't know.
 
 Signed samples of each kind, with the throwaway secret that signed them,
@@ -74,8 +74,8 @@ are in [integrations/fixtures/webhooks](integrations/fixtures/webhooks):
 check your verifier and parser against them (use the timestamp in each
 signature as "now").
 
-Each request carries `PGDock-Event-Id`, `PGDock-Webhook`, your static
-headers, and `PGDock-Signature: t=<unix>,v1=<hex HMAC-SHA256 of "t.body">`.
+Each request carries `Xenibase-Event-Id`, `Xenibase-Webhook`, your static
+headers, and `Xenibase-Signature: t=<unix>,v1=<hex HMAC-SHA256 of "t.body">`.
 During a secret rotation with an overlap the header has one `v1=` per
 secret: `t=<unix>,v1=<new>,v1=<old>`.
 
@@ -84,7 +84,7 @@ secret: `t=<unix>,v1=<new>,v1=<old>`.
 Check the HMAC of `"<t>.<raw body>"` with the webhook's secret against
 **each** `v1` value (accept if any matches), compare in constant time, and
 refuse timestamps more than five minutes away (replays). De-duplicate on
-`PGDock-Event-Id`: delivery is at least once.
+`Xenibase-Event-Id`: delivery is at least once.
 
 Go:
 
@@ -162,7 +162,7 @@ any earlier overlap.
   then the event becomes a **dead letter**. Other `4xx` answers, and
   redirects (never followed), dead-letter at once.
 - **Dead letters** stay 30 days: replay them one by one or all at once
-  (`pgdock webhooks replay`); they are sent after the events waiting.
+  (`xenibase webhooks replay`); they are sent after the events waiting.
 - After **50 failures in a row** the webhook is paused and the project's
   admins and the organisation's owners are emailed. A paused webhook
   records no new changes (its triggers are disabled); resuming sends what
@@ -190,7 +190,7 @@ projects it needs**, scope `write` (all webhook calls need it, reads
 included). Tokens skip the CSRF header the web UI sends; see
 [cli.md](cli.md) for creating one and the OpenAPI file
 (`api/openapi.yaml`, `bearerAuth`) for the scheme:
-`Authorization: Bearer pgd_…`. Token calls count against the token's and
+`Authorization: Bearer xb_…`. Token calls count against the token's and
 the organisation's request limits (`429 rate_limited` with
 `Retry-After`), and the deliveries against the organisation's delivery
 rate above.
@@ -210,7 +210,7 @@ rate above.
   and find them by listing, so one a person renamed is still yours.
 - **State** is `status`: `healthy`, `failing` (recent deliveries failed,
   still retrying), `paused` (50 failures in a row, or `enabled: false`), or
-  `broken` (someone dropped PGDock's triggers; `status_reason` says
+  `broken` (someone dropped Xenibase's triggers; `status_reason` says
   which). `PATCH {"enabled": true}` resumes a paused webhook and sends
   what was queued; saving it (any `PATCH`) repairs a broken one.
 - Calls that change a webhook reach the project's database. While a Free
@@ -224,20 +224,20 @@ rate above.
 ## Scheduled jobs
 
 A job runs SQL, or calls a URL, on a schedule: Project → Jobs,
-`pgdock jobs create`, or `POST /api/v1/projects/{id}/jobs`.
+`xenibase jobs create`, or `POST /api/v1/projects/{id}/jobs`.
 
 | Field | Notes |
 | --- | --- |
 | Schedule | A 5-field cron expression (`minute hour day month weekday`, with ranges, lists, steps, `jan`–`dec`, `sun`–`sat`, and `@hourly`, `@daily`, `@weekly`, `@monthly`), in a time zone (default UTC). |
 | SQL | Runs as the project owner, in one transaction, with the timeout as `statement_timeout`. A storage soft lock (read-only) applies to it. |
-| HTTP | Method, URL, headers, body; the same address rules as webhooks, signed with the job's secret (shown once), with a `PGDock-Job` header. |
+| HTTP | Method, URL, headers, body; the same address rules as webhooks, signed with the job's secret (shown once), with a `Xenibase-Job` header. |
 | Timeout | Default 5 min for SQL, 30 s for HTTP; at most 1 hour. |
 | Overlap | Skip a run while the previous one is going (default), or queue one. |
 
 - Your plan limits the number of jobs (Personal 20, Team 50), how often
   one may run (every 5 minutes on Personal, every minute on Team), and HTTP
   job runs per hour (120, 600; runs beyond it are skipped).
-- **Missed runs are not caught up**: after PGDock was down, the next
+- **Missed runs are not caught up**: after Xenibase was down, the next
   scheduled time runs and the history shows the gap.
 - Runs are skipped (and recorded as such) while the project is moving
   between tiers, restoring or resetting, while the organisation is

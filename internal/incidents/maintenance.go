@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Announced maintenance (V3.1 §4): a status page incident of severity
@@ -170,7 +170,7 @@ func (s *Service) maintenanceEmail(title string, start time.Time, body string) (
 	if s.publicURL != "" {
 		text += "Dashboard: " + strings.TrimRight(s.publicURL, "/") + "\n"
 	}
-	return "[PGDock] " + title + ": " + start.UTC().Format("Mon 2 Jan 15:04") + " UTC", text
+	return "[Xenibase] " + title + ": " + start.UTC().Format("Mon 2 Jan 15:04") + " UTC", text
 }
 
 func (s *Service) emailMaintenance(ctx context.Context, a Announced, body string) int {
@@ -189,7 +189,7 @@ func (s *Service) emailMaintenance(ctx context.Context, a Announced, body string
 	sent := 0
 	for _, addr := range to {
 		if err := s.mailer.Send(ctx, mail.Message{To: []string{addr}, Subject: subject,
-			Body: text, Headers: map[string]string{"X-PGDock-Event": "maintenance"}}); err != nil {
+			Body: text, Headers: map[string]string{"X-Xenibase-Event": "maintenance"}}); err != nil {
 			s.log.Warn("maintenance email", "incident", a.ID, "err", err)
 			continue
 		}

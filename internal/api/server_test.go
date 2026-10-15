@@ -10,7 +10,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/api/gen"
 )
 
 func newTestServer(t *testing.T) *httptest.Server {

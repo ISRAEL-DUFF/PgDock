@@ -9,9 +9,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/authz"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/authz"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // ListOrgIncidents implements GET /api/v1/orgs/{org}/incidents: the open
@@ -57,7 +57,7 @@ func (s *Server) billingStanding(r *http.Request, g *gen.Org, role string) error
 	switch {
 	case st.DunningState == "overdue" || st.DunningState == "restricted" || st.DunningState == "suspended":
 		state = gen.OrgBillingState(st.DunningState)
-	case st.CardFailing:
+	case st.ChargeFailing:
 		state = gen.OrgBillingStatePaymentFailed
 	}
 	if state != "" {

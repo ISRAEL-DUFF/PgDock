@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/files"
+	"github.com/israel-duff/xenibase/internal/files"
 )
 
 // Signed URLs (V4 §5.4): a token over the project, bucket, path and expiry,
@@ -97,7 +97,7 @@ func (e *Edge) signDownload(c *call, req Request, bucket, path string) {
 	defer cancel()
 	found := map[string]bool{}
 	err := e.asRole(ctx, c, req, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT path FROM pgd_storage.objects WHERE bucket = $1 AND path = ANY($2)`, bucket, paths)
+		rows, err := tx.Query(ctx, `SELECT path FROM xb_storage.objects WHERE bucket = $1 AND path = ANY($2)`, bucket, paths)
 		if err != nil {
 			return err
 		}

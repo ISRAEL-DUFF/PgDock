@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'pgdock_auth.dart';
+import 'xenibase_auth.dart';
 
 // Fill these in from Project → Settings → API.
-const projectURL = String.fromEnvironment('PGDOCK_URL', defaultValue: 'https://<ref>.<domain>');
-const publishableKey = String.fromEnvironment('PGDOCK_KEY', defaultValue: '<publishable key>');
-const redirect = 'com.example.pgdocksample://login-callback';
+const projectURL = String.fromEnvironment('XENIBASE_URL', defaultValue: 'https://<ref>.<domain>');
+const publishableKey = String.fromEnvironment('XENIBASE_KEY', defaultValue: '<publishable key>');
+const redirect = 'com.example.xenibasesample://login-callback';
 
 void main() => runApp(const SampleApp());
 
@@ -13,7 +13,7 @@ class SampleApp extends StatelessWidget {
   const SampleApp({super.key});
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'PGDock sign-in',
+        title: 'Xenibase sign-in',
         theme: ThemeData(colorSchemeSeed: const Color(0xFF3ECF8E), useMaterial3: true),
         home: const SignInPage(),
       );
@@ -26,7 +26,7 @@ class SignInPage extends StatefulWidget {
 }
 
 class _SignInPageState extends State<SignInPage> {
-  final client = PgDock(projectURL, publishableKey);
+  final client = Xenibase(projectURL, publishableKey);
   final phone = TextEditingController();
   final code = TextEditingController();
   bool codeSent = false;
@@ -60,7 +60,7 @@ class _SignInPageState extends State<SignInPage> {
   Widget build(BuildContext context) {
     final s = client.session;
     return Scaffold(
-      appBar: AppBar(title: const Text('PGDock sign-in')),
+      appBar: AppBar(title: const Text('Xenibase sign-in')),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: s != null ? signedIn(s) : signIn(),

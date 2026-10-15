@@ -1,13 +1,13 @@
 # Status page
 
-`pgdock-status` is PGDock's public status page (V3 §2.6). Run it **away from
-PGDock**, on another provider, so an outage can't take down the page that
+`xenibase-status` is Xenibase's public status page (V3 §2.6). Run it **away from
+Xenibase**, on another provider, so an outage can't take down the page that
 announces it.
 
 It does four things:
-- **Probes PGDock from outside every minute**: the dashboard, the edge
+- **Probes Xenibase from outside every minute**: the dashboard, the edge
   pooler on both ports, and the shared tier.
-- **Takes signed heartbeats** from pgdock-server for what it can't probe:
+- **Takes signed heartbeats** from xenibase-server for what it can't probe:
   dedicated instances, backups, and webhooks & jobs. A component whose
   heartbeat stops shows **No data**, never Operational.
 - **Opens an incident by itself** after 3 failing checks in a row, and
@@ -18,17 +18,17 @@ It does four things:
   JSON API (`/api/v1/status`, `/api/v1/incidents`) and an RSS feed
   (`/feed.rss`).
 
-Its state is one SQLite file. It never connects to PGDock's database.
+Its state is one SQLite file. It never connects to Xenibase's database.
 
 ## Deploy
 
-On a small server outside PGDock's provider (1 vCPU, 512 MB is enough):
+On a small server outside Xenibase's provider (1 vCPU, 512 MB is enough):
 
-1. Build the image in a PGDock checkout and copy it over:
+1. Build the image in a Xenibase checkout and copy it over:
 
    ```sh
    make status-image
-   docker save pgdock-status:local | ssh status-host docker load
+   docker save xenibase-status:local | ssh status-host docker load
    ```
 
 2. Copy `deploy/status/compose.yaml` and
@@ -37,7 +37,7 @@ On a small server outside PGDock's provider (1 vCPU, 512 MB is enough):
 
    ```sh
    mkdir -p secrets
-   openssl rand -hex 32 > secrets/pgdock-status-push   # shared with pgdock-server
+   openssl rand -hex 32 > secrets/xenibase-status-push   # shared with xenibase-server
    ```
 
 3. Edit `status.toml`: set `public_url`, and the dashboard URL in the
@@ -46,7 +46,7 @@ On a small server outside PGDock's provider (1 vCPU, 512 MB is enough):
 
    ```sh
    docker run --rm -v "$PWD/status.toml:/s.toml:ro" -v "$PWD/secrets:/run/secrets:ro" \
-     pgdock-status:local check-config --config /s.toml
+     xenibase-status:local check-config --config /s.toml
    ```
 
 4. Point the status domain's DNS at the server and start it:
@@ -55,7 +55,7 @@ On a small server outside PGDock's provider (1 vCPU, 512 MB is enough):
    STATUS_DOMAIN=status.example.com docker compose up -d
    ```
 
-   Caddy gets the certificate and forwards to pgdock-status.
+   Caddy gets the certificate and forwards to xenibase-status.
 
 ## The probe database
 
@@ -63,35 +63,35 @@ The edge pooler and shared tier probes log in through the pooler like a
 customer does. They need a database of their own with a low-privilege
 role:
 
-1. In PGDock, create a project named `status-probe`, in your own
+1. In Xenibase, create a project named `status-probe`, in your own
    organisation, on the shared tier.
 2. In Connect, copy its session and transaction connection strings. Replace
    the host with the floating IP's hostname: the public database host
    clients use.
-3. Save them as `secrets/pgdock-status-probe-session` and
-   `secrets/pgdock-status-probe-transaction`.
+3. Save them as `secrets/xenibase-status-probe-session` and
+   `secrets/xenibase-status-probe-transaction`.
 
 The transaction-port probe runs `SELECT 1`. The shared tier probe runs
 `SELECT txid_current()`, which needs a primary that accepts writes.
 
-## Connect PGDock
+## Connect Xenibase
 
-On pgdock-server, set these and restart it:
+On xenibase-server, set these and restart it:
 
 ```sh
-PGDOCK_STATUS_URL=https://status.example.com
-PGDOCK_STATUS_PUSH_SECRET_FILE=/run/secrets/pgdock-status-push   # the same secret
-PGDOCK_STATUS_REGION=eu-central                                  # optional default
-# PGDOCK_STATUS_COMPONENTS=dashboard,edge-pooler,...  only if you renamed components
+XENIBASE_STATUS_URL=https://status.example.com
+XENIBASE_STATUS_PUSH_SECRET_FILE=/run/secrets/xenibase-status-push   # the same secret
+XENIBASE_STATUS_REGION=eu-central                                  # optional default
+# XENIBASE_STATUS_COMPONENTS=dashboard,edge-pooler,...  only if you renamed components
 ```
 
-pgdock-server then:
+xenibase-server then:
 - sends a heartbeat every minute;
 - pushes each incident within seconds of a change. Admin → Incidents shows
   "on status page", or the error if a push fails; failed pushes are retried
   every 10 seconds.
 
-Both directions are signed with the `PGDock-Signature` HMAC scheme webhooks
+Both directions are signed with the `Xenibase-Signature` HMAC scheme webhooks
 use, and refused if they are more than 5 minutes old.
 
 ## Incidents
@@ -99,9 +99,9 @@ use, and refused if they are more than 5 minutes old.
 - **Automatic:** a probed component that fails 3 checks in a row opens an
   incident on the status page by itself. A component that answers on one
   pooler port but not the other is degraded, and opens a minor incident.
-  The incident resolves itself after 2 good checks. PGDock can't edit
+  The incident resolves itself after 2 good checks. Xenibase can't edit
   these.
-- **Posted in PGDock:** Admin → Incidents → New incident. Pick the affected
+- **Posted in Xenibase:** Admin → Incidents → New incident. Pick the affected
   components, the severity, the status, and the first update:
   - minor and maintenance show the components as degraded;
   - major and critical show them as an outage.
@@ -120,7 +120,7 @@ posted.
 
 ### Customers' emails (managed subscribers)
 
-pgdock-server also subscribes customers itself, hourly
+xenibase-server also subscribes customers itself, hourly
 (`PUT /api/v1/subscribers/managed`): for every paying organisation (any
 plan but Free, not suspended), its **owners** and its **billing contacts**
 with *Status page emails* on (Org → Billing → Billing contacts), each
@@ -145,14 +145,14 @@ removed at the next sync.
 - **billing** (heartbeat): degraded while a payment provider's last
   automatic charge in the last half hour hit an outage, or when last
   month's invoices haven't issued by the 2nd (with automatic issue on).
-- **backend services** (heartbeat, per region): every pgdock-edge reports
+- **backend services** (heartbeat, per region): every xenibase-edge reports
   at least every 30 seconds; a region is degraded when some of its edges
   have been silent for 2 minutes and down when all have. Edges silent for
   a day are taken as gone. Give the component a probe of the region's
   edge (`/healthz`) as well, and the worse of the two is shown.
 
 A heartbeat component's `heartbeat_id` (default its `id`) is the ID
-pgdock-server reports; a report for a region applies to the components
+xenibase-server reports; a report for a region applies to the components
 of that ID in that region, so one `backend-services` report per region
 fills one line per region (see `status.example.toml`).
 
@@ -171,17 +171,17 @@ Members of an organisation see, at the top of every page:
 
 ## Operate
 
-- **Back up** `/var/lib/pgdock-status/status.db` (the `data` volume) if you
+- **Back up** `/var/lib/xenibase-status/status.db` (the `data` volume) if you
   want to keep the history and subscribers. If it is lost, the page starts
   over with no history.
-- `pgdock-status` logs JSON to stdout, including every component state
+- `xenibase-status` logs JSON to stdout, including every component state
   change and every incident it opens or resolves.
 - The subscribe form allows 5 requests an hour per address. Behind Caddy,
   `trust_proxy = true` makes that per client, not per proxy.
 
 ## Limits
 
-The page probes from one vantage point; pgdock-server is the second one
+The page probes from one vantage point; xenibase-server is the second one
 for the SLA's measurement of HA projects (each minute counts as
 unavailable only when both fail; see [HA](ha.md)). Subscribers sign up on
 the page themselves: paying organisations aren't subscribed automatically

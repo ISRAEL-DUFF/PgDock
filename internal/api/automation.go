@@ -9,12 +9,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/internal/schedjobs"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/tenancy"
-	"github.com/israel-duff/pgdock/internal/webhooks"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/internal/schedjobs"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/webhooks"
 )
 
 // ---- Webhooks and scheduled jobs (V2 §9) ------------------------------------
@@ -162,7 +162,7 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request, id gen.WebhookI
 		return p, wh, false
 	}
 	// Changes reach the project's database (its triggers and outbox);
-	// reads come from PGDock's own.
+	// reads come from Xenibase's own.
 	if r.Method != http.MethodGet && s.writeAsleep(r.Context(), w, p.ID, p.Lifecycle) {
 		return p, wh, false
 	}

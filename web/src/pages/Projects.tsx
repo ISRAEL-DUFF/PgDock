@@ -9,7 +9,7 @@ import { canManageOrg, useCurrentOrg } from "../lib/org";
 import { backupIsStale } from "./ProjectBackups";
 import { QuotasCard } from "./Usage";
 
-const VIEW_KEY = "pgdock.projects.view";
+const VIEW_KEY = "xenibase.projects.view";
 
 function storedView(): "grid" | "list" {
   try {

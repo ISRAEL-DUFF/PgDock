@@ -1,4 +1,4 @@
-// Package config loads pgdock-server configuration from the environment.
+// Package config loads xenibase-server configuration from the environment.
 package config
 
 import (
@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/crypto"
 )
 
-// Config is the pgdock-server configuration.
+// Config is the xenibase-server configuration.
 type Config struct {
 	// ListenAddr is the address the HTTP server binds to.
 	ListenAddr string
@@ -68,7 +68,7 @@ type Config struct {
 	CDN CDN
 	// Cloud configures the provider servers are created with (V3 §5.1).
 	Cloud Cloud
-	// PGVersions (PGDOCK_PG_VERSIONS, default "17,18") are the Postgres
+	// PGVersions (XENIBASE_PG_VERSIONS, default "17,18") are the Postgres
 	// majors projects may run (V3 §2.4); the newest is the default.
 	PGVersions []int
 }
@@ -76,7 +76,7 @@ type Config struct {
 // Backups configures node agents and backups (M3).
 type Backups struct {
 	// AgentBootstrapToken lets the install bundle's agent register the
-	// local node without an operator (PGDOCK_AGENT_BOOTSTRAP_TOKEN).
+	// local node without an operator (XENIBASE_AGENT_BOOTSTRAP_TOKEN).
 	AgentBootstrapToken string
 	// Hour is the UTC hour the nightly backup window opens; Jitter spreads
 	// projects over it.
@@ -85,17 +85,17 @@ type Backups struct {
 	// MetadataURL is the metadata DB as an agent reaches it, for nightly
 	// self-backups. Defaults to DatabaseURL; "off" disables them.
 	MetadataURL string
-	// DedicatedAdminVia is how pgdock-server reaches dedicated instances:
+	// DedicatedAdminVia is how xenibase-server reaches dedicated instances:
 	// "network" (the address agents report; the Compose bundle) or
 	// "published" (the port published on the node).
 	DedicatedAdminVia string
 	// RequireMaintenanceAnnouncement: the maintenance window restarts HA
 	// projects only inside maintenance announced 72 hours ahead
-	// (PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT, default true; V3.1 §4.3).
+	// (XENIBASE_MAINTENANCE_REQUIRE_ANNOUNCEMENT, default true; V3.1 §4.3).
 	RequireMaintenanceAnnouncement bool
 }
 
-// Load reads configuration from PGDOCK_* environment variables, applying
+// Load reads configuration from XENIBASE_* environment variables, applying
 // defaults for anything unset.
 func Load() (Config, error) {
 	return load(os.Getenv, os.ReadFile)
@@ -111,32 +111,32 @@ func load(getenv func(string) string, readFile func(string) ([]byte, error)) (Co
 	}
 	var errs []error
 
-	if v := getenv("PGDOCK_LISTEN_ADDR"); v != "" {
+	if v := getenv("XENIBASE_LISTEN_ADDR"); v != "" {
 		cfg.ListenAddr = v
 	}
-	if v := getenv("PGDOCK_LOG_LEVEL"); v != "" {
+	if v := getenv("XENIBASE_LOG_LEVEL"); v != "" {
 		if err := cfg.LogLevel.UnmarshalText([]byte(v)); err != nil {
-			errs = append(errs, fmt.Errorf("PGDOCK_LOG_LEVEL: %w", err))
+			errs = append(errs, fmt.Errorf("XENIBASE_LOG_LEVEL: %w", err))
 		}
 	}
-	if v := getenv("PGDOCK_LOG_FORMAT"); v != "" {
+	if v := getenv("XENIBASE_LOG_FORMAT"); v != "" {
 		v = strings.ToLower(v)
 		if v != "json" && v != "text" {
-			errs = append(errs, fmt.Errorf("PGDOCK_LOG_FORMAT: must be json or text, got %q", v))
+			errs = append(errs, fmt.Errorf("XENIBASE_LOG_FORMAT: must be json or text, got %q", v))
 		}
 		cfg.LogFormat = v
 	}
-	if v := getenv("PGDOCK_SHUTDOWN_TIMEOUT"); v != "" {
+	if v := getenv("XENIBASE_SHUTDOWN_TIMEOUT"); v != "" {
 		d, err := time.ParseDuration(v)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("PGDOCK_SHUTDOWN_TIMEOUT: %w", err))
+			errs = append(errs, fmt.Errorf("XENIBASE_SHUTDOWN_TIMEOUT: %w", err))
 		}
 		cfg.ShutdownTimeout = d
 	}
 
-	cfg.DatabaseURL = getenv("PGDOCK_DATABASE_URL")
+	cfg.DatabaseURL = getenv("XENIBASE_DATABASE_URL")
 	if cfg.DatabaseURL == "" {
-		errs = append(errs, errors.New("PGDOCK_DATABASE_URL is required"))
+		errs = append(errs, errors.New("XENIBASE_DATABASE_URL is required"))
 	}
 
 	key, err := loadMasterKey(getenv, readFile)
@@ -144,28 +144,28 @@ func load(getenv func(string) string, readFile func(string) ([]byte, error)) (Co
 		errs = append(errs, err)
 	}
 	cfg.MasterKey = key
-	if v := getenv("PGDOCK_MASTER_KEY_PREVIOUS"); v != "" {
+	if v := getenv("XENIBASE_MASTER_KEY_PREVIOUS"); v != "" {
 		for i, s := range strings.Split(v, ",") {
 			k, err := crypto.ParseKey(s)
 			if err != nil {
-				errs = append(errs, fmt.Errorf("PGDOCK_MASTER_KEY_PREVIOUS[%d]: %w", i, err))
+				errs = append(errs, fmt.Errorf("XENIBASE_MASTER_KEY_PREVIOUS[%d]: %w", i, err))
 				continue
 			}
 			cfg.PreviousMasterKeys = append(cfg.PreviousMasterKeys, k)
 		}
 	}
 
-	if v := getenv("PGDOCK_WORKERS"); v != "" {
+	if v := getenv("XENIBASE_WORKERS"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 || n > 256 {
-			errs = append(errs, fmt.Errorf("PGDOCK_WORKERS: must be an integer from 1 to 256, got %q", v))
+			errs = append(errs, fmt.Errorf("XENIBASE_WORKERS: must be an integer from 1 to 256, got %q", v))
 		}
 		cfg.Workers = n
 	}
-	if v := getenv("PGDOCK_DEV_ENDPOINTS"); v != "" {
+	if v := getenv("XENIBASE_DEV_ENDPOINTS"); v != "" {
 		b, err := strconv.ParseBool(v)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("PGDOCK_DEV_ENDPOINTS: %w", err))
+			errs = append(errs, fmt.Errorf("XENIBASE_DEV_ENDPOINTS: %w", err))
 		}
 		cfg.DevEndpoints = b
 	}
@@ -190,69 +190,69 @@ func load(getenv func(string) string, readFile func(string) ([]byte, error)) (Co
 	return cfg, nil
 }
 
-// loadMasterKey reads PGDOCK_MASTER_KEY, or the file named by
-// PGDOCK_MASTER_KEY_FILE (for Docker/systemd secrets). Exactly one is required.
+// loadMasterKey reads XENIBASE_MASTER_KEY, or the file named by
+// XENIBASE_MASTER_KEY_FILE (for Docker/systemd secrets). Exactly one is required.
 func loadMasterKey(getenv func(string) string, readFile func(string) ([]byte, error)) ([]byte, error) {
-	inline, file := getenv("PGDOCK_MASTER_KEY"), getenv("PGDOCK_MASTER_KEY_FILE")
+	inline, file := getenv("XENIBASE_MASTER_KEY"), getenv("XENIBASE_MASTER_KEY_FILE")
 	switch {
 	case inline != "" && file != "":
-		return nil, errors.New("set only one of PGDOCK_MASTER_KEY and PGDOCK_MASTER_KEY_FILE")
+		return nil, errors.New("set only one of XENIBASE_MASTER_KEY and XENIBASE_MASTER_KEY_FILE")
 	case inline != "":
 		k, err := crypto.ParseKey(inline)
 		if err != nil {
-			return nil, fmt.Errorf("PGDOCK_MASTER_KEY: %w", err)
+			return nil, fmt.Errorf("XENIBASE_MASTER_KEY: %w", err)
 		}
 		return k, nil
 	case file != "":
 		b, err := readFile(file)
 		if err != nil {
-			return nil, fmt.Errorf("PGDOCK_MASTER_KEY_FILE: %w", err)
+			return nil, fmt.Errorf("XENIBASE_MASTER_KEY_FILE: %w", err)
 		}
 		k, err := crypto.ParseKey(string(b))
 		if err != nil {
-			return nil, fmt.Errorf("PGDOCK_MASTER_KEY_FILE: %w", err)
+			return nil, fmt.Errorf("XENIBASE_MASTER_KEY_FILE: %w", err)
 		}
 		return k, nil
 	default:
-		return nil, errors.New("PGDOCK_MASTER_KEY or PGDOCK_MASTER_KEY_FILE is required (generate one with `pgdock-server -gen-master-key`)")
+		return nil, errors.New("XENIBASE_MASTER_KEY or XENIBASE_MASTER_KEY_FILE is required (generate one with `xenibase-server -gen-master-key`)")
 	}
 }
 
 func loadBackups(getenv func(string) string, cfg *Config) []error {
 	var errs []error
-	b := Backups{Hour: 2, Jitter: 2 * time.Hour, AgentBootstrapToken: getenv("PGDOCK_AGENT_BOOTSTRAP_TOKEN"), MetadataURL: cfg.DatabaseURL}
+	b := Backups{Hour: 2, Jitter: 2 * time.Hour, AgentBootstrapToken: getenv("XENIBASE_AGENT_BOOTSTRAP_TOKEN"), MetadataURL: cfg.DatabaseURL}
 	if t := b.AgentBootstrapToken; t != "" && len(t) < 24 {
-		errs = append(errs, errors.New("PGDOCK_AGENT_BOOTSTRAP_TOKEN: must be at least 24 characters"))
+		errs = append(errs, errors.New("XENIBASE_AGENT_BOOTSTRAP_TOKEN: must be at least 24 characters"))
 	}
-	if v := getenv("PGDOCK_BACKUP_HOUR"); v != "" {
+	if v := getenv("XENIBASE_BACKUP_HOUR"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 0 || n > 23 {
-			errs = append(errs, fmt.Errorf("PGDOCK_BACKUP_HOUR: must be an hour from 0 to 23, got %q", v))
+			errs = append(errs, fmt.Errorf("XENIBASE_BACKUP_HOUR: must be an hour from 0 to 23, got %q", v))
 		}
 		b.Hour = n
 	}
-	if v := getenv("PGDOCK_BACKUP_JITTER"); v != "" {
+	if v := getenv("XENIBASE_BACKUP_JITTER"); v != "" {
 		d, err := time.ParseDuration(v)
 		if err != nil || d < time.Minute || d > 12*time.Hour {
-			errs = append(errs, fmt.Errorf("PGDOCK_BACKUP_JITTER: must be a duration from 1m to 12h, got %q", v))
+			errs = append(errs, fmt.Errorf("XENIBASE_BACKUP_JITTER: must be a duration from 1m to 12h, got %q", v))
 		}
 		b.Jitter = d
 	}
 	b.RequireMaintenanceAnnouncement = true
-	switch v := strings.ToLower(getenv("PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT")); v {
+	switch v := strings.ToLower(getenv("XENIBASE_MAINTENANCE_REQUIRE_ANNOUNCEMENT")); v {
 	case "", "true", "1", "yes", "on":
 	case "false", "0", "no", "off":
 		b.RequireMaintenanceAnnouncement = false
 	default:
-		errs = append(errs, fmt.Errorf("PGDOCK_MAINTENANCE_REQUIRE_ANNOUNCEMENT: must be true or false, got %q", v))
+		errs = append(errs, fmt.Errorf("XENIBASE_MAINTENANCE_REQUIRE_ANNOUNCEMENT: must be true or false, got %q", v))
 	}
-	switch v := getenv("PGDOCK_DEDICATED_ADMIN_VIA"); v {
+	switch v := getenv("XENIBASE_DEDICATED_ADMIN_VIA"); v {
 	case "", "network", "published":
 		b.DedicatedAdminVia = v
 	default:
-		errs = append(errs, fmt.Errorf("PGDOCK_DEDICATED_ADMIN_VIA: must be network or published, got %q", v))
+		errs = append(errs, fmt.Errorf("XENIBASE_DEDICATED_ADMIN_VIA: must be network or published, got %q", v))
 	}
-	switch v := getenv("PGDOCK_METADATA_BACKUP_URL"); v {
+	switch v := getenv("XENIBASE_METADATA_BACKUP_URL"); v {
 	case "":
 	case "off":
 		b.MetadataURL = ""

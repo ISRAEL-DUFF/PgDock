@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
 // parseTTL reads "72h", "7d", "90m", or "0" (keep until deleted).
@@ -110,14 +110,14 @@ func (a *App) branchList(args []string) error {
 func envLines(w io.Writer, cr *client.ProjectCredentials) {
 	fmt.Fprintf(w, "DATABASE_URL=%s\n", cr.Connection.PooledUrl)
 	fmt.Fprintf(w, "DATABASE_URL_SESSION=%s\n", cr.Connection.SessionUrl)
-	fmt.Fprintf(w, "PGDOCK_BRANCH_ID=%s\n", cr.Project.Id)
-	fmt.Fprintf(w, "PGDOCK_BRANCH=%s\n", cr.Project.Name)
+	fmt.Fprintf(w, "XENIBASE_BRANCH_ID=%s\n", cr.Project.Id)
+	fmt.Fprintf(w, "XENIBASE_BRANCH=%s\n", cr.Project.Name)
 	if api := cr.Api; api != nil {
 		if api.Url != nil {
-			fmt.Fprintf(w, "PGDOCK_API_URL=%s\n", *api.Url)
+			fmt.Fprintf(w, "XENIBASE_API_URL=%s\n", *api.Url)
 		}
-		fmt.Fprintf(w, "PGDOCK_PUBLISHABLE_KEY=%s\n", api.PublishableKey)
-		fmt.Fprintf(w, "PGDOCK_SECRET_KEY=%s\n", api.SecretKey)
+		fmt.Fprintf(w, "XENIBASE_PUBLISHABLE_KEY=%s\n", api.PublishableKey)
+		fmt.Fprintf(w, "XENIBASE_SECRET_KEY=%s\n", api.SecretKey)
 	}
 }
 

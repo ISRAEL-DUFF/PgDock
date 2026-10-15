@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
 // listFlag collects a repeatable flag (--header K=V).
@@ -139,7 +139,7 @@ func (a *App) webhooksCreate(args []string) error {
 	return a.emit(cr, func(w io.Writer) {
 		fmt.Fprintf(w, "Webhook:\t%s (%s)\n", cr.Webhook.Name, cr.Webhook.Id)
 		fmt.Fprintf(w, "Signing secret:\t%s\n", cr.Secret)
-		fmt.Fprintln(w, "\nThe secret is shown once: verify the PGDock-Signature header with it.")
+		fmt.Fprintln(w, "\nThe secret is shown once: verify the Xenibase-Signature header with it.")
 	})
 }
 
@@ -386,7 +386,7 @@ func (a *App) jobsCreate(args []string) error {
 			fmt.Fprintf(w, "%s\t%s\n", label, when(&t))
 		}
 		if cr.Secret != nil {
-			fmt.Fprintf(w, "Signing secret:\t%s\n\nThe secret is shown once: verify the PGDock-Signature header with it.\n", *cr.Secret)
+			fmt.Fprintf(w, "Signing secret:\t%s\n\nThe secret is shown once: verify the Xenibase-Signature header with it.\n", *cr.Secret)
 		}
 	})
 }
@@ -449,7 +449,7 @@ func (a *App) jobsRun(args []string) error {
 		if run.Error != nil {
 			fmt.Fprintf(w, " (%s)", *run.Error)
 		}
-		fmt.Fprintln(w, ". See `pgdock jobs history` for the outcome.")
+		fmt.Fprintln(w, ". See `xenibase jobs history` for the outcome.")
 	})
 }
 

@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // SharedCluster describes a shared-tier Postgres cluster to register at
@@ -19,8 +19,8 @@ import (
 type SharedCluster struct {
 	// NodeName is the node's unique name, e.g. "local".
 	NodeName string
-	// AdminURL is how pgdock-server connects to the cluster as a superuser
-	// (pgdock_admin).
+	// AdminURL is how xenibase-server connects to the cluster as a superuser
+	// (xenibase_admin).
 	AdminURL string
 	// PoolerHost and PoolerPort are how the poolers reach the cluster; they
 	// default to AdminURL's host and port.
@@ -63,7 +63,7 @@ func RegisterSharedCluster(ctx context.Context, db *pgxpool.Pool, keyring *crypt
 		return fmt.Errorf("inspect shared cluster: %w", err)
 	}
 	if !super {
-		return errors.New("shared cluster: the admin role must be a superuser (pgdock_admin)")
+		return errors.New("shared cluster: the admin role must be a superuser (xenibase_admin)")
 	}
 	vn, _ := strconv.Atoi(versionNum)
 	major := vn / 10000

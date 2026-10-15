@@ -14,10 +14,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/pooler"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/pooler"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Scopes of metric_points.
@@ -244,7 +244,7 @@ func (c *Collector) collectProjects(ctx context.Context, now time.Time, b *batch
 			}
 		}
 		// Client connections are what keeps a Free project awake (V3 §4.2);
-		// PGDock's own sessions (backups, metrics) don't go through the
+		// Xenibase's own sessions (backups, metrics) don't go through the
 		// poolers, so they don't count.
 		if len(active) > 0 {
 			if err := store.New(c.db).TouchProjectsActive(ctx, active); err != nil {

@@ -17,14 +17,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/agentapi"
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/nodes"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/services"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/agentapi"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/nodes"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/services"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Operation kinds.
@@ -535,9 +535,17 @@ func (s *Service) Sweep(ctx context.Context) error {
 		return errors.Join(append(errs, err)...)
 	}
 	for _, b := range soon {
-		body := fmt.Sprintf("Your branch %q of %s will be deleted at %s.\n\nTo keep it longer, extend it under %s/projects/%s/branches, or with `pgdock branch extend`.\nTo keep it for good, detach it from its parent.\n",
-			b.Name, b.ParentName, b.ExpiresAt.UTC().Format("2006-01-02 15:04 MST"), s.cfg.PublicURL, b.ID)
-		err := s.mail.Send(ctx, mail.Message{To: []string{b.Email}, Subject: fmt.Sprintf("Branch %s expires in less than a day", b.Name), Body: body})
+		err := s.mail.Send(ctx, mail.Compose([]string{b.Email}, fmt.Sprintf("Branch %s expires in less than a day", b.Name), mail.Content{
+			Preheader: "Extend it to keep it a little longer, or detach it to keep it for good.",
+			Title:     fmt.Sprintf("Branch %s expires soon", b.Name),
+			Blocks: []mail.Block{
+				mail.P("Hello,"),
+				mail.P(fmt.Sprintf("Your branch %q of %s will be deleted on %s.", b.Name, b.ParentName, b.ExpiresAt.UTC().Format("2 January 2006 at 15:04 MST"))),
+				mail.P("To keep it a little longer, extend it from the branches page, or with `xenibase branch extend`. To keep it for good, detach it from its parent."),
+				mail.Button("Open the branches", fmt.Sprintf("%s/projects/%s/branches", s.cfg.PublicURL, b.ID)),
+			},
+			SignOff: mail.SignOff,
+		}))
 		if err != nil && !errors.Is(err, mail.ErrNotConfigured) {
 			errs = append(errs, fmt.Errorf("expiry email for %s: %w", b.ID, err))
 			continue

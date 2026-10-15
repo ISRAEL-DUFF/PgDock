@@ -1,6 +1,6 @@
 package api
 
-import "github.com/israel-duff/pgdock/internal/authz"
+import "github.com/israel-duff/xenibase/internal/authz"
 
 // scope says how a route's resource is found before authz.Can runs.
 type scope int
@@ -43,7 +43,7 @@ var routeRules = map[string]rule{
 	"GET /api/v1/pricing": {scope: scopePublic},
 	// Payment providers' webhooks, authenticated by their signatures.
 	"POST /api/v1/payments/webhooks/{provider}": {scope: scopePublic},
-	// pgdock-edge's feed (V4 §2.1): signed with the edge secret, checked in
+	// xenibase-edge's feed (V4 §2.1): signed with the edge secret, checked in
 	// the handler.
 	"GET /api/v1/edge/config":         {scope: scopePublic},
 	"POST /api/v1/edge/report":        {scope: scopePublic},
@@ -150,13 +150,12 @@ var routeRules = map[string]rule{
 	"DELETE /api/v1/orgs/{org}/billing/contacts/{email}":                    {scope: scopeOrgPath, action: authz.OrgBillingManage},
 	"PATCH /api/v1/orgs/{org}/billing/contacts/{email}":                     {scope: scopeOrgPath, action: authz.OrgBillingManage},
 	"GET /api/v1/orgs/{org}/billing/invoices":                               {scope: scopeOrgPath, action: authz.OrgBillingManage},
-	"POST /api/v1/orgs/{org}/billing/checkout":                              {scope: scopeOrgPath, action: authz.OrgBillingManage},
 	"POST /api/v1/orgs/{org}/billing/virtual-account":                       {scope: scopeOrgPath, action: authz.OrgBillingManage},
-	"GET /api/v1/orgs/{org}/billing/payment-methods":                        {scope: scopeOrgPath, action: authz.OrgBillingManage},
-	"DELETE /api/v1/orgs/{org}/billing/payment-methods/{method_id}":         {scope: scopeOrgPath, action: authz.OrgBillingManage},
-	"POST /api/v1/orgs/{org}/billing/payment-methods/{method_id}/default":   {scope: scopeOrgPath, action: authz.OrgBillingManage},
-	"PUT /api/v1/orgs/{org}/billing/auto-topup":                             {scope: scopeOrgPath, action: authz.OrgBillingManage},
-	"DELETE /api/v1/orgs/{org}/billing/auto-topup":                          {scope: scopeOrgPath, action: authz.OrgBillingManage},
+	"GET /api/v1/orgs/{org}/billing/wallet":                                 {scope: scopeOrgPath, action: authz.OrgBillingManage},
+	"POST /api/v1/orgs/{org}/billing/wallet":                                {scope: scopeOrgPath, action: authz.OrgBillingManage},
+	"POST /api/v1/orgs/{org}/billing/debit-consent":                         {scope: scopeOrgPath, action: authz.OrgBillingManage},
+	"DELETE /api/v1/orgs/{org}/billing/debit-consent":                       {scope: scopeOrgPath, action: authz.OrgBillingManage},
+	"POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/pay-from-wallet": {scope: scopeOrgPath, action: authz.OrgBillingManage},
 	"GET /api/v1/orgs/{org}/billing/payments":                               {scope: scopeOrgPath, action: authz.OrgBillingManage},
 	"GET /api/v1/orgs/{org}/billing/payments/{payment_id}/receipt":          {scope: scopeOrgPath, action: authz.OrgBillingManage},
 	"POST /api/v1/orgs/{org}/billing/invoices/{invoice_id}/wht-certificate": {scope: scopeOrgPath, action: authz.OrgBillingManage},

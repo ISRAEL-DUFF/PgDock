@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
 )
 
 // testCatalog: authors <- posts (author_id, editor_id) <- comments.

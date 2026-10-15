@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // The revenue dashboard (V3 §7.2), first version: recurring revenue and
@@ -32,6 +32,8 @@ func (s *Service) SnapshotMRR(ctx context.Context) error {
 	}
 	month := MonthStart(s.Now())
 	books := map[int32]Book{}
+	// Recurring revenue is reported in naira: dollar prices at today's rate.
+	var fx FXQuote
 	for _, a := range accts {
 		if a.OrgStatus == "deleted" {
 			continue
@@ -46,6 +48,14 @@ func (s *Service) SnapshotMRR(ctx context.Context) error {
 		var mrr int64
 		if pl, ok := b.Prices.Plans[a.Plan]; ok && a.Plan != PlanFree && a.OrgStatus != "suspended" {
 			mrr = pl.Monthly(a.Term).Round()
+			if b.Prices.Currency == CurrencyUSD {
+				if fx.Effective.IsZero() {
+					if fx, err = s.Quote(ctx, false); err != nil {
+						return err
+					}
+				}
+				mrr = fx.Naira(mrr)
+			}
 		}
 		if err := q.UpsertMRRSnapshot(ctx, store.UpsertMRRSnapshotParams{Month: pgDate(month), OrgID: a.OrgID, Plan: a.Plan, Term: a.Term, MrrMinor: mrr}); err != nil {
 			return err

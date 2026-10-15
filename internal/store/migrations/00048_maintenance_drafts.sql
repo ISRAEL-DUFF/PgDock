@@ -1,6 +1,6 @@
 -- +goose Up
--- V4.1-M7: maintenance PGDock proposes (V3.1 §4.1, open question 3). When
--- the window gate holds work back, PGDock drafts an announcement for the
+-- V4.1-M7: maintenance Xenibase proposes (V3.1 §4.1, open question 3). When
+-- the window gate holds work back, Xenibase drafts an announcement for the
 -- first window at least 96 hours away; the admin confirms it (announced
 -- from then on) or discards it. A draft is never pushed, never emailed,
 -- and never excludes anything: announced_at stays unset until confirmed.

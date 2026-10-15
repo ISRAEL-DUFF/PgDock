@@ -11,11 +11,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/israel-duff/pgdock/internal/edgeapi"
-	"github.com/israel-duff/pgdock/internal/files"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/internal/tenancy"
+	"github.com/israel-duff/xenibase/internal/edgeapi"
+	"github.com/israel-duff/xenibase/internal/files"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/internal/tenancy"
 )
 
 // The control plane's side of storage (V4 §5.6, §10): an hourly-or-so sweep
@@ -95,11 +95,11 @@ func (s *Service) sweepProject(ctx context.Context, r store.StorageProjectsRow) 
 	}
 	defer conn.Close(context.Background())
 	var bytes, objects int64
-	if err := conn.QueryRow(ctx, `SELECT coalesce(sum(size), 0)::bigint, count(*) FROM pgd_storage.objects`).Scan(&bytes, &objects); err != nil {
+	if err := conn.QueryRow(ctx, `SELECT coalesce(sum(size), 0)::bigint, count(*) FROM xb_storage.objects`).Scan(&bytes, &objects); err != nil {
 		return err
 	}
 	// The trigger-kept usage drifts if the owner bypasses it (TRUNCATE).
-	if _, err := conn.Exec(ctx, `UPDATE pgd_storage.usage SET bytes = $1, objects = $2 WHERE bytes <> $1 OR objects <> $2`, bytes, objects); err != nil {
+	if _, err := conn.Exec(ctx, `UPDATE xb_storage.usage SET bytes = $1, objects = $2 WHERE bytes <> $1 OR objects <> $2`, bytes, objects); err != nil {
 		return err
 	}
 	q := store.New(s.db)
@@ -128,7 +128,7 @@ func (s *Service) sweepProject(ctx context.Context, r store.StorageProjectsRow) 
 		return fmt.Errorf("clean-up: %w", err)
 	}
 	// Uploads not completed in time: abandoned.
-	rows, err := conn.Query(ctx, `DELETE FROM pgd_storage.uploads WHERE expires_at < now() RETURNING version, upload_id`)
+	rows, err := conn.Query(ctx, `DELETE FROM xb_storage.uploads WHERE expires_at < now() RETURNING version, upload_id`)
 	if err != nil {
 		return err
 	}
@@ -161,8 +161,8 @@ func collectGarbage(ctx context.Context, conn *pgx.Conn, cl *storage.Client, ref
 	for {
 		n := 0
 		err := pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
-			rows, err := tx.Query(ctx, `SELECT g.version, EXISTS (SELECT 1 FROM pgd_storage.objects o WHERE o.version = g.version)
-				FROM pgd_storage.garbage g WHERE g.at < now() - make_interval(secs => $1) ORDER BY g.at LIMIT 200 FOR UPDATE SKIP LOCKED`, grace.Seconds())
+			rows, err := tx.Query(ctx, `SELECT g.version, EXISTS (SELECT 1 FROM xb_storage.objects o WHERE o.version = g.version)
+				FROM xb_storage.garbage g WHERE g.at < now() - make_interval(secs => $1) ORDER BY g.at LIMIT 200 FOR UPDATE SKIP LOCKED`, grace.Seconds())
 			if err != nil {
 				return err
 			}
@@ -193,7 +193,7 @@ func collectGarbage(ctx context.Context, conn *pgx.Conn, cl *storage.Client, ref
 				}
 			}
 			n = len(done)
-			_, err = tx.Exec(ctx, `DELETE FROM pgd_storage.garbage WHERE version = ANY($1)`, done)
+			_, err = tx.Exec(ctx, `DELETE FROM xb_storage.garbage WHERE version = ANY($1)`, done)
 			return err
 		})
 		total += n
@@ -405,7 +405,7 @@ func (s *Service) reconcileProject(ctx context.Context, r store.StorageProjectsR
 	known := map[string]bool{}
 	var missing int32
 	var sample []string
-	rows, err := conn.Query(ctx, `SELECT version::text, bucket || '/' || path FROM pgd_storage.objects`)
+	rows, err := conn.Query(ctx, `SELECT version::text, bucket || '/' || path FROM xb_storage.objects`)
 	if err != nil {
 		return err
 	}
@@ -427,7 +427,7 @@ func (s *Service) reconcileProject(ctx context.Context, r store.StorageProjectsR
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	for _, sql := range []string{`SELECT version::text FROM pgd_storage.uploads`, `SELECT version::text FROM pgd_storage.garbage`} {
+	for _, sql := range []string{`SELECT version::text FROM xb_storage.uploads`, `SELECT version::text FROM xb_storage.garbage`} {
 		rows, err := conn.Query(ctx, sql)
 		if err != nil {
 			return err

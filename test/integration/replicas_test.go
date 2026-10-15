@@ -15,9 +15,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/store"
-	"github.com/israel-duff/pgdock/test/testenv"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/store"
+	"github.com/israel-duff/xenibase/test/testenv"
 )
 
 func replicaList(t *testing.T, e *testenv.Env, project uuid.UUID) gen.ReplicaList {
@@ -276,7 +276,7 @@ func TestReadReplicas(t *testing.T) {
 	// replay waits (up to max_standby_streaming_delay, 30 s). It leaves
 	// rotation, and reads go to replica 2 only.
 	w := startWriter(t, e, c.Connection.PooledUrl)
-	hold := exec.Command("docker", "exec", "pgdock-"+r1.String(), "psql", "-XAtq", "-h", "/var/run/postgresql", "-U", "pgdock_admin",
+	hold := exec.Command("docker", "exec", "xenibase-"+r1.String(), "psql", "-XAtq", "-h", "/var/run/postgresql", "-U", "xenibase_admin",
 		"-d", p.DbName, "-c", "BEGIN; SELECT count(*) FROM items; SELECT pg_sleep(60); COMMIT")
 	if err := hold.Start(); err != nil {
 		t.Fatal(err)
@@ -314,7 +314,7 @@ func TestReadReplicas(t *testing.T) {
 	if !ok {
 		t.Fatal("no leader")
 	}
-	if out, err := exec.Command("docker", "kill", "pgdock-"+leader.Id.String()).CombinedOutput(); err != nil {
+	if out, err := exec.Command("docker", "kill", "xenibase-"+leader.Id.String()).CombinedOutput(); err != nil {
 		t.Fatalf("kill the primary: %v %s", err, out)
 	}
 	killed := time.Now()
@@ -396,7 +396,7 @@ func TestReadReplicas(t *testing.T) {
 	if l := replicaList(t, e, pid); len(l.Replicas) != 0 {
 		t.Fatalf("replicas after the delete: %+v", l.Replicas)
 	}
-	if out, err := exec.Command("docker", "inspect", "pgdock-"+r1.String()).CombinedOutput(); err == nil {
+	if out, err := exec.Command("docker", "inspect", "xenibase-"+r1.String()).CombinedOutput(); err == nil {
 		t.Fatalf("the replica's container is still there: %s", out[:min(len(out), 200)])
 	}
 	if st := haStatus(t, e, pid); len(st.Members) != 2 {

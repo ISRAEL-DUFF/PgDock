@@ -1,7 +1,7 @@
 // Package isocheck verifies the shared tier's tenant isolation checklist
 // (spec §7.1) against a live cluster: its configuration, every project on
 // it, and two throwaway tenants that try to reach each other. CI runs it
-// against the test cluster; pgdock-server runs it weekly on every shared
+// against the test cluster; xenibase-server runs it weekly on every shared
 // cluster as the isolation_check operation, and a failed run raises an
 // alert.
 package isocheck
@@ -16,8 +16,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Finding is one checklist item a cluster fails.
@@ -293,7 +293,7 @@ func connectAs(ctx context.Context, ps *provision.Service, t store.Project, pass
 		return nil, err
 	}
 	cfg.User, cfg.Password = t.OwnerRole, password
-	cfg.RuntimeParams["application_name"] = "pgdock-isocheck"
+	cfg.RuntimeParams["application_name"] = "xenibase-isocheck"
 	return pgx.ConnectConfig(ctx, cfg)
 }
 
@@ -338,8 +338,8 @@ func Probes(ctx context.Context, ps *provision.Service, a, b store.Project, aPas
 		{"change B's role", "ALTER ROLE " + pgx.Identifier{b.OwnerRole}.Sanitize() + " PASSWORD 'x'"},
 		{"drop B's database", "DROP DATABASE " + pgx.Identifier{b.DbName}.Sanitize()},
 		{"end B's session", fmt.Sprintf(`SELECT CASE WHEN pg_terminate_backend(%d) THEN 1 ELSE 1/0 END`, bPID)},
-		{"create a role", `CREATE ROLE pgdock_isocheck_escape LOGIN`},
-		{"create a database", `CREATE DATABASE pgdock_isocheck_escape`},
+		{"create a role", `CREATE ROLE xenibase_isocheck_escape LOGIN`},
+		{"create a database", `CREATE DATABASE xenibase_isocheck_escape`},
 		{"create an untrusted function", `CREATE FUNCTION escape() RETURNS int AS 'libc.so.6', 'getpid' LANGUAGE c`},
 		{"change superuser-only settings", `SET log_statement = 'none'`},
 	}
@@ -406,7 +406,7 @@ var GenericRoles = []string{"anon", "authenticated", "service_role"}
 
 // Metadata is the V2 §10.2 leak check, from inside a tenant's session:
 // every database and role another tenant can list has an opaque name (or
-// is a probe, a maintenance database, or PGDock's own), except the V1
+// is a probe, a maintenance database, or Xenibase's own), except the V1
 // owner roles in allowed, which their own projects have not switched yet.
 func Metadata(ctx context.Context, tenant *pgx.Conn, allowed []string) ([]Finding, error) {
 	var out []Finding

@@ -18,9 +18,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // MinNotice is the shortest deprecation: a retirement date at least this
@@ -80,7 +80,7 @@ func (s *Service) Change(ctx context.Context, major int, u Update) (provision.PG
 	q := store.New(s.db)
 	cur, err := q.GetPgVersion(ctx, int32(major))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return provision.PGVersion{}, invalid("PGDock doesn't know Postgres %d", major)
+		return provision.PGVersion{}, invalid("Xenibase doesn't know Postgres %d", major)
 	}
 	if err != nil {
 		return provision.PGVersion{}, err
@@ -151,7 +151,7 @@ func (s *Service) one(ctx context.Context, major int) (provision.PGVersion, erro
 			return v, nil
 		}
 	}
-	return provision.PGVersion{}, invalid("PGDock doesn't know Postgres %d", major)
+	return provision.PGVersion{}, invalid("Xenibase doesn't know Postgres %d", major)
 }
 
 // Sweep sends the reminders due: 90, 30 and 7 days before each deprecated
@@ -229,11 +229,11 @@ func (s *Service) notify(ctx context.Context, v store.PgVersion, step int) {
 			fmt.Fprintf(&list, "- %s: %s/projects/%s/settings (Upgrade)\n", p.Name, strings.TrimRight(s.cfg.PublicURL, "/"), p.ID)
 		}
 		date := v.RetiresAt.Format("2 January 2006")
-		subject := fmt.Sprintf("[PGDock] Postgres %d is deprecated: upgrade before %s", v.Major, date)
+		subject := fmt.Sprintf("[Xenibase] Postgres %d is deprecated: upgrade before %s", v.Major, date)
 		if step > 0 {
-			subject = fmt.Sprintf("[PGDock] Postgres %d retires in %d days (%s)", v.Major, step, date)
+			subject = fmt.Sprintf("[Xenibase] Postgres %d retires in %d days (%s)", v.Major, step, date)
 		}
-		body := fmt.Sprintf("Postgres %d is deprecated on PGDock and retires on %s.\n\n"+
+		body := fmt.Sprintf("Postgres %d is deprecated on Xenibase and retires on %s.\n\n"+
 			"These projects of %s run it:\n%s\n"+
 			"Upgrade each from its settings (Upgrade Postgres): a preflight checks the schema on the new major first, and the move pauses writes for seconds.\n\n"+
 			"After %s the projects keep running but are unsupported: no new projects on Postgres %d, and fixes and help are limited (see the terms).\n",

@@ -8,8 +8,9 @@ import (
 	"slices"
 	"time"
 
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Swept counts what one sweep did.
@@ -95,10 +96,18 @@ func (s *Service) Sweep(ctx context.Context) (Swept, error) {
 					try(err)
 					continue
 				}
-				s.notify(ctx, p, fmt.Sprintf("[PGDock] %s will be paused in %s", p.Name, hours(s.cfg.Warn)), fmt.Sprintf(
-					"%s has had no client connections since %s. Free projects are paused after %d days without connections, so it will be paused in about %s.\n\n"+
-						"Connecting to it before then keeps it active. A paused project keeps its data and resumes on the next connection.\n\n%s",
-					p.Name, lastActive(p).UTC().Format("2 Jan 2006"), days(s.cfg.PauseAfter), hours(s.cfg.Warn), s.projectLink(p)))
+				s.notify(ctx, p, fmt.Sprintf("%s will be paused in %s", p.Name, hours(s.cfg.Warn)), mail.Content{
+					Preheader: "Connect to it before then and it stays active.",
+					Title:     fmt.Sprintf("%s will be paused soon", p.Name),
+					Blocks: []mail.Block{
+						mail.P("Hello,"),
+						mail.P(fmt.Sprintf("%s hasn't had a client connection since %s. Free projects are paused after %d days without one, so it will be paused in about %s.",
+							p.Name, lastActive(p).UTC().Format("2 January 2006"), days(s.cfg.PauseAfter), hours(s.cfg.Warn))),
+						mail.P("Connecting to it before then keeps it active. And if it does pause, nothing is lost: it keeps its data and wakes up on the next connection."),
+						mail.Button("Open the project", s.projectLink(p)),
+					},
+					SignOff: mail.SignOff,
+				})
 				out.Warned++
 			case now.Sub(lastActive(p)) >= s.cfg.PauseAfter && now.Sub(*p.PauseWarnedAt) >= s.cfg.Warn:
 				if _, err := s.enqueue(ctx, p.ID, nil, func(store.Project) (string, error) { return KindPause, nil }); err == nil {
@@ -150,10 +159,18 @@ func (s *Service) sweepArchived(ctx context.Context, p store.Project, now time.T
 		if n, err := store.New(s.db).SetArchiveNotice(ctx, store.SetArchiveNoticeParams{ID: p.ID, Days: ptr(int32(d))}); err != nil || n == 0 {
 			return noticed, 0, err // another server sent it
 		}
-		s.notify(ctx, p, fmt.Sprintf("[PGDock] %s will be deleted in %d days", p.Name, d), fmt.Sprintf(
-			"%s has been archived since %s. Archived Free projects are deleted after %d days, so it will be deleted on %s.\n\n"+
-				"Connecting to it, or restoring it from the dashboard, before then keeps it:\n%s",
-			p.Name, p.ArchivedAt.UTC().Format("2 Jan 2006"), days(s.cfg.DeleteAfter), due.UTC().Format("2 Jan 2006"), s.projectLink(p)))
+		s.notify(ctx, p, fmt.Sprintf("%s will be deleted in %d days", p.Name, d), mail.Content{
+			Preheader: "Restore it before then and it stays.",
+			Title:     fmt.Sprintf("%s will be deleted in %d days", p.Name, d),
+			Blocks: []mail.Block{
+				mail.P("Hello,"),
+				mail.P(fmt.Sprintf("%s has been archived since %s. Archived Free projects are deleted after %d days, so it will be deleted on %s.",
+					p.Name, p.ArchivedAt.UTC().Format("2 January 2006"), days(s.cfg.DeleteAfter), due.UTC().Format("2 January 2006"))),
+				mail.P("If you still want it, connect to it or restore it from the dashboard before then, and it stays."),
+				mail.Button("Restore the project", s.projectLink(p)),
+			},
+			SignOff: mail.SignOff,
+		})
 		p.ArchiveNoticeDays = ptr(int32(d))
 		noticed++
 		break

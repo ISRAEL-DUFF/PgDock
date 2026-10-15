@@ -9,7 +9,7 @@ import (
 
 // activityPrivacy hides other sessions from tenants on a shared cluster
 // (V2 §10.2): pg_stat_activity, and the function behind it, are readable
-// only by roles granted pg_read_all_stats (PGDock's admin). Catalog ACLs
+// only by roles granted pg_read_all_stats (Xenibase's admin). Catalog ACLs
 // are per database, so this runs in every project database.
 var activityPrivacy = []string{
 	"REVOKE SELECT ON pg_catalog.pg_stat_activity FROM PUBLIC",

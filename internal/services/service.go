@@ -1,7 +1,7 @@
 // Package services runs backend services' control-plane side (V4 §2):
-// enabling and disabling them per project (roles and pgd_* schemas in the
+// enabling and disabling them per project (roles and xb_* schemas in the
 // project database, API keys, the signing key), keeping the roles current
-// when a project moves, and the configuration feed and reports pgdock-edge
+// when a project moves, and the configuration feed and reports xenibase-edge
 // uses.
 package services
 
@@ -21,15 +21,15 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/backup"
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/jobs"
-	"github.com/israel-duff/pgdock/internal/jwtes"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/storage"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/backup"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/jobs"
+	"github.com/israel-duff/xenibase/internal/jwtes"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/storage"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // Operation kinds (V4 §11.1).
@@ -60,7 +60,7 @@ type Config struct {
 	// region its own.
 	Domain       string
 	RegionDomain func(region string) string
-	// EdgeSecret signs pgdock-edge's requests. Empty disables the feed.
+	// EdgeSecret signs xenibase-edge's requests. Empty disables the feed.
 	EdgeSecret string
 	// CaptchaVerifyURL is Turnstile's siteverify endpoint (tests point it
 	// at a fake); empty is Cloudflare's.
@@ -129,7 +129,7 @@ func (s *Service) URL(ref, region string) string {
 	return "https://" + ref + "." + d
 }
 
-// FeedEnabled reports whether pgdock-edge can connect.
+// FeedEnabled reports whether xenibase-edge can connect.
 func (s *Service) FeedEnabled() bool { return s.cfg.EdgeSecret != "" }
 
 // CreatedKey is an API key made now; Key is shown once for a secret key.
@@ -202,7 +202,7 @@ func (s *Service) Enable(ctx context.Context, projectID uuid.UUID, by *uuid.UUID
 }
 
 // Disable queues turning backend services off: the edge stops serving p,
-// its keys are revoked and the edge login is switched off. The pgd_*
+// its keys are revoked and the edge login is switched off. The xb_*
 // schemas and their data stay (V4 §2.4).
 func (s *Service) Disable(ctx context.Context, projectID uuid.UUID, by *uuid.UUID) (store.Operation, error) {
 	var op store.Operation
@@ -383,8 +383,8 @@ func validExposure(schemas, public []string) error {
 		return fmt.Errorf("%w: expose 1 to 10 schemas", ErrInvalid)
 	}
 	for _, sc := range schemas {
-		if !schemaNameRe.MatchString(sc) || strings.HasPrefix(sc, "pg_") || strings.HasPrefix(sc, "pgd_") ||
-			sc == "information_schema" || sc == "pgdock" {
+		if !schemaNameRe.MatchString(sc) || strings.HasPrefix(sc, "pg_") || strings.HasPrefix(sc, "xb_") ||
+			sc == "information_schema" || sc == "xenibase" {
 			return fmt.Errorf("%w: %q can't be exposed", ErrInvalid, sc)
 		}
 	}
@@ -516,7 +516,7 @@ func (s *Service) runEnable(ctx context.Context, op store.Operation, log *jobs.S
 	return s.enableOn(ctx, p, log)
 }
 
-// enableOn makes p's roles, pgd_* schemas and signing key and turns its
+// enableOn makes p's roles, xb_* schemas and signing key and turns its
 // API on.
 func (s *Service) enableOn(ctx context.Context, p store.Project, log *jobs.StepLogger) error {
 	q := store.New(s.db)
@@ -527,9 +527,9 @@ func (s *Service) enableOn(ctx context.Context, p store.Project, log *jobs.StepL
 		return err
 	}
 	if err := s.applySchema(ctx, p, true); err != nil {
-		return fmt.Errorf("pgd schemas: %w", err)
+		return fmt.Errorf("xb schemas: %w", err)
 	}
-	if err := log.Info(ctx, "schema", "pgd_auth, pgd_storage and pgd_realtime at version %d", SchemaVersion); err != nil {
+	if err := log.Info(ctx, "schema", "xb_auth, xb_storage and xb_realtime at version %d", SchemaVersion); err != nil {
 		return err
 	}
 	if _, err := s.ensureJWTKey(ctx, p.ID); err != nil {
@@ -579,13 +579,13 @@ func (s *Service) runDisable(ctx context.Context, op store.Operation, log *jobs.
 			}
 		}
 	}
-	return log.Info(ctx, "disabled", "keys revoked and the edge's logins switched off; the pgd_* schemas are kept")
+	return log.Info(ctx, "disabled", "keys revoked and the edge's logins switched off; the xb_* schemas are kept")
 }
 
 // edgePassword is the edge login's password, derived from the master key,
 // so it is never stored.
 func (s *Service) edgePassword(role string) string {
-	return base64.RawURLEncoding.EncodeToString(s.keyring.Derive("pgdock edge role "+role, 32))
+	return base64.RawURLEncoding.EncodeToString(s.keyring.Derive("xenibase edge role "+role, 32))
 }
 
 // ensureRoles creates or repairs the four roles on p's instance (V4 §2.3)
@@ -685,7 +685,7 @@ func (s *Service) ensureRolesOn(ctx context.Context, p store.Project, instance u
 		}
 	}
 	// Before M32 the edge login could SET ROLE to the request roles; tenant
-	// SQL reset to it could then read pgd_auth or become the service role.
+	// SQL reset to it could then read xb_auth or become the service role.
 	var member bool
 	if err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member
 		WHERE r.rolname = $1)`, edge).Scan(&member); err != nil {
@@ -720,7 +720,7 @@ func (s *Service) ensureRolesOn(ctx context.Context, p store.Project, instance u
 		SchemaVersion: svc.SchemaVersion, RolesInstance: &p.InstanceID})
 }
 
-// applySchema brings p's pgd_* schemas to SchemaVersion; with all, it
+// applySchema brings p's xb_* schemas to SchemaVersion; with all, it
 // re-runs every version (after a move, so grants to the roles hold).
 func (s *Service) applySchema(ctx context.Context, p store.Project, all bool) error {
 	q := store.New(s.db)
@@ -739,12 +739,12 @@ func (s *Service) applySchema(ctx context.Context, p store.Project, all bool) er
 	}
 	if all {
 		// A restore by the project's owner (a backup, a branch) recreates the
-		// pgd_* schemas as the owner's: take them back.
+		// xb_* schemas as the owner's: take them back.
 		if err := pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
 			_, err := tx.Exec(ctx, reownSQL)
 			return err
 		}); err != nil {
-			return fmt.Errorf("re-own the pgd schemas: %w", err)
+			return fmt.Errorf("re-own the xb schemas: %w", err)
 		}
 	}
 	for _, v := range schemaVersions {

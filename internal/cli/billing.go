@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/pgdock/internal/api/client"
+	"github.com/israel-duff/xenibase/internal/api/client"
 )
 
 // naira formats kobo: 1500000 → "NGN 15,000.00".
@@ -225,13 +225,11 @@ func (a *App) billingInvoice(args []string) error {
 }
 
 func (a *App) billingPay(args []string) error {
-	fs := flag.NewFlagSet("billing pay", flag.ContinueOnError)
-	wallet := fs.Bool("wallet", false, "pay with an iSpend wallet instead of a card")
-	pos, err := parse(fs, args)
+	pos, err := parse(flag.NewFlagSet("billing pay", flag.ContinueOnError), args)
 	if err != nil {
 		return err
 	}
-	if err := need(pos, 1, "billing pay <number|id> [--wallet]"); err != nil {
+	if err := need(pos, 1, "billing pay <number|id>"); err != nil {
 		return err
 	}
 	org, err := a.orgID()
@@ -242,18 +240,68 @@ func (a *App) billingPay(args []string) error {
 	if err != nil {
 		return err
 	}
-	ch := client.StartCheckoutJSONBodyChannelCard
-	if *wallet {
-		ch = client.StartCheckoutJSONBodyChannelWallet
-	}
 	c, cancel := ctx()
 	defer cancel()
-	r, err := a.api.StartCheckoutWithResponse(c, org, client.StartCheckoutJSONRequestBody{Channel: ch, Purpose: client.StartCheckoutJSONBodyPurposeInvoice, InvoiceId: &id})
+	r, err := a.api.PayInvoiceFromWalletWithResponse(c, org, id)
 	if err := check(r, err); err != nil {
 		return err
 	}
-	return a.emit(r.JSON201, func(w io.Writer) {
-		fmt.Fprintf(w, "Pay %s at:\n%s\n", naira(r.JSON201.AmountMinor), r.JSON201.CheckoutUrl)
+	return a.emit(r.JSON200, func(w io.Writer) {
+		ch := r.JSON200
+		msg := ""
+		if ch.Message != nil {
+			msg = ": " + *ch.Message
+		}
+		switch {
+		case ch.Succeeded:
+			fmt.Fprintf(w, "Paid from the wallet (%s).\n", naira(ch.PaidMinor))
+		case ch.Unavailable:
+			fmt.Fprintf(w, "The wallet provider didn't answer%s. Nothing is lost; try again shortly.\n", msg)
+		default:
+			fmt.Fprintf(w, "Not paid%s. Top the wallet up with `xenibase billing transfer`'s account.\n", msg)
+		}
+	})
+}
+
+func (a *App) billingWallet(args []string) error {
+	if _, err := parse(flag.NewFlagSet("billing wallet", flag.ContinueOnError), args); err != nil {
+		return err
+	}
+	org, err := a.orgID()
+	if err != nil {
+		return err
+	}
+	c, cancel := ctx()
+	defer cancel()
+	r, err := a.api.GetOrgWalletWithResponse(c, org)
+	if err := check(r, err); err != nil {
+		return err
+	}
+	return a.emit(r.JSON200, func(w io.Writer) {
+		wl := r.JSON200
+		switch {
+		case !wl.Available:
+			fmt.Fprintln(w, "This platform doesn't bill through wallets.")
+			return
+		case wl.WalletId == nil:
+			fmt.Fprintln(w, "No wallet yet: open it on the billing page.")
+			return
+		}
+		switch {
+		case wl.BalanceMinor != nil:
+			fmt.Fprintf(w, "Balance: %s\n", naira(*wl.BalanceMinor))
+		case wl.BalanceError != nil:
+			fmt.Fprintf(w, "Balance: unavailable (%s)\n", *wl.BalanceError)
+		}
+		fmt.Fprintf(w, "Owed on open invoices: %s\n", naira(wl.OwedMinor))
+		switch c := wl.Consent; {
+		case c == nil:
+			fmt.Fprintln(w, "Automatic debits: off")
+		case !c.Current:
+			fmt.Fprintf(w, "Automatic debits: agreed on %s to older terms; agree again on the billing page\n", c.At.Format("2 Jan 2006"))
+		default:
+			fmt.Fprintf(w, "Automatic debits: on, agreed %s\n", c.At.Format("2 Jan 2006"))
+		}
 	})
 }
 
@@ -274,7 +322,7 @@ func (a *App) billingTransfer(args []string) error {
 	return a.emit(r.JSON200, func(w io.Writer) {
 		v := r.JSON200
 		fmt.Fprintf(w, "Transfer to %s, %s (%s).\n", v.AccountNumber, v.BankName, v.AccountName)
-		fmt.Fprintln(w, "The account is this organisation's alone; transfers settle the oldest open invoice and anything over becomes credit.")
+		fmt.Fprintln(w, "The account is this organisation's wallet alone; what arrives is held there and pays invoices as they fall due.")
 	})
 }
 

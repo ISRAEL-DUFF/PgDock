@@ -1,4 +1,4 @@
-package pgdock
+package xenibase
 
 import (
 	"bytes"
@@ -49,13 +49,13 @@ func WithHeader(k, v string) Option { return func(c *Client) { c.hdr.Set(k, v) }
 func New(projectURL, key string, opts ...Option) (*Client, error) {
 	u, err := url.Parse(strings.TrimRight(projectURL, "/"))
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
-		return nil, fmt.Errorf("pgdock: the project URL is https://<ref>.<domain>, not %q", projectURL)
+		return nil, fmt.Errorf("xenibase: the project URL is https://<ref>.<domain>, not %q", projectURL)
 	}
 	if key == "" {
-		return nil, errors.New("pgdock: a key is required")
+		return nil, errors.New("xenibase: a key is required")
 	}
 	c := &Client{URL: u.String(), key: key, hc: &http.Client{Timeout: 30 * time.Second}, hdr: http.Header{}}
-	c.hdr.Set("X-Client-Info", "pgdock-go/"+Version)
+	c.hdr.Set("X-Client-Info", "xenibase-go/"+Version)
 	for _, o := range opts {
 		o(c)
 	}
@@ -173,7 +173,7 @@ func (c *Client) doJSON(ctx context.Context, r request, out any) error {
 		return nil
 	}
 	if err := json.NewDecoder(res.Body).Decode(out); err != nil && !errors.Is(err, io.EOF) {
-		return fmt.Errorf("pgdock: decoding the answer: %w", err)
+		return fmt.Errorf("xenibase: decoding the answer: %w", err)
 	}
 	return nil
 }

@@ -1,8 +1,8 @@
 // Package webhooks sends row changes of a project's tables to URLs (V2
 // §9.1) through a transactional outbox in the project's database: triggers
-// write each change to pgdock.webhook_outbox in the same transaction, so
+// write each change to xenibase.webhook_outbox in the same transaction, so
 // rolled-back changes never produce an event and committed ones always do,
-// and a delivery worker in pgdock-server posts them in order, signed, with
+// and a delivery worker in xenibase-server posts them in order, signed, with
 // retries and dead letters.
 package webhooks
 
@@ -28,11 +28,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/israel-duff/pgdock/internal/crypto"
-	"github.com/israel-duff/pgdock/internal/mail"
-	"github.com/israel-duff/pgdock/internal/outbound"
-	"github.com/israel-duff/pgdock/internal/provision"
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/crypto"
+	"github.com/israel-duff/xenibase/internal/mail"
+	"github.com/israel-duff/xenibase/internal/outbound"
+	"github.com/israel-duff/xenibase/internal/provision"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 var (
@@ -158,8 +158,8 @@ var (
 	metaKey  = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,40}$`)
 )
 
-// reserved headers are set by PGDock.
-var reserved = []string{"content-type", "content-length", "host", "user-agent", "pgdock-signature", "pgdock-event-id", "pgdock-webhook", "pgdock-job"}
+// reserved headers are set by Xenibase.
+var reserved = []string{"content-type", "content-length", "host", "user-agent", "xenibase-signature", "xenibase-event-id", "xenibase-webhook", "xenibase-job"}
 
 // table is a resolved table of the project.
 type table struct{ Schema, Name string }
@@ -243,7 +243,7 @@ func (s *Service) validate(ctx context.Context, p store.Project, in *Params) err
 	var tables []string
 	for _, raw := range in.Tables {
 		t := splitTable(strings.TrimSpace(raw))
-		if t.Schema == "pgdock" || t.Schema == "pg_catalog" || t.Schema == "information_schema" {
+		if t.Schema == "xenibase" || t.Schema == "pg_catalog" || t.Schema == "information_schema" {
 			return fmt.Errorf("%w: %s is not one of the project's tables", ErrInvalid, raw)
 		}
 		var kind string
@@ -470,7 +470,7 @@ func (s *Service) Delete(ctx context.Context, p store.Project, w store.Webhook) 
 		if exists, err := outboxExists(ctx, tx); err != nil || !exists {
 			return err
 		}
-		_, err := tx.Exec(ctx, `DELETE FROM pgdock.webhook_outbox WHERE webhook_id = $1`, w.ID)
+		_, err := tx.Exec(ctx, `DELETE FROM xenibase.webhook_outbox WHERE webhook_id = $1`, w.ID)
 		return err
 	})
 	if err != nil {
@@ -489,7 +489,7 @@ func lockError(err error) error {
 
 // ---- The outbox in the project's database ----------------------------------
 
-// outboxDDL creates the pgdock schema, owned by the superuser, with the
+// outboxDDL creates the xenibase schema, owned by the superuser, with the
 // outbox and the SECURITY DEFINER trigger function (V2 §9.1). The project
 // role has no access to the schema; the function's search_path is pinned.
 //
@@ -498,19 +498,19 @@ func lockError(err error) error {
 // superuser's function never writes into tables a tenant controls.
 const outboxDDL = `
 DO $own$ BEGIN
-  IF EXISTS (SELECT 1 FROM pg_namespace n JOIN pg_roles r ON r.oid = n.nspowner WHERE n.nspname = 'pgdock' AND NOT r.rolsuper)
+  IF EXISTS (SELECT 1 FROM pg_namespace n JOIN pg_roles r ON r.oid = n.nspowner WHERE n.nspname = 'xenibase' AND NOT r.rolsuper)
      OR EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace JOIN pg_roles r ON r.oid = c.relowner
-                WHERE n.nspname = 'pgdock' AND NOT r.rolsuper)
+                WHERE n.nspname = 'xenibase' AND NOT r.rolsuper)
      OR EXISTS (SELECT 1 FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace JOIN pg_roles r ON r.oid = f.proowner
-                WHERE n.nspname = 'pgdock' AND NOT r.rolsuper)
+                WHERE n.nspname = 'xenibase' AND NOT r.rolsuper)
      OR EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace JOIN pg_roles r ON r.oid = t.typowner
-                WHERE n.nspname = 'pgdock' AND NOT r.rolsuper) THEN
-    DROP SCHEMA pgdock CASCADE;
+                WHERE n.nspname = 'xenibase' AND NOT r.rolsuper) THEN
+    DROP SCHEMA xenibase CASCADE;
   END IF;
 END $own$;
-CREATE SCHEMA IF NOT EXISTS pgdock;
-REVOKE ALL ON SCHEMA pgdock FROM PUBLIC;
-CREATE TABLE IF NOT EXISTS pgdock.webhook_outbox (
+CREATE SCHEMA IF NOT EXISTS xenibase;
+REVOKE ALL ON SCHEMA xenibase FROM PUBLIC;
+CREATE TABLE IF NOT EXISTS xenibase.webhook_outbox (
   id              bigserial PRIMARY KEY,
   webhook_id      uuid NOT NULL,
   table_name      text NOT NULL,
@@ -523,30 +523,30 @@ CREATE TABLE IF NOT EXISTS pgdock.webhook_outbox (
   last_error      text,
   created_at      timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS webhook_outbox_webhook ON pgdock.webhook_outbox (webhook_id, id);
-REVOKE ALL ON pgdock.webhook_outbox FROM PUBLIC;
-CREATE OR REPLACE FUNCTION pgdock.webhook_enqueue() RETURNS trigger
+CREATE INDEX IF NOT EXISTS webhook_outbox_webhook ON xenibase.webhook_outbox (webhook_id, id);
+REVOKE ALL ON xenibase.webhook_outbox FROM PUBLIC;
+CREATE OR REPLACE FUNCTION xenibase.webhook_enqueue() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $fn$
 BEGIN
-  INSERT INTO pgdock.webhook_outbox (webhook_id, table_name, op, old_row, new_row)
+  INSERT INTO xenibase.webhook_outbox (webhook_id, table_name, op, old_row, new_row)
   VALUES (TG_ARGV[0]::uuid, TG_TABLE_SCHEMA || '.' || TG_TABLE_NAME, TG_OP,
           CASE WHEN TG_OP <> 'INSERT' THEN to_jsonb(OLD) END,
           CASE WHEN TG_OP <> 'DELETE' THEN to_jsonb(NEW) END);
-  PERFORM pg_notify('pgdock_webhooks', '');
+  PERFORM pg_notify('xenibase_webhooks', '');
   RETURN NULL;
 END
 $fn$;
-REVOKE ALL ON FUNCTION pgdock.webhook_enqueue() FROM PUBLIC;
+REVOKE ALL ON FUNCTION xenibase.webhook_enqueue() FROM PUBLIC;
 `
 
 // OutboxChannel is the LISTEN channel the trigger function notifies.
-const OutboxChannel = "pgdock_webhooks"
+const OutboxChannel = "xenibase_webhooks"
 
 func outboxExists(ctx context.Context, q interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }) (bool, error) {
 	var ok bool
-	err := q.QueryRow(ctx, `SELECT to_regclass('pgdock.webhook_outbox') IS NOT NULL`).Scan(&ok)
+	err := q.QueryRow(ctx, `SELECT to_regclass('xenibase.webhook_outbox') IS NOT NULL`).Scan(&ok)
 	return ok, err
 }
 
@@ -554,7 +554,7 @@ func outboxExists(ctx context.Context, q interface {
 // for UPDATE (which can have a WHEN clause on the columns).
 func triggerNames(id uuid.UUID) (rows, update string) {
 	short := strings.ReplaceAll(id.String(), "-", "")[:16]
-	return "pgdock_wh_" + short, "pgdock_whu_" + short
+	return "xenibase_wh_" + short, "xenibase_whu_" + short
 }
 
 func dropTriggers(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
@@ -625,7 +625,7 @@ func installTriggers(ctx context.Context, tx pgx.Tx, w store.Webhook) error {
 		t := splitTable(raw)
 		var stmts []string
 		if len(rowEvents) > 0 {
-			stmts = append(stmts, fmt.Sprintf("CREATE TRIGGER %s AFTER %s ON %s FOR EACH ROW EXECUTE FUNCTION pgdock.webhook_enqueue(%s)",
+			stmts = append(stmts, fmt.Sprintf("CREATE TRIGGER %s AFTER %s ON %s FOR EACH ROW EXECUTE FUNCTION xenibase.webhook_enqueue(%s)",
 				pgx.Identifier{rowsName}.Sanitize(), strings.Join(rowEvents, " OR "), t.ident(), arg))
 		}
 		if slices.Contains(w.Events, "UPDATE") {
@@ -638,7 +638,7 @@ func installTriggers(ctx context.Context, tx pgx.Tx, w store.Webhook) error {
 				}
 				when = " WHEN (" + strings.Join(conds, " OR ") + ")"
 			}
-			stmts = append(stmts, fmt.Sprintf("CREATE TRIGGER %s AFTER UPDATE ON %s FOR EACH ROW%s EXECUTE FUNCTION pgdock.webhook_enqueue(%s)",
+			stmts = append(stmts, fmt.Sprintf("CREATE TRIGGER %s AFTER UPDATE ON %s FOR EACH ROW%s EXECUTE FUNCTION xenibase.webhook_enqueue(%s)",
 				pgx.Identifier{updName}.Sanitize(), t.ident(), when, arg))
 		}
 		for _, st := range stmts {
@@ -665,7 +665,7 @@ func literal(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + 
 // Reinstall rebuilds p's webhook schema after its database was replaced
 // or copied (a restore in place, a branch reset, a new branch or restored
 // copy): whatever came with the data is dropped, then the outbox and
-// triggers are installed from PGDock's configuration, empty, so events from
+// triggers are installed from Xenibase's configuration, empty, so events from
 // the restored past aren't sent (V2 §9.3). A project without webhooks keeps
 // none: copies don't carry them over (V2 §8.1).
 func (s *Service) Reinstall(ctx context.Context, p store.Project) error {
@@ -697,11 +697,11 @@ func (s *Service) Reinstall(ctx context.Context, p store.Project) error {
 	})
 }
 
-// Strip removes PGDock's webhook schema, its triggers with it, from a copy
+// Strip removes Xenibase's webhook schema, its triggers with it, from a copy
 // of a project (a branch, a restore into a new project, an import): webhooks
 // are not carried over (V2 §8.1, §9.3).
 func Strip(ctx context.Context, conn *pgx.Conn) error {
-	_, err := conn.Exec(ctx, `DROP SCHEMA IF EXISTS pgdock CASCADE`)
+	_, err := conn.Exec(ctx, `DROP SCHEMA IF EXISTS xenibase CASCADE`)
 	return err
 }
 
@@ -752,7 +752,7 @@ func (s *Service) Backlog(ctx context.Context, p store.Project) (map[uuid.UUID]i
 	if ok, err := outboxExists(ctx, conn); err != nil || !ok {
 		return out, err
 	}
-	rows, err := conn.Query(ctx, `SELECT webhook_id, count(*) FROM pgdock.webhook_outbox GROUP BY 1`)
+	rows, err := conn.Query(ctx, `SELECT webhook_id, count(*) FROM xenibase.webhook_outbox GROUP BY 1`)
 	if err != nil {
 		return out, err
 	}
@@ -791,12 +791,12 @@ func (s *Service) notify(ctx context.Context, p store.Project, subject, body str
 		return
 	}
 	link := strings.TrimRight(s.cfg.PublicURL, "/") + "/projects/" + p.ID.String() + "/webhooks"
-	if err := s.mail.Send(ctx, mail.Message{To: addrs, Subject: subject, Body: body + "\n\n" + link}); err != nil {
+	if err := s.mail.Send(ctx, mail.Notice(addrs, subject, body, "Open the webhooks in Xenibase", link)); err != nil {
 		s.log.Warn("send webhook email", "err", err)
 	}
 }
 
-// header is the static headers plus PGDock's.
+// header is the static headers plus Xenibase's.
 func header(static map[string]string) http.Header {
 	h := http.Header{}
 	for k, v := range static {

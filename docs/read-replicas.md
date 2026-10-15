@@ -10,7 +10,7 @@ failover or a switchover), the replicas follow the new one.
 
 Go to Project → Settings → Read replicas → Add replica, or run:
 
-    pgdock replicas create my-app [--node <id>] [--region <region>]
+    xenibase replicas create my-app [--node <id>] [--region <region>]
 
 The replica goes on the least loaded eligible node unless you pick one. An
 eligible node is healthy, takes dedicated instances, and doesn't already
@@ -33,7 +33,7 @@ The read-only route is the project's database name with `_ro` appended:
 
     postgresql://<owner>:<password>@db.<region>.<domain>:6543/<db>_ro
 
-The dashboard and `pgdock replicas list` show the full URL. It takes the
+The dashboard and `xenibase replicas list` show the full URL. It takes the
 project's usual logins.
 
 - Each new server connection goes to the next replica in rotation.
@@ -60,7 +60,7 @@ when a request was served by a replica.
 
 ## Lag and rotation
 
-PGDock measures each replica's lag every second, against the primary. The
+Xenibase measures each replica's lag every second, against the primary. The
 lag is how long ago the primary wrote the WAL the replica has not replayed
 yet. So a replica that stops replaying shows a growing lag even though the
 primary's own `replay_lag` would freeze.
@@ -95,7 +95,7 @@ long as it lags.
 Detaching promotes a replica into a new, standalone dedicated project, for
 analytics or a migration:
 
-    pgdock replicas detach my-app <replica-id> --name "my-app analytics"
+    xenibase replicas detach my-app <replica-id> --name "my-app analytics"
 
 1. The replica leaves the read route and the project's cluster.
 2. It restarts as an ordinary instance on its own data and is promoted.
@@ -108,7 +108,7 @@ removed; create a new one if you still need it.
 
 ## Removing one
 
-    pgdock replicas delete my-app <replica-id>
+    xenibase replicas delete my-app <replica-id>
 
 The replica leaves the read route first, then its container and volume are
 removed (`delete_replica`). Removing the last replica removes the `_ro`

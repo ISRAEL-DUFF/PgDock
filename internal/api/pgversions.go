@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/israel-duff/pgdock/internal/api/gen"
-	"github.com/israel-duff/pgdock/internal/pgversions"
-	"github.com/israel-duff/pgdock/internal/provision"
+	"github.com/israel-duff/xenibase/internal/api/gen"
+	"github.com/israel-duff/xenibase/internal/pgversions"
+	"github.com/israel-duff/xenibase/internal/provision"
 )
 
 // The Postgres version lifecycle (V4.1 §6.1).

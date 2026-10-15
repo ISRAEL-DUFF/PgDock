@@ -1,4 +1,4 @@
--- Incidents (V3 §2.6): the platform admin's, pushed to pgdock-status.
+-- Incidents (V3 §2.6): the platform admin's, pushed to xenibase-status.
 
 -- name: InsertIncident :one
 INSERT INTO incidents (title, components, region_id, severity, status, created_by)
@@ -110,7 +110,7 @@ WHERE p.id = sqlc.arg(project_id) AND i.severity = 'maintenance' AND i.announced
 ORDER BY i.announced_at LIMIT 1;
 
 -- name: InsertMaintenanceDraft :one
--- tenant: system - maintenance PGDock proposes; not announced until confirmed.
+-- tenant: system - maintenance Xenibase proposes; not announced until confirmed.
 INSERT INTO incidents (title, components, region_id, severity, status, started_at, scheduled_start, scheduled_end, proposed_for)
 VALUES (@title, @components, NULL, 'maintenance', 'draft', @scheduled_start, @scheduled_start, @scheduled_end, @proposed_for)
 RETURNING *;

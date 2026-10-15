@@ -17,11 +17,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/israel-duff/pgdock/internal/store"
+	"github.com/israel-duff/xenibase/internal/store"
 )
 
 // CloudAPI is the WhatsApp Business Platform's Cloud API (Meta's Graph
-// API): PGDock's business number sends replies, and its webhook delivers
+// API): Xenibase's business number sends replies, and its webhook delivers
 // customers' messages.
 type CloudAPI struct {
 	// BaseURL is the Graph API, with its version
@@ -36,7 +36,7 @@ type CloudAPI struct {
 	Client      *http.Client
 }
 
-// DefaultGraphURL is the Graph API PGDock talks to.
+// DefaultGraphURL is the Graph API Xenibase talks to.
 const DefaultGraphURL = "https://graph.facebook.com/v21.0"
 
 // SendText sends body to the number to (E.164).
@@ -205,7 +205,7 @@ func (s *Service) InboundWhatsApp(ctx context.Context, in Inbound) (*store.Ticke
 	}
 	if err != nil || !WhatsAppPlan(plan) {
 		if s.whatsapp != nil {
-			msg := "PGDock support on WhatsApp is for Pro and Team organisations that registered this number (Organisation → Support)."
+			msg := "Xenibase support on WhatsApp is for Pro and Team organisations that registered this number (Organisation → Support)."
 			if s.cfg.Address != "" {
 				msg += " Email " + s.cfg.Address + ", or open a ticket from the dashboard."
 			}

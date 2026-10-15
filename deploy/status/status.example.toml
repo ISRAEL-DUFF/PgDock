@@ -1,11 +1,11 @@
-# pgdock-status configuration (V3 §2.6). Copy to status.toml and edit.
-# Check it with: pgdock-status check-config --config status.toml
+# xenibase-status configuration (V3 §2.6). Copy to status.toml and edit.
+# Check it with: xenibase-status check-config --config status.toml
 
 # Where the page is reached (links in emails and the RSS feed).
 public_url = "https://status.example.com"
-title = "PGDock status"
+title = "Xenibase status"
 listen = ":8080"
-data = "/var/lib/pgdock-status/status.db"
+data = "/var/lib/xenibase-status/status.db"
 
 # One check a minute: the SLA counts minutes (V3 §2.7).
 interval = "1m"
@@ -14,10 +14,10 @@ interval = "1m"
 fail_after = 3
 recover_after = 2
 
-# pgdock-server signs heartbeats and incidents with this secret
-# (PGDOCK_STATUS_PUSH_SECRET on the PGDock side). At least 32 characters:
+# xenibase-server signs heartbeats and incidents with this secret
+# (XENIBASE_STATUS_PUSH_SECRET on the Xenibase side). At least 32 characters:
 #   openssl rand -hex 32
-push_secret_file = "/run/secrets/pgdock-status-push"
+push_secret_file = "/run/secrets/xenibase-status-push"
 # Heartbeat components show "unknown" after this long without one.
 heartbeat_ttl = "5m"
 
@@ -30,8 +30,8 @@ host = "smtp.example.net"
 port = 587
 tls = "starttls"
 username = "status@example.com"
-password_file = "/run/secrets/pgdock-status-smtp"
-from = "PGDock status <status@example.com>"
+password_file = "/run/secrets/xenibase-status-smtp"
+from = "Xenibase status <status@example.com>"
 
 # ---- Components, probed from here ----------------------------------------
 
@@ -42,7 +42,7 @@ region = "eu-central"
   [[component.probe]]
   name = "dashboard"
   kind = "http"
-  url = "https://pgdock.example.com/healthz"
+  url = "https://xenibase.example.com/healthz"
 
 # The floating IP on both ports, as a low-privilege probe role into a
 # small probe database (docs/status-page.md).
@@ -53,11 +53,11 @@ region = "eu-central"
   [[component.probe]]
   name = "session port"
   kind = "postgres"
-  dsn_file = "/run/secrets/pgdock-status-probe-session"
+  dsn_file = "/run/secrets/xenibase-status-probe-session"
   [[component.probe]]
   name = "transaction port"
   kind = "postgres"
-  dsn_file = "/run/secrets/pgdock-status-probe-transaction"
+  dsn_file = "/run/secrets/xenibase-status-probe-transaction"
 
 # The shared tier: a write through the pooler (txid_current needs a
 # writable primary).
@@ -68,10 +68,10 @@ region = "eu-central"
   [[component.probe]]
   name = "probe database"
   kind = "postgres"
-  dsn_file = "/run/secrets/pgdock-status-probe-transaction"
+  dsn_file = "/run/secrets/xenibase-status-probe-transaction"
   query = "SELECT txid_current()"
 
-# ---- Components reported by pgdock-server's heartbeats ---------------------
+# ---- Components reported by xenibase-server's heartbeats ---------------------
 
 [[component]]
 id = "dedicated"
@@ -98,7 +98,7 @@ id = "billing"
 name = "Billing & payments"
 heartbeat = true
 
-# Backend services, one line per region (V4.1): pgdock-server reports each
+# Backend services, one line per region (V4.1): xenibase-server reports each
 # region's edges (degraded when some stop reporting, down when all do);
 # the probe checks the region's edge from outside. The worse of the two
 # is shown. Add one block per region, with that region's edge address.
