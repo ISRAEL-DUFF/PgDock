@@ -5,6 +5,8 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+## v4.2.2
+
 ### Fixed
 - Backend services through the install bundle didn't work at all: the edge exited at
   once (its trusted-proxy setting was a bare address, and the edge wants a network range),
