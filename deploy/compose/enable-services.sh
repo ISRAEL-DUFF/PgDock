@@ -119,6 +119,13 @@ fi
 	*) echo "		dns $provider {env.$tokenvar}" ;;
 	esac
 	[ -z "$challenge" ] || echo "		dns_challenge_override_domain $challenge"
+	if [ "$provider" = acmedns ]; then
+		# acme-dns serves the record the moment it is updated, and Let's Encrypt
+		# checks it itself. Caddy's own check asks acme-dns's nameserver over UDP
+		# from this server, which can time out on some networks (it did on the
+		# first real server) and fail a certificate that is fine.
+		echo "		propagation_timeout -1"
+	fi
 	echo '	}'
 	echo '	# No compression or buffering: realtime and large downloads stream.'
 	echo '	reverse_proxy xenibase-edge:8443 {'

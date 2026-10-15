@@ -36,6 +36,7 @@ check "acmedns: the password itself isn't in the file" hasnt $f "s3cret"
 check "acmedns: no {env.} for the username" hasnt $f "{env.ACMEDNS_USERNAME}"
 check "acmedns: no {env.} for the subdomain" hasnt $f "{env.ACMEDNS_SUBDOMAIN}"
 check "acmedns: no {env.} for the server URL" hasnt $f "{env.ACMEDNS_SERVER_URL}"
+check "acmedns: Caddy doesn't wait on its own check of acme-dns's nameserver" has $f "propagation_timeout -1"
 check "acmedns: the site proxies to the edge" has $f "reverse_proxy xenibase-edge:8443"
 check "acmedns: the edge secret is 32+ characters" sh -c '[ "$(grep ^XENIBASE_EDGE_SECRET= .env | cut -d= -f2- | wc -c)" -ge 33 ]'
 check "acmedns: the API domain is in .env" has .env "XENIBASE_API_DOMAIN=api.example.test"
@@ -56,6 +57,7 @@ check "acmedns: a missing subdomain is refused" sh -c '! sh ./enable-services.sh
 fresh CLOUDFLARE_API_TOKEN=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN
 sh ./enable-services.sh --config-only api.example.test cloudflare >/dev/null
 check "cloudflare: the token is read from the environment" has caddy.d/api.caddy "dns cloudflare {env.CLOUDFLARE_API_TOKEN}"
+check "cloudflare: Caddy still checks propagation itself" hasnt caddy.d/api.caddy "propagation_timeout"
 fresh DESEC_TOKEN=abcdefghijklmnopqrstuvwxyz12 ACME_CHALLENGE_DOMAIN=acme.example.org
 sh ./enable-services.sh --config-only api.example.test desec >/dev/null
 check "desec: the token block" has caddy.d/api.caddy "token {env.DESEC_TOKEN}"

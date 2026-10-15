@@ -16,6 +16,11 @@ bundle share one version (spec §11.5).
   Caddy, the compose file uses `172.31.250.10/32`, and tests check both: the script's
   output for each provider, and the real plugin against a fake acme-dns server
   (`make test-deploy`, `make test-acmedns`).
+- With acme-dns, Caddy no longer waits on its own check of the acme-dns nameserver
+  (`propagation_timeout -1`): from the first real server that UDP lookup timed out and
+  failed a certificate acme-dns had served correctly. The health check in the docs
+  (`/healthz` through the public address) couldn't work behind the wildcard site; it
+  now says how to check from inside, and what an unknown name answers.
 - The app's text and layout were about 12% smaller than intended (the page's
   root font size was 14px, and Tailwind sizes are in rem): text-xs rendered at
   10.5px and text-sm at 12.25px. The root is the browser default now.
