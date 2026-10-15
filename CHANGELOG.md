@@ -5,6 +5,48 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+## v4.2.0
+
+### Fixed
+- The wallet panel has a **Get the bank account** button when the provider
+  didn't return the wallet's bank account as it was opened (it showed
+  nothing before).
+
+### Email
+- Every email now goes out with an HTML part in one branded layout (the logo,
+  a card, a button for the link, a footer), and the plain text as before.
+  Light and dark, and on a phone.
+- The messages are written in a warmer voice: sign-up, verification,
+  password reset, approval, two-factor and role changes; invitations; API
+  tokens; invoices, receipts, wallet and overdue notices, prepaid, budget and
+  spend-cap alerts, price changes; branches, jobs and webhooks; the Free
+  tier's pause, archive and delete notices. Subjects keep their key words.
+- Your projects' own emails (confirmation, magic link, password reset,
+  invitation, email change) are laid out under the project's name, with no
+  Xenibase branding. Project → Auth has a **Clean email layout** switch to
+  send a template's text exactly as written instead.
+- `xenibase-server mail-preview <dir> [public-url]` writes sample emails
+  as HTML and text files to look at in a browser.
+
+### Legal documents
+- The service level agreement, data processing agreement, order forms and the
+  terms of use and privacy notice are shown as documents: headings, lists and
+  tables in the app's type, with a contents list for a long one and a button
+  to print it or save it as a PDF. They were the Markdown source. Raw HTML in a
+  document is never shown, and only web, mail and phone links are linked.
+- The editors have a Preview tab, so what readers will see is seen before a
+  new version is published.
+
+### Sign-in screens
+- A new look for sign-in, sign-up, verification, password reset, invitation
+  and the setup wizard: larger headings and a brand panel of receding
+  doorways. The words on the screens are unchanged.
+
+### New brand
+- A new logo, the doorway, and a teal accent in both themes, replacing the
+  purple. The browser tab icon was still PGDock's: it is Xenibase's now,
+  with app icons and a sharing card for link previews. See [Brand](docs/brand.md).
+
 ## v4.1.0
 
 ### Renamed: Xenibase

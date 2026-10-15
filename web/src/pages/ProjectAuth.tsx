@@ -592,6 +592,7 @@ function SettingsTab({
   const [signup, setSignup] = useState(!!st.signup_enabled);
   const [confirm, setConfirm] = useState(!!st.email_confirm);
   const [magic, setMagic] = useState(!!st.magic_link_enabled);
+  const [layout, setLayout] = useState(st.email_layout !== false);
   const [minLen, setMinLen] = useState(st.password_min_length ?? 8);
   const [mixed, setMixed] = useState(!!st.password_require_mixed);
   const [ttl, setTtl] = useState(st.access_token_ttl ?? 3600);
@@ -618,6 +619,7 @@ function SettingsTab({
           signup_enabled: signup,
           email_confirm: confirm,
           magic_link_enabled: magic,
+          email_layout: layout,
           password_min_length: minLen,
           password_require_mixed: mixed,
           access_token_ttl: ttl,
@@ -710,6 +712,12 @@ function SettingsTab({
           "Users confirm by link or code before signing in with a password.",
         )}
         {sw("Magic links and email codes", magic, setMagic)}
+        {sw(
+          "Clean email layout",
+          layout,
+          setLayout,
+          "Your confirmation, sign-in and password-reset emails are laid out under your project's name, with a button for the link. Turn off to send your template's text exactly as written.",
+        )}
         <FormRow label="Minimum password length">
           <Input
             type="number"

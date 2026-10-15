@@ -497,9 +497,8 @@ func (s *Service) settleWalletDebit(ctx context.Context, intent store.PaymentInt
 		return err
 	}
 	s.afterPayment(ctx, intent.OrgID)
-	s.notifyOrg(ctx, intent.OrgID, "billing.receipt", fmt.Sprintf("Xenibase: %s paid from your wallet", deref(inv.Number)),
-		fmt.Sprintf("%s was debited from %s's wallet for invoice %s.\n\nThe receipt: %s/org/billing?org=%s\n",
-			Naira(amount), s.orgName(ctx, intent.OrgID), deref(inv.Number), s.publicURL, intent.OrgID))
+	subject, content := s.walletPaidEmail(s.orgName(ctx, intent.OrgID), intent.OrgID, deref(inv.Number), amount)
+	s.notifyContent(ctx, intent.OrgID, "billing.receipt", subject, content)
 	return nil
 }
 

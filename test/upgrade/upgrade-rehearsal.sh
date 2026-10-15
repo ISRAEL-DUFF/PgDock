@@ -1,7 +1,7 @@
 #!/bin/sh
 # A real upgrade with the compose bundle, using deploy/compose/upgrade.sh:
 #
-#   1. install an older release (UPGRADE_FROM, default 3510e9d, the first Xenibase commit) as a user would;
+#   1. install an older release (UPGRADE_FROM, default v4.1.0) as a user would;
 #   2. try a "release" whose migration is broken: upgrade.sh must fail, restore
 #      the metadata backup and bring the older release back, healthy;
 #   3. upgrade to this commit: it must come up healthy at the new version and
@@ -14,12 +14,11 @@
 #   make test-upgrade
 set -eu
 repo=$(cd "$(dirname "$0")/../.." && pwd)
-# The release to upgrade from. It must already be Xenibase: v2.1.0 and earlier
-# are PGDock (PGDOCK_* settings, pgdock containers and database user), and an
-# upgrade across the rename is not supported (install fresh and import).
-# 3510e9d is the first Xenibase commit; once v4.1.0 exists, the next release
-# should default to the previous tag instead.
-from=${UPGRADE_FROM:-3510e9d}
+# The release to upgrade from: the previous Xenibase release, which is what a
+# real install does next. v2.1.0 and earlier are PGDock (PGDOCK_* settings,
+# pgdock containers and database user): an upgrade across the rename is not
+# supported (install fresh and move the projects).
+from=${UPGRADE_FROM:-v4.1.0}
 work=$(mktemp -d)
 cleanup() { cd "$work/deploy/compose" 2>/dev/null && docker compose down -v --remove-orphans >/dev/null 2>&1; cd /; rm -rf "$work"; }
 trap cleanup EXIT

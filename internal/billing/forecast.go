@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/israel-duff/xenibase/internal/mail"
 	"github.com/israel-duff/xenibase/internal/store"
 )
 
@@ -108,20 +107,13 @@ func (s *Service) RefreshForecast(ctx context.Context, orgID uuid.UUID) (Forecas
 	}
 	month := f.Month.Format("January 2006")
 	if crossed > 0 {
-		s.notifyOrg(ctx, orgID, "billing.budget",
-			fmt.Sprintf("Xenibase: %s's spend is forecast at %d%% of its budget", s.orgName(ctx, orgID), crossed),
-			fmt.Sprintf("The forecast for %s is %s before VAT, %d%% of the monthly budget of %s.\n\nSee the forecast and what drives it: %s/org/billing?org=%s\n",
-				month, Naira(f.Spend), crossed, Naira(*a.BudgetMinor), s.publicURL, orgID))
+		subject, content := s.budgetEmail(s.orgName(ctx, orgID), orgID, month, f.Spend, int(crossed), *a.BudgetMinor)
+		s.notifyContent(ctx, orgID, "billing.budget", subject, content)
 	}
 	switch {
 	case capped && !a.Capped:
-		s.notifyOrg(ctx, orgID, "billing.spend_cap",
-			fmt.Sprintf("Xenibase: %s has reached its spend cap", s.orgName(ctx, orgID)),
-			fmt.Sprintf("Usage charges for %s are forecast at %s, at or above the spend cap of %s.\n\n"+
-				"Until the cap is raised or next month starts, new branches, dedicated instances and HA are refused, webhook deliveries queue, and scheduled jobs are skipped. "+
-				"Backend services slow down: data and storage API rate limits are tightened, new image transforms pause and new realtime connections are refused; sign-in and existing connections carry on. "+
-				"Databases stay connected and no data is deleted.\n\nChange the cap: %s/org/billing?org=%s\n",
-				month, Naira(f.Usage), Naira(*a.SpendCapMinor), s.publicURL, orgID))
+		subject, content := s.spendCapEmail(s.orgName(ctx, orgID), orgID, month, f.Usage, *a.SpendCapMinor)
+		s.notifyContent(ctx, orgID, "billing.spend_cap", subject, content)
 	case !capped && a.Capped:
 		s.log.Info("spend cap lifted", "org", orgID)
 	}
@@ -144,19 +136,6 @@ func (s *Service) RefreshForecasts(ctx context.Context) error {
 		}
 	}
 	return errors.Join(errs...)
-}
-
-func (s *Service) notifyOrg(ctx context.Context, orgID uuid.UUID, event, subject, body string) {
-	if s.mail == nil {
-		return
-	}
-	to, err := store.New(s.db).BillingRecipients(ctx, orgID)
-	if err != nil || len(to) == 0 {
-		return
-	}
-	if err := s.mail.Send(ctx, mail.Message{To: to, Subject: subject, Body: body, Headers: map[string]string{"X-Xenibase-Event": event}}); err != nil {
-		s.log.Warn("billing email", "org", orgID, "event", event, "err", err)
-	}
 }
 
 // ErrSpendCap refuses a new billable resource while the org is capped.

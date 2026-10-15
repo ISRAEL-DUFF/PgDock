@@ -80,9 +80,8 @@ func (s *Service) chargeFailed(ctx context.Context, orgID uuid.UUID, why string)
 	if a.DunningState == DunningOK {
 		_ = q.SetDunning(ctx, store.SetDunningParams{OrgID: orgID, DunningState: DunningRetrying, DunningSince: &now})
 	}
-	s.notifyOrg(ctx, orgID, "billing.wallet_short", fmt.Sprintf("Xenibase: %s's wallet couldn't pay its invoice", s.orgName(ctx, orgID)),
-		fmt.Sprintf("Debiting the wallet failed: %s. Top it up with a bank transfer and Xenibase will pay the invoice at once; it also tries again in 3, 5 and 7 days: %s/org/billing?org=%s\n",
-			why, s.publicURL, orgID))
+	subject, content := s.walletShortEmail(s.orgName(ctx, orgID), orgID, why)
+	s.notifyContent(ctx, orgID, "billing.wallet_short", subject, content)
 }
 
 // owing is when orgID's dunning cycle started, or zero if it owes nothing:
@@ -168,8 +167,8 @@ func (s *Service) dunOrg(ctx context.Context, orgID uuid.UUID) error {
 				s.log.Warn("billing: charge retry deferred, provider unavailable", "org", orgID, "step", step)
 				return q.DeleteDunningStep(ctx, store.DeleteDunningStepParams{OrgID: orgID, Cycle: *a.ChargeFailingSince, Step: step})
 			}
-			s.notifyOrg(ctx, orgID, "billing.wallet_short", fmt.Sprintf("Xenibase: %s's wallet couldn't pay its invoice again", s.orgName(ctx, orgID)),
-				fmt.Sprintf("Debiting the wallet on day %d failed again. Top it up with a bank transfer or pay another way: %s/org/billing?org=%s\n", d, s.publicURL, orgID))
+			subject, content := s.walletShortAgainEmail(s.orgName(ctx, orgID), orgID, d)
+			s.notifyContent(ctx, orgID, "billing.wallet_short", subject, content)
 		}
 	}
 	since, err := s.owing(ctx, a, now)
@@ -201,20 +200,8 @@ func (s *Service) dunOrg(ctx context.Context, orgID uuid.UUID) error {
 			return err
 		}
 		deletion := a.DeletionScheduledAt
-		subject, body := "", ""
 		switch l.step {
-		case "overdue":
-			subject = fmt.Sprintf("Xenibase: %s has an overdue balance", o.Name)
-			body = "A payment is overdue. Please pay now: " + link
-		case "restricted":
-			subject = fmt.Sprintf("Xenibase: %s can't create new resources until it pays", o.Name)
-			body = "Payment is 3 days overdue: creating projects, branches and dedicated instances is blocked until it arrives. Existing databases keep running. Pay: " + link
-		case "final_notice":
-			subject = fmt.Sprintf("Xenibase: final notice for %s", o.Name)
-			body = "Payment is 7 days overdue. If it hasn't arrived in 3 days, the organisation will be suspended: its databases go offline (data is kept). Pay: " + link
 		case "suspended":
-			subject = fmt.Sprintf("Xenibase: %s is suspended for non-payment", o.Name)
-			body = "Payment is 10 days overdue, so the organisation is suspended: its databases are offline and its data is kept, with a final backup. Paying reinstates it at once: " + link
 			if s.suspender != nil && o.Status == "active" {
 				if err := s.suspender.Suspend(ctx, orgID, SuspendPrefix+"payment 10 days overdue"); err != nil {
 					return err
@@ -223,15 +210,17 @@ func (s *Service) dunOrg(ctx context.Context, orgID uuid.UUID) error {
 		case "deletion_scheduled":
 			at := now.Add(DeletionNotice)
 			deletion = &at
-			subject = fmt.Sprintf("Xenibase: %s's paid resources will be deleted on %s", o.Name, at.Format("2 January 2006"))
-			body = fmt.Sprintf("Payment is 40 days overdue. On %s, the organisation's resources beyond the Free plan (its dedicated projects) will be deleted; final backups are kept for 30 days. Paying before then cancels this: %s",
-				at.Format("2 January 2006"), link)
 		}
+		deletionDate := ""
+		if deletion != nil {
+			deletionDate = deletion.Format("2 January 2006")
+		}
+		subject, content := s.dunningEmail(l.step, o.Name, link, deletionDate)
 		if err := q.SetDunning(ctx, store.SetDunningParams{OrgID: orgID, DunningState: l.state, DunningSince: &since, DeletionScheduledAt: deletion}); err != nil {
 			return err
 		}
 		a.DeletionScheduledAt = deletion
-		s.notifyOrg(ctx, orgID, "billing.dunning."+l.step, subject, body+"\n")
+		s.notifyContent(ctx, orgID, "billing.dunning."+l.step, subject, content)
 	}
 	// The deletion itself, after its notice.
 	if a.DeletionScheduledAt != nil && !a.DeletionScheduledAt.After(now) {
@@ -316,11 +305,8 @@ func (s *Service) Reevaluate(ctx context.Context, orgID uuid.UUID) error {
 		}
 	}
 	if a.DunningState != DunningRetrying {
-		msg := "Payment received: restrictions are lifted."
-		if a.DunningState == DunningSuspended {
-			msg = "Payment received: restrictions are lifted and the organisation is reinstated."
-		}
-		s.notifyOrg(ctx, orgID, "billing.dunning.cleared", fmt.Sprintf("Xenibase: thank you, %s is paid up", o.Name), msg+"\n")
+		subject, content := dunningClearedEmail(o.Name, a.DunningState == DunningSuspended)
+		s.notifyContent(ctx, orgID, "billing.dunning.cleared", subject, content)
 	}
 	return nil
 }

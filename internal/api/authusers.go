@@ -57,7 +57,7 @@ func authSettingsOut(a edgeapi.AuthConfig, st services.AuthSettings) gen.AuthSet
 		MfaPhone: ptr(a.MFAPhone), ManualLinking: ptr(a.ManualLinking), CustomClaimsHook: ptr(a.CustomClaimsHook),
 		BeforeSignupHook: ptr(a.BeforeSignupHook), BeforeSignupUrl: st.BeforeSignupURL, AfterSignupUrl: st.AfterSignupURL,
 		AfterSigninUrl: st.AfterSigninURL, SendMessageUrl: st.SendMessageURL, CaptchaEnabled: ptr(st.CaptchaEnabled != nil && *st.CaptchaEnabled),
-		CaptchaSiteKey: st.CaptchaSiteKey}
+		CaptchaSiteKey: st.CaptchaSiteKey, EmailLayout: ptr(st.EmailLayout == nil || *st.EmailLayout)}
 	chans := []gen.AuthSettingsPhoneChannels{}
 	for _, c := range a.PhoneChannels {
 		chans = append(chans, gen.AuthSettingsPhoneChannels(c))
@@ -250,6 +250,9 @@ func mergeAuthSettings(st services.AuthSettings, in gen.AuthSettings) services.A
 	}
 	if in.MagicLinkEnabled != nil {
 		st.MagicLinkEnabled = in.MagicLinkEnabled
+	}
+	if in.EmailLayout != nil {
+		st.EmailLayout = in.EmailLayout
 	}
 	if in.PasswordMinLength != nil {
 		st.PasswordMinLength = in.PasswordMinLength
