@@ -997,9 +997,57 @@ Run one xenibase-edge per region, on the region's nodes. It keeps no state.
 | `XENIBASE_EDGE_RENDER_IN_PROCESS` | Optional: set to render images inside the edge process instead of in workers (not recommended; a bad image can then take the edge down). |
 
 `deploy/edge/Dockerfile` builds the image, and `deploy/edge/edge.env.example`
-lists the settings. With the compose install, set `XENIBASE_API_DOMAIN` and
-`XENIBASE_EDGE_SECRET` in its `.env` (the compose file passes them to
-xenibase-server).
+lists the settings.
+
+### With the compose install
+
+The bundle can run the edge on the same server, behind its Caddy, with the
+wildcard certificate that Caddy gets and renews with a DNS challenge. (A
+wildcard certificate can only be proved with a DNS challenge, so Caddy needs
+an API for the zone's DNS: Cloudflare or deSEC are supported.)
+
+1. **DNS.** Add `*.api` (or your API domain's name) as an A record to the
+   server.
+2. **An API token** for the DNS provider, limited to the zone, put in
+   `deploy/compose/.env` by hand: `CLOUDFLARE_API_TOKEN=…` or
+   `DESEC_TOKEN=…`.
+3. **If the domain's DNS isn't at a provider with an API** (many registrars'
+   DNS, and a registry such as `.ng` that Cloudflare doesn't take), delegate
+   only the challenge: make a free zone at deSEC (for example
+   `xenibase-acme.dedyn.io`), add a CNAME at your DNS host,
+   `_acme-challenge.api` → `_acme-challenge.xenibase-acme.dedyn.io`, and set
+   `ACME_CHALLENGE_DOMAIN=xenibase-acme.dedyn.io` in `.env`. Caddy writes
+   the challenge there, and Let's Encrypt follows the CNAME. Nothing else
+   about the domain moves.
+   **Or, with no DNS API at all, use [acme-dns](https://github.com/joohoi/acme-dns)**,
+   a small service that answers only the challenge. Register once
+   (`curl -X POST https://auth.acme-dns.io/register`), put the `username`,
+   `password` and `subdomain` it returns in `.env` as `ACMEDNS_USERNAME`,
+   `ACMEDNS_PASSWORD` and `ACMEDNS_SUBDOMAIN`, and add a CNAME,
+   `_acme-challenge.api` → the `fulldomain` it returned. The service can
+   answer the challenge for that name, so whoever runs it could get a
+   certificate for the API domain (and only it): use a copy you run yourself
+   if that matters to you.
+4. Run it:
+
+   ```sh
+   cd deploy/compose
+   ./enable-services.sh api.example.com desec     # or cloudflare, or acmedns
+   ```
+
+   It adds `XENIBASE_API_DOMAIN`, a generated `XENIBASE_EDGE_SECRET`,
+   `DNS_PROVIDER` and the `services` profile to `.env`, builds Caddy with the
+   provider's plugin (`caddy-dns/`), writes `caddy.d/api.caddy` (the wildcard
+   site, proxied to the edge over plain HTTP), and starts `xenibase-edge`. It
+   is safe to run again.
+5. Wait a minute for the certificate (`docker compose logs caddy | grep -i
+   "certificate obtained"`), then enable a project (Settings → API) and try
+   its address as in [Turning it on](#turning-it-on).
+
+The edge is limited to 1 GB of memory (`XENIBASE_EDGE_MEMORY`); image
+transforms run in workers of up to 512 MB each. To turn it off again, remove
+`COMPOSE_PROFILES=services` from `.env`, delete `caddy.d/api.caddy`, and run
+`docker compose up -d --remove-orphans`.
 
 - **DNS:** a wildcard record `*.<domain>` pointing at the region's edge.
 - **TLS:** get the wildcard certificate with a DNS-01 client for your DNS
