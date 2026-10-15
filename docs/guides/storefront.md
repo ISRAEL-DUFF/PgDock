@@ -120,27 +120,21 @@ admins are admins of every project.
 
 ## 3. Install the client
 
-The JavaScript client is `@xenibase/client` (works in browsers, Node 18+ and
-React Native, no dependencies). **It is not on the public npm registry yet**,
-so `npm install @xenibase/client` does not work today. Use one of these:
-
-**Option A: build the package from the repository and install the file** (one
-person builds it, everyone installs the same file):
+The JavaScript client is [`@xenibase/client`](https://www.npmjs.com/package/@xenibase/client)
+(works in browsers, Node 18+ and React Native, no dependencies, Apache-2.0):
 
 ```sh
-cd xenibase/sdk/js
-npm ci && npm run build && npm pack          # makes xenibase-client-0.1.0.tgz
-# in the storefront:
-npm install ../xenibase/sdk/js/xenibase-client-0.1.0.tgz
+npm install @xenibase/client
 ```
 
-Put the `.tgz` somewhere the team shares, or commit it to a `vendor/` folder, so
-installs don't depend on one laptop.
+Pin the version in `package.json` while the client is `0.x`, and read the
+changelog before upgrading: a `0.x` minor version may change an API.
 
-**Option B: use `@supabase/supabase-js`.** The API speaks the same wire protocol
-for data, auth, storage and realtime paths, so Supabase's client works against
-a Xenibase project. See [the Supabase client mapping](../supabase-client-mapping.md)
-for what maps and what differs. Prefer A when you can: it matches this guide.
+If you already use `@supabase/supabase-js`, it also works against a Xenibase
+project, because the API speaks the same wire protocol for data, auth, storage
+and realtime paths. See [the Supabase client mapping](../supabase-client-mapping.md)
+for what maps and what differs. Prefer `@xenibase/client` for new code: it
+matches this guide.
 
 Then generate types from the live schema, so rows and inserts are checked at
 compile time (re-run it after every schema change):
@@ -711,8 +705,6 @@ Docs that were wrong or unclear count: say which page and which sentence.
 
 **Known gaps today** (so you don't lose time on them):
 
-- `@xenibase/client` is not on the npm registry yet; install the built file
-  (section 3).
 - No serverless functions: server logic runs on your own server (section 7).
 - Realtime delivery is at most once; re-read after a reconnect (section 9).
 - Branches copy the database but not stored files: a branch's files show as
