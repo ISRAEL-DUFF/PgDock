@@ -5,7 +5,7 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
-## v4.2.0
+## v4.2.1
 
 ### Backend services in the install bundle
 - `deploy/compose/enable-services.sh <api-domain>` turns on backend services
@@ -14,6 +14,8 @@ bundle share one version (spec §11.5).
   DNS challenge (Cloudflare, deSEC, or acme-dns for a DNS host with no API; a CNAME can
   delegate just the challenge). Existing installs are unchanged until it is run.
   See [Running xenibase-edge](docs/backend-services.md#running-xenibase-edge).
+
+## v4.2.0
 
 ### Fixed
 - The wallet panel has a **Get the bank account** button when the provider
