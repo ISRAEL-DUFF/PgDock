@@ -5,7 +5,14 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+### SDK
+- `@xenibase/client` 0.1.0 is on npm (`npm install @xenibase/client`), under the
+  Apache-2.0 licence.
+
 ### Docs
+- [Enabling backend services](docs/enabling-backend-services.md): the full method for
+  a compose install, with the routes that were tried (Cloudflare, NS delegation,
+  deSEC, a registrar's reseller API, acme-dns) and why production uses acme-dns.
 - [Building on Xenibase: a team guide](docs/guides/storefront.md): a domain
   storefront from nothing to a safe backend, for people new to backend services
   (the model, keys, row-level security, auth, orders through a webhook, files,

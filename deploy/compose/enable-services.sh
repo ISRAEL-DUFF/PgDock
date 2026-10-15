@@ -7,17 +7,21 @@
 #   cd deploy/compose
 #   ./enable-services.sh api.example.com [cloudflare|desec|acmedns]
 #
-# Before it, in .env (put them there by hand; this script never asks for a
-# token): the DNS provider's API token as CLOUDFLARE_API_TOKEN or DESEC_TOKEN,
-# or for acme-dns (a free service that answers only the challenge, for DNS
-# hosts with no API) the three values its /register call returned, as
-# ACMEDNS_USERNAME, ACMEDNS_PASSWORD and ACMEDNS_SUBDOMAIN (and
-# ACMEDNS_SERVER_URL if it isn't https://auth.acme-dns.io). With acme-dns, add a
-# CNAME at your DNS host:  _acme-challenge.<api-domain>  ->  <its fulldomain>. If the domain's DNS can't be on that provider, point the
-# challenge at a zone that is: add a CNAME
+# Before it, put the DNS provider's credentials in .env by hand (this script
+# never asks for them and never writes them):
+#   cloudflare  CLOUDFLARE_API_TOKEN   a token limited to the zone, "Edit zone DNS"
+#   desec       DESEC_TOKEN
+#   acmedns     ACMEDNS_USERNAME, ACMEDNS_PASSWORD, ACMEDNS_SUBDOMAIN (and
+#               ACMEDNS_SERVER_URL if it isn't https://auth.acme-dns.io): the
+#               values acme-dns's /register call returned, for DNS hosts with no
+#               API. Add a CNAME there: _acme-challenge.<api-domain> -> its
+#               "fulldomain".
+# If the domain's DNS can't be on the provider (cloudflare, desec), point only
+# the challenge at a zone that is: add a CNAME
 #   _acme-challenge.<api-domain>  ->  _acme-challenge.<zone you control there>
-# and set ACME_CHALLENGE_DOMAIN=<that zone name> in .env. DNS also needs
-# `*.<api-domain>` as an A record to this server. Safe to run again.
+# and set ACME_CHALLENGE_DOMAIN=<that zone name> in .env.
+# DNS also needs `*.<api-domain>` as an A record to this server.
+# Safe to run again. Full method: docs/enabling-backend-services.md
 set -eu
 cd "$(dirname "$0")"
 
