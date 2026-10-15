@@ -5,10 +5,15 @@
 # challenge (the only way to get a wildcard).
 #
 #   cd deploy/compose
-#   ./enable-services.sh api.example.com [cloudflare|desec]
+#   ./enable-services.sh api.example.com [cloudflare|desec|acmedns]
 #
 # Before it, in .env (put them there by hand; this script never asks for a
-# token): the DNS provider's API token as CLOUDFLARE_API_TOKEN or DESEC_TOKEN. If the domain's DNS can't be on that provider, point the
+# token): the DNS provider's API token as CLOUDFLARE_API_TOKEN or DESEC_TOKEN,
+# or for acme-dns (a free service that answers only the challenge, for DNS
+# hosts with no API) the three values its /register call returned, as
+# ACMEDNS_USERNAME, ACMEDNS_PASSWORD and ACMEDNS_SUBDOMAIN (and
+# ACMEDNS_SERVER_URL if it isn't https://auth.acme-dns.io). With acme-dns, add a
+# CNAME at your DNS host:  _acme-challenge.<api-domain>  ->  <its fulldomain>. If the domain's DNS can't be on that provider, point the
 # challenge at a zone that is: add a CNAME
 #   _acme-challenge.<api-domain>  ->  _acme-challenge.<zone you control there>
 # and set ACME_CHALLENGE_DOMAIN=<that zone name> in .env. DNS also needs
@@ -22,7 +27,7 @@ env_get() { grep "^$1=" .env | head -1 | cut -d= -f2- || true; }
 
 [ -f .env ] || die "no .env here: run ./install.sh first"
 api=${1:-$(env_get XENIBASE_API_DOMAIN)}
-[ -n "$api" ] || die "usage: ./enable-services.sh <api-domain> [cloudflare|desec]"
+[ -n "$api" ] || die "usage: ./enable-services.sh <api-domain> [cloudflare|desec|acmedns]"
 case "$api" in
 *[!A-Za-z0-9.-]* | .* | *. | *..*) die "invalid domain: '$api'" ;;
 esac
@@ -34,9 +39,16 @@ provider=${provider:-cloudflare}
 case "$provider" in
 cloudflare) plugin=github.com/caddy-dns/cloudflare tokenvar=CLOUDFLARE_API_TOKEN ;;
 desec) plugin=github.com/caddy-dns/desec tokenvar=DESEC_TOKEN ;;
-*) die "unknown DNS provider '$provider': use cloudflare or desec" ;;
+acmedns) plugin=github.com/caddy-dns/acmedns tokenvar=ACMEDNS_USERNAME ;;
+*) die "unknown DNS provider '$provider': use cloudflare, desec or acmedns" ;;
 esac
-[ -n "$(env_get "$tokenvar")" ] || die "set $tokenvar in .env first (the $provider API token, limited to the zone)"
+if [ "$provider" = acmedns ]; then
+	for v in ACMEDNS_USERNAME ACMEDNS_PASSWORD ACMEDNS_SUBDOMAIN; do
+		[ -n "$(env_get "$v")" ] || die "set $v in .env first (from acme-dns's /register call)"
+	done
+else
+	[ -n "$(env_get "$tokenvar")" ] || die "set $tokenvar in .env first (the $provider API token, limited to the zone)"
+fi
 
 challenge=$(env_get ACME_CHALLENGE_DOMAIN)
 case "$challenge" in
@@ -48,6 +60,7 @@ set_env() { grep -q "^$1=" .env || echo "$1=$2" >> .env; }
 set_env XENIBASE_API_DOMAIN "$api"
 set_env XENIBASE_EDGE_SECRET "$(rand_url 40)"
 set_env DNS_PROVIDER "$provider"
+[ "$provider" != acmedns ] || set_env ACMEDNS_SERVER_URL https://auth.acme-dns.io
 set_env CADDY_IMAGE "xenibase-caddy-$provider:local"
 set_env COMPOSE_PROFILES services
 secret=$(env_get XENIBASE_EDGE_SECRET)
@@ -66,6 +79,14 @@ docker build -q --build-arg "DNS_PLUGIN=$plugin" -t "$(env_get CADDY_IMAGE)" cad
 	desec)
 		echo "		dns desec {"
 		echo "			token {env.$tokenvar}"
+		echo "		}"
+		;;
+	acmedns)
+		echo "		dns acmedns {"
+		echo "			username {env.ACMEDNS_USERNAME}"
+		echo "			password {env.ACMEDNS_PASSWORD}"
+		echo "			subdomain {env.ACMEDNS_SUBDOMAIN}"
+		echo "			server_url {env.ACMEDNS_SERVER_URL}"
 		echo "		}"
 		;;
 	*) echo "		dns $provider {env.$tokenvar}" ;;

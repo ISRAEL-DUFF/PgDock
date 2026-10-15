@@ -1019,11 +1019,20 @@ an API for the zone's DNS: Cloudflare or deSEC are supported.)
    `ACME_CHALLENGE_DOMAIN=xenibase-acme.dedyn.io` in `.env`. Caddy writes
    the challenge there, and Let's Encrypt follows the CNAME. Nothing else
    about the domain moves.
+   **Or, with no DNS API at all, use [acme-dns](https://github.com/joohoi/acme-dns)**,
+   a small service that answers only the challenge. Register once
+   (`curl -X POST https://auth.acme-dns.io/register`), put the `username`,
+   `password` and `subdomain` it returns in `.env` as `ACMEDNS_USERNAME`,
+   `ACMEDNS_PASSWORD` and `ACMEDNS_SUBDOMAIN`, and add a CNAME,
+   `_acme-challenge.api` → the `fulldomain` it returned. The service can
+   answer the challenge for that name, so whoever runs it could get a
+   certificate for the API domain (and only it): use a copy you run yourself
+   if that matters to you.
 4. Run it:
 
    ```sh
    cd deploy/compose
-   ./enable-services.sh api.example.com desec     # or cloudflare
+   ./enable-services.sh api.example.com desec     # or cloudflare, or acmedns
    ```
 
    It adds `XENIBASE_API_DOMAIN`, a generated `XENIBASE_EDGE_SECRET`,

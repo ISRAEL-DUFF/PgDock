@@ -40,6 +40,10 @@ services:
       XENIBASE_API_DOMAIN: ${XENIBASE_API_DOMAIN:-}
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
       DESEC_TOKEN: ${DESEC_TOKEN:-}
+      ACMEDNS_USERNAME: ${ACMEDNS_USERNAME:-}
+      ACMEDNS_PASSWORD: ${ACMEDNS_PASSWORD:-}
+      ACMEDNS_SUBDOMAIN: ${ACMEDNS_SUBDOMAIN:-}
+      ACMEDNS_SERVER_URL: ${ACMEDNS_SERVER_URL:-https://auth.acme-dns.io}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./caddy.d:/etc/caddy/caddy.d:ro
