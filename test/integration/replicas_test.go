@@ -342,13 +342,18 @@ func TestReadReplicas(t *testing.T) {
 	last := strconv.FormatInt(w.acked.Load(), 10)
 	for _, r := range []uuid.UUID{r1, r2} {
 		for deadline := time.Now().Add(60 * time.Second); ; time.Sleep(500 * time.Millisecond) {
-			sender := memberSQL(t, r, p.DbName, `SELECT coalesce((SELECT sender_host FROM pg_stat_wal_receiver WHERE status = 'streaming'), '')`)
-			have := memberSQL(t, r, p.DbName, `SELECT coalesce(max(n), 0) >= `+last+` FROM ledger`)
-			if strings.Contains(sender, newLeader.Id.String()) && have == "t" {
+			// A replica restarts to follow the new primary: until it is back, psql has no
+			// socket to connect to. That is "not yet", not a failure.
+			sender, err := memberSQLTry(r, p.DbName, `SELECT coalesce((SELECT sender_host FROM pg_stat_wal_receiver WHERE status = 'streaming'), '')`)
+			have := ""
+			if err == nil {
+				have, err = memberSQLTry(r, p.DbName, `SELECT coalesce(max(n), 0) >= `+last+` FROM ledger`)
+			}
+			if err == nil && strings.Contains(sender, newLeader.Id.String()) && have == "t" {
 				break
 			}
 			if time.Now().After(deadline) {
-				t.Fatalf("replica %s after the failover: streaming from %q, has the writes: %s", r, sender, have)
+				t.Fatalf("replica %s after the failover: streaming from %q, has the writes: %q, last error: %v", r, sender, have, err)
 			}
 		}
 	}

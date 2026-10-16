@@ -2,7 +2,7 @@
 
 Xenibase's client for web, React Native and Node apps. It covers the data
 API, auth (email, phone and WhatsApp codes, OAuth, MFA), storage and
-realtime.
+realtime. It ships as ES modules and CommonJS, with types for both.
 
     npm install @xenibase/client
 

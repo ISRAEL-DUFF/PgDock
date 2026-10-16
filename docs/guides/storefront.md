@@ -33,6 +33,13 @@ Contents: [1. The model](#1-the-model-in-ten-minutes) ·
 [13. Giving feedback](#13-giving-us-feedback) ·
 [Quick reference](#quick-reference)
 
+> **If you were sent this page as a single file,** its links to other pages don't
+> work. They're all in the repository's `docs` folder:
+> <https://github.com/ISRAEL-DUFF/Xenibase/tree/main/docs>. The ones this guide
+> uses are `backend-services.md`, `errors.md`, `webhooks.md`,
+> `supabase-client-mapping.md`, `cli.md`, `sdk/javascript.md` and
+> `guides/nextjs.md`.
+
 ## 1. The model in ten minutes
 
 **A project is one database plus its API.** Each project has its own Postgres
@@ -121,7 +128,9 @@ admins are admins of every project.
 ## 3. Install the client
 
 The JavaScript client is [`@xenibase/client`](https://www.npmjs.com/package/@xenibase/client)
-(works in browsers, Node 18+ and React Native, no dependencies, Apache-2.0):
+(works in browsers, Node 18+ and React Native, no dependencies, Apache-2.0; ES
+modules and CommonJS, so it works from a script run with `tsx` or `node` in a
+package with or without `"type": "module"`):
 
 ```sh
 npm install @xenibase/client
@@ -299,6 +308,26 @@ Three habits that keep this safe:
 - **Hide columns**, not only rows, when needed:
   `REVOKE SELECT (phone) ON profiles FROM "<db>_anon";`.
 
+**One migration file for every project.** The role names contain the project's
+database name, which differs per project. Derive them in the migration instead of
+editing the file by hand each time:
+
+```sql
+DO $$
+DECLARE
+  u text := current_database() || '_user';
+  a text := current_database() || '_anon';
+BEGIN
+  EXECUTE format('CREATE POLICY own_orders ON public.orders FOR SELECT TO %I USING (user_id = xb_auth.uid())', u);
+  EXECUTE format('CREATE POLICY anyone_reads_prices ON public.tld_prices FOR SELECT TO %I, %I USING (active)', u, a);
+END $$;
+```
+
+This is the recommended form for anything you keep in the repository. (The
+statements above use `"<db>_user"` only to keep them readable.) It was checked in
+a real Postgres: the policies come out `TO` the `<database>_user` and
+`<database>_anon` roles.
+
 Check what the API now exposes in **Project → Settings → API → API docs**: each
 table, its policies in plain terms, and curl and TypeScript examples built from
 the real schema. **Try it** in the same page sends a request as anon, as a
@@ -364,6 +393,16 @@ To run code at sign-up instead (to refuse certain emails, say), use a
 *before sign-up* hook: see Authentication → Hooks and
 [Hooks](../backend-services.md#hooks).
 
+### Testing sign-in without an inbox
+
+In automated tests or a seed script, don't wait for an email. Create the user
+with your server's secret key, ask the admin API for a code, and trade it for a
+session. The endpoints, what each needs, and a worked example are in
+[the admin API](../backend-services.md#the-admin-api). Two things trip people up:
+`generate-link` does **not** create the user for `magiclink` or `recovery` (create
+one first with `email_confirm: true`), and a `redirect_to` has to be the site URL
+or one of the project's redirect URLs.
+
 ### Administrators
 
 Staff who manage prices or orders are not customers. Give them their own way in
@@ -411,6 +450,23 @@ curl -X POST https://<ref>.api.xenibase.ng/data/v1/rpc/place_order \
   -H "Content-Type: application/json" \
   -d '{"items":[{"name":"acme","tld":".ng","action":"register","years":1}]}'
 ```
+
+**Fewer round trips.** Each call is a round trip to the project's region, and from
+far away (Lagos to a European project is 300 to 700 ms a call) four calls in a row
+is two seconds. Ask for what a page needs in as few calls as possible:
+
+- **Embed related rows in one read** instead of one read per table:
+  `.select("id, status, order_items(name, tld, price_minor)")` returns orders with
+  their lines in one call (up to three levels deep).
+- **Run independent reads together:** `await Promise.all([prices, orders, profile])`,
+  so the waits overlap instead of adding up.
+- **For a page that needs several different things, write a database function**
+  that returns them as one JSON value, mark it `STABLE`, and call it once with
+  `xb.data.rpc("storefront_home", …)`. A `STABLE` function called with `GET` can
+  also be cached at the edge for anonymous visitors.
+- **Cache what everyone reads the same way** (the price list, below).
+- **Writes** that belong together go in one `data.batch` (up to 50, all or
+  nothing).
 
 **Speed up the price list.** Every visitor reads the same price list, so serve
 it from the edge's cache: Settings → API → **Cache anonymous reads**, set
@@ -698,13 +754,17 @@ down, for each thing:
    especially the **`request_id`**) and the time.
 3. **What you expected.**
 4. **Where:** the project's `<ref>`, the table or endpoint, the SDK version
-   (`@xenibase/client` is `0.1.0`), and whether it was the browser or your server.
+   (`@xenibase/client` is `0.1.1`), and whether it was the browser or your server.
 5. **How bad:** blocked you, slowed you down, or just surprised you.
 
 Docs that were wrong or unclear count: say which page and which sentence.
 
 **Known gaps today** (so you don't lose time on them):
 
+- **Distance.** A project is served from one region today (`eu-central`). From
+  Nigeria each call takes a few hundred milliseconds, so use the patterns in
+  section 6 to make fewer of them. A region closer to Nigeria, or a read replica
+  there, is planned but needs servers in place first.
 - No serverless functions: server logic runs on your own server (section 7).
 - Realtime delivery is at most once; re-read after a reconnect (section 9).
 - Branches copy the database but not stored files: a branch's files show as

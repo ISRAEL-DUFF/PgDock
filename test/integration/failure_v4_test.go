@@ -115,12 +115,21 @@ func TestSMSProviderOutage(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	// settle waits for what a send leaves in the database. The sender writes its
+	// record after the provider has taken the message, and another sender (the
+	// server's own worker) may be the one that sent it, so the test can see the
+	// code on the fake phone before the row exists.
+	settle := func(what string, ok func() bool) {
+		t.Helper()
+		waitFor(t, 15*time.Second, what, ok)
+	}
 
 	// ---- Healthy: Termii sends ------------------------------------------------------
 	const ada = "+2348030000001"
 	otp(ada)
 	send()
 	signIn(ada, 0, e.Phone)
+	settle("Termii's send recorded", func() bool { return sends("sent")["termii"] >= 1 })
 	if s := sends("sent"); s["termii"] != 1 || len(s) != 1 {
 		t.Fatalf("sent while healthy: %v", s)
 	}
@@ -139,6 +148,10 @@ func TestSMSProviderOutage(t *testing.T) {
 	if e.Phone.Tried() != tried {
 		t.Fatal("Termii was tried first again within its cooldown")
 	}
+	settle("both Africa's Talking sends recorded and billed", func() bool {
+		n, _ := billed()
+		return sends("sent")["africastalking"] >= 2 && n >= 3
+	})
 	if s := sends("sent"); s["termii"] != 1 || s["africastalking"] != 2 {
 		t.Fatalf("sent with Termii down: %v", s)
 	}
@@ -191,6 +204,10 @@ func TestSMSProviderOutage(t *testing.T) {
 		send()
 	}
 	var waiting int
+	if err := e.DB.QueryRow(ctx, `SELECT count(*) FROM auth_message_outbox WHERE sent_at IS NULL AND message_enc IS NOT NULL`).Scan(&waiting); err != nil {
+		t.Fatal(err)
+	}
+	settle("the failed send recorded", func() bool { return len(sends("failed")) >= 1 })
 	if err := e.DB.QueryRow(ctx, `SELECT count(*) FROM auth_message_outbox WHERE sent_at IS NULL AND message_enc IS NOT NULL`).Scan(&waiting); err != nil {
 		t.Fatal(err)
 	}

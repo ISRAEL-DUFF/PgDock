@@ -175,6 +175,12 @@ func TestEdgeFoundation(t *testing.T) {
 		!strings.Contains(h.Get("Access-Control-Allow-Headers"), "apikey") {
 		t.Fatalf("preflight: %d %v", code, h)
 	}
+	// A browser asks for the headers it will send, and the SDKs send x-client-info.
+	if code, h, _ := ed.Do(refA, "OPTIONS", "/auth/v1/signin/otp", nil, "Origin", "https://app.example", "Access-Control-Request-Method", "POST",
+		"Access-Control-Request-Headers", "apikey,content-type,x-client-info,idempotency-key"); code != http.StatusNoContent ||
+		!strings.Contains(h.Get("Access-Control-Allow-Headers"), "x-client-info") || h.Get("Access-Control-Allow-Origin") != "https://app.example" {
+		t.Fatalf("a preflight for the SDK's headers: %d %v", code, h)
+	}
 	limited := false
 	for range 30 {
 		if code, h, _ := health(refA, "apikey", pubA); code == http.StatusTooManyRequests && h.Get("Retry-After") != "" {

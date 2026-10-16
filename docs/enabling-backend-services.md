@@ -208,17 +208,30 @@ You want `xenibase-edge` running and healthy, and a line saying a certificate
 was obtained for `*.api.xenibase.ng`. The first certificate usually takes a
 minute or two.
 
-Then test the whole path (DNS, certificate, Caddy and the edge) without any
-project. The edge answers `/healthz` on any host that isn't a project:
+Then test the whole path (DNS, certificate, Caddy and the edge) from your own
+computer, with a name no project has. Any single name under the API domain counts
+as a project to the edge, so an unknown one gets the edge's own answer:
 
 ```sh
-curl -s https://edge-check.api.xenibase.ng/healthz
-# {"status":"ok"}
+curl -s https://anything.api.xenibase.ng/
+# {"error":{"code":"project_not_found","message":"no project with backend services at this hostname","request_id":"req_…"}}
 ```
 
-A certificate error here means the certificate isn't issued yet or the CNAME is
-wrong; `503 starting` means the edge hasn't loaded its configuration yet (wait
-a few seconds); no answer at all means DNS or the firewall.
+That answer, **with a request id and no certificate error**, means the DNS record,
+the wildcard certificate, Caddy and the edge are all working. A certificate error
+means it isn't issued yet or the CNAME is wrong; no answer at all means DNS or the
+firewall; `503 starting` means the edge hasn't loaded its configuration yet (wait a
+few seconds).
+
+The edge's own health check can't be reached through the public address (the
+wildcard certificate covers one level of names, and every one-level name is a
+project to the edge). Ask it from inside, using any host that isn't under the API
+domain:
+
+```sh
+docker compose exec -T caddy wget -qO- --header='Host: health' http://xenibase-edge:8443/healthz
+# {"status":"ok"}
+```
 
 ### 8. Turn it on for a project and call it
 
@@ -280,7 +293,7 @@ the dashboard and the server, **not** the edge, so after every upgrade run:
 
 ```sh
 docker compose ps
-curl -s https://edge-check.api.xenibase.ng/healthz
+curl -s https://anything.api.xenibase.ng/      # project_not_found, with a request id
 ```
 
 An install upgraded to a release **without** the edge in it (anything before
@@ -347,8 +360,9 @@ pieces work; if you hit something else, `docker compose logs caddy` and
 | `dig +short test.api.<domain>` prints nothing | The wildcard A record isn't live: check its name was entered relative to the zone (`*.api`), that it is an A record, and ask the DNS host's own nameserver directly: `dig +short test.api.<domain> @<its nameserver>`. |
 | `dig CNAME _acme-challenge.api.<domain>` prints nothing or a different name | The CNAME is missing, misspelt, or points at an old registration. It must equal the `fulldomain` in `.env`'s registration. |
 | The Caddy log says `unsupported protocol scheme ""` or `%7Benv.ACMEDNS_…%7D` | The acme-dns plugin was given an `{env.…}` placeholder where it only accepts the value: it expands them in the password only. `caddy.d/api.caddy` must have the username, subdomain and server URL written out. Re-run `./enable-services.sh` from release 4.2.2 or later, which writes them. |
+| The Caddy log says `timed out waiting for record to fully propagate … last error: <nil>` | Caddy's own check of acme-dns's nameserver (a UDP lookup from this server) didn't see the record, though acme-dns has it: check with `dig TXT <subdomain>.auth.acme-dns.io @ns.auth.acme-dns.io`. Some networks drop those lookups. `caddy.d/api.caddy` needs `propagation_timeout -1` inside `tls { … }`, which release 4.2.2's script writes: Let's Encrypt checks the record itself. |
 | No "certificate obtained" line after a few minutes | `docker compose logs caddy` shows why: an acme-dns authentication error means the username, password or subdomain in `.env` is wrong; a timeout or NXDOMAIN on the challenge name means the CNAME. Let's Encrypt limits repeated failures, so fix the cause before retrying. |
-| `curl https://…/healthz` fails with a certificate error | The certificate isn't issued yet, or Caddy is still serving the old configuration: `docker compose restart caddy`. |
+| The test `curl` fails with a certificate error | The certificate isn't issued yet, or Caddy is still serving the old configuration: `docker compose restart caddy`. |
 | `503 starting` from the edge | It hasn't loaded its configuration from xenibase-server yet. It answers once it has; if it never does, the edge secret in `.env` doesn't match the server's, or the server is down. |
 | `xenibase-edge` is `Restarting` | `docker compose logs xenibase-edge`: it prints why it exits. A setting it refuses (`XENIBASE_EDGE_TRUSTED_PROXIES` must be a network range such as `172.31.250.10/32`, not a bare address; `XENIBASE_EDGE_SECRET` at least 32 characters) exits at once. Out of memory during image transforms is the other usual one: raise `XENIBASE_EDGE_MEMORY`. |
 | Project APIs stopped answering after an upgrade | See [after an upgrade](#after-an-upgrade): the release you moved to may not include the edge. |

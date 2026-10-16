@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -55,6 +56,18 @@ func memberSQL(t *testing.T, member uuid.UUID, db, query string) string {
 		t.Fatalf("psql on %s: %v: %s", member, err, out)
 	}
 	return strings.TrimSpace(string(out))
+}
+
+// memberSQLTry is memberSQL for a loop that waits for a member to be ready: a
+// member that is restarting (a replica following a new primary) has no socket
+// for a moment, and that is an answer to retry, not a failure.
+func memberSQLTry(member uuid.UUID, db, query string) (string, error) {
+	out, err := exec.Command("docker", "exec", "xenibase-"+member.String(), "psql", "-XAtq", "-h", "/var/run/postgresql",
+		"-U", "xenibase_admin", "-d", db, "-c", query).CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("psql on %s: %w: %s", member, err, strings.TrimSpace(string(out)))
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 func members(t *testing.T, e *testenv.Env, instance uuid.UUID) []store.ListInstanceMembersRow {

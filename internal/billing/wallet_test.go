@@ -476,10 +476,10 @@ func TestCleanAccountName(t *testing.T) {
 		"please make bank transfer to ACME LTD":      "ACME LTD",
 		"  Please transfer to Ada Obi  ":             "Ada Obi",
 		"Please make a payment to Xenibase / ORG 42": "Xenibase / ORG 42",
-		"Ispend Ops":                                 "Ispend Ops",
-		"XENIBASE / XENIBASE:PROD:ORG:1":             "XENIBASE / XENIBASE:PROD:ORG:1",
-		"Please make a bank transfer to":             "Please make a bank transfer to", // nothing after the instruction: as it came
-		"":                                           "",
+		"Ispend Ops":                     "Ispend Ops",
+		"XENIBASE / XENIBASE:PROD:ORG:1": "XENIBASE / XENIBASE:PROD:ORG:1",
+		"Please make a bank transfer to": "Please make a bank transfer to", // nothing after the instruction: as it came
+		"":                               "",
 	} {
 		if got := billing.CleanAccountName(in); got != want {
 			t.Errorf("CleanAccountName(%q) = %q, want %q", in, got, want)

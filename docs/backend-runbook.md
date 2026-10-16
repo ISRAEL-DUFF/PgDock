@@ -11,6 +11,11 @@ Checks used throughout:
 - **An edge is up:** `curl -s https://<edge address>/healthz` (any host
   that isn't a project) answers `{"status":"ok"}` once it has loaded its
   configuration, and `503 starting` before.
+  Behind the install bundle's wildcard site every one-level name under the API
+  domain counts as a project, so that address can't be used: ask from inside,
+  `docker compose exec -T caddy wget -qO- --header='Host: health'
+  http://xenibase-edge:8443/healthz`. From outside, any made-up name answers
+  `project_not_found` with a request id when DNS, TLS, Caddy and the edge all work.
 - **Edges are reporting:** each edge sends usage and request logs every
   few seconds. In the metadata database:
   `SELECT edge, max(received_at) FROM edge_reports GROUP BY edge ORDER BY 2;`

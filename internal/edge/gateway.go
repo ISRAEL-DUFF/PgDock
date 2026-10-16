@@ -210,6 +210,53 @@ func (p *project) originAllowed(origin string) bool {
 	return false
 }
 
+// corsHeaders are the request headers a browser may always send. x-client-info
+// is sent by every Xenibase and Supabase client.
+const corsHeaders = "apikey, authorization, content-type, x-request-id, read-replica, prefer, x-upsert, x-metadata, range, if-none-match, cache-control, idempotency-key, x-client-info"
+
+// allowHeaders is the Access-Control-Allow-Headers answer to a preflight that
+// asks (Access-Control-Request-Headers) to send the headers in requested: the
+// standard list plus each well-formed header name it names. Authentication is
+// in explicit headers (apikey, authorization), never in ambient credentials like
+// cookies, so a header name grants a page nothing the allowed origin couldn't do
+// already; a fixed list only breaks the next client that sends one more
+// (x-client-info did, for every browser app).
+func allowHeaders(requested string) string {
+	have := map[string]bool{}
+	for _, h := range strings.Split(corsHeaders, ", ") {
+		have[h] = true
+	}
+	out := corsHeaders
+	n := 0
+	for _, h := range strings.Split(requested, ",") {
+		if n >= 40 {
+			break
+		}
+		h = strings.ToLower(strings.TrimSpace(h))
+		if h == "" || len(h) > 64 || !isHeaderName(h) || have[h] {
+			continue
+		}
+		have[h] = true
+		out += ", " + h
+		n++
+	}
+	return out
+}
+
+// isHeaderName is whether s is an HTTP header field name (an RFC 9110 token).
+func isHeaderName(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		case strings.IndexByte("!#$%&'*+-.^_`|~", c) >= 0:
+		default:
+			return false
+		}
+	}
+	return s != ""
+}
+
 // cors answers preflights and sets the response headers for browser
 // requests; false means the request was answered.
 func (e *Edge) cors(c *call) bool {
@@ -227,7 +274,8 @@ func (e *Edge) cors(c *call) bool {
 	h.Set("Access-Control-Expose-Headers", "X-Request-Id, Retry-After, ETag, Content-Range, Content-Length, Content-Disposition, X-Cache, Idempotent-Replayed")
 	if c.r.Method == http.MethodOptions && c.r.Header.Get("Access-Control-Request-Method") != "" {
 		h.Set("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
-		h.Set("Access-Control-Allow-Headers", "apikey, authorization, content-type, x-request-id, read-replica, prefer, x-upsert, x-metadata, range, if-none-match, cache-control, idempotency-key")
+		h.Add("Vary", "Access-Control-Request-Headers")
+		h.Set("Access-Control-Allow-Headers", allowHeaders(c.r.Header.Get("Access-Control-Request-Headers")))
 		h.Set("Access-Control-Max-Age", "600")
 		c.w.WriteHeader(http.StatusNoContent)
 		return false
