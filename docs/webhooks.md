@@ -2,7 +2,7 @@
 
 ## Webhooks
 
-A webhook POSTs the changes of chosen tables to a URL: Project →
+A webhook POSTs the changes of chosen tables to a URL: Database →
 Webhooks, `xenibase webhooks create`, or `POST /api/v1/projects/{id}/webhooks`.
 
 | Field | Notes |
