@@ -5,6 +5,11 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+## v4.2.3
+
+- **Upgrades rebuild the edge.** `install.sh` built the server and agent images but not the edge, so a deployment with backend services on kept running the old edge after `upgrade.sh` (v4.2.2's browser preflight fix never reached it). The edge is rebuilt on every install and upgrade while the `services` profile is on. If you upgraded to v4.2.2 and use backend services, upgrade again.
+- The storefront guide says how a webhook behaves across environments (one public URL each, where the secret goes).
+
 ## v4.2.2
 
 ### Fixed

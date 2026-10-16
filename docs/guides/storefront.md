@@ -538,6 +538,12 @@ In the app: **Project → Webhooks → New**:
 | URL | `https://storefront.example.com/api/xenibase/webhook` (public `https://`) |
 
 Xenibase shows the signing secret **once**; put it in `XENIBASE_WEBHOOK_SECRET`.
+A webhook has one URL, and it must be public `https://`, so the one pointing at
+your production site (for example on Vercel) does not reach a laptop. Give each
+environment its own project (and so its own webhook and secret), or tunnel to
+localhost while you develop. Set the secret in the host's environment variables
+and redeploy before the first event; if it is lost, **Rotate secret** on the
+webhook's page issues a new one.
 Events are written in the same transaction as the change, so a rolled-back
 change never sends one and a committed one always does. Delivery is **at least
 once**, in order: your handler must be safe to run twice.
