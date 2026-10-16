@@ -2,7 +2,8 @@
 
 `@xenibase/client` works in browsers, React Native and Node 18+ (realtime
 needs a `WebSocket`, built into browsers, React Native and Node 22). It has
-no dependencies.
+no dependencies, and ships as both ES modules (`import`) and CommonJS
+(`require`), with types for each.
 
     npm install @xenibase/client
 
@@ -24,7 +25,10 @@ Calls never throw for API errors. Each one resolves to `{ data, error }`:
 - `error` is a `XenibaseError` with `status`, `code` (such as
   `rls_required` or `invalid_credentials`), `message` and `requestId`.
 
-A network failure is `status: 0` with `code: "network_error"`.
+A network failure is `status: 0` with `code: "network_error"`. Its message says
+why when the runtime does: in Node, `fetch failed <- ECONNRESET: read ECONNRESET`
+or `… <- ENOTFOUND: getaddrinfo ENOTFOUND …`, so a reset can be told from a
+timeout or a DNS failure; the runtime's own error is on `error.cause`.
 
 ```ts
 const { data, error } = await xb.data.from("todos").select();

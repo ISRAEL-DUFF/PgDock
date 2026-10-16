@@ -1,3 +1,4 @@
+import { VERSION } from "./version.js";
 import { AuthClient, memoryStorage, type AuthOptions } from "./auth.js";
 import { DataClient, type AnyDatabase } from "./data.js";
 import type { Fetch, Transport } from "./http.js";
@@ -51,7 +52,7 @@ export class XenibaseClient<DB extends AnyDatabase = AnyDatabase> {
       url,
       key,
       fetch: f,
-      headers: { "X-Client-Info": "xenibase-js/0.1.0", ...opts.headers },
+      headers: { "X-Client-Info": `xenibase-js/${VERSION}`, ...opts.headers },
     };
     // A secret key acts as the service role: no user session.
     const secret = key.startsWith("xb_sec_");

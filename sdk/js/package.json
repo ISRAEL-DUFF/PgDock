@@ -1,7 +1,7 @@
 {
   "name": "@xenibase/client",
-  "version": "0.1.0",
-  "description": "Xenibase's client: data, auth, storage and realtime for web, React Native and Node apps",
+  "version": "0.1.1",
+  "description": "Xenibase's client: data, auth, storage and realtime for web, React Native and Node apps (ESM and CommonJS)",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -23,13 +23,20 @@
     "sdk"
   ],
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/cjs/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
@@ -40,7 +47,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.cjs.json && node -e \"require('fs').writeFileSync('dist/cjs/package.json', '{\\\"type\\\":\\\"commonjs\\\"}\\\\n')\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "prepublishOnly": "npm run typecheck && npm test && npm run build"
@@ -51,5 +58,6 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "module": "./dist/index.js"
 }

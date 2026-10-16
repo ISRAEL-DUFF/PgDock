@@ -8,6 +8,11 @@ bundle share one version (spec §11.5).
 ## v4.2.2
 
 ### Fixed
+- **Browser apps couldn't call the API with Xenibase's own clients.** Every client sends
+  `X-Client-Info`, and the edge's answer to a browser's preflight didn't allow it, so
+  the first request of every browser app (and the Next.js guide's sample) was blocked by
+  CORS. For an allowed origin the edge now allows the request headers the browser lists
+  in its preflight. A test sends a real preflight with the headers the clients send.
 - Backend services through the install bundle didn't work at all: the edge exited at
   once (its trusted-proxy setting was a bare address, and the edge wants a network range),
   and Caddy couldn't get the wildcard certificate with acme-dns (the plugin only
@@ -38,8 +43,20 @@ bundle share one version (spec §11.5).
 ### SDK
 - `@xenibase/client` 0.1.0 is on npm (`npm install @xenibase/client`), under the
   Apache-2.0 licence.
+- `@xenibase/client` 0.1.1: a CommonJS build as well as ES modules (a `require` from a
+  script or `tsx` in a package without `"type": "module"` used to fail with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`), and a network failure says why (`fetch failed <-
+  ECONNRESET: …`, on `error.cause` too). `X-Client-Info` now follows the package version.
+  Publish it with `npm publish` from `sdk/js`.
 
 ### Docs
+- The admin auth API in full: creating users (`email_confirm`), and `generate-link`
+  (which types need an existing user, that `redirect_to` must be an allowed redirect URL,
+  the answer's fields, and how to get a session from a code in a test).
+- The team guide: policies written with `current_database()` so one migration works on
+  every project, how to make fewer round trips (embedded reads, `Promise.all`, a function
+  that returns a whole page's data), testing sign-in without an inbox, where the linked pages
+  are when the guide is shared as one file, and the distance to the project's region.
 - [Enabling backend services](docs/enabling-backend-services.md): the full method for
   a compose install, with the routes that were tried (Cloudflare, NS delegation,
   deSEC, a registrar's reseller API, acme-dns) and why production uses acme-dns.

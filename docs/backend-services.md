@@ -606,13 +606,72 @@ org-scoped rows is in [examples/flutter-auth](examples/flutter-auth/).
 - **Dashboard:** Project → Authentication lists users (search by email,
   phone or id), shows a user's sessions and recent activity, and invites,
   bans, unbans, confirms, signs out and deletes them. Developers and up.
-- **Admin API**, with the **secret key**: `GET|POST /auth/v1/admin/users`,
-  `GET|PATCH|DELETE /auth/v1/admin/users/{id}` (`ban_duration: "24h"` or
-  `"none"`), `POST /auth/v1/admin/users/{id}/signout`,
-  `POST /auth/v1/admin/invite`, `POST /auth/v1/admin/generate-link`
-  (a link and code without sending them, for your own emails).
+- **Admin API**, with the **secret key** (`apikey: xb_sec_…`); see
+  [the admin API](#the-admin-api) below.
 - **CLI:** `xenibase auth users list|show|invite|ban|unban|signout|delete`,
   `xenibase auth config|set|hooks`.
+
+### The admin API
+
+All under `https://<ref>.<domain>/auth/v1/admin/`, with the secret key, from your
+servers.
+
+| Endpoint | |
+| --- | --- |
+| `GET users?page=&per_page=&q=` | A page of users (`per_page` up to 1,000, 50 by default); `q` searches email, phone and id. Answers `{"users":[…],"total","page","per_page"}`. |
+| `POST users` | Creates a user. Body: `email` (required), `password` (optional; it must meet the project's password rules, else `422 weak_password`), `email_confirm` (`true` creates the user already confirmed, so no confirmation email is needed), `user_metadata` and `app_metadata` (JSON objects), `ban_duration`. Answers `201` with the user. |
+| `GET users/{id}` | The user with their `identities`. |
+| `PATCH users/{id}` | Changes any of the fields above (and `email`). `ban_duration` is a duration such as `"24h"`, or `"none"` to lift a ban. |
+| `DELETE users/{id}` | Deletes the user, their sessions and their sign-in methods. |
+| `POST users/{id}/signout` | Ends all of the user's sessions. |
+| `POST invite` | Invites an email address: creates the user and emails an invitation (24 hours). |
+| `POST generate-link` | A sign-in link **and** its code, made without sending anything, for a project that sends its own emails or tests sign-in without an inbox. Described next. |
+
+**`generate-link`.** Body:
+
+| Field | |
+| --- | --- |
+| `type` | Required: `magiclink`, `invite`, `recovery` or `signup`. |
+| `email` | Required. |
+| `password` | For `signup` only (it must meet the password rules). |
+| `data` | For `signup` and `invite`: the new user's metadata (a JSON object). |
+| `redirect_to` | Where the link sends the person after it verifies. **It must be the site URL or one of the project's redirect URLs** (Authentication → *Your app*), else `400 redirect_not_allowed`: the allow-list applies to links you generate as it does to ones the project emails. Leave it out to use the site URL. |
+
+Which types need the user to exist already: **`magiclink` and `recovery` do not
+create a user** and answer `404 no such user` when there is none (unlike
+`signin/otp`, which creates the user when sign-ups are on). **`invite` and
+`signup` create the user.** To test sign-in with an address that has never
+signed up, create it first with `POST users` and `email_confirm: true`, or use
+`type: "signup"`.
+
+The answer:
+
+```json
+{
+  "action_link": "https://k7f3m2q9.api.example.com/auth/v1/verify?token=…&type=magiclink&redirect_to=…",
+  "email_otp": "482913",
+  "hashed_token": "…",
+  "verification_type": "magiclink",
+  "redirect_to": "https://app.example.com/welcome",
+  "user": { "id": "…", "email": "ada@example.com", … }
+}
+```
+
+`action_link` is the link an email would carry (visiting it signs the person in
+and redirects with the session in the fragment); `email_otp` is the six-digit
+code; `hashed_token` is the link's token. In a test, skip the browser and trade
+the code for a session:
+
+```sh
+# 1. a confirmed user, 2. a code for them, 3. a session from the code
+curl -X POST https://<ref>.<domain>/auth/v1/admin/users -H "apikey: $SECRET" \
+  -d '{"email":"test@example.com","email_confirm":true}'
+CODE=$(curl -s -X POST https://<ref>.<domain>/auth/v1/admin/generate-link -H "apikey: $SECRET" \
+  -d '{"type":"magiclink","email":"test@example.com"}' | jq -r .email_otp)
+curl -X POST https://<ref>.<domain>/auth/v1/verify -H "apikey: $PUBLISHABLE" \
+  -d "{\"type\":\"magiclink\",\"email\":\"test@example.com\",\"token\":\"$CODE\"}"
+```
+
 
 Deleting a user deletes their sessions and sign-in methods; rows of your
 tables that reference them follow your foreign keys.
@@ -894,7 +953,10 @@ connection time (`realtime_connection_minutes`) are metered.
 
 - **Allowed origins**: the pages that may call the API. Empty allows any
   origin, which is fine for the publishable key; list your app's origins
-  once you go live.
+  once you go live. For an allowed origin the edge answers a browser's
+  preflight by allowing the request headers the browser says it will send, so a
+  client that adds a header (`x-client-info`, which every Xenibase and Supabase
+  client sends) is never refused for it.
 - **Statement timeout**: each request's limit, 8 seconds by default and 15
   at most.
 - **Rate limits**: requests per minute per IP address (600) and per key

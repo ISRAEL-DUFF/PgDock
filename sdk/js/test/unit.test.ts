@@ -311,3 +311,46 @@ describe("storage", () => {
     ).toBe(URL_ + "/storage/v1/render/img/x.png?width=100");
   });
 });
+
+describe("package", () => {
+  it("sends its own version as X-Client-Info", async () => {
+    const { readFileSync } = await import("node:fs");
+    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    const { VERSION } = await import("../src/version.js");
+    expect(VERSION).toBe(pkg.version);
+    let seen = "";
+    const xb = createClient("https://k7f3m2q9.api.example.test", "xb_pub_x", {
+      fetch: (async (_u: unknown, init?: RequestInit) => {
+        seen = new Headers(init?.headers).get("x-client-info") ?? "";
+        return new Response("[]", { status: 200 });
+      }) as typeof fetch,
+    });
+    await xb.data.from("t").select();
+    expect(seen).toBe(`xenibase-js/${pkg.version}`);
+  });
+});
+
+describe("network failures", () => {
+  it("say why: the cause chain's code and message", async () => {
+    const reset = Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" });
+    const f = (async () => {
+      throw new TypeError("fetch failed", { cause: reset });
+    }) as typeof fetch;
+    const xb = createClient("https://k7f3m2q9.api.example.test", "xb_pub_x", { fetch: f });
+    const { data, error } = await xb.data.from("t").select();
+    expect(data).toBeNull();
+    expect(error?.status).toBe(0);
+    expect(error?.code).toBe("network_error");
+    expect(error?.message).toContain("fetch failed");
+    expect(error?.message).toContain("ECONNRESET");
+    expect(error?.cause).toBeInstanceOf(TypeError);
+  });
+  it("keep the plain message when there is no cause", async () => {
+    const f = (async () => {
+      throw new Error("offline");
+    }) as typeof fetch;
+    const xb = createClient("https://k7f3m2q9.api.example.test", "xb_pub_x", { fetch: f });
+    const { error } = await xb.data.from("t").select();
+    expect(error?.message).toBe("offline");
+  });
+});
