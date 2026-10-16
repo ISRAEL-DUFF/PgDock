@@ -53,7 +53,7 @@ func memberSQL(t *testing.T, member uuid.UUID, db, query string) string {
 	out, err := exec.Command("docker", "exec", "xenibase-"+member.String(), "psql", "-XAtq", "-h", "/var/run/postgresql",
 		"-U", "xenibase_admin", "-d", db, "-c", query).CombinedOutput()
 	if err != nil {
-		t.Fatalf("psql on %s: %v: %s", member, err, out)
+		t.Fatalf("psql on %s: %w: %s", member, err, out)
 	}
 	return strings.TrimSpace(string(out))
 }
@@ -65,7 +65,7 @@ func memberSQLTry(member uuid.UUID, db, query string) (string, error) {
 	out, err := exec.Command("docker", "exec", "xenibase-"+member.String(), "psql", "-XAtq", "-h", "/var/run/postgresql",
 		"-U", "xenibase_admin", "-d", db, "-c", query).CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("psql on %s: %v: %s", member, err, strings.TrimSpace(string(out)))
+		return "", fmt.Errorf("psql on %s: %w: %s", member, err, strings.TrimSpace(string(out)))
 	}
 	return strings.TrimSpace(string(out)), nil
 }
