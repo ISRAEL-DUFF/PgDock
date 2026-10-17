@@ -1,15 +1,22 @@
 # Error codes
 
 Every error from Xenibase's APIs is JSON with a stable `code` and a message
-for people:
+for people. The management API (`/api/v1`) answers a flat body:
 
 ```json
-{"error":{"code":"quota_exceeded","message":"the organisation has 20 webhooks, its plan's limit"}}
+{"code":"quota_exceeded","message":"the organisation has 10 projects, its plan's limit","quota":{"limit":"projects","used":10,"max":10}}
 ```
 
 The data API (`https://<ref>.<domain>/data/v1`, `/auth/v1`,
-`/storage/v1`) adds a `request_id`, and `details` where they help (the
-Postgres `pg_code`, the batch `operation`, the `table`). Codes are part of
+`/storage/v1`) wraps the same fields in `error`, and adds a `request_id`
+and `details` where they help (the Postgres `pg_code`, the batch
+`operation`, the `table`):
+
+```json
+{"error":{"code":"unique_violation","message":"orders_email_key","details":{"pg_code":"23505"},"request_id":"req_…"}}
+```
+
+Codes are part of
 the contract (see [Deprecation](#deprecation)); messages may change.
 
 **Retry** says whether sending the same request again can succeed without
