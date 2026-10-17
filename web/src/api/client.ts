@@ -468,8 +468,15 @@ export const api = {
     request<LoginChallenge>("POST", "/api/v1/auth/login", b),
   totp: (b: { challenge_id: string; code: string }) =>
     request<SessionState>("POST", "/api/v1/auth/totp", b),
-  reauth: (b: { password: string; code: string }) =>
+  reauth: (b: { password: string; code?: string }) =>
     request<void>("POST", "/api/v1/auth/reauth", b),
+  totpStatus: () => getJSON<S["TotpStatus"]>("/api/v1/me/totp"),
+  setupTotp: (b: { password: string }) =>
+    request<S["TotpSetup"]>("POST", "/api/v1/me/totp/setup", b),
+  enableTotp: (b: { setup_token: string; code: string }) =>
+    request<S["RecoveryCodes"]>("POST", "/api/v1/me/totp/enable", b),
+  disableTotp: (b: { password: string; code: string }) =>
+    request<void>("POST", "/api/v1/me/totp/disable", b),
   logout: () => request<void>("POST", "/api/v1/auth/logout"),
 
   signup: (b: S["SignupRequest"]) =>

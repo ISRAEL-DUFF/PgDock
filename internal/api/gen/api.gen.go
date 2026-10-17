@@ -4004,6 +4004,7 @@ type AcceptInvitationRequest struct {
 
 // AcceptInvitationResult defines model for AcceptInvitationResult.
 type AcceptInvitationResult struct {
+	// Login A correct password. Accounts with two-factor sign-in (and platform staff) get a challenge to complete with `/auth/totp`; an account without it is signed in right away and gets the session instead.
 	Login *LoginChallenge     `json:"login,omitempty"`
 	OrgId *openapi_types.UUID `json:"org_id,omitempty"`
 }
@@ -6747,12 +6748,13 @@ type LockList struct {
 	Items []LockBlock `json:"items"`
 }
 
-// LoginChallenge defines model for LoginChallenge.
+// LoginChallenge A correct password. Accounts with two-factor sign-in (and platform staff) get a challenge to complete with `/auth/totp`; an account without it is signed in right away and gets the session instead.
 type LoginChallenge struct {
-	ChallengeId string `json:"challenge_id"`
+	ChallengeId *string `json:"challenge_id,omitempty"`
 
 	// Enrollment First sign-in - enrol this authenticator; the next code completes it.
 	Enrollment *LoginEnrollment `json:"enrollment,omitempty"`
+	Session    *SessionState    `json:"session,omitempty"`
 }
 
 // LoginEnrollment First sign-in - enrol this authenticator; the next code completes it.
@@ -8085,8 +8087,9 @@ type ReasonRequest struct {
 
 // ReauthRequest defines model for ReauthRequest.
 type ReauthRequest struct {
-	Code     string `json:"code"`
-	Password string `json:"password"`
+	// Code Required when two-factor sign-in is on for the account.
+	Code     *string `json:"code,omitempty"`
+	Password string  `json:"password"`
 }
 
 // RebalanceMove defines model for RebalanceMove.
@@ -9490,10 +9493,44 @@ type TopQuery struct {
 	TotalMs float64 `json:"total_ms"`
 }
 
+// TotpDisableRequest defines model for TotpDisableRequest.
+type TotpDisableRequest struct {
+	// Code A code from the authenticator, or a recovery code.
+	Code     string `json:"code"`
+	Password string `json:"password"`
+}
+
+// TotpEnableRequest defines model for TotpEnableRequest.
+type TotpEnableRequest struct {
+	Code       string `json:"code"`
+	SetupToken string `json:"setup_token"`
+}
+
 // TotpRequest defines model for TotpRequest.
 type TotpRequest struct {
 	ChallengeId string `json:"challenge_id"`
 	Code        string `json:"code"`
+}
+
+// TotpSetup defines model for TotpSetup.
+type TotpSetup struct {
+	ExpiresAt  time.Time `json:"expires_at"`
+	SetupToken string    `json:"setup_token"`
+	TotpSecret string    `json:"totp_secret"`
+	TotpUri    string    `json:"totp_uri"`
+}
+
+// TotpSetupRequest defines model for TotpSetupRequest.
+type TotpSetupRequest struct {
+	Password string `json:"password"`
+}
+
+// TotpStatus defines model for TotpStatus.
+type TotpStatus struct {
+	Enabled bool `json:"enabled"`
+
+	// Required Platform staff must keep two-factor sign-in on.
+	Required bool `json:"required"`
 }
 
 // TransferOwnershipRequest defines model for TransferOwnershipRequest.
@@ -10823,6 +10860,15 @@ type ChangePasswordJSONRequestBody = ChangePasswordRequest
 // AcceptTermsJSONRequestBody defines body for AcceptTerms for application/json ContentType.
 type AcceptTermsJSONRequestBody = AcceptTermsRequest
 
+// DisableTotpJSONRequestBody defines body for DisableTotp for application/json ContentType.
+type DisableTotpJSONRequestBody = TotpDisableRequest
+
+// EnableTotpJSONRequestBody defines body for EnableTotp for application/json ContentType.
+type EnableTotpJSONRequestBody = TotpEnableRequest
+
+// SetupTotpJSONRequestBody defines body for SetupTotp for application/json ContentType.
+type SetupTotpJSONRequestBody = TotpSetupRequest
+
 // CreateNodeJSONRequestBody defines body for CreateNode for application/json ContentType.
 type CreateNodeJSONRequestBody = CreateNodeRequest
 
@@ -11572,6 +11618,18 @@ type ServerInterface interface {
 	// AcceptTerms Accept the current terms of use
 	// (POST /api/v1/me/terms/accept)
 	AcceptTerms(w http.ResponseWriter, r *http.Request)
+	// GetTotpStatus Whether two-factor sign-in is on for you
+	// (GET /api/v1/me/totp)
+	GetTotpStatus(w http.ResponseWriter, r *http.Request)
+	// DisableTotp Turn two-factor sign-in off (password and a code); not for platform staff
+	// (POST /api/v1/me/totp/disable)
+	DisableTotp(w http.ResponseWriter, r *http.Request)
+	// EnableTotp Turn two-factor sign-in on with the first code; recovery codes are shown once
+	// (POST /api/v1/me/totp/enable)
+	EnableTotp(w http.ResponseWriter, r *http.Request)
+	// SetupTotp Start turning two-factor sign-in on (password); returns the authenticator to scan
+	// (POST /api/v1/me/totp/setup)
+	SetupTotp(w http.ResponseWriter, r *http.Request)
 	// ListNodes Nodes and their agents
 	// (GET /api/v1/nodes)
 	ListNodes(w http.ResponseWriter, r *http.Request)
@@ -13237,6 +13295,30 @@ func (_ Unimplemented) RevokeMySession(w http.ResponseWriter, r *http.Request, s
 // AcceptTerms Accept the current terms of use
 // (POST /api/v1/me/terms/accept)
 func (_ Unimplemented) AcceptTerms(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetTotpStatus Whether two-factor sign-in is on for you
+// (GET /api/v1/me/totp)
+func (_ Unimplemented) GetTotpStatus(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DisableTotp Turn two-factor sign-in off (password and a code); not for platform staff
+// (POST /api/v1/me/totp/disable)
+func (_ Unimplemented) DisableTotp(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EnableTotp Turn two-factor sign-in on with the first code; recovery codes are shown once
+// (POST /api/v1/me/totp/enable)
+func (_ Unimplemented) EnableTotp(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetupTotp Start turning two-factor sign-in on (password); returns the authenticator to scan
+// (POST /api/v1/me/totp/setup)
+func (_ Unimplemented) SetupTotp(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -18232,6 +18314,62 @@ func (siw *ServerInterfaceWrapper) AcceptTerms(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AcceptTerms(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTotpStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetTotpStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTotpStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DisableTotp operation middleware
+func (siw *ServerInterfaceWrapper) DisableTotp(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DisableTotp(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EnableTotp operation middleware
+func (siw *ServerInterfaceWrapper) EnableTotp(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnableTotp(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetupTotp operation middleware
+func (siw *ServerInterfaceWrapper) SetupTotp(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetupTotp(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -26251,6 +26389,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/me/recovery-codes", wrapper.RegenerateRecoveryCodes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/me/totp", wrapper.GetTotpStatus)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/me/totp/setup", wrapper.SetupTotp)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/me/totp/enable", wrapper.EnableTotp)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/me/totp/disable", wrapper.DisableTotp)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/me/terms/accept", wrapper.AcceptTerms)
