@@ -4008,6 +4008,7 @@ type AcceptInvitationRequest struct {
 
 // AcceptInvitationResult defines model for AcceptInvitationResult.
 type AcceptInvitationResult struct {
+	// Login A correct password. Accounts with two-factor sign-in (and platform staff) get a challenge to complete with `/auth/totp`; an account without it is signed in right away and gets the session instead.
 	Login *LoginChallenge     `json:"login,omitempty"`
 	OrgId *openapi_types.UUID `json:"org_id,omitempty"`
 }
@@ -6751,12 +6752,13 @@ type LockList struct {
 	Items []LockBlock `json:"items"`
 }
 
-// LoginChallenge defines model for LoginChallenge.
+// LoginChallenge A correct password. Accounts with two-factor sign-in (and platform staff) get a challenge to complete with `/auth/totp`; an account without it is signed in right away and gets the session instead.
 type LoginChallenge struct {
-	ChallengeId string `json:"challenge_id"`
+	ChallengeId *string `json:"challenge_id,omitempty"`
 
 	// Enrollment First sign-in - enrol this authenticator; the next code completes it.
 	Enrollment *LoginEnrollment `json:"enrollment,omitempty"`
+	Session    *SessionState    `json:"session,omitempty"`
 }
 
 // LoginEnrollment First sign-in - enrol this authenticator; the next code completes it.
@@ -8089,8 +8091,9 @@ type ReasonRequest struct {
 
 // ReauthRequest defines model for ReauthRequest.
 type ReauthRequest struct {
-	Code     string `json:"code"`
-	Password string `json:"password"`
+	// Code Required when two-factor sign-in is on for the account.
+	Code     *string `json:"code,omitempty"`
+	Password string  `json:"password"`
 }
 
 // RebalanceMove defines model for RebalanceMove.
@@ -9494,10 +9497,44 @@ type TopQuery struct {
 	TotalMs float64 `json:"total_ms"`
 }
 
+// TotpDisableRequest defines model for TotpDisableRequest.
+type TotpDisableRequest struct {
+	// Code A code from the authenticator, or a recovery code.
+	Code     string `json:"code"`
+	Password string `json:"password"`
+}
+
+// TotpEnableRequest defines model for TotpEnableRequest.
+type TotpEnableRequest struct {
+	Code       string `json:"code"`
+	SetupToken string `json:"setup_token"`
+}
+
 // TotpRequest defines model for TotpRequest.
 type TotpRequest struct {
 	ChallengeId string `json:"challenge_id"`
 	Code        string `json:"code"`
+}
+
+// TotpSetup defines model for TotpSetup.
+type TotpSetup struct {
+	ExpiresAt  time.Time `json:"expires_at"`
+	SetupToken string    `json:"setup_token"`
+	TotpSecret string    `json:"totp_secret"`
+	TotpUri    string    `json:"totp_uri"`
+}
+
+// TotpSetupRequest defines model for TotpSetupRequest.
+type TotpSetupRequest struct {
+	Password string `json:"password"`
+}
+
+// TotpStatus defines model for TotpStatus.
+type TotpStatus struct {
+	Enabled bool `json:"enabled"`
+
+	// Required Platform staff must keep two-factor sign-in on.
+	Required bool `json:"required"`
 }
 
 // TransferOwnershipRequest defines model for TransferOwnershipRequest.
@@ -10826,6 +10863,15 @@ type ChangePasswordJSONRequestBody = ChangePasswordRequest
 
 // AcceptTermsJSONRequestBody defines body for AcceptTerms for application/json ContentType.
 type AcceptTermsJSONRequestBody = AcceptTermsRequest
+
+// DisableTotpJSONRequestBody defines body for DisableTotp for application/json ContentType.
+type DisableTotpJSONRequestBody = TotpDisableRequest
+
+// EnableTotpJSONRequestBody defines body for EnableTotp for application/json ContentType.
+type EnableTotpJSONRequestBody = TotpEnableRequest
+
+// SetupTotpJSONRequestBody defines body for SetupTotp for application/json ContentType.
+type SetupTotpJSONRequestBody = TotpSetupRequest
 
 // CreateNodeJSONRequestBody defines body for CreateNode for application/json ContentType.
 type CreateNodeJSONRequestBody = CreateNodeRequest
@@ -12802,6 +12848,53 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /api/v1/me/terms/accept (the `AcceptTerms` operationId).
 	AcceptTerms(ctx context.Context, body AcceptTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetTotpStatus Whether two-factor sign-in is on for you
+	//
+	// Corresponds with GET /api/v1/me/totp (the `GetTotpStatus` operationId).
+	GetTotpStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DisableTotpWithBody Turn two-factor sign-in off (password and a code); not for platform staff
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/me/totp/disable (the `DisableTotp` operationId).
+	DisableTotpWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DisableTotp Turn two-factor sign-in off (password and a code); not for platform staff
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/me/totp/disable (the `DisableTotp` operationId).
+	DisableTotp(ctx context.Context, body DisableTotpJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnableTotpWithBody Turn two-factor sign-in on with the first code; recovery codes are shown once
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/me/totp/enable (the `EnableTotp` operationId).
+	EnableTotpWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnableTotp Turn two-factor sign-in on with the first code; recovery codes are shown once
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/me/totp/enable (the `EnableTotp` operationId).
+	EnableTotp(ctx context.Context, body EnableTotpJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetupTotpWithBody Start turning two-factor sign-in on (password); returns the authenticator to scan
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/me/totp/setup (the `SetupTotp` operationId).
+	SetupTotpWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetupTotp Start turning two-factor sign-in on (password); returns the authenticator to scan
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/me/totp/setup (the `SetupTotp` operationId).
+	SetupTotp(ctx context.Context, body SetupTotpJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListNodes Nodes and their agents
 	//
@@ -19249,6 +19342,123 @@ func (c *Client) AcceptTermsWithBody(ctx context.Context, contentType string, bo
 // Corresponds with POST /api/v1/me/terms/accept (the `AcceptTerms` operationId).
 func (c *Client) AcceptTerms(ctx context.Context, body AcceptTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAcceptTermsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetTotpStatus Whether two-factor sign-in is on for you
+//
+// Corresponds with GET /api/v1/me/totp (the `GetTotpStatus` operationId).
+func (c *Client) GetTotpStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTotpStatusRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DisableTotpWithBody Turn two-factor sign-in off (password and a code); not for platform staff
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/me/totp/disable (the `DisableTotp` operationId).
+func (c *Client) DisableTotpWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDisableTotpRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DisableTotp Turn two-factor sign-in off (password and a code); not for platform staff
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/me/totp/disable (the `DisableTotp` operationId).
+func (c *Client) DisableTotp(ctx context.Context, body DisableTotpJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDisableTotpRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnableTotpWithBody Turn two-factor sign-in on with the first code; recovery codes are shown once
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/me/totp/enable (the `EnableTotp` operationId).
+func (c *Client) EnableTotpWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnableTotpRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnableTotp Turn two-factor sign-in on with the first code; recovery codes are shown once
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/me/totp/enable (the `EnableTotp` operationId).
+func (c *Client) EnableTotp(ctx context.Context, body EnableTotpJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnableTotpRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetupTotpWithBody Start turning two-factor sign-in on (password); returns the authenticator to scan
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/me/totp/setup (the `SetupTotp` operationId).
+func (c *Client) SetupTotpWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetupTotpRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetupTotp Start turning two-factor sign-in on (password); returns the authenticator to scan
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/me/totp/setup (the `SetupTotp` operationId).
+func (c *Client) SetupTotp(ctx context.Context, body SetupTotpJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetupTotpRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -31478,6 +31688,153 @@ func NewAcceptTermsRequestWithBody(server string, contentType string, body io.Re
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/me/terms/accept")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetTotpStatusRequest constructs an http.Request for the GetTotpStatus method
+func NewGetTotpStatusRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/me/totp")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDisableTotpRequest calls the generic DisableTotp builder with application/json body
+func NewDisableTotpRequest(server string, body DisableTotpJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDisableTotpRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDisableTotpRequestWithBody constructs an http.Request for the DisableTotp method, with any body, and a specified content type
+func NewDisableTotpRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/me/totp/disable")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewEnableTotpRequest calls the generic EnableTotp builder with application/json body
+func NewEnableTotpRequest(server string, body EnableTotpJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewEnableTotpRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewEnableTotpRequestWithBody constructs an http.Request for the EnableTotp method, with any body, and a specified content type
+func NewEnableTotpRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/me/totp/enable")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSetupTotpRequest calls the generic SetupTotp builder with application/json body
+func NewSetupTotpRequest(server string, body SetupTotpJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetupTotpRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSetupTotpRequestWithBody constructs an http.Request for the SetupTotp method, with any body, and a specified content type
+func NewSetupTotpRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/me/totp/setup")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -44184,6 +44541,55 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/me/terms/accept (the `AcceptTerms` operationId).
 	AcceptTermsWithResponse(ctx context.Context, body AcceptTermsJSONRequestBody, reqEditors ...RequestEditorFn) (*AcceptTermsResponse, error)
 
+	// GetTotpStatusWithResponse Whether two-factor sign-in is on for you
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /api/v1/me/totp (the `GetTotpStatus` operationId).
+	GetTotpStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTotpStatusResponse, error)
+
+	// DisableTotpWithBodyWithResponse Turn two-factor sign-in off (password and a code); not for platform staff
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/me/totp/disable (the `DisableTotp` operationId).
+	DisableTotpWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DisableTotpResponse, error)
+
+	// DisableTotpWithResponse Turn two-factor sign-in off (password and a code); not for platform staff
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/me/totp/disable (the `DisableTotp` operationId).
+	DisableTotpWithResponse(ctx context.Context, body DisableTotpJSONRequestBody, reqEditors ...RequestEditorFn) (*DisableTotpResponse, error)
+
+	// EnableTotpWithBodyWithResponse Turn two-factor sign-in on with the first code; recovery codes are shown once
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/me/totp/enable (the `EnableTotp` operationId).
+	EnableTotpWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnableTotpResponse, error)
+
+	// EnableTotpWithResponse Turn two-factor sign-in on with the first code; recovery codes are shown once
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/me/totp/enable (the `EnableTotp` operationId).
+	EnableTotpWithResponse(ctx context.Context, body EnableTotpJSONRequestBody, reqEditors ...RequestEditorFn) (*EnableTotpResponse, error)
+
+	// SetupTotpWithBodyWithResponse Start turning two-factor sign-in on (password); returns the authenticator to scan
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/me/totp/setup (the `SetupTotp` operationId).
+	SetupTotpWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetupTotpResponse, error)
+
+	// SetupTotpWithResponse Start turning two-factor sign-in on (password); returns the authenticator to scan
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/me/totp/setup (the `SetupTotp` operationId).
+	SetupTotpWithResponse(ctx context.Context, body SetupTotpJSONRequestBody, reqEditors ...RequestEditorFn) (*SetupTotpResponse, error)
+
 	// ListNodesWithResponse Nodes and their agents
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -54434,6 +54840,191 @@ func (r AcceptTermsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r AcceptTermsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetTotpStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TotpStatus
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetTotpStatusResponse) GetJSON200() *TotpStatus {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r GetTotpStatusResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GetTotpStatusResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetTotpStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetTotpStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetTotpStatusResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DisableTotpResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r DisableTotpResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r DisableTotpResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DisableTotpResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DisableTotpResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DisableTotpResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EnableTotpResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *RecoveryCodes
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EnableTotpResponse) GetJSON200() *RecoveryCodes {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r EnableTotpResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EnableTotpResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EnableTotpResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnableTotpResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EnableTotpResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetupTotpResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *TotpSetup
+	// JSONDefault the response for an HTTP default `application/json` response
+	JSONDefault *Error
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetupTotpResponse) GetJSON200() *TotpSetup {
+	return r.JSON200
+}
+
+// GetJSONDefault returns the response for an HTTP default `application/json` response
+func (r SetupTotpResponse) GetJSONDefault() *Error {
+	return r.JSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SetupTotpResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetupTotpResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetupTotpResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetupTotpResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -68917,6 +69508,97 @@ func (c *ClientWithResponses) AcceptTermsWithResponse(ctx context.Context, body 
 	return ParseAcceptTermsResponse(rsp)
 }
 
+// GetTotpStatusWithResponse Whether two-factor sign-in is on for you
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /api/v1/me/totp (the `GetTotpStatus` operationId).
+func (c *ClientWithResponses) GetTotpStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTotpStatusResponse, error) {
+	rsp, err := c.GetTotpStatus(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetTotpStatusResponse(rsp)
+}
+
+// DisableTotpWithBodyWithResponse Turn two-factor sign-in off (password and a code); not for platform staff
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/me/totp/disable (the `DisableTotp` operationId).
+func (c *ClientWithResponses) DisableTotpWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DisableTotpResponse, error) {
+	rsp, err := c.DisableTotpWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDisableTotpResponse(rsp)
+}
+
+// DisableTotpWithResponse Turn two-factor sign-in off (password and a code); not for platform staff
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/me/totp/disable (the `DisableTotp` operationId).
+func (c *ClientWithResponses) DisableTotpWithResponse(ctx context.Context, body DisableTotpJSONRequestBody, reqEditors ...RequestEditorFn) (*DisableTotpResponse, error) {
+	rsp, err := c.DisableTotp(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDisableTotpResponse(rsp)
+}
+
+// EnableTotpWithBodyWithResponse Turn two-factor sign-in on with the first code; recovery codes are shown once
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/me/totp/enable (the `EnableTotp` operationId).
+func (c *ClientWithResponses) EnableTotpWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnableTotpResponse, error) {
+	rsp, err := c.EnableTotpWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnableTotpResponse(rsp)
+}
+
+// EnableTotpWithResponse Turn two-factor sign-in on with the first code; recovery codes are shown once
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/me/totp/enable (the `EnableTotp` operationId).
+func (c *ClientWithResponses) EnableTotpWithResponse(ctx context.Context, body EnableTotpJSONRequestBody, reqEditors ...RequestEditorFn) (*EnableTotpResponse, error) {
+	rsp, err := c.EnableTotp(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnableTotpResponse(rsp)
+}
+
+// SetupTotpWithBodyWithResponse Start turning two-factor sign-in on (password); returns the authenticator to scan
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/me/totp/setup (the `SetupTotp` operationId).
+func (c *ClientWithResponses) SetupTotpWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetupTotpResponse, error) {
+	rsp, err := c.SetupTotpWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetupTotpResponse(rsp)
+}
+
+// SetupTotpWithResponse Start turning two-factor sign-in on (password); returns the authenticator to scan
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/me/totp/setup (the `SetupTotp` operationId).
+func (c *ClientWithResponses) SetupTotpWithResponse(ctx context.Context, body SetupTotpJSONRequestBody, reqEditors ...RequestEditorFn) (*SetupTotpResponse, error) {
+	rsp, err := c.SetupTotp(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetupTotpResponse(rsp)
+}
+
 // ListNodesWithResponse Nodes and their agents
 //
 // Returns a wrapper object for the known response body format(s).
@@ -78829,6 +79511,134 @@ func ParseAcceptTermsResponse(rsp *http.Response) (*AcceptTermsResponse, error) 
 	switch {
 	case rsp.StatusCode == 204:
 		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetTotpStatusResponse parses an HTTP response from a GetTotpStatusWithResponse call
+func ParseGetTotpStatusResponse(rsp *http.Response) (*GetTotpStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetTotpStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TotpStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDisableTotpResponse parses an HTTP response from a DisableTotpWithResponse call
+func ParseDisableTotpResponse(rsp *http.Response) (*DisableTotpResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DisableTotpResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEnableTotpResponse parses an HTTP response from a EnableTotpWithResponse call
+func ParseEnableTotpResponse(rsp *http.Response) (*EnableTotpResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnableTotpResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RecoveryCodes
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetupTotpResponse parses an HTTP response from a SetupTotpWithResponse call
+func ParseSetupTotpResponse(rsp *http.Response) (*SetupTotpResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetupTotpResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TotpSetup
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest Error

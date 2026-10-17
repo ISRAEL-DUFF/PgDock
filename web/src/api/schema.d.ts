@@ -2410,6 +2410,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/totp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether two-factor sign-in is on for you */
+        get: operations["getTotpStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/totp/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start turning two-factor sign-in on (password); returns the authenticator to scan */
+        post: operations["setupTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/totp/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Turn two-factor sign-in on with the first code; recovery codes are shown once */
+        post: operations["enableTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/totp/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Turn two-factor sign-in off (password and a code); not for platform staff */
+        post: operations["disableTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/terms/accept": {
         parameters: {
             query?: never;
@@ -5856,9 +5924,11 @@ export interface components {
             /** Format: password */
             password: string;
         };
+        /** @description A correct password. Accounts with two-factor sign-in (and platform staff) get a challenge to complete with `/auth/totp`; an account without it is signed in right away and gets the session instead. */
         LoginChallenge: {
-            challenge_id: string;
+            challenge_id?: string;
             enrollment?: components["schemas"]["LoginEnrollment"];
+            session?: components["schemas"]["SessionState"];
         };
         /** @description First sign-in - enrol this authenticator; the next code completes it. */
         LoginEnrollment: {
@@ -5874,6 +5944,33 @@ export interface components {
         ReauthRequest: {
             /** Format: password */
             password: string;
+            /** @description Required when two-factor sign-in is on for the account. */
+            code?: string;
+        };
+        TotpStatus: {
+            enabled: boolean;
+            /** @description Platform staff must keep two-factor sign-in on. */
+            required: boolean;
+        };
+        TotpSetupRequest: {
+            /** Format: password */
+            password: string;
+        };
+        TotpSetup: {
+            setup_token: string;
+            totp_secret: string;
+            totp_uri: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        TotpEnableRequest: {
+            setup_token: string;
+            code: string;
+        };
+        TotpDisableRequest: {
+            /** Format: password */
+            password: string;
+            /** @description A code from the authenticator, or a recovery code. */
             code: string;
         };
         Error: {
@@ -14795,6 +14892,100 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RecoveryCodes"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTotpStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TotpStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setupTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpSetupRequest"];
+            };
+        };
+        responses: {
+            /** @description The authenticator to enrol. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TotpSetup"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    enableTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpEnableRequest"];
+            };
+        };
+        responses: {
+            /** @description The recovery codes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodes"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    disableTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpDisableRequest"];
+            };
+        };
+        responses: {
+            /** @description Turned off. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

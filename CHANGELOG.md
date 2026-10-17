@@ -5,6 +5,13 @@ bundle share one version (spec §11.5).
 
 ## Unreleased
 
+## v4.2.3
+
+- **Upgrades rebuild the edge.** `install.sh` built the server and agent images but not the edge, so a deployment with backend services on kept running the old edge after `upgrade.sh` (v4.2.2's browser preflight fix never reached it). The edge is rebuilt on every install and upgrade while the `services` profile is on. If you upgraded to v4.2.2 and use backend services, upgrade again.
+- **Two-factor sign-in is off by default for ordinary accounts.** New accounts sign in with a password and turn on a TOTP second factor themselves, under Account → Security (password, QR code, first code, then recovery codes; turning it off asks for a password and a code, and both changes are emailed). Platform admins and support staff still must have it and cannot turn it off. Accounts that already enrolled keep it. Step-up confirmations (deleting a project, spending money) ask for the password alone when two-factor is off. A reset by an administrator now leaves an ordinary account on password sign-in instead of making it enrol again. API: `POST /auth/login` returns the session itself for an account without two-factor (`challenge_id` is then absent), `POST /auth/reauth` takes the code only when it is on, and `GET /me/totp`, `POST /me/totp/setup`, `/enable` and `/disable` are new.
+- **Backups to S3 and R2 work again.** The agent and Postgres images, built on the official `postgres` image, had no CA certificates, so every upload failed with "x509: certificate signed by unknown authority" (it also affected WAL-G archiving from dedicated instances). Both images now install `ca-certificates`, and the build fails if they are missing. `./upgrade.sh` rebuilds them; recreate dedicated instances' containers to pick up the new Postgres image.
+- The storefront guide says how a webhook behaves across environments (one public URL each, where the secret goes).
+
 ## v4.2.2
 
 ### Fixed

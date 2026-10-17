@@ -2,7 +2,7 @@
 
 ## Webhooks
 
-A webhook POSTs the changes of chosen tables to a URL: Project →
+A webhook POSTs the changes of chosen tables to a URL: Database →
 Webhooks, `xenibase webhooks create`, or `POST /api/v1/projects/{id}/webhooks`.
 
 | Field | Notes |
@@ -223,7 +223,7 @@ rate above.
 
 ## Scheduled jobs
 
-A job runs SQL, or calls a URL, on a schedule: Project → Jobs,
+A job runs SQL, or calls a URL, on a schedule: Database → Scheduled jobs,
 `xenibase jobs create`, or `POST /api/v1/projects/{id}/jobs`.
 
 | Field | Notes |

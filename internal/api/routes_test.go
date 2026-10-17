@@ -207,8 +207,7 @@ func newMatrixWorld(t *testing.T) *matrixWorld {
 		if err != nil {
 			t.Fatal(err)
 		}
-		code, _ := auth.TOTPCode(ch.Enroll.Secret, clk.Now())
-		signed, err := svc.CompleteLogin(ctx, ch.Token, code, nil, "")
+		signed, err := svc.CompleteLogin(ctx, ch.Token, "", nil, "") // no two-factor: the password was enough
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -597,7 +596,8 @@ var specMatrix = map[authz.Action][]string{
 	authz.Self: {
 		"POST /api/v1/auth/reauth", "POST /api/v1/auth/logout", "GET /api/v1/me", "PATCH /api/v1/me", "POST /api/v1/me/password",
 		"GET /api/v1/me/sessions", "DELETE /api/v1/me/sessions/{session_id}", "GET /api/v1/me/recovery-codes",
-		"POST /api/v1/me/recovery-codes", "POST /api/v1/me/terms/accept", "GET /api/v1/me/invitations",
+		"POST /api/v1/me/recovery-codes", "GET /api/v1/me/totp", "POST /api/v1/me/totp/setup", "POST /api/v1/me/totp/enable",
+		"POST /api/v1/me/totp/disable", "POST /api/v1/me/terms/accept", "GET /api/v1/me/invitations",
 		"POST /api/v1/me/invitations/{invitation_id}/accept", "GET /api/v1/orgs", "POST /api/v1/orgs",
 		"GET /api/v1/settings/general", "GET /api/v1/profiles", "POST /api/v1/imports/preflight",
 		// V3 §6.1 "Projects choose a region at creation"

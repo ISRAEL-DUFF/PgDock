@@ -3209,6 +3209,76 @@ paths:
                 $ref: "#/components/schemas/RecoveryCodes"
         default:
           $ref: "#/components/responses/Error"
+  /api/v1/me/totp:
+    get:
+      operationId: getTotpStatus
+      summary: Whether two-factor sign-in is on for you
+      tags: [account]
+      responses:
+        "200":
+          description: Status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TotpStatus"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/me/totp/setup:
+    post:
+      operationId: setupTotp
+      summary: Start turning two-factor sign-in on (password); returns the authenticator to scan
+      tags: [account]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TotpSetupRequest"
+      responses:
+        "200":
+          description: The authenticator to enrol.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TotpSetup"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/me/totp/enable:
+    post:
+      operationId: enableTotp
+      summary: Turn two-factor sign-in on with the first code; recovery codes are shown once
+      tags: [account]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TotpEnableRequest"
+      responses:
+        "200":
+          description: The recovery codes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryCodes"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/v1/me/totp/disable:
+    post:
+      operationId: disableTotp
+      summary: Turn two-factor sign-in off (password and a code); not for platform staff
+      tags: [account]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TotpDisableRequest"
+      responses:
+        "204":
+          description: Turned off.
+        default:
+          $ref: "#/components/responses/Error"
   /api/v1/me/terms/accept:
     post:
       operationId: acceptTerms
@@ -8588,13 +8658,18 @@ components:
           type: string
           format: password
     LoginChallenge:
+      description: >-
+        A correct password. Accounts with two-factor sign-in (and platform staff)
+        get a challenge to complete with `/auth/totp`; an account without it is
+        signed in right away and gets the session instead.
       type: object
-      required: [challenge_id]
       properties:
         challenge_id:
           type: string
         enrollment:
           $ref: "#/components/schemas/LoginEnrollment"
+        session:
+          $ref: "#/components/schemas/SessionState"
     LoginEnrollment:
       description: First sign-in - enrol this authenticator; the next code completes it.
       type: object
@@ -8617,6 +8692,53 @@ components:
           type: string
     ReauthRequest:
       type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+          format: password
+        code:
+          type: string
+          description: Required when two-factor sign-in is on for the account.
+    TotpStatus:
+      type: object
+      required: [enabled, required]
+      properties:
+        enabled:
+          type: boolean
+        required:
+          type: boolean
+          description: Platform staff must keep two-factor sign-in on.
+    TotpSetupRequest:
+      type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+          format: password
+    TotpSetup:
+      type: object
+      required: [setup_token, totp_secret, totp_uri, expires_at]
+      properties:
+        setup_token:
+          type: string
+        totp_secret:
+          type: string
+        totp_uri:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+    TotpEnableRequest:
+      type: object
+      required: [setup_token, code]
+      properties:
+        setup_token:
+          type: string
+        code:
+          type: string
+    TotpDisableRequest:
+      type: object
       required: [password, code]
       properties:
         password:
@@ -8624,6 +8746,7 @@ components:
           format: password
         code:
           type: string
+          description: A code from the authenticator, or a recovery code.
     Error:
       type: object
       required: [code, message]
