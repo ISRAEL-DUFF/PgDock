@@ -68,6 +68,25 @@ the SQL endpoint (`/projects/{id}/sql`) and table rows
 row that changed since it was read (by `xmin`) in the answer's `conflict`
 field, with nothing applied: read the row again.
 
+**The OAuth endpoints** for third-party apps (`POST /oauth/token`,
+`POST /oauth/revoke`, see [OAuth for third-party apps](oauth-apps.md))
+answer in OAuth's own shape, `{"error": "…", "error_description": "…"}`
+(RFC 6749 section 5.2), with these codes:
+
+| `error` | Status | Class | Retry | Meaning |
+| --- | --- | --- | --- | --- |
+| `invalid_request` | 400 | validation | no | A parameter is missing or malformed. |
+| `invalid_client` | 401 | auth | no | Unknown or disabled client, wrong secret, or a secret from a public client. |
+| `invalid_grant` | 400 | auth | no | The code is unknown, expired, already used (which revokes its token), another client's, or the redirect URI or PKCE verifier doesn't match. |
+| `unsupported_grant_type` | 400 | validation | no | Only `authorization_code`. |
+| `slow_down` | 429 | rate | yes | Too many attempts from one address; `Retry-After` is sent. |
+| `server_error` | 500 | unavailable | once | A fault on Xenibase's side. |
+
+The consent page's own calls (`/oauth/authorize`) and the client registry
+use the management codes above (`invalid` for a bad request, `not_found`,
+`reauth_required`). A token issued this way fails like any other:
+`401 invalid_token` once revoked or expired.
+
 **The SQL endpoint** answers `200` for a query that ran or that Postgres
 refused: check `error` in the result (`{"error":{"code":"42P01","message":…,
 "position":…}}`, the SQLSTATE in `code`). The statuses above are for the
